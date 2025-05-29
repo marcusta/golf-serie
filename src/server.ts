@@ -44,7 +44,7 @@ const addCorsHeaders = (response: Response): Response => {
 };
 
 // Start server
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3010;
 console.log(`Server starting on port ${port}...`);
 
 Bun.serve({
