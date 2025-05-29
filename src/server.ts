@@ -63,7 +63,25 @@ Bun.serve({
       POST: async (req) => addCorsHeaders(await coursesApi.create(req)),
       GET: async () => addCorsHeaders(await coursesApi.findAll()),
     },
+    "/golf-serie/api/courses": {
+      POST: async (req) => addCorsHeaders(await coursesApi.create(req)),
+      GET: async () => addCorsHeaders(await coursesApi.findAll()),
+    },
     "/api/courses/:id": {
+      GET: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await coursesApi.findById(req, id));
+      },
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await coursesApi.update(req, id));
+      },
+      DELETE: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await coursesApi.delete(id));
+      },
+    },
+    "/golf-serie/api/courses/:id": {
       GET: async (req) => {
         const id = parseInt(req.params.id);
         return addCorsHeaders(await coursesApi.findById(req, id));
@@ -83,13 +101,33 @@ Bun.serve({
         return addCorsHeaders(await coursesApi.updateHoles(req, id));
       },
     },
+    "/golf-serie/api/courses/:id/holes": {
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await coursesApi.updateHoles(req, id));
+      },
+    },
 
     // Team routes
     "/api/teams": {
       POST: async (req) => addCorsHeaders(await teamsApi.create(req)),
       GET: async () => addCorsHeaders(await teamsApi.findAll()),
     },
+    "/golf-serie/api/teams": {
+      POST: async (req) => addCorsHeaders(await teamsApi.create(req)),
+      GET: async () => addCorsHeaders(await teamsApi.findAll()),
+    },
     "/api/teams/:id": {
+      GET: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await teamsApi.findById(req, id));
+      },
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await teamsApi.update(req, id));
+      },
+    },
+    "/golf-serie/api/teams/:id": {
       GET: async (req) => {
         const id = parseInt(req.params.id);
         return addCorsHeaders(await teamsApi.findById(req, id));
@@ -105,7 +143,25 @@ Bun.serve({
       POST: async (req) => addCorsHeaders(await competitionsApi.create(req)),
       GET: async () => addCorsHeaders(await competitionsApi.findAll()),
     },
+    "/golf-serie/api/competitions": {
+      POST: async (req) => addCorsHeaders(await competitionsApi.create(req)),
+      GET: async () => addCorsHeaders(await competitionsApi.findAll()),
+    },
     "/api/competitions/:id": {
+      GET: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await competitionsApi.findById(req, id));
+      },
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await competitionsApi.update(req, id));
+      },
+      DELETE: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await competitionsApi.delete(id));
+      },
+    },
+    "/golf-serie/api/competitions/:id": {
       GET: async (req) => {
         const id = parseInt(req.params.id);
         return addCorsHeaders(await competitionsApi.findById(req, id));
@@ -127,7 +183,23 @@ Bun.serve({
         );
       },
     },
+    "/golf-serie/api/competitions/:competitionId/participants": {
+      GET: async (req) => {
+        const competitionId = parseInt(req.params.competitionId);
+        return addCorsHeaders(
+          await participantsApi.findAllForCompetition(competitionId)
+        );
+      },
+    },
     "/api/competitions/:competitionId/leaderboard": {
+      GET: async (req) => {
+        const competitionId = parseInt(req.params.competitionId);
+        return addCorsHeaders(
+          await competitionsApi.getLeaderboard(competitionId)
+        );
+      },
+    },
+    "/golf-serie/api/competitions/:competitionId/leaderboard": {
       GET: async (req) => {
         const competitionId = parseInt(req.params.competitionId);
         return addCorsHeaders(
@@ -138,6 +210,20 @@ Bun.serve({
 
     // TeeTime routes
     "/api/competitions/:competitionId/tee-times": {
+      POST: async (req) => {
+        const competitionId = parseInt(req.params.competitionId);
+        return addCorsHeaders(
+          await teeTimesApi.createForCompetition(req, competitionId)
+        );
+      },
+      GET: async (req) => {
+        const competitionId = parseInt(req.params.competitionId);
+        return addCorsHeaders(
+          await teeTimesApi.findAllForCompetition(competitionId)
+        );
+      },
+    },
+    "/golf-serie/api/competitions/:competitionId/tee-times": {
       POST: async (req) => {
         const competitionId = parseInt(req.params.competitionId);
         return addCorsHeaders(
@@ -163,7 +249,27 @@ Bun.serve({
         return addCorsHeaders(await teeTimesApi.delete(id));
       },
     },
+    "/golf-serie/api/tee-times/:id": {
+      GET: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(
+          await teeTimesApi.findByIdWithParticipants(req, id)
+        );
+      },
+      DELETE: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await teeTimesApi.delete(id));
+      },
+    },
     "/api/tee-times/:id/participants/order": {
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(
+          await teeTimesApi.updateParticipantsOrder(req, id)
+        );
+      },
+    },
+    "/golf-serie/api/tee-times/:id/participants/order": {
       PUT: async (req) => {
         const id = parseInt(req.params.id);
         return addCorsHeaders(
@@ -174,6 +280,10 @@ Bun.serve({
 
     // Participant routes
     "/api/participants": {
+      POST: async (req) => addCorsHeaders(await participantsApi.create(req)),
+      GET: async () => addCorsHeaders(await participantsApi.findAll()),
+    },
+    "/golf-serie/api/participants": {
       POST: async (req) => addCorsHeaders(await participantsApi.create(req)),
       GET: async () => addCorsHeaders(await participantsApi.findAll()),
     },
@@ -191,7 +301,27 @@ Bun.serve({
         return addCorsHeaders(await participantsApi.delete(id));
       },
     },
+    "/golf-serie/api/participants/:id": {
+      GET: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await participantsApi.findById(req, id));
+      },
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await participantsApi.update(req, id));
+      },
+      DELETE: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await participantsApi.delete(id));
+      },
+    },
     "/api/participants/:id/score": {
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(await participantsApi.updateScore(req, id));
+      },
+    },
+    "/golf-serie/api/participants/:id/score": {
       PUT: async (req) => {
         const id = parseInt(req.params.id);
         return addCorsHeaders(await participantsApi.updateScore(req, id));
