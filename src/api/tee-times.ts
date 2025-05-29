@@ -152,5 +152,37 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
         );
       }
     },
+
+    async updateParticipantsOrder(req: Request, id: number): Promise<Response> {
+      try {
+        const body = (await req.json()) as Array<{
+          participant_id: number;
+          tee_order: number;
+        }>;
+        const newOrder = body.map((item) => item.participant_id);
+        const updatedTeeTime = await teeTimeService.updateParticipantsOrder(
+          id,
+          newOrder
+        );
+        return new Response(JSON.stringify(updatedTeeTime), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
   };
 }

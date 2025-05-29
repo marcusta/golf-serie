@@ -155,6 +155,14 @@ Bun.serve({
         return addCorsHeaders(await teeTimesApi.delete(id));
       },
     },
+    "/api/tee-times/:id/participants/order": {
+      PUT: async (req) => {
+        const id = parseInt(req.params.id);
+        return addCorsHeaders(
+          await teeTimesApi.updateParticipantsOrder(req, id)
+        );
+      },
+    },
 
     // Participant routes
     "/api/participants": {

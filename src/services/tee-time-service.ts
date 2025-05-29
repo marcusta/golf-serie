@@ -209,4 +209,40 @@ export class TeeTimeService {
     const stmt = this.db.prepare("DELETE FROM tee_times WHERE id = ?");
     stmt.run(id);
   }
+
+  async updateParticipantsOrder(
+    id: number,
+    newOrder: number[]
+  ): Promise<TeeTimeWithParticipants> {
+    const teeTime = await this.findById(id);
+    if (!teeTime) {
+      throw new Error("Tee time not found");
+    }
+
+    // Verify that all participant IDs in newOrder belong to this tee time
+    const participantsStmt = this.db.prepare(`
+      SELECT id FROM participants WHERE tee_time_id = ?
+    `);
+    const participants = participantsStmt.all(id) as { id: number }[];
+    const participantIds = participants.map((p) => p.id);
+    const invalidIds = newOrder.filter((id) => !participantIds.includes(id));
+    if (invalidIds.length > 0) {
+      throw new Error(`Invalid participant IDs: ${invalidIds.join(", ")}`);
+    }
+
+    // Update the tee_order for each participant
+    const updateStmt = this.db.prepare(`
+      UPDATE participants SET tee_order = ? WHERE id = ?
+    `);
+    newOrder.forEach((participantId, index) => {
+      updateStmt.run(index + 1, participantId);
+    });
+
+    // Return the updated tee time with participants
+    const updatedTeeTime = await this.findByIdWithParticipants(id);
+    if (!updatedTeeTime) {
+      throw new Error("Failed to retrieve updated tee time");
+    }
+    return updatedTeeTime;
+  }
 }

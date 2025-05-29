@@ -1,7 +1,9 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Users, Clock, X, Check, RefreshCw, UserX } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Team } from "../api/teams";
 import type { TeeTime } from "../api/tee-times";
+import type { TeeTimeParticipant } from "../api/tee-times";
 import { useCreateParticipant, useDeleteParticipant } from "../api/tee-times";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -43,6 +45,19 @@ interface AssignmentDialogProps {
   teeTime: TeeTime;
   availableParticipants: GeneratedParticipant[];
   onAssign: (participantId: string, teeTimeId: number) => void;
+}
+
+// Add fetch utility for updating order
+async function updateTeeTimeParticipantOrder(
+  teeTimeId: number,
+  order: { participant_id: number; tee_order: number }[]
+) {
+  const res = await fetch(`/api/tee-times/${teeTimeId}/participants/order`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(order),
+  });
+  if (!res.ok) throw new Error("Failed to update participant order");
 }
 
 // Assignment Dialog Component
@@ -118,12 +133,10 @@ function AssignmentDialog({
 // Available Participants Panel Component
 function AvailableParticipantsPanel({
   participants,
-  onDragStart,
   selected,
   setSelected,
 }: {
   participants: GeneratedParticipant[];
-  onDragStart: (participant: GeneratedParticipant, e: React.DragEvent) => void;
   selected: string[];
   setSelected: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
@@ -184,12 +197,6 @@ function AvailableParticipantsPanel({
                           ? "ring-2 ring-blue-400"
                           : ""
                       }`}
-                      draggable={isUnassigned}
-                      onDragStart={
-                        isUnassigned
-                          ? (e) => onDragStart(participant, e)
-                          : undefined
-                      }
                     >
                       {/* Checkbox area */}
                       {isUnassigned ? (
@@ -274,19 +281,160 @@ function AvailableParticipantsPanel({
 function TeeTimesPanel({
   teeTimes,
   participants,
-  onDrop,
   onRemoveAssignment,
   onOpenAssignDialog,
-  selected,
 }: {
   teeTimes: TeeTime[];
   participants: GeneratedParticipant[];
-  onDrop: (teeTimeId: number, participant: GeneratedParticipant) => void;
   onRemoveAssignment: (participantId: string) => void;
   onOpenAssignDialog: (teeTime: TeeTime) => void;
-  selected: string[];
 }) {
+  const queryClient = useQueryClient();
   const [dragOverTeeTime, setDragOverTeeTime] = useState<number | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [draggedTeeTimeId, setDraggedTeeTimeId] = useState<number | null>(null);
+  const [hoveredDropIndex, setHoveredDropIndex] = useState<number | null>(null);
+  const [localOrders, setLocalOrders] = useState<{
+    [teeTimeId: number]: number[];
+  }>({});
+  const [isSavingOrder, setIsSavingOrder] = useState<{
+    [teeTimeId: number]: boolean;
+  }>({});
+
+  // Helper to get the current order for a tee time (by participant id)
+  const getOrderedParticipants = (teeTime: TeeTime) => {
+    const ids = localOrders[teeTime.id];
+    if (!ids) return teeTime.participants;
+    // Return participants in the order of ids
+    return ids
+      .map((id) =>
+        teeTime.participants.find((p: TeeTimeParticipant) => p.id === id)
+      )
+      .filter(Boolean);
+  };
+
+  // On mount or teeTimes change, initialize localOrders
+  useEffect(() => {
+    const newOrders: { [teeTimeId: number]: number[] } = {};
+    teeTimes.forEach((teeTime) => {
+      newOrders[teeTime.id] = teeTime.participants
+        .slice()
+        .sort((a, b) => a.tee_order - b.tee_order)
+        .map((p: TeeTimeParticipant) => p.id);
+    });
+    setLocalOrders(newOrders);
+  }, [teeTimes]);
+
+  // Drag-and-drop handlers for reordering
+  const handleDragStart = (
+    e: React.DragEvent,
+    teeTimeId: number,
+    index: number
+  ) => {
+    setDraggedIndex(index);
+    setDraggedTeeTimeId(teeTimeId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if we're leaving the container, not just moving between children
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setDragOverTeeTime(null);
+      setHoveredDropIndex(null);
+    }
+  };
+
+  const handleDrop = async (
+    e: React.DragEvent,
+    teeTime: TeeTime,
+    dropIndex: number
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (
+      draggedIndex === null ||
+      draggedIndex === dropIndex ||
+      draggedTeeTimeId !== teeTime.id
+    ) {
+      setDraggedIndex(null);
+      setDraggedTeeTimeId(null);
+      setDragOverTeeTime(null);
+      setHoveredDropIndex(null);
+      return;
+    }
+
+    const ids = localOrders[teeTime.id].slice();
+    const [removed] = ids.splice(draggedIndex, 1);
+    ids.splice(dropIndex, 0, removed);
+
+    setLocalOrders((prev) => ({ ...prev, [teeTime.id]: ids }));
+    setDraggedIndex(null);
+    setDraggedTeeTimeId(null);
+    setDragOverTeeTime(null);
+    setHoveredDropIndex(null);
+
+    // Prepare order payload
+    const orderPayload = ids.map((participantId, i) => ({
+      participant_id: participantId,
+      tee_order: i + 1,
+    }));
+
+    setIsSavingOrder((prev) => ({ ...prev, [teeTime.id]: true }));
+    try {
+      await updateTeeTimeParticipantOrder(teeTime.id, orderPayload);
+      // Invalidate cache to update tee time lists elsewhere
+      queryClient.invalidateQueries({ queryKey: ["tee-times"] });
+    } catch (error) {
+      console.error("Failed to update order:", error);
+      alert("Failed to update order");
+    } finally {
+      setIsSavingOrder((prev) => ({ ...prev, [teeTime.id]: false }));
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDraggedTeeTimeId(null);
+    setDragOverTeeTime(null);
+    setHoveredDropIndex(null);
+  };
+
+  // Scramble handler
+  const handleScramble = async (teeTime: TeeTime) => {
+    const ids = localOrders[teeTime.id].slice();
+    // Fisher-Yates shuffle
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    setLocalOrders((prev) => ({ ...prev, [teeTime.id]: ids }));
+    // Prepare order payload
+    const orderPayload = ids.map((participantId, i) => ({
+      participant_id: participantId,
+      tee_order: i + 1,
+    }));
+    setIsSavingOrder((prev) => ({ ...prev, [teeTime.id]: true }));
+    try {
+      await updateTeeTimeParticipantOrder(teeTime.id, orderPayload);
+      // Invalidate cache to update tee time lists elsewhere
+      queryClient.invalidateQueries({ queryKey: ["tee-times"] });
+    } catch (error) {
+      console.error("Failed to update order:", error);
+      alert("Failed to update order");
+    } finally {
+      setIsSavingOrder((prev) => ({ ...prev, [teeTime.id]: false }));
+    }
+  };
 
   const getAssignedParticipants = (teeTimeId: number) => {
     // Get local assigned participants that are NOT already in teeTime.participants
@@ -321,26 +469,6 @@ function TeeTimesPanel({
     };
   };
 
-  const handleDragOver = (e: React.DragEvent, teeTimeId: number) => {
-    e.preventDefault();
-    setDragOverTeeTime(teeTimeId);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverTeeTime(null);
-  };
-
-  const handleDrop = (e: React.DragEvent, teeTimeId: number) => {
-    e.preventDefault();
-    setDragOverTeeTime(null);
-
-    const participantData = e.dataTransfer.getData("application/json");
-    if (participantData) {
-      const participant: GeneratedParticipant = JSON.parse(participantData);
-      onDrop(teeTimeId, participant);
-    }
-  };
-
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 h-full">
       <div className="flex items-center gap-2 mb-4">
@@ -354,6 +482,7 @@ function TeeTimesPanel({
           const assignedParticipants = getAssignedParticipants(teeTime.id);
           const playerInfo = getTeeTimePlayerInfo(teeTime);
           const isDragOver = dragOverTeeTime === teeTime.id;
+          const orderedParticipants = getOrderedParticipants(teeTime);
 
           return (
             <div
@@ -367,9 +496,12 @@ function TeeTimesPanel({
                   ? "border-yellow-300 bg-yellow-50"
                   : "border-gray-200 bg-white hover:bg-gray-50"
               }`}
-              onDragOver={(e) => handleDragOver(e, teeTime.id)}
+              onDragOver={(e) => handleDragOver(e)}
               onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, teeTime.id)}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setDragOverTeeTime(teeTime.id);
+              }}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -390,55 +522,131 @@ function TeeTimesPanel({
                     <UserX className="h-4 w-4 text-red-500" />
                   )}
                 </div>
-                {!playerInfo.isAtLimit && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => onOpenAssignDialog(teeTime)}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    onClick={() => handleScramble(teeTime)}
+                    className="text-sm px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded border border-gray-300"
+                    disabled={isSavingOrder[teeTime.id]}
                   >
-                    + Assign
+                    Scramble
                   </button>
-                )}
+                  {!playerInfo.isAtLimit && (
+                    <button
+                      onClick={() => onOpenAssignDialog(teeTime)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      + Assign
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2 min-h-[60px]">
-                {teeTime.participants.length === 0 &&
+                {/* Reorderable participant list */}
+                {orderedParticipants.length === 0 &&
                 assignedParticipants.length === 0 ? (
                   <div className="text-gray-500 text-sm italic text-center py-4">
                     Drop participants here
                   </div>
                 ) : (
                   <>
-                    {/* Existing participants from API */}
-                    {teeTime.participants.map((participant) => (
-                      <div
-                        key={`existing-${participant.id}`}
-                        className="flex items-center justify-between bg-blue-100 rounded-lg p-3"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium">
-                            {participant.team_name}
-                          </span>
-                          <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">
-                            {formatParticipantTypeDisplay(
-                              participant.position_name
+                    {orderedParticipants.map((participant, idx) => {
+                      if (!participant) return null;
+                      const isDragging =
+                        draggedIndex === idx && draggedTeeTimeId === teeTime.id;
+                      return (
+                        <div key={`existing-${participant.id}`}>
+                          {/* Drop zone indicator above each item */}
+                          {draggedTeeTimeId === teeTime.id &&
+                            draggedIndex !== null && (
+                              <div
+                                className={`h-2 transition-all duration-200 ${
+                                  hoveredDropIndex === idx
+                                    ? "bg-blue-500 rounded-full opacity-100 my-2 shadow-lg"
+                                    : "opacity-0 h-0"
+                                }`}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setHoveredDropIndex(idx);
+                                }}
+                                onDragLeave={(e) => {
+                                  e.stopPropagation();
+                                  setHoveredDropIndex(null);
+                                }}
+                                onDrop={(e) => handleDrop(e, teeTime, idx)}
+                              />
                             )}
-                          </span>
-                          {isMultiPlayerFormat(participant.position_name) && (
-                            <span className="text-blue-500 text-xs">👥</span>
-                          )}
+                          <div
+                            className={`flex items-center justify-between bg-blue-100 rounded-lg p-3 transition-all ${
+                              isDragging
+                                ? "opacity-50 transform rotate-2 scale-105"
+                                : ""
+                            }`}
+                            draggable
+                            onDragStart={(e) =>
+                              handleDragStart(e, teeTime.id, idx)
+                            }
+                            onDragOver={(e) => handleDragOver(e)}
+                            onDragEnd={handleDragEnd}
+                            style={{ cursor: isDragging ? "grabbing" : "grab" }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-400 cursor-grab">
+                                ☰
+                              </span>
+                              <Users className="h-4 w-4 text-blue-600" />
+                              <span className="text-sm font-medium">
+                                {participant.team_name}
+                              </span>
+                              <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">
+                                {formatParticipantTypeDisplay(
+                                  participant.position_name
+                                )}
+                              </span>
+                              {isMultiPlayerFormat(
+                                participant.position_name
+                              ) && (
+                                <span className="text-blue-500 text-xs">
+                                  👥
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() =>
+                                onRemoveAssignment(`existing-${participant.id}`)
+                              }
+                              className="text-red-600 hover:text-red-800 text-sm"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={() =>
-                            onRemoveAssignment(`existing-${participant.id}`)
+                      );
+                    })}
+                    {/* Drop zone at the end for adding to bottom */}
+                    {draggedTeeTimeId === teeTime.id &&
+                      draggedIndex !== null && (
+                        <div
+                          className={`transition-all duration-200 ${
+                            hoveredDropIndex === orderedParticipants.length
+                              ? "h-4 bg-blue-500 rounded-full opacity-100 my-2 shadow-lg"
+                              : "h-2 opacity-0"
+                          }`}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setHoveredDropIndex(orderedParticipants.length);
+                          }}
+                          onDragLeave={(e) => {
+                            e.stopPropagation();
+                            setHoveredDropIndex(null);
+                          }}
+                          onDrop={(e) =>
+                            handleDrop(e, teeTime, orderedParticipants.length)
                           }
-                          className="text-red-600 hover:text-red-800 text-sm"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-
+                        />
+                      )}
                     {/* Newly assigned participants (only those not yet saved to API) */}
                     {assignedParticipants.map((participant) => (
                       <div
@@ -508,6 +716,7 @@ export default function ParticipantAssignment({
 
   const createParticipantMutation = useCreateParticipant();
   const deleteParticipantMutation = useDeleteParticipant();
+  const queryClient = useQueryClient();
 
   // Analyze existing tee times to extract teams and participant types
   const analyzeExistingTeeTimes = useCallback(() => {
@@ -591,17 +800,6 @@ export default function ParticipantAssignment({
     };
   }, [teeTimes, selectedTeams, participantTypes, analyzeExistingTeeTimes]);
 
-  // Handle drag start
-  const handleDragStart = useCallback(
-    (participant: GeneratedParticipant, e: React.DragEvent) => {
-      if (!participant.assignedToTeeTimeId) {
-        e.dataTransfer.setData("application/json", JSON.stringify(participant));
-        e.dataTransfer.effectAllowed = "move";
-      }
-    },
-    []
-  );
-
   // Handle drop assignment
   const handleDrop = useCallback(
     async (teeTimeId: number, participant: GeneratedParticipant) => {
@@ -658,6 +856,9 @@ export default function ParticipantAssignment({
           };
           onAssignmentsChange([newAssignment]);
         }
+
+        // Invalidate cache for the affected tee time
+        queryClient.invalidateQueries({ queryKey: ["tee-times", teeTimeId] });
       } catch (error) {
         console.error("Failed to create participant assignment:", error);
         // Revert local state on error
@@ -675,7 +876,13 @@ export default function ParticipantAssignment({
         alert("Failed to assign participant. Please try again.");
       }
     },
-    [participants, teeTimes, createParticipantMutation, onAssignmentsChange]
+    [
+      participants,
+      teeTimes,
+      createParticipantMutation,
+      onAssignmentsChange,
+      queryClient,
+    ]
   );
 
   // Handle removing assignment
@@ -703,6 +910,11 @@ export default function ParticipantAssignment({
                 : p
             )
           );
+
+          // Invalidate cache for the affected tee time
+          queryClient.invalidateQueries({
+            queryKey: ["tee-times", actualParticipantId],
+          });
         } catch (error) {
           console.error("Failed to delete participant:", error);
           alert("Failed to remove participant assignment. Please try again.");
@@ -722,7 +934,7 @@ export default function ParticipantAssignment({
         );
       }
     },
-    [deleteParticipantMutation]
+    [deleteParticipantMutation, queryClient]
   );
 
   // Get statistics
@@ -861,7 +1073,6 @@ export default function ParticipantAssignment({
           <div className="lg:col-span-1">
             <AvailableParticipantsPanel
               participants={participants}
-              onDragStart={handleDragStart}
               selected={selected}
               setSelected={setSelected}
             />
@@ -872,7 +1083,6 @@ export default function ParticipantAssignment({
             <TeeTimesPanel
               teeTimes={teeTimes}
               participants={participants}
-              onDrop={handleDrop}
               onRemoveAssignment={handleRemoveAssignment}
               onOpenAssignDialog={(teeTime) => {
                 if (selected.length > 0) {
@@ -882,7 +1092,6 @@ export default function ParticipantAssignment({
                   setAssignDialogOpen(true);
                 }
               }}
-              selected={selected}
             />
           </div>
         </div>
