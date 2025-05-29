@@ -1,13 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import {
-  Users,
-  Clock,
-  X,
-  Check,
-  AlertCircle,
-  RefreshCw,
-  UserX,
-} from "lucide-react";
+import { Users, Clock, X, Check, RefreshCw, UserX } from "lucide-react";
 import type { Team } from "../api/teams";
 import type { TeeTime } from "../api/tee-times";
 import { useCreateParticipant, useDeleteParticipant } from "../api/tee-times";
@@ -510,10 +502,8 @@ export default function ParticipantAssignment({
   onAssignmentsChange,
 }: Omit<ParticipantAssignmentProps, "competitionId">) {
   const [participants, setParticipants] = useState<GeneratedParticipant[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedTeeTime, setSelectedTeeTime] = useState<TeeTime | null>(null);
-  const [hasAnalyzedExisting, setHasAnalyzedExisting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
 
   const createParticipantMutation = useCreateParticipant();
@@ -549,14 +539,29 @@ export default function ParticipantAssignment({
     };
   }, [teeTimes]);
 
-  // Initialize participants from existing tee times on first load
+  // Always sync participants with selectedTeams and participantTypes
   useEffect(() => {
-    if (teeTimes.length > 0 && !hasAnalyzedExisting) {
-      const { existingParticipants } = analyzeExistingTeeTimes();
-      setParticipants(existingParticipants);
-      setHasAnalyzedExisting(true);
-    }
-  }, [teeTimes, hasAnalyzedExisting, analyzeExistingTeeTimes]);
+    const { existingParticipants } = analyzeExistingTeeTimes();
+    // Generate new participants for combinations that don't exist yet
+    const newParticipants: GeneratedParticipant[] = [...existingParticipants];
+    selectedTeams.forEach((team) => {
+      participantTypes.forEach((type) => {
+        // Check if this combination already exists
+        const exists = existingParticipants.some(
+          (p) => p.teamId === team.id && p.participantType === type.name
+        );
+        if (!exists) {
+          newParticipants.push({
+            id: crypto.randomUUID(),
+            teamId: team.id,
+            teamName: team.name,
+            participantType: type.name,
+          });
+        }
+      });
+    });
+    setParticipants(newParticipants);
+  }, [selectedTeams, participantTypes, teeTimes, analyzeExistingTeeTimes]);
 
   // Get analysis of existing data for display
   const existingAnalysis = useMemo(() => {
@@ -585,38 +590,6 @@ export default function ParticipantAssignment({
       foundParticipantTypes,
     };
   }, [teeTimes, selectedTeams, participantTypes, analyzeExistingTeeTimes]);
-
-  // Enhanced generate participants that preserves existing
-  const handleGenerateParticipants = useCallback(() => {
-    setIsGenerating(true);
-
-    // Get existing participants (already assigned)
-    const { existingParticipants } = analyzeExistingTeeTimes();
-
-    // Generate new participants for combinations that don't exist yet
-    const newParticipants: GeneratedParticipant[] = [...existingParticipants];
-
-    selectedTeams.forEach((team) => {
-      participantTypes.forEach((type) => {
-        // Check if this combination already exists
-        const exists = existingParticipants.some(
-          (p) => p.teamId === team.id && p.participantType === type.name
-        );
-
-        if (!exists) {
-          newParticipants.push({
-            id: crypto.randomUUID(),
-            teamId: team.id,
-            teamName: team.name,
-            participantType: type.name,
-          });
-        }
-      });
-    });
-
-    setParticipants(newParticipants);
-    setIsGenerating(false);
-  }, [selectedTeams, participantTypes, analyzeExistingTeeTimes]);
 
   // Handle drag start
   const handleDragStart = useCallback(
@@ -754,15 +727,9 @@ export default function ParticipantAssignment({
 
   // Get statistics
   const totalParticipants = participants.length;
-  const assignedParticipants = participants.filter(
-    (p) => p.assignedToTeeTimeId
-  ).length;
   const availableParticipants = participants.filter(
     (p) => !p.assignedToTeeTimeId
   );
-  const existingAssignments = participants.filter((p) =>
-    p.id.startsWith("existing-")
-  ).length;
 
   // Batch assign handler (in main component)
   const handleBatchAssign = useCallback(
@@ -866,14 +833,14 @@ export default function ParticipantAssignment({
           <div className="mt-4 p-3 bg-blue-100 rounded-lg">
             <p className="text-sm text-blue-800">
               <strong>Note:</strong> Existing assignments have been
-              automatically loaded. Click "Generate All Participants" to create
-              missing combinations while preserving current assignments.
+              automatically loaded. The available participants list is always in
+              sync with your selected teams and participant types.
             </p>
           </div>
         </div>
       )}
 
-      {/* Header with Statistics */}
+      {/* Header with Statistics - removed Generate button */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -884,95 +851,7 @@ export default function ParticipantAssignment({
               Assign generated participants to tee times
             </p>
           </div>
-
-          <Button
-            onClick={handleGenerateParticipants}
-            disabled={
-              selectedTeams.length === 0 ||
-              participantTypes.length === 0 ||
-              isGenerating
-            }
-            className="flex items-center gap-2"
-          >
-            <Users className="h-4 w-4" />
-            {isGenerating
-              ? "Generating..."
-              : existingAssignments > 0
-              ? "Generate Missing Participants"
-              : "Generate All Participants"}
-          </Button>
         </div>
-
-        {/* Enhanced Statistics */}
-        {totalParticipants > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-600" />
-                <span className="font-medium text-blue-900">
-                  Total Participants
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-blue-900 mt-1">
-                {totalParticipants}
-              </div>
-            </div>
-
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="flex items-center gap-2">
-                <Check className="h-5 w-5 text-green-600" />
-                <span className="font-medium text-green-900">Assigned</span>
-              </div>
-              <div className="text-2xl font-bold text-green-900 mt-1">
-                {assignedParticipants}
-              </div>
-            </div>
-
-            <div className="bg-orange-50 rounded-lg p-4">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-orange-600" />
-                <span className="font-medium text-orange-900">Remaining</span>
-              </div>
-              <div className="text-2xl font-bold text-orange-900 mt-1">
-                {totalParticipants - assignedParticipants}
-              </div>
-            </div>
-
-            {existingAssignments > 0 && (
-              <div className="bg-purple-50 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="h-5 w-5 text-purple-600" />
-                  <span className="font-medium text-purple-900">Existing</span>
-                </div>
-                <div className="text-2xl font-bold text-purple-900 mt-1">
-                  {existingAssignments}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Expected vs Actual Comparison */}
-        {selectedTeams.length > 0 &&
-          participantTypes.length > 0 &&
-          totalParticipants > 0 && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">
-                <strong>Expected:</strong> {selectedTeams.length} teams ×{" "}
-                {participantTypes.length} types ={" "}
-                {selectedTeams.length * participantTypes.length} participants
-                {totalParticipants <
-                  selectedTeams.length * participantTypes.length && (
-                  <span className="text-orange-600 ml-2">
-                    (
-                    {selectedTeams.length * participantTypes.length -
-                      totalParticipants}{" "}
-                    missing)
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
       </div>
 
       {/* Two-panel assignment interface */}
