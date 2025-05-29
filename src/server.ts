@@ -55,7 +55,7 @@ const stripPrefix = (pathname: string): string => {
 const port = process.env.PORT || 3010;
 console.log(`Server starting on port ${port}...`);
 
-Bun.serve({
+const server = Bun.serve({
   port,
   routes: {
     // Course routes
@@ -331,6 +331,12 @@ Bun.serve({
 
   // Fallback for unmatched routes
   fetch(req) {
+    console.log("server url: ", server.url);
+    console.log("server hostname: ", server.hostname);
+    console.log("server port: ", server.port);
+
+    console.log("req url: ", req.url);
+
     const url = new URL(req.url);
     const pathname = url.pathname;
     const strippedPath = stripPrefix(pathname);
