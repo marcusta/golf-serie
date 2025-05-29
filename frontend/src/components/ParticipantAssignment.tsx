@@ -18,6 +18,7 @@ import {
   calculateTotalPlayers,
   formatParticipantTypeDisplay,
   isMultiPlayerFormat,
+  getPlayerCountForParticipantType,
 } from "../utils/playerUtils";
 
 // Interfaces
@@ -126,9 +127,13 @@ function AssignmentDialog({
 function AvailableParticipantsPanel({
   participants,
   onDragStart,
+  selected,
+  setSelected,
 }: {
   participants: GeneratedParticipant[];
   onDragStart: (participant: GeneratedParticipant, e: React.DragEvent) => void;
+  selected: string[];
+  setSelected: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const groupedParticipants = useMemo(() => {
     const groups: { [teamName: string]: GeneratedParticipant[] } = {};
@@ -144,6 +149,13 @@ function AvailableParticipantsPanel({
   const availableCount = participants.filter(
     (p) => !p.assignedToTeeTimeId
   ).length;
+
+  const handleCheckboxClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 h-full">
@@ -165,20 +177,64 @@ function AvailableParticipantsPanel({
               <div className="space-y-2 pl-4">
                 {teamParticipants.map((participant) => {
                   const isExisting = participant.id.startsWith("existing-");
+                  const isUnassigned = !participant.assignedToTeeTimeId;
                   return (
                     <div
                       key={participant.id}
-                      draggable={!participant.assignedToTeeTimeId}
-                      onDragStart={(e) => onDragStart(participant, e)}
-                      className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
+                      className={`flex items-center gap-2 p-2 rounded-lg border transition-colors relative ${
                         participant.assignedToTeeTimeId
                           ? isExisting
                             ? "bg-purple-50 border-purple-200 text-purple-700 cursor-not-allowed"
                             : "bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed"
                           : "bg-white border-gray-200 hover:border-blue-300 cursor-move"
+                      } ${
+                        selected.includes(participant.id)
+                          ? "ring-2 ring-blue-400"
+                          : ""
                       }`}
+                      draggable={isUnassigned}
+                      onDragStart={
+                        isUnassigned
+                          ? (e) => onDragStart(participant, e)
+                          : undefined
+                      }
                     >
-                      {participant.assignedToTeeTimeId ? (
+                      {/* Checkbox area */}
+                      {isUnassigned ? (
+                        <button
+                          type="button"
+                          aria-label={
+                            selected.includes(participant.id)
+                              ? "Deselect"
+                              : "Select"
+                          }
+                          className={`w-4 h-4 border-2 rounded-sm flex items-center justify-center mr-1 ${
+                            selected.includes(participant.id)
+                              ? "border-blue-500 bg-blue-500"
+                              : "border-gray-300 bg-white"
+                          }`}
+                          onClick={(e) =>
+                            handleCheckboxClick(e, participant.id)
+                          }
+                          tabIndex={0}
+                        >
+                          {selected.includes(participant.id) && (
+                            <svg
+                              className="w-3 h-3 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      ) : participant.assignedToTeeTimeId ? (
                         <Check
                           className={`h-4 w-4 ${
                             isExisting ? "text-purple-500" : "text-green-500"
@@ -229,12 +285,14 @@ function TeeTimesPanel({
   onDrop,
   onRemoveAssignment,
   onOpenAssignDialog,
+  selected,
 }: {
   teeTimes: TeeTime[];
   participants: GeneratedParticipant[];
   onDrop: (teeTimeId: number, participant: GeneratedParticipant) => void;
   onRemoveAssignment: (participantId: string) => void;
   onOpenAssignDialog: (teeTime: TeeTime) => void;
+  selected: string[];
 }) {
   const [dragOverTeeTime, setDragOverTeeTime] = useState<number | null>(null);
 
@@ -456,6 +514,7 @@ export default function ParticipantAssignment({
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedTeeTime, setSelectedTeeTime] = useState<TeeTime | null>(null);
   const [hasAnalyzedExisting, setHasAnalyzedExisting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const createParticipantMutation = useCreateParticipant();
   const deleteParticipantMutation = useDeleteParticipant();
@@ -693,22 +752,6 @@ export default function ParticipantAssignment({
     [deleteParticipantMutation]
   );
 
-  // Handle assignment dialog
-  const handleOpenAssignDialog = useCallback((teeTime: TeeTime) => {
-    setSelectedTeeTime(teeTime);
-    setAssignDialogOpen(true);
-  }, []);
-
-  const handleAssignFromDialog = useCallback(
-    (participantId: string, teeTimeId: number) => {
-      const participant = participants.find((p) => p.id === participantId);
-      if (participant) {
-        handleDrop(teeTimeId, participant);
-      }
-    },
-    [participants, handleDrop]
-  );
-
   // Get statistics
   const totalParticipants = participants.length;
   const assignedParticipants = participants.filter(
@@ -720,6 +763,42 @@ export default function ParticipantAssignment({
   const existingAssignments = participants.filter((p) =>
     p.id.startsWith("existing-")
   ).length;
+
+  // Batch assign handler (in main component)
+  const handleBatchAssign = useCallback(
+    async (teeTime: TeeTime, selectedIds: string[]) => {
+      let currentPlayers = calculateTotalPlayers(teeTime.participants);
+      const toAssign = participants.filter(
+        (p) => selectedIds.includes(p.id) && !p.assignedToTeeTimeId
+      );
+      for (const participant of toAssign) {
+        const playerCount = getPlayerCountForParticipantType(
+          participant.participantType
+        );
+        if (currentPlayers + playerCount > 4) {
+          alert(
+            `Cannot assign ${participant.participantType} (${participant.teamName}) to ${teeTime.teetime}. This would exceed the 4-player limit.`
+          );
+          break;
+        }
+        await handleDrop(teeTime.id, participant);
+        currentPlayers += playerCount;
+      }
+      setSelected([]); // clear selection after batch assign
+    },
+    [participants, setSelected, handleDrop]
+  );
+
+  // Dialog assign wrapper
+  const handleAssignFromDialog = useCallback(
+    (participantId: string, teeTimeId: number) => {
+      const participant = participants.find((p) => p.id === participantId);
+      if (participant) {
+        handleDrop(teeTimeId, participant);
+      }
+    },
+    [participants, handleDrop]
+  );
 
   return (
     <div className="space-y-6">
@@ -904,6 +983,8 @@ export default function ParticipantAssignment({
             <AvailableParticipantsPanel
               participants={participants}
               onDragStart={handleDragStart}
+              selected={selected}
+              setSelected={setSelected}
             />
           </div>
 
@@ -914,7 +995,15 @@ export default function ParticipantAssignment({
               participants={participants}
               onDrop={handleDrop}
               onRemoveAssignment={handleRemoveAssignment}
-              onOpenAssignDialog={handleOpenAssignDialog}
+              onOpenAssignDialog={(teeTime) => {
+                if (selected.length > 0) {
+                  handleBatchAssign(teeTime, selected);
+                } else {
+                  setSelectedTeeTime(teeTime);
+                  setAssignDialogOpen(true);
+                }
+              }}
+              selected={selected}
             />
           </div>
         </div>
