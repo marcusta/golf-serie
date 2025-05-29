@@ -1,5 +1,14 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { Users, Clock, X, Check, RefreshCw, UserX } from "lucide-react";
+import {
+  Users,
+  Clock,
+  X,
+  Check,
+  RefreshCw,
+  UserX,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Team } from "../api/teams";
 import type { TeeTime } from "../api/tee-times";
@@ -713,6 +722,7 @@ export default function ParticipantAssignment({
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedTeeTime, setSelectedTeeTime] = useState<TeeTime | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const createParticipantMutation = useCreateParticipant();
   const deleteParticipantMutation = useDeleteParticipant();
@@ -981,77 +991,6 @@ export default function ParticipantAssignment({
 
   return (
     <div className="space-y-6">
-      {/* Existing Analysis Section */}
-      {existingAnalysis && existingAnalysis.foundTeams.length > 0 && (
-        <div className="bg-blue-50 rounded-lg border border-blue-200 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <RefreshCw className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-blue-900">
-              Existing Assignments Detected
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium text-blue-900 mb-2">
-                Teams with Existing Participants (
-                {existingAnalysis.foundTeams.length})
-              </h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                {existingAnalysis.foundTeams.map((team) => (
-                  <li key={team.id}>✓ {team.name}</li>
-                ))}
-              </ul>
-              {existingAnalysis.missingTeams.length > 0 && (
-                <>
-                  <h5 className="font-medium text-blue-900 mt-3 mb-1">
-                    Selected Teams Without Participants (
-                    {existingAnalysis.missingTeams.length})
-                  </h5>
-                  <ul className="text-sm text-blue-600 space-y-1">
-                    {existingAnalysis.missingTeams.map((team) => (
-                      <li key={team.id}>○ {team.name}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-
-            <div>
-              <h4 className="font-medium text-blue-900 mb-2">
-                Participant Types Found ({existingAnalysis.foundTypes.length})
-              </h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                {existingAnalysis.foundTypes.map((type) => (
-                  <li key={type.id}>✓ {type.name}</li>
-                ))}
-              </ul>
-              {existingAnalysis.missingTypes.length > 0 && (
-                <>
-                  <h5 className="font-medium text-blue-900 mt-3 mb-1">
-                    Defined Types Not Used (
-                    {existingAnalysis.missingTypes.length})
-                  </h5>
-                  <ul className="text-sm text-blue-600 space-y-1">
-                    {existingAnalysis.missingTypes.map((type) => (
-                      <li key={type.id}>○ {type.name}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Existing assignments have been
-              automatically loaded. The available participants list is always in
-              sync with your selected teams and participant types.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Header with Statistics - removed Generate button */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -1106,6 +1045,94 @@ export default function ParticipantAssignment({
           availableParticipants={availableParticipants}
           onAssign={handleAssignFromDialog}
         />
+      )}
+
+      {/* Existing Analysis Section */}
+      {existingAnalysis && existingAnalysis.foundTeams.length > 0 && (
+        <div className="bg-blue-50 rounded-lg border border-blue-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-blue-900">
+                Existing Assignments Detected
+              </h3>
+            </div>
+            <button
+              onClick={() => setShowAnalysis(!showAnalysis)}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              {showAnalysis ? (
+                <ChevronUp className="h-5 w-5" />
+              ) : (
+                <ChevronDown className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+
+          {showAnalysis && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium text-blue-900 mb-2">
+                    Teams with Existing Participants (
+                    {existingAnalysis.foundTeams.length})
+                  </h4>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    {existingAnalysis.foundTeams.map((team) => (
+                      <li key={team.id}>✓ {team.name}</li>
+                    ))}
+                  </ul>
+                  {existingAnalysis.missingTeams.length > 0 && (
+                    <>
+                      <h5 className="font-medium text-blue-900 mt-3 mb-1">
+                        Selected Teams Without Participants (
+                        {existingAnalysis.missingTeams.length})
+                      </h5>
+                      <ul className="text-sm text-blue-600 space-y-1">
+                        {existingAnalysis.missingTeams.map((team) => (
+                          <li key={team.id}>○ {team.name}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-blue-900 mb-2">
+                    Participant Types Found (
+                    {existingAnalysis.foundTypes.length})
+                  </h4>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    {existingAnalysis.foundTypes.map((type) => (
+                      <li key={type.id}>✓ {type.name}</li>
+                    ))}
+                  </ul>
+                  {existingAnalysis.missingTypes.length > 0 && (
+                    <>
+                      <h5 className="font-medium text-blue-900 mt-3 mb-1">
+                        Defined Types Not Used (
+                        {existingAnalysis.missingTypes.length})
+                      </h5>
+                      <ul className="text-sm text-blue-600 space-y-1">
+                        {existingAnalysis.missingTypes.map((type) => (
+                          <li key={type.id}>○ {type.name}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Note:</strong> Existing assignments have been
+                  automatically loaded. The available participants list is
+                  always in sync with your selected teams and participant types.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
