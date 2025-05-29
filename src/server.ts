@@ -233,17 +233,19 @@ Bun.serve({
           : filePath.endsWith(".svg")
           ? "image/svg+xml"
           : "text/plain";
-
+        console.log("serving file", file, mimeType);
         return new Response(file, {
           headers: { "Content-Type": mimeType },
         });
       }
     } catch (error) {
       // File doesn't exist, fall through to serve index.html
+      console.log("file not found", error);
     }
 
     // For SPA routes that don't match a file, serve index.html
     try {
+      console.log("serving index.html");
       const indexFile = Bun.file("frontend_dist/index.html");
       return new Response(indexFile, {
         headers: { "Content-Type": "text/html" },
