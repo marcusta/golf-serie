@@ -43,6 +43,14 @@ const addCorsHeaders = (response: Response): Response => {
   return response;
 };
 
+// Function to strip /golf-serie prefix from paths
+const stripPrefix = (pathname: string): string => {
+  if (pathname.startsWith("/golf-serie")) {
+    return pathname.substring("/golf-serie".length);
+  }
+  return pathname;
+};
+
 // Start server
 const port = process.env.PORT || 3010;
 console.log(`Server starting on port ${port}...`);
@@ -179,7 +187,6 @@ Bun.serve({
         return addCorsHeaders(await participantsApi.update(req, id));
       },
       DELETE: async (req) => {
-        console.log("DELETE /api/participants/:id");
         const id = parseInt(req.params.id);
         return addCorsHeaders(await participantsApi.delete(id));
       },
@@ -196,9 +203,10 @@ Bun.serve({
   fetch(req) {
     const url = new URL(req.url);
     const pathname = url.pathname;
+    const strippedPath = stripPrefix(pathname);
 
     // Handle API routes that don't match - return 404
-    if (pathname.startsWith("/api/")) {
+    if (strippedPath.startsWith("/api/")) {
       return addCorsHeaders(
         new Response(JSON.stringify({ error: "Not found" }), {
           status: 404,
@@ -209,7 +217,7 @@ Bun.serve({
 
     // Serve static files from frontend_dist directory
     try {
-      let filePath = pathname === "/" ? "/index.html" : pathname;
+      let filePath = strippedPath === "/" ? "/index.html" : strippedPath;
 
       // Remove leading slash and construct full path
       const fullPath = `frontend_dist${filePath}`;
@@ -233,6 +241,7 @@ Bun.serve({
           : filePath.endsWith(".svg")
           ? "image/svg+xml"
           : "text/plain";
+
         console.log("serving file", file, mimeType);
         return new Response(file, {
           headers: { "Content-Type": mimeType },
