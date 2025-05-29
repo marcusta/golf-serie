@@ -211,10 +211,9 @@ Bun.serve({
     try {
       let filePath = pathname === "/" ? "/index.html" : pathname;
 
-      console.log("serving filePath", filePath);
-
       // Remove leading slash and construct full path
       const fullPath = `frontend_dist${filePath}`;
+      console.log("serving filePath", fullPath);
 
       // Try to serve the requested file
       const file = Bun.file(fullPath);
