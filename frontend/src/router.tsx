@@ -1,12 +1,18 @@
-import { createRouter, RootRoute, Route } from "@tanstack/react-router";
+import {
+  createRouter,
+  RootRoute,
+  Route,
+  Navigate,
+} from "@tanstack/react-router";
 import App from "./App";
+import { getBasePath } from "./api/config";
 
 // Import Admin views
 import AdminLayout from "./views/admin/AdminLayout";
 import AdminTeams from "./views/admin/Teams";
 import AdminCourses from "./views/admin/Courses";
 import AdminCompetitions from "./views/admin/Competitions";
-import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes";
+import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 
 // Import Player views
 import PlayerLayout from "./views/player/PlayerLayout";
@@ -86,10 +92,7 @@ const teeTimeDetailRoute = new Route({
 const indexRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: () => {
-    window.location.href = "/player/standings";
-    return null;
-  },
+  component: () => <Navigate to="/player/standings" replace />,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -110,6 +113,7 @@ const routeTree = rootRoute.addChildren([
 
 const router = createRouter({
   routeTree,
+  basepath: getBasePath(),
 });
 
 export default router;

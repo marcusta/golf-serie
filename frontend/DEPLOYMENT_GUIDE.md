@@ -132,8 +132,19 @@ The application automatically detects its deployment context:
 ### Key Files
 
 1. **`vite.config.ts`**: Sets build-time base path
-2. **`src/api/config.ts`**: Runtime API URL detection
-3. **All API files**: Use shared `API_BASE_URL` configuration
+2. **`src/api/config.ts`**: Runtime API URL detection and base path utilities
+3. **`src/router.tsx`**: TanStack Router configuration with dynamic base path
+4. **All API files**: Use shared `API_BASE_URL` configuration
+
+## What's Fixed
+
+The application now correctly handles:
+
+1. **Static Assets**: Build artifacts (JS/CSS) use correct paths with `/golf-serie/` prefix
+2. **API Requests**: Dynamically adapt to deployment context (dev vs prod, root vs sub-path)
+3. **Client-Side Routing**: TanStack Router uses correct base path for route resolution
+4. **SPA Navigation**: Direct URL access and browser refresh work correctly
+5. **Redirects**: Index route redirects work with base path
 
 ## Troubleshooting
 
