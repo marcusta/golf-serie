@@ -334,9 +334,12 @@ Bun.serve({
     const url = new URL(req.url);
     const pathname = url.pathname;
     const strippedPath = stripPrefix(pathname);
+    console.log("Original pathname:", pathname);
+    console.log("Stripped pathname:", strippedPath);
 
     // Handle API routes that don't match - return 404
     if (strippedPath.startsWith("/api/")) {
+      console.log("API route not found:", strippedPath);
       return addCorsHeaders(
         new Response(JSON.stringify({ error: "Not found" }), {
           status: 404,
