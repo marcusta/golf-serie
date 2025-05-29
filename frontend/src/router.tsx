@@ -1,0 +1,115 @@
+import { createRouter, RootRoute, Route } from "@tanstack/react-router";
+import App from "./App";
+
+// Import Admin views
+import AdminLayout from "./views/admin/AdminLayout";
+import AdminTeams from "./views/admin/Teams";
+import AdminCourses from "./views/admin/Courses";
+import AdminCompetitions from "./views/admin/Competitions";
+import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes";
+
+// Import Player views
+import PlayerLayout from "./views/player/PlayerLayout";
+import PlayerStandings from "./views/player/Standings";
+import PlayerCompetitions from "./views/player/Competitions";
+import CompetitionDetail from "./views/player/CompetitionDetail";
+import TeeTimeDetail from "./views/player/TeeTimeDetail";
+
+// Root route
+const rootRoute = new RootRoute({
+  component: App,
+});
+
+// Admin routes
+const adminRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/admin",
+  component: AdminLayout,
+});
+
+const adminTeamsRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/teams",
+  component: AdminTeams,
+});
+
+const adminCoursesRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/courses",
+  component: AdminCourses,
+});
+
+const adminCompetitionsRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/competitions",
+  component: AdminCompetitions,
+});
+
+const adminCompetitionTeeTimesRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/competitions/$competitionId/tee-times",
+  component: AdminCompetitionTeeTimes,
+});
+
+// Player routes
+const playerRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/player",
+  component: PlayerLayout,
+});
+
+const playerStandingsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/standings",
+  component: PlayerStandings,
+});
+
+const playerCompetitionsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/competitions",
+  component: PlayerCompetitions,
+});
+
+const competitionDetailRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/competitions/$competitionId",
+  component: CompetitionDetail,
+});
+
+const teeTimeDetailRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/competitions/$competitionId/tee-times/$teeTimeId",
+  component: TeeTimeDetail,
+});
+
+// Default redirect to player standings
+const indexRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: () => {
+    window.location.href = "/player/standings";
+    return null;
+  },
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  adminRoute.addChildren([
+    adminTeamsRoute,
+    adminCoursesRoute,
+    adminCompetitionsRoute,
+    adminCompetitionTeeTimesRoute,
+  ]),
+  playerRoute.addChildren([
+    playerStandingsRoute,
+    playerCompetitionsRoute,
+    competitionDetailRoute,
+    teeTimeDetailRoute,
+  ]),
+]);
+
+const router = createRouter({
+  routeTree,
+});
+
+export default router;

@@ -1,0 +1,182 @@
+import { useTeams } from "../api/teams";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Users, Shield, Calendar } from "lucide-react";
+
+function TeamSkeleton() {
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-[180px]" />
+          <Skeleton className="h-5 w-[60px] rounded-full" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-4 w-[120px]" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function getTeamColor(index: number) {
+  const colors = [
+    {
+      bg: "bg-blue-50",
+      border: "border-l-blue-500",
+      text: "text-blue-700",
+      icon: "text-blue-600",
+    },
+    {
+      bg: "bg-green-50",
+      border: "border-l-green-500",
+      text: "text-green-700",
+      icon: "text-green-600",
+    },
+    {
+      bg: "bg-purple-50",
+      border: "border-l-purple-500",
+      text: "text-purple-700",
+      icon: "text-purple-600",
+    },
+    {
+      bg: "bg-orange-50",
+      border: "border-l-orange-500",
+      text: "text-orange-700",
+      icon: "text-orange-600",
+    },
+    {
+      bg: "bg-pink-50",
+      border: "border-l-pink-500",
+      text: "text-pink-700",
+      icon: "text-pink-600",
+    },
+    {
+      bg: "bg-teal-50",
+      border: "border-l-teal-500",
+      text: "text-teal-700",
+      icon: "text-teal-600",
+    },
+    {
+      bg: "bg-indigo-50",
+      border: "border-l-indigo-500",
+      text: "text-indigo-700",
+      icon: "text-indigo-600",
+    },
+    {
+      bg: "bg-red-50",
+      border: "border-l-red-500",
+      text: "text-red-700",
+      icon: "text-red-600",
+    },
+  ];
+  return colors[index % colors.length];
+}
+
+export default function Teams() {
+  const { data: teams, isLoading, error } = useTeams();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-2 mb-6">
+          <Users className="h-8 w-8 text-green-600" />
+          <h2 className="text-3xl font-bold text-gray-900">Teams</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <TeamSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-red-200 bg-red-50">
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-2 text-red-700">
+            <Users className="h-5 w-5" />
+            <p className="font-medium">Error loading teams</p>
+          </div>
+          <p className="text-red-600 text-sm mt-2">
+            Please try refreshing the page or contact support if the problem
+            persists.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!teams || teams.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-2 mb-6">
+          <Users className="h-8 w-8 text-green-600" />
+          <h2 className="text-3xl font-bold text-gray-900">Teams</h2>
+        </div>
+        <Card className="border-dashed border-2 border-gray-300">
+          <CardContent className="p-12 text-center">
+            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              No teams yet
+            </h3>
+            <p className="text-gray-600">
+              Create teams to organize your golf competition participants.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Users className="h-8 w-8 text-green-600" />
+          <h2 className="text-3xl font-bold text-gray-900">Teams</h2>
+        </div>
+        <Badge variant="secondary" className="text-sm">
+          {teams.length} {teams.length === 1 ? "team" : "teams"}
+        </Badge>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {teams.map((team, index) => {
+          const colors = getTeamColor(index);
+          return (
+            <Card
+              key={team.id}
+              className={`hover:shadow-lg transition-shadow duration-200 border-l-4 ${colors.border} ${colors.bg}`}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle
+                    className={`text-lg ${colors.text} flex items-center gap-2`}
+                  >
+                    <Shield className={`h-5 w-5 ${colors.icon}`} />
+                    {team.name}
+                  </CardTitle>
+                  <Badge variant="outline" className="text-xs">
+                    #{team.id}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Calendar className="h-4 w-4" />
+                  <span>
+                    Created {new Date(team.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
