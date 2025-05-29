@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-const API_URL = "/api";
+import { API_BASE_URL } from "./config";
 
 export interface Course {
   id: number;
@@ -23,7 +22,7 @@ export function useCourses() {
   return useQuery<Course[]>({
     queryKey: ["courses"],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/courses`);
+      const response = await fetch(`${API_BASE_URL}/courses`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -36,7 +35,7 @@ export function useCourse(id: number) {
   return useQuery<Course>({
     queryKey: ["course", id],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/courses/${id}`);
+      const response = await fetch(`${API_BASE_URL}/courses/${id}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -50,7 +49,7 @@ export function useCreateCourse() {
 
   return useMutation({
     mutationFn: async (data: CreateCourseData) => {
-      const response = await fetch(`${API_URL}/courses`, {
+      const response = await fetch(`${API_BASE_URL}/courses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -73,7 +72,7 @@ export function useUpdateCourseHoles() {
 
   return useMutation({
     mutationFn: async ({ id, holes }: { id: number; holes: number[] }) => {
-      const response = await fetch(`${API_URL}/courses/${id}/holes`, {
+      const response = await fetch(`${API_BASE_URL}/courses/${id}/holes`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -96,7 +95,7 @@ export function useDeleteCourse() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`${API_URL}/courses/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/courses/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) {

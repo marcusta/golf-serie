@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-const API_URL = "/api";
+import { API_BASE_URL } from "./config";
 
 export interface TeeTimeParticipant {
   id: number;
@@ -30,7 +29,7 @@ export function useTeeTimes() {
   return useQuery<TeeTime[]>({
     queryKey: ["tee-times"],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/tee-times`);
+      const response = await fetch(`${API_BASE_URL}/tee-times`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -44,7 +43,7 @@ export function useTeeTimesForCompetition(competitionId: number) {
     queryKey: ["tee-times", "competition", competitionId],
     queryFn: async () => {
       const response = await fetch(
-        `${API_URL}/competitions/${competitionId}/tee-times`
+        `${API_BASE_URL}/competitions/${competitionId}/tee-times`
       );
       if (!response.ok) {
         throw new Error("Network response was not ok");
@@ -59,7 +58,7 @@ export function useTeeTime(teeTimeId: number) {
   return useQuery({
     queryKey: ["teeTime", teeTimeId],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/tee-times/${teeTimeId}`);
+      const response = await fetch(`${API_BASE_URL}/tee-times/${teeTimeId}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -83,7 +82,7 @@ export function useUpdateScore() {
       shots: number;
     }) => {
       const response = await fetch(
-        `${API_URL}/participants/${participantId}/score`,
+        `${API_BASE_URL}/participants/${participantId}/score`,
         {
           method: "PUT",
           headers: {
@@ -122,7 +121,7 @@ export function useCreateTeeTime() {
   return useMutation({
     mutationFn: async ({ competitionId, teetime }: CreateTeeTimeParams) => {
       const response = await fetch(
-        `${API_URL}/competitions/${competitionId}/tee-times`,
+        `${API_BASE_URL}/competitions/${competitionId}/tee-times`,
         {
           method: "POST",
           headers: {
@@ -149,7 +148,7 @@ export function useCreateParticipant() {
 
   return useMutation({
     mutationFn: async (params: CreateParticipantParams) => {
-      const response = await fetch(`${API_URL}/participants`, {
+      const response = await fetch(`${API_BASE_URL}/participants`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -175,7 +174,7 @@ export function useDeleteTeeTime() {
 
   return useMutation({
     mutationFn: async (teeTimeId: number) => {
-      const response = await fetch(`${API_URL}/tee-times/${teeTimeId}`, {
+      const response = await fetch(`${API_BASE_URL}/tee-times/${teeTimeId}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -199,9 +198,12 @@ export function useDeleteParticipant() {
 
   return useMutation({
     mutationFn: async (participantId: number) => {
-      const response = await fetch(`${API_URL}/participants/${participantId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${participantId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!response.ok) {
         throw new Error("Failed to delete participant");
       }

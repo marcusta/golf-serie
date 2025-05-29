@@ -3,6 +3,7 @@ import { useCompetitions, type Competition } from "../../api/competitions";
 import { useCourses } from "../../api/courses";
 import { Plus, Edit, Trash2, MapPin, Clock } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { API_BASE_URL } from "../../api/config";
 
 export default function AdminCompetitions() {
   const { data: competitions, isLoading, error } = useCompetitions();
@@ -40,7 +41,7 @@ export default function AdminCompetitions() {
     e.preventDefault();
 
     try {
-      const response = await fetch("/api/competitions", {
+      const response = await fetch(`${API_BASE_URL}/competitions`, {
         method: editingCompetition ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",

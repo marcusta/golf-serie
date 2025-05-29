@@ -23,6 +23,7 @@ import {
   isMultiPlayerFormat,
   getPlayerCountForParticipantType,
 } from "../utils/playerUtils";
+import { API_BASE_URL } from "../api/config";
 
 // Interfaces
 export interface GeneratedParticipant {
@@ -61,11 +62,14 @@ async function updateTeeTimeParticipantOrder(
   teeTimeId: number,
   order: { participant_id: number; tee_order: number }[]
 ) {
-  const res = await fetch(`/api/tee-times/${teeTimeId}/participants/order`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(order),
-  });
+  const res = await fetch(
+    `${API_BASE_URL}/tee-times/${teeTimeId}/participants/order`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(order),
+    }
+  );
   if (!res.ok) throw new Error("Failed to update participant order");
 }
 
