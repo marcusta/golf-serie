@@ -194,12 +194,63 @@ Bun.serve({
 
   // Fallback for unmatched routes
   fetch(req) {
-    return addCorsHeaders(
-      new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+    const url = new URL(req.url);
+    const pathname = url.pathname;
+
+    // Handle API routes that don't match - return 404
+    if (pathname.startsWith("/api/")) {
+      return addCorsHeaders(
+        new Response(JSON.stringify({ error: "Not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+    }
+
+    // Serve static files from frontend_dist directory
+    try {
+      let filePath = pathname === "/" ? "/index.html" : pathname;
+
+      // Remove leading slash and construct full path
+      const fullPath = `frontend_dist${filePath}`;
+
+      // Try to serve the requested file
+      const file = Bun.file(fullPath);
+
+      // Check if file exists
+      if (file.size > 0 || filePath === "/index.html") {
+        const mimeType = filePath.endsWith(".js")
+          ? "application/javascript"
+          : filePath.endsWith(".css")
+          ? "text/css"
+          : filePath.endsWith(".html")
+          ? "text/html"
+          : filePath.endsWith(".png")
+          ? "image/png"
+          : filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")
+          ? "image/jpeg"
+          : filePath.endsWith(".svg")
+          ? "image/svg+xml"
+          : "text/plain";
+
+        return new Response(file, {
+          headers: { "Content-Type": mimeType },
+        });
+      }
+    } catch (error) {
+      // File doesn't exist, fall through to serve index.html
+    }
+
+    // For SPA routes that don't match a file, serve index.html
+    try {
+      const indexFile = Bun.file("frontend_dist/index.html");
+      return new Response(indexFile, {
+        headers: { "Content-Type": "text/html" },
+      });
+    } catch (error) {
+      // If index.html doesn't exist, return 404
+      return new Response("Not Found", { status: 404 });
+    }
   },
 
   // Error handling
