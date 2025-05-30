@@ -13,9 +13,18 @@ export interface Course {
   updated_at: string;
 }
 
+export interface Series {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Team {
   id: number;
   name: string;
+  series_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +34,7 @@ export interface Competition {
   name: string;
   date: string;
   course_id: number;
+  series_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -37,24 +47,38 @@ export interface UpdateCourseDto {
   name?: string;
 }
 
+export interface CreateSeriesDto {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateSeriesDto {
+  name?: string;
+  description?: string;
+}
+
 export interface CreateTeamDto {
   name: string;
+  series_id?: number;
 }
 
 export interface UpdateTeamDto {
-  name: string;
+  name?: string;
+  series_id?: number;
 }
 
 export interface CreateCompetitionDto {
   name: string;
   date: string;
   course_id: number;
+  series_id?: number;
 }
 
 export interface UpdateCompetitionDto {
   name?: string;
   date?: string;
   course_id?: number;
+  series_id?: number;
 }
 
 export interface TeeTime {

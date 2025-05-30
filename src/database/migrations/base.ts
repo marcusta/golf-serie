@@ -10,7 +10,7 @@ export abstract class Migration {
   abstract down(): Promise<void>;
 
   protected async execute(sql: string): Promise<void> {
-    await this.db.run(sql);
+    this.db.run(sql);
   }
 
   protected async columnExists(

@@ -1,128 +1,95 @@
 import { Database } from "bun:sqlite";
-import { createCompetitionsApi } from "../src/api/competitions";
-import { createCoursesApi } from "../src/api/courses";
-import { createTeamsApi } from "../src/api/teams";
-import { CompetitionService } from "../src/services/competition-service";
-import { CourseService } from "../src/services/course-service";
-import { TeamService } from "../src/services/team-service";
+import { createApp } from "../src/app";
 
-let server: ReturnType<typeof Bun.serve> | null = null;
-const TEST_PORT = 3001; // Use a different port for tests
+// Map to track servers by database instance to avoid conflicts
+const serverMap = new Map<
+  Database,
+  { server: any; port: number; refCount: number }
+>();
 
-// CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-// Add CORS headers to response
-const addCorsHeaders = (response: Response): Response => {
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
-  return response;
-};
-
-export async function startTestServer(db: Database): Promise<void> {
-  if (server) return; // Server already running
-
-  // Initialize services with test database
-  const courseService = new CourseService(db);
-  const teamService = new TeamService(db);
-  const competitionService = new CompetitionService(db);
-
-  // Initialize APIs
-  const coursesApi = createCoursesApi(courseService);
-  const teamsApi = createTeamsApi(teamService);
-  const competitionsApi = createCompetitionsApi(competitionService);
-
-  // Start server
-  server = Bun.serve({
-    port: TEST_PORT,
-    routes: {
-      // Course routes
-      "/api/courses": {
-        POST: async (req) => addCorsHeaders(await coursesApi.create(req)),
-        GET: async () => addCorsHeaders(await coursesApi.findAll()),
-      },
-      "/api/courses/:id": {
-        GET: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await coursesApi.findById(req, id));
-        },
-        PUT: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await coursesApi.update(req, id));
-        },
-      },
-
-      // Team routes
-      "/api/teams": {
-        POST: async (req) => addCorsHeaders(await teamsApi.create(req)),
-        GET: async () => addCorsHeaders(await teamsApi.findAll()),
-      },
-      "/api/teams/:id": {
-        GET: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await teamsApi.findById(req, id));
-        },
-        PUT: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await teamsApi.update(req, id));
-        },
-      },
-
-      // Competition routes
-      "/api/competitions": {
-        POST: async (req) => addCorsHeaders(await competitionsApi.create(req)),
-        GET: async () => addCorsHeaders(await competitionsApi.findAll()),
-      },
-      "/api/competitions/:id": {
-        GET: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await competitionsApi.findById(req, id));
-        },
-        PUT: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await competitionsApi.update(req, id));
-        },
-      },
-
-      // Handle preflight requests
-      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
-    },
-
-    // Fallback for unmatched routes
-    fetch(req) {
-      return addCorsHeaders(
-        new Response(JSON.stringify({ error: "Not found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        })
-      );
-    },
-
-    // Error handling
-    error(error) {
-      console.error("Server error:", error);
-      return new Response(JSON.stringify({ error: "Internal server error" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-  });
-
-  // Wait for server to start
-  await new Promise((resolve) => setTimeout(resolve, 100));
+// Helper to get a random available port
+function getRandomTestPort(): number {
+  return Math.floor(Math.random() * 4000) + 3200; // 3200 to 4199
 }
 
-export async function stopTestServer(): Promise<void> {
-  if (server) {
+// Check if port is available
+async function isPortAvailable(port: number): Promise<boolean> {
+  try {
+    const server = Bun.serve({
+      port,
+      fetch: () => new Response("test"),
+    });
     server.stop();
-    server = null;
+    return true;
+  } catch {
+    return false;
   }
 }
 
-// Export the test port for use in test helpers
-export { TEST_PORT };
+// Get an available port
+async function getAvailablePort(): Promise<number> {
+  let attempts = 0;
+  const maxAttempts = 20;
+
+  while (attempts < maxAttempts) {
+    const port = getRandomTestPort();
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    attempts++;
+    // Small delay to avoid rapid port checking
+    await new Promise((resolve) => setTimeout(resolve, 15));
+  }
+
+  throw new Error("Could not find available port after multiple attempts");
+}
+
+export async function startTestServer(db: Database): Promise<number> {
+  // Check if server already exists for this database
+  if (serverMap.has(db)) {
+    const serverInfo = serverMap.get(db)!;
+    serverInfo.refCount++;
+    return serverInfo.port;
+  }
+
+  // Get available port
+  const port = await getAvailablePort();
+
+  // Create app and server
+  const app = createApp(db);
+  const server = Bun.serve({
+    port,
+    fetch: app.fetch,
+  });
+
+  // Store server info
+  serverMap.set(db, { server, port, refCount: 1 });
+
+  // Wait for server to be ready (much shorter delay)
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
+  return port;
+}
+
+export async function stopTestServer(db: Database): Promise<void> {
+  const serverInfo = serverMap.get(db);
+  if (!serverInfo) return;
+
+  serverInfo.refCount--;
+
+  // Only stop server when no more references
+  if (serverInfo.refCount <= 0) {
+    serverInfo.server.stop();
+    serverMap.delete(db);
+    // Small delay to ensure cleanup
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+export function getTestPort(db: Database): number {
+  const serverInfo = serverMap.get(db);
+  if (!serverInfo) {
+    throw new Error("Test server not started for this database");
+  }
+  return serverInfo.port;
+}

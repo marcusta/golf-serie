@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { InitialSchemaMigration } from "./migrations/001_initial_schema";
 import { AddTeeTimeIdMigration } from "./migrations/002_add_tee_time_id";
 import { AddParticipantScoreMigration } from "./migrations/003_add_participant_score";
+import { AddSeriesMigration } from "./migrations/004_add_series";
 
 export function createDatabase(dbPath: string = "golf_series.db"): Database {
   const db = new Database(dbPath);
@@ -33,6 +34,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new InitialSchemaMigration(db),
     new AddTeeTimeIdMigration(db),
     new AddParticipantScoreMigration(db),
+    new AddSeriesMigration(db),
   ];
 
   // Apply pending migrations

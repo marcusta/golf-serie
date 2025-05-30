@@ -70,7 +70,6 @@ export class ParticipantService {
 
     let score: any[] = [];
     try {
-      console.log("participant.score", participant.score);
       score = participant.score
         ? JSON.parse(participant.score as unknown as string)
         : [];

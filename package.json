@@ -9,7 +9,7 @@
     "dev": "bun run --watch src/index.ts",
     "prod": "bun src/index.ts",
     "build": "bun build src/index.ts --outdir=./dist",
-    "test": "bun test",
+    "test": "bun test --concurrency 1",
     "test:watch": "bun test --watch",
     "db:generate": "drizzle-kit generate:sqlite",
     "migrate": "bun run src/database/migrate.ts",

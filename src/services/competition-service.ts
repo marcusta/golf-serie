@@ -36,13 +36,27 @@ export class CompetitionService {
       throw new Error("Course not found");
     }
 
+    // Verify series exists if provided
+    if (data.series_id) {
+      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
+      const series = seriesStmt.get(data.series_id);
+      if (!series) {
+        throw new Error("Series not found");
+      }
+    }
+
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id)
-      VALUES (?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id)
+      VALUES (?, ?, ?, ?)
       RETURNING *
     `);
 
-    return stmt.get(data.name, data.date, data.course_id) as Competition;
+    return stmt.get(
+      data.name,
+      data.date,
+      data.course_id,
+      data.series_id || null
+    ) as Competition;
   }
 
   async findAll(): Promise<
@@ -106,6 +120,20 @@ export class CompetitionService {
       }
     }
 
+    if (data.series_id !== undefined) {
+      if (data.series_id === null) {
+        // Allow setting series_id to null
+      } else {
+        const seriesStmt = this.db.prepare(
+          "SELECT id FROM series WHERE id = ?"
+        );
+        const series = seriesStmt.get(data.series_id);
+        if (!series) {
+          throw new Error("Series not found");
+        }
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -122,6 +150,11 @@ export class CompetitionService {
     if (data.course_id) {
       updates.push("course_id = ?");
       values.push(data.course_id);
+    }
+
+    if (data.series_id !== undefined) {
+      updates.push("series_id = ?");
+      values.push(data.series_id);
     }
 
     if (updates.length === 0) {
@@ -145,6 +178,15 @@ export class CompetitionService {
     const competition = await this.findById(id);
     if (!competition) {
       throw new Error("Competition not found");
+    }
+
+    // Check if competition has any tee times
+    const teeTimesStmt = this.db.prepare(
+      "SELECT id FROM tee_times WHERE competition_id = ?"
+    );
+    const teeTimes = teeTimesStmt.all(id);
+    if (teeTimes.length > 0) {
+      throw new Error("Cannot delete competition that has tee times");
     }
 
     const stmt = this.db.prepare("DELETE FROM competitions WHERE id = ?");

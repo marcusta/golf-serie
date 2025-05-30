@@ -61,11 +61,19 @@ export class TeeTimeService {
       throw new Error("Competition not found");
     }
 
-    // Get all tee times for the competition
-    const teeTimesStmt = this.db.prepare(
-      "SELECT * FROM tee_times WHERE competition_id = ? ORDER BY teetime"
-    );
-    const teeTimes = teeTimesStmt.all(competitionId) as TeeTime[];
+    // Get all tee times for the competition with course info
+    const teeTimesStmt = this.db.prepare(`
+      SELECT t.*, co.name as course_name, co.pars
+      FROM tee_times t
+      JOIN competitions c ON t.competition_id = c.id
+      JOIN courses co ON c.course_id = co.id
+      WHERE t.competition_id = ?
+      ORDER BY t.teetime
+    `);
+    const teeTimes = teeTimesStmt.all(competitionId) as (TeeTime & {
+      course_name: string;
+      pars: string;
+    })[];
 
     // Get all participants for each tee time
     const participantsStmt = this.db.prepare(`
@@ -89,8 +97,13 @@ export class TeeTimeService {
             typeof p.score === "string" ? JSON.parse(p.score) : p.score || [],
         }));
 
+        // Parse course pars
+        const pars = JSON.parse(teeTime.pars);
+
         return {
           ...teeTime,
+          course_name: teeTime.course_name,
+          pars,
           participants: parsedParticipants,
         };
       }
@@ -109,7 +122,7 @@ export class TeeTimeService {
   ): Promise<TeeTimeWithParticipants | null> {
     // Get tee time with course information
     const teeTimeStmt = this.db.prepare(`
-      SELECT t.*, c.name as course_name, co.pars
+      SELECT t.*, co.name as course_name, co.pars
       FROM tee_times t
       JOIN competitions c ON t.competition_id = c.id
       JOIN courses co ON c.course_id = co.id

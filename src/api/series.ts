@@ -1,13 +1,13 @@
-import { ParticipantService } from "../services/participant-service";
-import type { CreateParticipantDto, UpdateParticipantDto } from "../types";
+import { SeriesService } from "../services/series-service";
+import type { CreateSeriesDto, UpdateSeriesDto } from "../types";
 
-export function createParticipantsApi(participantService: ParticipantService) {
+export function createSeriesApi(seriesService: SeriesService) {
   return {
     async create(req: Request): Promise<Response> {
       try {
-        const data = (await req.json()) as CreateParticipantDto;
-        const participant = await participantService.create(data);
-        return new Response(JSON.stringify(participant), {
+        const data = (await req.json()) as CreateSeriesDto;
+        const series = await seriesService.create(data);
+        return new Response(JSON.stringify(series), {
           status: 201,
           headers: { "Content-Type": "application/json" },
         });
@@ -30,8 +30,8 @@ export function createParticipantsApi(participantService: ParticipantService) {
 
     async findAll(): Promise<Response> {
       try {
-        const participants = await participantService.findAll();
-        return new Response(JSON.stringify(participants), {
+        const series = await seriesService.findAll();
+        return new Response(JSON.stringify(series), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -48,17 +48,14 @@ export function createParticipantsApi(participantService: ParticipantService) {
 
     async findById(req: Request, id: number): Promise<Response> {
       try {
-        const participant = await participantService.findById(id);
-        if (!participant) {
-          return new Response(
-            JSON.stringify({ error: "Participant not found" }),
-            {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+        const series = await seriesService.findById(id);
+        if (!series) {
+          return new Response(JSON.stringify({ error: "Series not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
         }
-        return new Response(JSON.stringify(participant), {
+        return new Response(JSON.stringify(series), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -75,16 +72,16 @@ export function createParticipantsApi(participantService: ParticipantService) {
 
     async update(req: Request, id: number): Promise<Response> {
       try {
-        const data = (await req.json()) as UpdateParticipantDto;
-        const participant = await participantService.update(id, data);
-        return new Response(JSON.stringify(participant), {
+        const data = (await req.json()) as UpdateSeriesDto;
+        const series = await seriesService.update(id, data);
+        return new Response(JSON.stringify(series), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
+            status: 400,
             headers: { "Content-Type": "application/json" },
           });
         }
@@ -100,12 +97,9 @@ export function createParticipantsApi(participantService: ParticipantService) {
 
     async delete(id: number): Promise<Response> {
       try {
-        console.log("delete! /api/participants/:id", id);
-        await participantService.delete(id);
-        console.log("delete complete! /api/participants/:id", id);
+        await seriesService.delete(id);
         return new Response(null, { status: 204 });
       } catch (error) {
-        console.log("delete error! /api/participants/:id", id, error);
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
             status: 404,
@@ -122,12 +116,10 @@ export function createParticipantsApi(participantService: ParticipantService) {
       }
     },
 
-    async findAllForCompetition(competitionId: number): Promise<Response> {
+    async getCompetitions(id: number): Promise<Response> {
       try {
-        const participants = await participantService.findAllForCompetition(
-          competitionId
-        );
-        return new Response(JSON.stringify(participants), {
+        const competitions = await seriesService.getCompetitions(id);
+        return new Response(JSON.stringify(competitions), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -148,36 +140,17 @@ export function createParticipantsApi(participantService: ParticipantService) {
       }
     },
 
-    async updateScore(req: Request, id: number): Promise<Response> {
+    async getTeams(id: number): Promise<Response> {
       try {
-        const data = (await req.json()) as { hole: number; shots: number };
-        if (!data.shots) {
-          return new Response(JSON.stringify({ error: "Shots are required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        if (!data.hole) {
-          return new Response(JSON.stringify({ error: "Hole is required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        const participant = await participantService.updateScore(
-          id,
-          data.hole,
-          data.shots
-        );
-        return new Response(JSON.stringify(participant), {
+        const teams = await seriesService.getTeams(id);
+        return new Response(JSON.stringify(teams), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
+            status: 400,
             headers: { "Content-Type": "application/json" },
           });
         }

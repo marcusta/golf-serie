@@ -46,6 +46,15 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "Competition not found"
+        ) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         return new Response(
           JSON.stringify({ error: "Internal server error" }),
           {
@@ -155,14 +164,10 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
 
     async updateParticipantsOrder(req: Request, id: number): Promise<Response> {
       try {
-        const body = (await req.json()) as Array<{
-          participant_id: number;
-          tee_order: number;
-        }>;
-        const newOrder = body.map((item) => item.participant_id);
+        const body = (await req.json()) as { participantIds: number[] };
         const updatedTeeTime = await teeTimeService.updateParticipantsOrder(
           id,
-          newOrder
+          body.participantIds
         );
         return new Response(JSON.stringify(updatedTeeTime), {
           status: 200,
@@ -170,6 +175,12 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
         });
       } catch (error) {
         if (error instanceof Error) {
+          if (error.message === "Tee time not found") {
+            return new Response(JSON.stringify({ error: error.message }), {
+              status: 404,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
           return new Response(JSON.stringify({ error: error.message }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
