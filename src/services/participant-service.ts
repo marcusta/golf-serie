@@ -218,8 +218,12 @@ export class ParticipantService {
       throw new Error(`Hole number must be between 1 and ${pars.length}`);
     }
 
-    if (shots < 1) {
-      throw new Error("Shots must be greater than 0");
+    // Allow -1 (gave up) and 0 (unreported/cleared score) as special values
+    // Regular shots must be positive
+    if (shots !== -1 && shots !== 0 && shots < 1) {
+      throw new Error(
+        "Shots must be greater than 0, or -1 (gave up), or 0 (clear score)"
+      );
     }
 
     // Initialize score array with zeros if null or empty

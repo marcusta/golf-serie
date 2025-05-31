@@ -130,8 +130,9 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
         });
       } catch (error) {
         if (error instanceof Error) {
+          const status = error.message === "Competition not found" ? 404 : 400;
           return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
+            status: status,
             headers: { "Content-Type": "application/json" },
           });
         }

@@ -334,4 +334,264 @@ describe("Competition API", () => {
       expectErrorResponse(getResponse, 404);
     });
   });
+
+  describe("GET /api/competitions/:id/leaderboard", () => {
+    test("should calculate leaderboard with mixed scores including -1 and 0", async () => {
+      // Create competition
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Test Tournament",
+          date: "2024-04-11",
+          course_id: courseId,
+        }
+      );
+      const competition = await competitionResponse.json();
+
+      // Create tee time
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "08:00" }
+      );
+      const teeTime = await teeTimeResponse.json();
+
+      // Create teams
+      const team1Response = await makeRequest("/api/teams", "POST", {
+        name: "Team Alpha",
+      });
+      const team1 = await team1Response.json();
+
+      const team2Response = await makeRequest("/api/teams", "POST", {
+        name: "Team Beta",
+      });
+      const team2 = await team2Response.json();
+
+      // Create participants
+      const participant1Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          team_id: team1.id,
+          tee_time_id: teeTime.id,
+          position_name: "Captain",
+          player_names: "John Doe",
+        }
+      );
+      const participant1 = await participant1Response.json();
+
+      const participant2Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 2,
+          team_id: team2.id,
+          tee_time_id: teeTime.id,
+          position_name: "Captain",
+          player_names: "Jane Smith",
+        }
+      );
+      const participant2 = await participant2Response.json();
+
+      // Set scores for participant 1: normal scores with one gave up (-1) and one unreported (0)
+      // Holes 1-3: 4, -1, 0 (4 strokes, gave up, unreported)
+      await makeRequest(`/api/participants/${participant1.id}/score`, "PUT", {
+        hole: 1,
+        shots: 4,
+      });
+      await makeRequest(`/api/participants/${participant1.id}/score`, "PUT", {
+        hole: 2,
+        shots: -1, // gave up
+      });
+      await makeRequest(`/api/participants/${participant1.id}/score`, "PUT", {
+        hole: 3,
+        shots: 0, // unreported/cleared
+      });
+
+      // Set scores for participant 2: all normal scores
+      // Holes 1-3: 5, 6, 4
+      await makeRequest(`/api/participants/${participant2.id}/score`, "PUT", {
+        hole: 1,
+        shots: 5,
+      });
+      await makeRequest(`/api/participants/${participant2.id}/score`, "PUT", {
+        hole: 2,
+        shots: 6,
+      });
+      await makeRequest(`/api/participants/${participant2.id}/score`, "PUT", {
+        hole: 3,
+        shots: 4,
+      });
+
+      // Get leaderboard
+      const leaderboardResponse = await makeRequest(
+        `/api/competitions/${competition.id}/leaderboard`
+      );
+      const leaderboard = await expectJsonResponse(leaderboardResponse);
+
+      expect(leaderboard).toHaveLength(2);
+
+      // Find participants in leaderboard
+      const p1Entry = leaderboard.find(
+        (entry: any) => entry.participant.id === participant1.id
+      );
+      const p2Entry = leaderboard.find(
+        (entry: any) => entry.participant.id === participant2.id
+      );
+
+      expect(p1Entry).toBeDefined();
+      expect(p2Entry).toBeDefined();
+
+      // Participant 1: 4 shots total (only positive scores count)
+      // 2 holes played (4 and -1, but not 0)
+      // Relative to par: hole 1 = 4-4=0 (hole 2 and 3 don't count)
+      expect(p1Entry.totalShots).toBe(4);
+      expect(p1Entry.holesPlayed).toBe(2); // holes 1 and 2 (-1 counts as played)
+      expect(p1Entry.relativeToPar).toBe(0); // 4-4=0 for hole 1 only
+
+      // Participant 2: 15 shots total (5+6+4)
+      // 3 holes played
+      // Relative to par: (5-4)+(6-5)+(4-4) = 1+1+0 = 2
+      expect(p2Entry.totalShots).toBe(15);
+      expect(p2Entry.holesPlayed).toBe(3);
+      expect(p2Entry.relativeToPar).toBe(2);
+
+      // Participant 1 should be ranked higher (lower relative to par)
+      expect(leaderboard[0].participant.id).toBe(participant1.id);
+      expect(leaderboard[1].participant.id).toBe(participant2.id);
+    });
+
+    test("should handle participant with all unreported scores (0)", async () => {
+      // Create competition
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Test Tournament",
+          date: "2024-04-11",
+          course_id: courseId,
+        }
+      );
+      const competition = await competitionResponse.json();
+
+      // Create tee time
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "08:00" }
+      );
+      const teeTime = await teeTimeResponse.json();
+
+      // Create team
+      const teamResponse = await makeRequest("/api/teams", "POST", {
+        name: "Team Test",
+      });
+      const team = await teamResponse.json();
+
+      // Create participant
+      const participantResponse = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          team_id: team.id,
+          tee_time_id: teeTime.id,
+          position_name: "Captain",
+          player_names: "Test Player",
+        }
+      );
+      const participant = await participantResponse.json();
+
+      // Get leaderboard (participant has default empty scores)
+      const leaderboardResponse = await makeRequest(
+        `/api/competitions/${competition.id}/leaderboard`
+      );
+      const leaderboard = await expectJsonResponse(leaderboardResponse);
+
+      expect(leaderboard).toHaveLength(1);
+      const entry = leaderboard[0];
+
+      // No scores reported should result in 0s across the board
+      expect(entry.totalShots).toBe(0);
+      expect(entry.holesPlayed).toBe(0);
+      expect(entry.relativeToPar).toBe(0);
+    });
+
+    test("should handle participant with all gave up scores (-1)", async () => {
+      // Create competition
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Test Tournament",
+          date: "2024-04-11",
+          course_id: courseId,
+        }
+      );
+      const competition = await competitionResponse.json();
+
+      // Create tee time
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "08:00" }
+      );
+      const teeTime = await teeTimeResponse.json();
+
+      // Create team
+      const teamResponse = await makeRequest("/api/teams", "POST", {
+        name: "Team Test",
+      });
+      const team = await teamResponse.json();
+
+      // Create participant
+      const participantResponse = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          team_id: team.id,
+          tee_time_id: teeTime.id,
+          position_name: "Captain",
+          player_names: "Test Player",
+        }
+      );
+      const participant = await participantResponse.json();
+
+      // Set all scores to -1 (gave up on first 3 holes)
+      await makeRequest(`/api/participants/${participant.id}/score`, "PUT", {
+        hole: 1,
+        shots: -1,
+      });
+      await makeRequest(`/api/participants/${participant.id}/score`, "PUT", {
+        hole: 2,
+        shots: -1,
+      });
+      await makeRequest(`/api/participants/${participant.id}/score`, "PUT", {
+        hole: 3,
+        shots: -1,
+      });
+
+      // Get leaderboard
+      const leaderboardResponse = await makeRequest(
+        `/api/competitions/${competition.id}/leaderboard`
+      );
+      const leaderboard = await expectJsonResponse(leaderboardResponse);
+
+      expect(leaderboard).toHaveLength(1);
+      const entry = leaderboard[0];
+
+      // All gave up: 0 total shots, 3 holes played, 0 relative to par
+      expect(entry.totalShots).toBe(0);
+      expect(entry.holesPlayed).toBe(3);
+      expect(entry.relativeToPar).toBe(0);
+    });
+
+    test("should return 404 for non-existent competition leaderboard", async () => {
+      const response = await makeRequest("/api/competitions/999/leaderboard");
+      expectErrorResponse(response, 404);
+    });
+  });
 });

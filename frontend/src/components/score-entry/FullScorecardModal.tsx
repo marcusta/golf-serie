@@ -7,7 +7,7 @@ interface PlayerScore {
   participantName: string;
   participantType?: string;
   isMultiPlayer?: boolean;
-  scores: (number | null)[];
+  scores: number[];
 }
 
 interface TeeTimeGroup {
@@ -50,13 +50,26 @@ export function FullScorecardModal({
   const displayHoles = currentView === "front" ? frontNine : backNine;
 
   const calculateTotal = (
-    playerScores: (number | null)[],
+    playerScores: number[],
     holes: { number: number }[]
   ) => {
     return holes.reduce((total, hole) => {
       const score = playerScores[hole.number - 1];
-      return total + (score || 0);
+      // Only count actual scores (positive numbers) in totals
+      return total + (score && score > 0 ? score : 0);
     }, 0);
+  };
+
+  // Helper function to format score display
+  const formatScoreDisplay = (score: number): string => {
+    if (score === -1) return "−"; // Gave up
+    if (score === 0) return "NR"; // Not reported
+    return score.toString(); // Actual score
+  };
+
+  // Helper function to check if score should be counted in color coding
+  const isValidScore = (score: number): boolean => {
+    return score > 0;
   };
 
   const getPlayerTotals = (player: PlayerScore) => {
@@ -211,25 +224,29 @@ export function FullScorecardModal({
                         )}
                       </div>
                       {displayHoles.map((hole) => {
-                        const score = player.scores[hole.number - 1];
+                        const score = player.scores[hole.number - 1] ?? 0;
                         const par = hole.par;
                         let scoreColor = "text-gray-900";
 
-                        if (score) {
+                        if (isValidScore(score)) {
                           if (score === 1)
                             scoreColor = "text-purple-600 font-bold";
                           // Hole in one
-                          else if (score < par - 1)
+                          else if (score! < par - 1)
                             scoreColor = "text-purple-600 font-bold";
                           // Eagle or better
-                          else if (score === par - 1)
+                          else if (score! === par - 1)
                             scoreColor = "text-blue-600 font-bold"; // Birdie
-                          else if (score === par)
+                          else if (score! === par)
                             scoreColor = "text-gray-900"; // Par
-                          else if (score === par + 1)
+                          else if (score! === par + 1)
                             scoreColor = "text-orange-600"; // Bogey
-                          else if (score >= par + 2)
+                          else if (score! >= par + 2)
                             scoreColor = "text-red-600"; // Double bogey or worse
+                        } else if (score === -1) {
+                          scoreColor = "text-red-500"; // Gave up
+                        } else if (score === 0) {
+                          scoreColor = "text-gray-400"; // Not reported
                         }
 
                         return (
@@ -241,7 +258,7 @@ export function FullScorecardModal({
                               scoreColor
                             )}
                           >
-                            {score || "-"}
+                            {formatScoreDisplay(score)}
                           </div>
                         );
                       })}

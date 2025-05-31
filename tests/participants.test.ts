@@ -279,6 +279,90 @@ describe("Participant API", () => {
       ]);
     });
 
+    test("should accept -1 as gave up score", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      const scoreData = {
+        hole: 1,
+        shots: -1,
+      };
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/score`,
+        "PUT",
+        scoreData
+      );
+      expect(response.status).toBe(200);
+      const updated = await expectJsonResponse(response);
+      expect(updated.score).toEqual([
+        -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      ]);
+    });
+
+    test("should accept 0 as unreported/cleared score", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      // First set a score
+      await makeRequest(`/api/participants/${created.id}/score`, "PUT", {
+        hole: 1,
+        shots: 5,
+      });
+
+      // Then clear it with 0
+      const scoreData = {
+        hole: 1,
+        shots: 0,
+      };
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/score`,
+        "PUT",
+        scoreData
+      );
+      expect(response.status).toBe(200);
+      const updated = await expectJsonResponse(response);
+      expect(updated.score).toEqual([
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      ]);
+    });
+
+    test("should reject negative shots other than -1", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      const scoreData = {
+        hole: 1,
+        shots: -2,
+      };
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/score`,
+        "PUT",
+        scoreData
+      );
+      expectErrorResponse(response, 400);
+    });
+
     test("should validate score is an array", async () => {
       const createResponse = await makeRequest("/api/participants", "POST", {
         tee_order: 1,
@@ -293,6 +377,25 @@ describe("Participant API", () => {
         "PUT",
         {
           score: "invalid",
+        }
+      );
+      expectErrorResponse(response, 400);
+    });
+
+    test("should require shots field", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/score`,
+        "PUT",
+        {
+          hole: 1,
         }
       );
       expectErrorResponse(response, 400);

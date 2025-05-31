@@ -151,7 +151,9 @@ export function createParticipantsApi(participantService: ParticipantService) {
     async updateScore(req: Request, id: number): Promise<Response> {
       try {
         const data = (await req.json()) as { hole: number; shots: number };
-        if (!data.shots) {
+
+        // Allow -1 (gave up) and 0 (unreported/cleared score) as valid values
+        if (data.shots === undefined || data.shots === null) {
           return new Response(JSON.stringify({ error: "Shots are required" }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
@@ -176,8 +178,10 @@ export function createParticipantsApi(participantService: ParticipantService) {
         });
       } catch (error) {
         if (error instanceof Error) {
+          // Return 404 for participant not found, 400 for validation errors
+          const status = error.message === "Participant not found" ? 404 : 400;
           return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
+            status: status,
             headers: { "Content-Type": "application/json" },
           });
         }

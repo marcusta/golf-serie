@@ -10,7 +10,7 @@ interface PlayerScore {
   participantName: string;
   participantType?: string;
   isMultiPlayer?: boolean;
-  scores: (number | null)[];
+  scores: number[];
 }
 
 interface TeeTimeGroup {
@@ -30,11 +30,7 @@ interface Course {
 interface ScoreEntryProps {
   teeTimeGroup: TeeTimeGroup;
   course: Course;
-  onScoreUpdate: (
-    participantId: string,
-    hole: number,
-    score: number | null
-  ) => void;
+  onScoreUpdate: (participantId: string, hole: number, score: number) => void;
   onComplete: () => void;
 }
 
@@ -105,8 +101,8 @@ export function ScoreEntry({
       showNativeKeyboard();
     } else if (action === "clear") {
       if (!currentPlayer) return;
-      // Clear the score by setting it to null (gave up on hole)
-      onScoreUpdate(currentPlayer.participantId, currentHole, null);
+      // Set score to -1 for "gave up on hole"
+      onScoreUpdate(currentPlayer.participantId, currentHole, -1);
       moveToNextPlayer();
     } else if (action === "unreported") {
       if (!currentPlayer) return;
@@ -136,6 +132,18 @@ export function ScoreEntry({
       return `${parts[0]} ${parts[1].charAt(0)}.`;
     }
     return name.length > 20 ? `${name.substring(0, 20)}...` : name;
+  };
+
+  // Helper function to format score display
+  const formatScoreDisplay = (score: number): string => {
+    if (score === -1) return "−"; // Gave up
+    if (score === 0) return "NR"; // Not reported
+    return score.toString(); // Actual score
+  };
+
+  // Helper function to check if a score has been entered
+  const hasValidScore = (score: number): boolean => {
+    return score > 0;
   };
 
   // Close keyboard when clicking outside
@@ -188,8 +196,8 @@ export function ScoreEntry({
         <div className="p-3 space-y-2">
           {teeTimeGroup.players.map((player, index) => {
             const isCurrentPlayer = index === currentPlayerIndex;
-            const score = player.scores[currentHole - 1] || null;
-            const hasScore = score !== null;
+            const score = player.scores[currentHole - 1] ?? 0;
+            const hasScore = hasValidScore(score);
 
             return (
               <div
@@ -237,7 +245,7 @@ export function ScoreEntry({
                     isCurrentPlayer && "ring-2 ring-blue-400 ring-offset-1"
                   )}
                 >
-                  {hasScore ? score : "−"}
+                  {formatScoreDisplay(score)}
                 </button>
               </div>
             );

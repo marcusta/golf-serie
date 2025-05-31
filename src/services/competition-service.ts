@@ -243,23 +243,32 @@ export class CompetitionService {
           : Array.isArray(participant.score)
           ? participant.score
           : [];
-      const holesPlayed = score.filter((s: number) => s > 0).length;
+
+      // Count holes played: positive scores and -1 (gave up) count as played
+      // 0 means unreported/cleared, so it doesn't count as played
+      const holesPlayed = score.filter((s: number) => s > 0 || s === -1).length;
+
+      // Calculate total shots: only count positive scores
+      // -1 (gave up) and 0 (unreported) don't count towards total
       const totalShots = score.reduce(
-        (sum: number, shots: number) => sum + (shots || 0),
+        (sum: number, shots: number) => sum + (shots > 0 ? shots : 0),
         0
       );
-      // Calculate relative to par
+
+      // Calculate relative to par: only count positive scores
       let relativeToPar = 0;
       try {
         for (let i = 0; i < score.length; i++) {
           if (score[i] > 0 && pars[i] !== undefined) {
             relativeToPar += score[i] - pars[i];
           }
+          // Note: -1 (gave up) and 0 (unreported) don't contribute to par calculation
         }
       } catch (error) {
         console.error("Error calculating relative to par", error);
         throw error;
       }
+
       return {
         participant: {
           ...participant,
