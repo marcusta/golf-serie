@@ -25,13 +25,17 @@ export default function TeeTimeDetail() {
   const handleScoreUpdate = (
     participantId: string,
     hole: number,
-    score: number
+    score: number | null
   ) => {
-    updateScoreMutation.mutate({
-      participantId: parseInt(participantId),
-      hole,
-      shots: score,
-    });
+    if (score !== null) {
+      updateScoreMutation.mutate({
+        participantId: parseInt(participantId),
+        hole,
+        shots: score,
+      });
+    }
+    // Note: If score is null, we skip the API call as it represents clearing a score
+    // You might want to add a separate API call to clear scores if needed
   };
 
   const handleComplete = () => {

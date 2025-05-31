@@ -42,7 +42,7 @@ export function ScoreEntryDemo() {
   const handleScoreUpdate = (
     participantId: string,
     hole: number,
-    score: number
+    score: number | null
   ) => {
     setTeeTimeGroup((prev) => ({
       ...prev,

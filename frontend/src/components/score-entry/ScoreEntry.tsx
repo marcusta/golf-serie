@@ -10,7 +10,7 @@ interface PlayerScore {
   participantName: string;
   participantType?: string;
   isMultiPlayer?: boolean;
-  scores: number[];
+  scores: (number | null)[];
 }
 
 interface TeeTimeGroup {
@@ -30,7 +30,11 @@ interface Course {
 interface ScoreEntryProps {
   teeTimeGroup: TeeTimeGroup;
   course: Course;
-  onScoreUpdate: (participantId: string, hole: number, score: number) => void;
+  onScoreUpdate: (
+    participantId: string,
+    hole: number,
+    score: number | null
+  ) => void;
   onComplete: () => void;
 }
 
@@ -95,10 +99,20 @@ export function ScoreEntry({
     moveToNextPlayer();
   };
 
-  const handleSpecialPress = (action: "more" | "clear") => {
+  const handleSpecialPress = (action: "more" | "clear" | "unreported") => {
     if (action === "more") {
       setKeyboardVisible(false);
       showNativeKeyboard();
+    } else if (action === "clear") {
+      if (!currentPlayer) return;
+      // Clear the score by setting it to null (gave up on hole)
+      onScoreUpdate(currentPlayer.participantId, currentHole, null);
+      moveToNextPlayer();
+    } else if (action === "unreported") {
+      if (!currentPlayer) return;
+      // Set score to 0 for unreported
+      onScoreUpdate(currentPlayer.participantId, currentHole, 0);
+      moveToNextPlayer();
     }
   };
 
@@ -247,6 +261,7 @@ export function ScoreEntry({
         visible={keyboardVisible}
         onNumberPress={handleNumberPress}
         onSpecialPress={handleSpecialPress}
+        holePar={currentHoleData?.par || 4}
       />
 
       {/* Full Scorecard Modal */}
@@ -268,7 +283,7 @@ export function ScoreEntry({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-sm">
             <h3 className="text-lg font-bold mb-4">
-              Enter Score (12 or higher)
+              Enter Score (9 or higher)
             </h3>
             <input
               type="number"

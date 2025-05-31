@@ -7,7 +7,7 @@ interface PlayerScore {
   participantName: string;
   participantType?: string;
   isMultiPlayer?: boolean;
-  scores: number[];
+  scores: (number | null)[];
 }
 
 interface TeeTimeGroup {
@@ -50,7 +50,7 @@ export function FullScorecardModal({
   const displayHoles = currentView === "front" ? frontNine : backNine;
 
   const calculateTotal = (
-    playerScores: number[],
+    playerScores: (number | null)[],
     holes: { number: number }[]
   ) => {
     return holes.reduce((total, hole) => {

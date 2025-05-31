@@ -25,7 +25,7 @@ export function useNativeKeyboard({
 
   const handleSubmit = useCallback(() => {
     const score = parseInt(inputValue, 10);
-    if (!isNaN(score) && score >= 12) {
+    if (!isNaN(score) && score >= 9) {
       onScoreSubmit(score);
       hide();
     }
