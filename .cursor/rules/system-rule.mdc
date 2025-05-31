@@ -1,0 +1,160 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Golf Series Backend - Cursor Rules
+
+## Project Overview
+This is a Golf Series management backend system built with TypeScript and Bun.js, following clean architecture principles with clear separation of concerns.
+
+## Technology Stack
+- **Runtime**: Bun.js (>=1.0.0)
+- **Language**: TypeScript (strict mode)
+- **Web Framework**: Hono (for HTTP server and routing)
+- **Database**: SQLite with Bun's built-in SQLite library, simple migration lib built-in
+- **Testing**: Bun's built-in test runner
+- **Package Manager**: Bun
+
+## Architecture & Code Structure
+
+### 1. Layered Architecture
+The project follows a clean 3-layer architecture:
+
+```
+src/
+├── api/           # HTTP layer - API endpoints and request/response handling
+├── services/      # Business logic layer - domain services
+├── database/      # Data access layer - migrations, schema, DB utilities
+├── types/         # Type definitions and DTOs
+├── app.ts         # Application setup and routing
+└── server.ts      # Server entry point
+```
+
+### 2. API Layer (`src/api/`)
+- **Purpose**: HTTP request/response handling, validation, error handling
+- **Pattern**: Factory functions that create API handlers (e.g., `createCoursesApi()`)
+- **Responsibilities**: 
+  - Parse request bodies and parameters
+  - Call appropriate service methods
+  - Handle errors and return proper HTTP status codes
+  - Return JSON responses with correct Content-Type headers
+- **Error Handling**: Always wrap service calls in try-catch, return 400 for validation errors, 404 for not found, 500 for unexpected errors
+
+### 3. Service Layer (`src/services/`)
+- **Purpose**: Business logic and domain operations
+- **Pattern**: Classes that encapsulate domain logic (e.g., `CourseService`, `CompetitionService`)
+- **Responsibilities**:
+  - Input validation and business rule enforcement
+  - Database operations through direct SQL queries
+  - Data transformation and calculations
+  - Cross-entity operations and relationships
+- **Database Access**: Services directly use `Database` from `bun:sqlite` with prepared statements
+
+### 4. Database Layer (`src/database/`)
+- **Migration System**: Custom migration classes extending base `Migration` class
+- **Schema**: Defined through migration files, not ORM models
+- **Tables**: courses, teams, competitions, tee_times, participants, series
+- **Key Features**: Foreign key constraints enabled, timestamps on all entities
+
+## Database Management
+
+### Schema Design
+- **Primary Keys**: Auto-incrementing integers
+- **Timestamps**: `created_at` and `updated_at` on all entities
+- **Foreign Keys**: Enforced with cascading behavior
+- **JSON Fields**: Used for scores (arrays) and course pars
+
+### Migration Pattern
+1. Create new migration class in `src/database/migrations/`
+2. Extend base `Migration` class
+3. Implement `up()` and `down()` methods
+4. Use helper methods like `columnExists()` for conditional changes
+5. Migrations are tracked in `migrations` table
+
+### Database Operations
+- Use prepared statements for all queries
+- Enable foreign keys with `PRAGMA foreign_keys = ON`
+- Handle constraint violations gracefully
+- Use transactions for multi-step operations
+
+## Testing Strategy
+
+### Test Structure
+```
+tests/
+├── *.test.ts         # Feature-specific test files
+├── test-helpers.ts   # Shared testing utilities
+└── test-server.ts    # Test server management
+```
+
+### Testing Patterns
+1. **Setup/Teardown**: Use `beforeEach`/`afterEach` with in-memory database
+2. **Test Database**: Create fresh database for each test file
+3. **API Testing**: Use `makeRequest` helper for HTTP calls
+4. **Assertions**: Use `expectJsonResponse` and `expectErrorResponse` helpers
+5. **Test Organization**: Group tests by HTTP method and endpoint
+
+### Test Requirements
+- **Coverage**: Test all CRUD operations for each entity
+- **Validation**: Test all input validation scenarios
+- **Error Cases**: Test 404, 400, and constraint violation scenarios
+- **Relationships**: Test foreign key constraints and cascading behavior
+- **Business Logic**: Test calculations (leaderboards, scoring, etc.)
+
+## Key Business Rules
+
+### Golf Domain Rules
+- **Courses**: Maximum 18 holes, pars between 3-6
+- **Competitions**: Must have valid YYYY-MM-DD date format
+- **Participants**: Belong to tee times, have scores as number arrays
+- **Leaderboard**: Calculated relative to par across all holes played
+
+### Data Validation
+- **Required Fields**: Name fields cannot be empty/whitespace
+- **Unique Constraints**: Team names, series names must be unique
+- **Foreign Keys**: Always validate referenced entities exist
+- **Dates**: Use ISO format (YYYY-MM-DD) for competition dates
+
+## Development Guidelines
+
+### When Adding New Features
+1. **API Layer**: Create factory function returning handlers object
+2. **Service Layer**: Create service class with domain methods
+3. **Types**: Define DTOs for create/update operations
+4. **Database**: Add migration if schema changes needed
+5. **Tests**: Write comprehensive test suite covering all scenarios
+6. **Routes**: Add routes to `app.ts` with proper HTTP methods
+
+### When Modifying Existing Code
+1. **Update Services**: Modify business logic in service layer
+2. **Update Tests**: Ensure all existing tests pass and add new test cases
+3. **Update Types**: Modify DTOs if request/response structure changes
+4. **Database Changes**: Create new migration if schema modifications needed
+
+### Error Handling Standards
+- Service layer throws descriptive Error objects
+- API layer catches and maps to appropriate HTTP status codes
+- Always return JSON error responses with `{ error: "message" }` format
+- Use specific error messages for validation failures
+
+### Code Quality Standards
+- Use TypeScript strict mode
+- Prefer prepared statements over string concatenation
+- Use descriptive variable names and function names
+- Keep API handlers thin - delegate to services
+- Write self-documenting code with clear intent
+
+### Testing Requirements for Changes
+- **New Features**: Must include full test coverage
+- **Bug Fixes**: Add regression test before fixing
+- **API Changes**: Test all HTTP methods and status codes
+- **Business Logic**: Test edge cases and validation rules
+- **Database Changes**: Test constraints and relationships
+
+Remember: Every code change should be accompanied by corresponding test updates to maintain the high test coverage and ensure system reliability.
+
+## Prompt interaction
+When changing or updating APIs you should print routes and body format at the end of prompts so I know the API
+
+There is a frontend codebase in the /frontend directory. You should never update those files.

@@ -9,6 +9,7 @@ export interface Competition {
   course_id: number;
   created_at: string;
   updated_at: string;
+  participant_count: number;
 }
 
 export interface LeaderboardEntry {

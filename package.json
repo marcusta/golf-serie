@@ -11,17 +11,13 @@
     "build": "bun build src/index.ts --outdir=./dist",
     "test": "bun test --concurrency 1",
     "test:watch": "bun test --watch",
-    "db:generate": "drizzle-kit generate:sqlite",
     "migrate": "bun run src/database/migrate.ts",
-    "db:seed": "bun src/infrastructure/database/seed.ts",
-    "db:studio": "drizzle-kit studio",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
-    "setup": "bun install && bun db:migrate && bun db:seed",
+    "setup": "bun install && bun run src/database/migrate.ts && bun run src/database/seed.ts",
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.29.1",
     "hono": "^4.7.10",
     "uuid": "^9.0.1",
     "zod": "^3.22.4"

@@ -151,6 +151,9 @@ describe("Competition API", () => {
       expect(competitions.length).toBe(2);
       expect(competitions[0].course).toBeDefined();
       expect(competitions[0].course.name).toBe("Augusta National");
+      expect(competitions[0].participant_count).toBeDefined();
+      expect(typeof competitions[0].participant_count).toBe("number");
+      expect(competitions[0].participant_count).toBe(0); // Initially no participants
     });
   });
 

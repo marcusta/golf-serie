@@ -103,8 +103,7 @@ export default function PlayerCompetitions() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {/* Mock participant count - in real app this would come from API */}
-                        {Math.floor(Math.random() * 20) + 5} participants
+                        {competition.participant_count} participants
                       </div>
                     </div>
 

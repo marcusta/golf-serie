@@ -60,10 +60,17 @@ export class CompetitionService {
   }
 
   async findAll(): Promise<
-    (Competition & { course: { id: number; name: string } })[]
+    (Competition & {
+      course: { id: number; name: string };
+      participant_count: number;
+    })[]
   > {
     const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name
+      SELECT c.*, co.name as course_name,
+        (SELECT COUNT(*) 
+         FROM participants p 
+         JOIN tee_times t ON p.tee_time_id = t.id 
+         WHERE t.competition_id = c.id) as participant_count
       FROM competitions c
       JOIN courses co ON c.course_id = co.id
     `);
@@ -73,6 +80,7 @@ export class CompetitionService {
         id: row.course_id,
         name: row.course_name,
       },
+      participant_count: row.participant_count,
     }));
   }
 
