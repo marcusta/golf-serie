@@ -1,8 +1,7 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Trophy, List } from "lucide-react";
+import { List } from "lucide-react";
 
 const playerNavLinks = [
-  { to: "/player/standings", label: "General Standings", icon: Trophy },
   { to: "/player/competitions", label: "Competitions", icon: List },
 ];
 

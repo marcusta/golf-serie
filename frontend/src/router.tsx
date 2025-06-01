@@ -92,7 +92,7 @@ const teeTimeDetailRoute = new Route({
 const indexRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: () => <Navigate to="/player/standings" replace />,
+  component: () => <Navigate to="/player/competitions" replace />,
 });
 
 const routeTree = rootRoute.addChildren([

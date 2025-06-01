@@ -12,12 +12,6 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
 
   const menuItems = [
     {
-      to: "/player/standings",
-      label: "General Standings",
-      icon: TrendingUp,
-      description: "Overall performance across all competitions",
-    },
-    {
       to: "/player/competitions",
       label: "Competitions",
       icon: Trophy,
