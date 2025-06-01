@@ -49,10 +49,8 @@ export default function TeeTimeDetail() {
     id: teeTime.id.toString(),
     players: teeTime.participants.map((participant: TeeTimeParticipant) => ({
       participantId: participant.id.toString(),
-      participantName: `${participant.team_name} ${formatParticipantTypeDisplay(
-        participant.position_name
-      )}`,
-      participantType: participant.position_name,
+      participantName: participant.team_name,
+      participantType: formatParticipantTypeDisplay(participant.position_name),
       isMultiPlayer: isMultiPlayerFormat(participant.position_name),
       scores: participant.score,
     })),
@@ -84,14 +82,6 @@ export default function TeeTimeDetail() {
         <div className="absolute top-2 right-2 z-10">
           <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
             ⚠️ {totalActualPlayers}/4 players
-          </div>
-        </div>
-      )}
-
-      {totalActualPlayers <= 4 && totalActualPlayers > 0 && (
-        <div className="absolute top-2 right-2 z-10">
-          <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
-            {totalActualPlayers}/4 players
           </div>
         </div>
       )}

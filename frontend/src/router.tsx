@@ -19,7 +19,7 @@ import PlayerLayout from "./views/player/PlayerLayout";
 import PlayerStandings from "./views/player/Standings";
 import PlayerCompetitions from "./views/player/Competitions";
 import CompetitionDetail from "./views/player/CompetitionDetail";
-import TeeTimeDetail from "./views/player/TeeTimeDetail";
+import CompetitionRound from "./views/player/CompetitionRound";
 
 // Root route
 const rootRoute = new RootRoute({
@@ -85,7 +85,7 @@ const competitionDetailRoute = new Route({
 const teeTimeDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId/tee-times/$teeTimeId",
-  component: TeeTimeDetail,
+  component: CompetitionRound,
 });
 
 // Default redirect to player standings

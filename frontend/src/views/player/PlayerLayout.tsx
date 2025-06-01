@@ -9,6 +9,16 @@ const playerNavLinks = [
 export default function PlayerLayout() {
   const { location } = useRouterState();
 
+  // Hide navigation for competition rounds (they have their own navigation)
+  const isCompetitionRound =
+    location.pathname.includes("/competitions/") &&
+    (location.pathname.includes("/tee-times/") ||
+      location.pathname.match(/\/competitions\/\d+$/));
+
+  if (isCompetitionRound) {
+    return <Outlet />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

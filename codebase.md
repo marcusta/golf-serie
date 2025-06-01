@@ -140,24 +140,6 @@ dist
 
 ```
 
-# drizzle.config.ts
-
-```ts
-import type { Config } from "drizzle-kit";
-
-export default {
-  schema: "./src/infrastructure/database/schema/*",
-  out: "./src/infrastructure/database/migrations",
-  driver: "libsql",
-  dbCredentials: {
-    url: "file:./data/golf-series.db",
-  },
-  verbose: true,
-  strict: true,
-} satisfies Config;
-
-```
-
 # frontend/.gitignore
 
 ```
@@ -212,6 +194,202 @@ dist-ssr
   },
   "iconLibrary": "lucide"
 }
+```
+
+# frontend/DEPLOYMENT_GUIDE.md
+
+```md
+# Golf Serie Frontend - Deployment Guide
+
+This guide explains how to deploy the Golf Serie frontend application behind a reverse proxy.
+
+## Overview
+
+The application is configured to work in both development and production environments:
+
+- **Development**: Uses Vite proxy to forward `/api` requests to `localhost:3000`
+- **Production**: Dynamically detects the deployment path and adjusts API calls accordingly
+
+## Deployment Configurations
+
+### 1. Production Build for Reverse Proxy
+
+The application is configured to be deployed under the `/golf-serie` path. When you run:
+
+\`\`\`bash
+npm run build
+\`\`\`
+
+The built files will have the correct base path (`/golf-serie/`) for:
+- Static assets (CSS, JS, images)
+- API requests
+
+### 2. Generated Assets
+
+After building, the `dist/index.html` will contain:
+\`\`\`html
+<script type="module" crossorigin src="/golf-serie/assets/index-[hash].js"></script>
+<link rel="stylesheet" crossorigin href="/golf-serie/assets/index-[hash].css">
+\`\`\`
+
+### 3. API Request Handling
+
+The application uses a smart API configuration that adapts to the deployment environment:
+
+- **Development**: API calls go to `/api` (proxied by Vite)
+- **Production under `/golf-serie`**: API calls go to `/golf-serie/api`
+- **Production at root**: API calls go to `/api`
+
+## Reverse Proxy Configuration
+
+### Nginx Example
+
+\`\`\`nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # Serve the frontend under /golf-serie
+    location /golf-serie/ {
+        alias /path/to/your/dist/;
+        try_files $uri $uri/ /golf-serie/index.html;
+        
+        # Handle SPA routing
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # Proxy API requests
+    location /golf-serie/api/ {
+        proxy_pass http://localhost:3000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+\`\`\`
+
+### Apache Example
+
+\`\`\`apache
+<VirtualHost *:80>
+    ServerName your-domain.com
+    DocumentRoot /path/to/your/dist
+
+    # Serve the frontend under /golf-serie
+    Alias /golf-serie /path/to/your/dist
+    <Directory "/path/to/your/dist">
+        AllowOverride All
+        Require all granted
+        
+        # Handle SPA routing
+        RewriteEngine On
+        RewriteBase /golf-serie/
+        RewriteRule ^index\.html$ - [L]
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule . /golf-serie/index.html [L]
+    </Directory>
+
+    # Proxy API requests
+    ProxyPreserveHost On
+    ProxyPass /golf-serie/api/ http://localhost:3000/api/
+    ProxyPassReverse /golf-serie/api/ http://localhost:3000/api/
+</VirtualHost>
+\`\`\`
+
+## Testing the Deployment
+
+### Local Testing
+
+1. Build the application:
+   \`\`\`bash
+   npm run build
+   \`\`\`
+
+2. Test the production build locally:
+   \`\`\`bash
+   npm run preview:prod
+   \`\`\`
+   This will serve the app at `http://localhost:4173/golf-serie/`
+
+### Backend Requirements
+
+Ensure your backend API server:
+1. Is running on the expected port (default: 3000)
+2. Handles CORS properly for your domain
+3. Serves API endpoints under `/api/`
+
+## Environment-Specific Configuration
+
+The application automatically detects its deployment context:
+
+- **`import.meta.env.DEV`**: Development mode (uses Vite proxy)
+- **Production**: Checks `window.location.pathname` to determine the base path
+
+### Key Files
+
+1. **`vite.config.ts`**: Sets build-time base path
+2. **`src/api/config.ts`**: Runtime API URL detection and base path utilities
+3. **`src/router.tsx`**: TanStack Router configuration with dynamic base path
+4. **All API files**: Use shared `API_BASE_URL` configuration
+
+## What's Fixed
+
+The application now correctly handles:
+
+1. **Static Assets**: Build artifacts (JS/CSS) use correct paths with `/golf-serie/` prefix
+2. **API Requests**: Dynamically adapt to deployment context (dev vs prod, root vs sub-path)
+3. **Client-Side Routing**: TanStack Router uses correct base path for route resolution
+4. **SPA Navigation**: Direct URL access and browser refresh work correctly
+5. **Redirects**: Index route redirects work with base path
+
+## Troubleshooting
+
+### Asset Loading Issues
+- Verify the reverse proxy serves static files correctly
+- Check that the base path in `vite.config.ts` matches your deployment path
+
+### API Request Issues
+- Ensure the backend is accessible at the expected URL
+- Check reverse proxy configuration for API endpoint forwarding
+- Verify CORS settings on the backend
+
+### SPA Routing Issues
+- Configure the web server to serve `index.html` for all unmatched routes
+- Ensure the base path is correctly configured in your router
+
+## Alternative Deployment Paths
+
+To deploy under a different path (e.g., `/my-golf-app/`):
+
+1. Update `vite.config.ts`:
+   \`\`\`typescript
+   const base = mode === 'production' ? '/my-golf-app/' : '/';
+   \`\`\`
+
+2. Update `src/api/config.ts`:
+   \`\`\`typescript
+   if (currentPath.startsWith('/my-golf-app')) {
+     return '/my-golf-app/api';
+   }
+   \`\`\`
+
+3. Update your reverse proxy configuration accordingly.
+
+## Root Deployment
+
+To deploy at the root path (`/`):
+
+1. Update `vite.config.ts`:
+   \`\`\`typescript
+   const base = '/'; // Same for both dev and prod
+   \`\`\`
+
+2. The API configuration will automatically use `/api` for root deployments. 
 ```
 
 # frontend/eslint.config.js
@@ -279,7 +457,9 @@ export default tseslint.config(
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:prod": "vite preview --base /golf-serie/",
+    "deploy": "npm run build && rm -rf ../frontend_dist/* && cp -r dist/* ../frontend_dist/"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
@@ -558,10 +738,6 @@ The component relies on:
 This implementation provides a complete, production-ready solution for participant assignment in golf competitions. The dual interaction methods (drag-and-drop and click-to-assign) ensure accessibility and usability across different devices and user preferences. The clean architecture makes it easy to extend and maintain. 
 ```
 
-# frontend/public/vite.svg
-
-This is a file of the type: SVG Image
-
 # frontend/QUICK_START_GUIDE.md
 
 ```md
@@ -773,9 +949,8 @@ export default tseslint.config({
 
 ```ts
 import { useQuery } from "@tanstack/react-query";
+import { API_BASE_URL } from "./config";
 import type { TeeTimeParticipant } from "./tee-times";
-
-const API_URL = "/api";
 
 export interface Competition {
   id: number;
@@ -784,6 +959,7 @@ export interface Competition {
   course_id: number;
   created_at: string;
   updated_at: string;
+  participant_count: number;
 }
 
 export interface LeaderboardEntry {
@@ -797,7 +973,7 @@ export function useCompetitions() {
   return useQuery<Competition[]>({
     queryKey: ["competitions"],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/competitions`);
+      const response = await fetch(`${API_BASE_URL}/competitions`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -810,7 +986,9 @@ export function useCompetition(competitionId: number) {
   return useQuery<Competition>({
     queryKey: ["competition", competitionId],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/competitions/${competitionId}`);
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}`
+      );
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -825,7 +1003,7 @@ export function useCompetitionLeaderboard(competitionId: number) {
     queryKey: ["competition", competitionId, "leaderboard"],
     queryFn: async () => {
       const response = await fetch(
-        `${API_URL}/competitions/${competitionId}/leaderboard`
+        `${API_BASE_URL}/competitions/${competitionId}/leaderboard`
       );
       if (!response.ok) {
         throw new Error("Network response was not ok");
@@ -838,12 +1016,49 @@ export function useCompetitionLeaderboard(competitionId: number) {
 
 ```
 
+# frontend/src/api/config.ts
+
+```ts
+// API configuration that works in both development and production
+// In development: uses proxy to localhost:3000
+// In production: uses relative paths that work with reverse proxy
+
+export function getBasePath(): string {
+  // In development, no base path needed
+  if (import.meta.env.DEV) {
+    return "";
+  }
+
+  // In production, detect if we're under /golf-serie
+  const currentPath = window.location.pathname;
+  if (currentPath.startsWith("/golf-serie")) {
+    return "/golf-serie";
+  }
+
+  return "";
+}
+
+function getApiBaseUrl(): string {
+  // In development, Vite's proxy handles /api requests
+  if (import.meta.env.DEV) {
+    return "/api";
+  }
+
+  // In production, construct API URL relative to the current path
+  // This will work whether deployed at root or under /golf-serie
+  const basePath = getBasePath();
+  return `${basePath}/api`;
+}
+
+export const API_BASE_URL = getApiBaseUrl();
+
+```
+
 # frontend/src/api/courses.ts
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-const API_URL = "/api";
+import { API_BASE_URL } from "./config";
 
 export interface Course {
   id: number;
@@ -866,7 +1081,7 @@ export function useCourses() {
   return useQuery<Course[]>({
     queryKey: ["courses"],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/courses`);
+      const response = await fetch(`${API_BASE_URL}/courses`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -879,7 +1094,7 @@ export function useCourse(id: number) {
   return useQuery<Course>({
     queryKey: ["course", id],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/courses/${id}`);
+      const response = await fetch(`${API_BASE_URL}/courses/${id}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -893,7 +1108,7 @@ export function useCreateCourse() {
 
   return useMutation({
     mutationFn: async (data: CreateCourseData) => {
-      const response = await fetch(`${API_URL}/courses`, {
+      const response = await fetch(`${API_BASE_URL}/courses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -916,7 +1131,7 @@ export function useUpdateCourseHoles() {
 
   return useMutation({
     mutationFn: async ({ id, holes }: { id: number; holes: number[] }) => {
-      const response = await fetch(`${API_URL}/courses/${id}/holes`, {
+      const response = await fetch(`${API_BASE_URL}/courses/${id}/holes`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -939,7 +1154,7 @@ export function useDeleteCourse() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`${API_URL}/courses/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/courses/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -962,8 +1177,7 @@ export function useDeleteCourse() {
 
 ```ts
 import { useQuery } from "@tanstack/react-query";
-
-const API_URL = "/api";
+import { API_BASE_URL } from "./config";
 
 export interface Participant {
   id: number;
@@ -982,7 +1196,7 @@ export function useParticipants() {
   return useQuery<Participant[]>({
     queryKey: ["participants"],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/participants`);
+      const response = await fetch(`${API_BASE_URL}/participants`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -995,7 +1209,7 @@ export function useParticipant(id: number) {
   return useQuery<Participant>({
     queryKey: ["participant", id],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/participants/${id}`);
+      const response = await fetch(`${API_BASE_URL}/participants/${id}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -1010,8 +1224,7 @@ export function useParticipant(id: number) {
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-const API_URL = "/api";
+import { API_BASE_URL } from "./config";
 
 export interface Team {
   id: number;
@@ -1024,7 +1237,7 @@ export function useTeams() {
   return useQuery<Team[]>({
     queryKey: ["teams"],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/teams`);
+      const response = await fetch(`${API_BASE_URL}/teams`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -1037,7 +1250,7 @@ export function useTeam(id: number) {
   return useQuery<Team>({
     queryKey: ["team", id],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/teams/${id}`);
+      const response = await fetch(`${API_BASE_URL}/teams/${id}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -1051,7 +1264,7 @@ export function useCreateTeam() {
 
   return useMutation({
     mutationFn: async (name: string) => {
-      const response = await fetch(`${API_URL}/teams`, {
+      const response = await fetch(`${API_BASE_URL}/teams`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1074,7 +1287,7 @@ export function useUpdateTeam() {
 
   return useMutation({
     mutationFn: async ({ id, name }: { id: number; name: string }) => {
-      const response = await fetch(`${API_URL}/teams/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/teams/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1097,7 +1310,7 @@ export function useDeleteTeam() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`${API_URL}/teams/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/teams/${id}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -1117,8 +1330,7 @@ export function useDeleteTeam() {
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-const API_URL = "/api";
+import { API_BASE_URL } from "./config";
 
 export interface TeeTimeParticipant {
   id: number;
@@ -1148,7 +1360,7 @@ export function useTeeTimes() {
   return useQuery<TeeTime[]>({
     queryKey: ["tee-times"],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/tee-times`);
+      const response = await fetch(`${API_BASE_URL}/tee-times`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -1162,7 +1374,7 @@ export function useTeeTimesForCompetition(competitionId: number) {
     queryKey: ["tee-times", "competition", competitionId],
     queryFn: async () => {
       const response = await fetch(
-        `${API_URL}/competitions/${competitionId}/tee-times`
+        `${API_BASE_URL}/competitions/${competitionId}/tee-times`
       );
       if (!response.ok) {
         throw new Error("Network response was not ok");
@@ -1177,7 +1389,7 @@ export function useTeeTime(teeTimeId: number) {
   return useQuery({
     queryKey: ["teeTime", teeTimeId],
     queryFn: async () => {
-      const response = await fetch(`${API_URL}/tee-times/${teeTimeId}`);
+      const response = await fetch(`${API_BASE_URL}/tee-times/${teeTimeId}`);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -1201,7 +1413,7 @@ export function useUpdateScore() {
       shots: number;
     }) => {
       const response = await fetch(
-        `${API_URL}/participants/${participantId}/score`,
+        `${API_BASE_URL}/participants/${participantId}/score`,
         {
           method: "PUT",
           headers: {
@@ -1240,7 +1452,7 @@ export function useCreateTeeTime() {
   return useMutation({
     mutationFn: async ({ competitionId, teetime }: CreateTeeTimeParams) => {
       const response = await fetch(
-        `${API_URL}/competitions/${competitionId}/tee-times`,
+        `${API_BASE_URL}/competitions/${competitionId}/tee-times`,
         {
           method: "POST",
           headers: {
@@ -1267,7 +1479,7 @@ export function useCreateParticipant() {
 
   return useMutation({
     mutationFn: async (params: CreateParticipantParams) => {
-      const response = await fetch(`${API_URL}/participants`, {
+      const response = await fetch(`${API_BASE_URL}/participants`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1293,7 +1505,7 @@ export function useDeleteTeeTime() {
 
   return useMutation({
     mutationFn: async (teeTimeId: number) => {
-      const response = await fetch(`${API_URL}/tee-times/${teeTimeId}`, {
+      const response = await fetch(`${API_BASE_URL}/tee-times/${teeTimeId}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -1317,9 +1529,12 @@ export function useDeleteParticipant() {
 
   return useMutation({
     mutationFn: async (participantId: number) => {
-      const response = await fetch(`${API_URL}/participants/${participantId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${participantId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!response.ok) {
         throw new Error("Failed to delete participant");
       }
@@ -1389,7 +1604,7 @@ export function useDeleteParticipant() {
 # frontend/src/App.tsx
 
 ```tsx
-import { Outlet } from "@tanstack/react-router";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 
 function GolfIcon() {
   return (
@@ -1417,6 +1632,20 @@ function GolfIcon() {
 }
 
 export default function App() {
+  const { location } = useRouterState();
+
+  // Check if we're in a competition round (full-screen mode)
+  const isCompetitionRound =
+    location.pathname.includes("/competitions/") &&
+    (location.pathname.includes("/tee-times/") ||
+      location.pathname.match(/\/competitions\/\d+$/));
+
+  if (isCompetitionRound) {
+    // Full-screen layout for competition rounds
+    return <Outlet />;
+  }
+
+  // Regular layout for other pages
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-green-50 via-white to-green-50">
       <header className="border-b bg-white/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
@@ -1439,28 +1668,316 @@ export default function App() {
           </div>
         </main>
       </div>
-
-      <footer className="bg-white border-t border-gray-200 py-6 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <GolfIcon />
-            <span className="font-medium text-gray-900">Golf Scorecard</span>
-          </div>
-          <p className="text-sm text-gray-600">
-            &copy; {new Date().getFullYear()} Golf Scorecard. Made with ❤️ for
-            golf enthusiasts.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }
 
 ```
 
-# frontend/src/assets/react.svg
+# frontend/src/components/navigation/BottomTabNavigation.tsx
 
-This is a file of the type: SVG Image
+```tsx
+import { cn } from "@/lib/utils";
+import { Edit3, Trophy, Medal, Users } from "lucide-react";
+
+interface BottomTabNavigationProps {
+  activeTab: "score" | "leaderboard" | "teams" | "participants";
+  onTabChange: (
+    tab: "score" | "leaderboard" | "teams" | "participants"
+  ) => void;
+  className?: string;
+}
+
+export function BottomTabNavigation({
+  activeTab,
+  onTabChange,
+  className,
+}: BottomTabNavigationProps) {
+  const tabs = [
+    {
+      id: "score" as const,
+      label: "Score Entry",
+      shortLabel: "Score",
+      icon: Edit3,
+      disabled: false,
+    },
+    {
+      id: "leaderboard" as const,
+      label: "Leaderboard",
+      shortLabel: "Leaderboard",
+      icon: Trophy,
+      disabled: false,
+    },
+    {
+      id: "teams" as const,
+      label: "Team Results",
+      shortLabel: "Teams",
+      icon: Medal,
+      disabled: false,
+    },
+    {
+      id: "participants" as const,
+      label: "Participants",
+      shortLabel: "Start List",
+      icon: Users,
+      disabled: false,
+    },
+  ];
+
+  return (
+    <div
+      className={cn("bg-white border-t border-gray-200 shadow-lg", className)}
+    >
+      <div className="grid grid-cols-4 max-w-lg mx-auto">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => !tab.disabled && onTabChange(tab.id)}
+              disabled={tab.disabled}
+              className={cn(
+                "flex flex-col items-center justify-center py-3 px-2 transition-all duration-200",
+                "min-h-[60px] md:min-h-[64px]",
+                isActive
+                  ? "text-green-600 bg-green-50"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                tab.disabled && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <Icon
+                className={cn(
+                  "mb-1 transition-all duration-200",
+                  isActive ? "w-6 h-6" : "w-5 h-5",
+                  "md:w-6 md:h-6"
+                )}
+              />
+              <span
+                className={cn(
+                  "text-xs font-medium transition-all duration-200",
+                  "md:text-sm",
+                  isActive && "font-semibold"
+                )}
+              >
+                <span className="sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+```
+
+# frontend/src/components/navigation/HamburgerMenu.tsx
+
+```tsx
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
+import { Menu, X, Trophy, TrendingUp } from "lucide-react";
+
+interface HamburgerMenuProps {
+  className?: string;
+}
+
+export function HamburgerMenu({ className }: HamburgerMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const menuItems = [
+    {
+      to: "/player/standings",
+      label: "General Standings",
+      icon: TrendingUp,
+      description: "Overall performance across all competitions",
+    },
+    {
+      to: "/player/competitions",
+      label: "Competitions",
+      icon: Trophy,
+      description: "Browse all competitions",
+    },
+  ];
+
+  const closeMenu = () => setIsOpen(false);
+
+  return (
+    <div className={cn("relative", className)}>
+      {/* Hamburger Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "p-2 rounded-lg transition-all duration-200 touch-manipulation",
+          "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2",
+          isOpen && "bg-gray-100"
+        )}
+        aria-label="Menu"
+      >
+        {isOpen ? (
+          <X className="w-5 h-5 text-gray-700" />
+        ) : (
+          <Menu className="w-5 h-5 text-gray-700" />
+        )}
+      </button>
+
+      {/* Menu Overlay */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-25 z-40 md:hidden"
+            onClick={closeMenu}
+          />
+
+          {/* Menu Content */}
+          <div
+            className={cn(
+              "absolute top-12 right-0 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50",
+              "md:w-96"
+            )}
+          >
+            <div className="p-2">
+              <div className="px-3 py-2 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Navigation
+                </h3>
+              </div>
+
+              <nav className="mt-2 space-y-1">
+                {menuItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={closeMenu}
+                      className={cn(
+                        "flex items-start gap-3 px-3 py-3 rounded-lg transition-all duration-200",
+                        "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-inset",
+                        "group"
+                      )}
+                    >
+                      <Icon className="w-5 h-5 text-gray-600 group-hover:text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-green-900">
+                          {item.label}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {item.description}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+```
+
+# frontend/src/components/navigation/HoleNavigation.tsx
+
+```tsx
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+interface HoleNavigationProps {
+  currentHole: number;
+  holePar: number;
+  holeHcp?: number;
+  onPrevious: () => void;
+  onNext: () => void;
+  canGoPrevious: boolean;
+  canGoNext: boolean;
+  className?: string;
+}
+
+export function HoleNavigation({
+  currentHole,
+  holePar,
+  holeHcp,
+  onPrevious,
+  onNext,
+  canGoPrevious,
+  canGoNext,
+  className,
+}: HoleNavigationProps) {
+  return (
+    <div
+      className={cn(
+        "bg-yellow-400 text-gray-900 px-4 py-3 flex items-center justify-between",
+        "shadow-lg border-t border-yellow-500",
+        className
+      )}
+    >
+      <button
+        onClick={onPrevious}
+        disabled={!canGoPrevious}
+        className={cn(
+          "p-2 rounded-lg transition-all duration-200 touch-manipulation",
+          canGoPrevious
+            ? "hover:bg-yellow-300 active:bg-yellow-500"
+            : "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+
+      <div className="flex items-center gap-6 text-center">
+        <div className="flex flex-col">
+          <span className="text-xs font-medium opacity-80">Par</span>
+          <span className="text-lg font-bold">{holePar}</span>
+        </div>
+
+        <div className="flex flex-col">
+          <span className="text-xs font-medium opacity-80">Hole</span>
+          <span className="text-xl font-bold">{currentHole}</span>
+        </div>
+
+        {holeHcp !== undefined && (
+          <div className="flex flex-col">
+            <span className="text-xs font-medium opacity-80">HCP</span>
+            <span className="text-lg font-bold">{holeHcp}</span>
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={onNext}
+        disabled={!canGoNext}
+        className={cn(
+          "p-2 rounded-lg transition-all duration-200 touch-manipulation",
+          canGoNext
+            ? "hover:bg-yellow-300 active:bg-yellow-500"
+            : "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <ChevronRight className="w-5 h-5" />
+      </button>
+    </div>
+  );
+}
+
+```
+
+# frontend/src/components/navigation/index.ts
+
+```ts
+export { BottomTabNavigation } from "./BottomTabNavigation";
+export { HamburgerMenu } from "./HamburgerMenu";
+export { HoleNavigation } from "./HoleNavigation";
+
+```
 
 # frontend/src/components/ParticipantAssignment.tsx
 
@@ -1490,6 +2007,7 @@ import {
   isMultiPlayerFormat,
   getPlayerCountForParticipantType,
 } from "../utils/playerUtils";
+import { API_BASE_URL } from "../api/config";
 
 // Interfaces
 export interface GeneratedParticipant {
@@ -1528,11 +2046,14 @@ async function updateTeeTimeParticipantOrder(
   teeTimeId: number,
   order: { participant_id: number; tee_order: number }[]
 ) {
-  const res = await fetch(`/api/tee-times/${teeTimeId}/participants/order`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(order),
-  });
+  const res = await fetch(
+    `${API_BASE_URL}/tee-times/${teeTimeId}/participants/order`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(order),
+    }
+  );
   if (!res.ok) throw new Error("Failed to update participant order");
 }
 
@@ -2764,21 +3285,43 @@ import { cn } from "@/lib/utils";
 
 interface CustomKeyboardProps {
   onNumberPress: (number: number) => void;
-  onSpecialPress: (action: "more" | "clear") => void;
+  onSpecialPress: (action: "more" | "clear" | "unreported") => void;
   visible: boolean;
+  holePar: number;
 }
 
 export function CustomKeyboard({
   onNumberPress,
   onSpecialPress,
   visible,
+  holePar,
 }: CustomKeyboardProps) {
   const handleNumberPress = (number: number) => {
     onNumberPress(number);
   };
 
-  const handleSpecialPress = (action: "more" | "clear") => {
+  const handleSpecialPress = (action: "more" | "clear" | "unreported") => {
     onSpecialPress(action);
+  };
+
+  // Function to get scoring terminology based on score relative to par
+  const getScoreLabel = (score: number): string => {
+    if (score === 1) return "HIO"; // Hole in one
+
+    const difference = score - holePar;
+
+    if (difference <= -4) return "OTHER"; // Condor (4 under) or better - very rare
+    if (difference === -3) return "ALBA"; // Albatross (3 under)
+    if (difference === -2) return "EAGLE"; // Eagle (2 under)
+    if (difference === -1) return "BIRDIE"; // Birdie (1 under)
+    if (difference === 0) return "PAR"; // Par
+    if (difference === 1) return "BOGEY"; // Bogey (1 over)
+    if (difference === 2) return "DOUBLE"; // Double bogey (2 over)
+    if (difference === 3) return "TRIPLE"; // Triple bogey (3 over)
+    if (difference === 4) return "QUAD"; // Quadruple bogey (4 over)
+    if (difference >= 5) return "OTHER"; // More than quad bogey
+
+    return "";
   };
 
   if (!visible) return null;
@@ -2791,57 +3334,82 @@ export function CustomKeyboard({
         "shadow-lg rounded-t-xl p-2"
       )}
     >
-      {/* Common scores row */}
-      <div className="grid grid-cols-4 gap-1 mb-1">
-        {[3, 4, 5, 6].map((num) => (
+      {/* Row 1: 1, 2, 3 */}
+      <div className="grid grid-cols-3 gap-1 mb-1">
+        {[1, 2, 3].map((num) => (
           <button
             key={num}
             onClick={() => handleNumberPress(num)}
-            className="h-12 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation"
+            className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
           >
-            {num}
+            <span>{num}</span>
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              {getScoreLabel(num)}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Less common scores row */}
-      <div className="grid grid-cols-4 gap-1 mb-1">
-        {[2, 7, 8, 9].map((num) => (
+      {/* Row 2: 4, 5, 6 */}
+      <div className="grid grid-cols-3 gap-1 mb-1">
+        {[4, 5, 6].map((num) => (
           <button
             key={num}
             onClick={() => handleNumberPress(num)}
-            className="h-12 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation"
+            className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
           >
-            {num}
+            <span>{num}</span>
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              {getScoreLabel(num)}
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Rare scores row */}
-      <div className="grid grid-cols-4 gap-1">
-        <button
-          onClick={() => handleNumberPress(1)}
-          className="h-12 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-lg font-bold text-gray-900 transition-colors touch-manipulation"
-        >
-          1
-        </button>
-        <button
-          onClick={() => handleNumberPress(10)}
-          className="h-12 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-lg font-bold text-gray-900 transition-colors touch-manipulation"
-        >
-          10
-        </button>
-        <button
-          onClick={() => handleNumberPress(11)}
-          className="h-12 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-lg font-bold text-gray-900 transition-colors touch-manipulation"
-        >
-          11
-        </button>
+      {/* Row 3: 7, 8, 9+ */}
+      <div className="grid grid-cols-3 gap-1 mb-1">
+        {[7, 8].map((num) => (
+          <button
+            key={num}
+            onClick={() => handleNumberPress(num)}
+            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+          >
+            <span>{num}</span>
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              {getScoreLabel(num)}
+            </span>
+          </button>
+        ))}
         <button
           onClick={() => handleSpecialPress("more")}
-          className="h-12 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-lg font-bold text-gray-900 transition-colors touch-manipulation"
+          className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
         >
-          12+
+          <span>9+</span>
+          <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+            {getScoreLabel(9)}
+          </span>
+        </button>
+      </div>
+
+      {/* Row 4: -, 0 */}
+      <div className="grid grid-cols-2 gap-1">
+        <button
+          onClick={() => handleSpecialPress("clear")}
+          className="h-14 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-lg text-xl font-bold text-red-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+        >
+          <span>−</span>
+          <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+            GAVE UP
+          </span>
+        </button>
+        <button
+          onClick={() => handleSpecialPress("unreported")}
+          className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+        >
+          <span>0</span>
+          <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+            UNREPORTED
+          </span>
         </button>
       </div>
     </div>
@@ -2910,8 +3478,21 @@ export function FullScorecardModal({
   ) => {
     return holes.reduce((total, hole) => {
       const score = playerScores[hole.number - 1];
-      return total + (score || 0);
+      // Only count actual scores (positive numbers) in totals
+      return total + (score && score > 0 ? score : 0);
     }, 0);
+  };
+
+  // Helper function to format score display
+  const formatScoreDisplay = (score: number): string => {
+    if (score === -1) return "−"; // Gave up
+    if (score === 0) return "NR"; // Not reported
+    return score.toString(); // Actual score
+  };
+
+  // Helper function to check if score should be counted in color coding
+  const isValidScore = (score: number): boolean => {
+    return score > 0;
   };
 
   const getPlayerTotals = (player: PlayerScore) => {
@@ -3066,25 +3647,29 @@ export function FullScorecardModal({
                         )}
                       </div>
                       {displayHoles.map((hole) => {
-                        const score = player.scores[hole.number - 1];
+                        const score = player.scores[hole.number - 1] ?? 0;
                         const par = hole.par;
                         let scoreColor = "text-gray-900";
 
-                        if (score) {
+                        if (isValidScore(score)) {
                           if (score === 1)
                             scoreColor = "text-purple-600 font-bold";
                           // Hole in one
-                          else if (score < par - 1)
+                          else if (score! < par - 1)
                             scoreColor = "text-purple-600 font-bold";
                           // Eagle or better
-                          else if (score === par - 1)
+                          else if (score! === par - 1)
                             scoreColor = "text-blue-600 font-bold"; // Birdie
-                          else if (score === par)
+                          else if (score! === par)
                             scoreColor = "text-gray-900"; // Par
-                          else if (score === par + 1)
+                          else if (score! === par + 1)
                             scoreColor = "text-orange-600"; // Bogey
-                          else if (score >= par + 2)
+                          else if (score! >= par + 2)
                             scoreColor = "text-red-600"; // Double bogey or worse
+                        } else if (score === -1) {
+                          scoreColor = "text-red-500"; // Gave up
+                        } else if (score === 0) {
+                          scoreColor = "text-gray-400"; // Not reported
                         }
 
                         return (
@@ -3096,7 +3681,7 @@ export function FullScorecardModal({
                               scoreColor
                             )}
                           >
-                            {score || "-"}
+                            {formatScoreDisplay(score)}
                           </div>
                         );
                       })}
@@ -3189,7 +3774,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CustomKeyboard } from "./CustomKeyboard";
 import { FullScorecardModal } from "./FullScorecardModal";
-import { ChevronLeft, ChevronRight, BarChart3, Users } from "lucide-react";
+import { BarChart3, Users } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
 
 interface PlayerScore {
@@ -3219,6 +3804,8 @@ interface ScoreEntryProps {
   course: Course;
   onScoreUpdate: (participantId: string, hole: number, score: number) => void;
   onComplete: () => void;
+  currentHole?: number;
+  onHoleChange?: (hole: number) => void;
 }
 
 export function ScoreEntry({
@@ -3226,8 +3813,45 @@ export function ScoreEntry({
   course,
   onScoreUpdate,
   onComplete,
+  currentHole: externalCurrentHole,
+  onHoleChange,
 }: ScoreEntryProps) {
-  const [currentHole, setCurrentHole] = useState(1);
+  // Helper function to find the latest incomplete hole
+  const findLatestIncompleteHole = (): number => {
+    for (let holeIndex = 17; holeIndex >= 0; holeIndex--) {
+      const hasAnyPlayerWithScore = teeTimeGroup.players.some((player) => {
+        const score = player.scores[holeIndex];
+        return score && score > 0; // Has valid score
+      });
+
+      if (hasAnyPlayerWithScore) {
+        // Found the latest hole with some scores, check if it's complete
+        const allPlayersHaveScores = teeTimeGroup.players.every((player) => {
+          const score = player.scores[holeIndex];
+          return score && score !== 0; // All players have scores (including -1 for gave up)
+        });
+
+        if (!allPlayersHaveScores) {
+          return holeIndex + 1; // Return 1-based hole number
+        } else if (holeIndex < 17) {
+          return holeIndex + 2; // Move to next hole
+        }
+      }
+    }
+
+    return 1; // Default to hole 1 if no scores found
+  };
+
+  const [internalCurrentHole, setInternalCurrentHole] = useState(() =>
+    findLatestIncompleteHole()
+  );
+
+  // Use external hole if provided, otherwise use internal
+  const currentHole =
+    externalCurrentHole !== undefined
+      ? externalCurrentHole
+      : internalCurrentHole;
+
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [fullScorecardVisible, setFullScorecardVisible] = useState(false);
@@ -3255,13 +3879,47 @@ export function ScoreEntry({
   const currentPlayer = teeTimeGroup.players[currentPlayerIndex];
   const currentHoleData = course.holes.find((h) => h.number === currentHole);
 
+  // Calculate player's current score relative to par
+  const calculatePlayerToPar = (player: PlayerScore): number => {
+    let totalShots = 0;
+    let totalPar = 0;
+
+    for (let i = 0; i < Math.min(currentHole, 18); i++) {
+      const score = player.scores[i];
+      if (score && score > 0) {
+        totalShots += score;
+        totalPar += course.holes[i].par;
+      }
+    }
+
+    return totalShots - totalPar;
+  };
+
+  // Format +/- to par display
+  const formatToPar = (toPar: number): string => {
+    if (toPar === 0) return "E";
+    return toPar > 0 ? `+${toPar}` : `${toPar}`;
+  };
+
+  // Get color for +/- to par
+  const getToParColor = (toPar: number): string => {
+    if (toPar < 0) return "text-green-600";
+    if (toPar > 0) return "text-red-600";
+    return "text-gray-600";
+  };
+
   const moveToNextPlayer = () => {
     if (currentPlayerIndex < teeTimeGroup.players.length - 1) {
       setCurrentPlayerIndex(currentPlayerIndex + 1);
     } else {
       // Last player on this hole
       if (currentHole < 18) {
-        setCurrentHole(currentHole + 1);
+        const nextHole = currentHole + 1;
+        if (onHoleChange) {
+          onHoleChange(nextHole);
+        } else {
+          setInternalCurrentHole(nextHole);
+        }
         setCurrentPlayerIndex(0);
       } else {
         onComplete();
@@ -3282,24 +3940,20 @@ export function ScoreEntry({
     moveToNextPlayer();
   };
 
-  const handleSpecialPress = (action: "more" | "clear") => {
+  const handleSpecialPress = (action: "more" | "clear" | "unreported") => {
     if (action === "more") {
       setKeyboardVisible(false);
       showNativeKeyboard();
-    }
-  };
-
-  const handlePreviousHole = () => {
-    if (currentHole > 1) {
-      setCurrentHole(currentHole - 1);
-      setCurrentPlayerIndex(0);
-    }
-  };
-
-  const handleNextHole = () => {
-    if (currentHole < 18) {
-      setCurrentHole(currentHole + 1);
-      setCurrentPlayerIndex(0);
+    } else if (action === "clear") {
+      if (!currentPlayer) return;
+      // Set score to -1 for "gave up on hole"
+      onScoreUpdate(currentPlayer.participantId, currentHole, -1);
+      moveToNextPlayer();
+    } else if (action === "unreported") {
+      if (!currentPlayer) return;
+      // Set score to 0 for unreported
+      onScoreUpdate(currentPlayer.participantId, currentHole, 0);
+      moveToNextPlayer();
     }
   };
 
@@ -3309,6 +3963,18 @@ export function ScoreEntry({
       return `${parts[0]} ${parts[1].charAt(0)}.`;
     }
     return name.length > 20 ? `${name.substring(0, 20)}...` : name;
+  };
+
+  // Helper function to format score display
+  const formatScoreDisplay = (score: number): string => {
+    if (score === -1) return "−"; // Gave up
+    if (score === 0) return "NR"; // Not reported
+    return score.toString(); // Actual score
+  };
+
+  // Helper function to check if a score has been entered
+  const hasValidScore = (score: number): boolean => {
+    return score > 0;
   };
 
   // Close keyboard when clicking outside
@@ -3326,43 +3992,14 @@ export function ScoreEntry({
 
   return (
     <div className="score-entry flex flex-col h-screen-mobile bg-gray-50">
-      {/* Ultra-Compact Header - Max 50px */}
-      <div
-        className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0"
-        style={{ height: "50px" }}
-      >
-        <div className="flex items-center justify-between h-full px-3">
-          <button
-            onClick={handlePreviousHole}
-            disabled={currentHole === 1}
-            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <div className="flex-1 text-center">
-            <span className="text-sm font-semibold text-gray-900">
-              {course.name} • Hole {currentHole} (Par {currentHoleData?.par})
-            </span>
-          </div>
-
-          <button
-            onClick={handleNextHole}
-            disabled={currentHole === 18}
-            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
       {/* Maximized Player Area - 60% of remaining space */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         <div className="p-3 space-y-2">
           {teeTimeGroup.players.map((player, index) => {
             const isCurrentPlayer = index === currentPlayerIndex;
-            const score = player.scores[currentHole - 1] || null;
-            const hasScore = score !== null;
+            const score = player.scores[currentHole - 1] ?? 0;
+            const hasScore = hasValidScore(score);
+            const toPar = calculatePlayerToPar(player);
 
             return (
               <div
@@ -3371,17 +4008,24 @@ export function ScoreEntry({
                   "bg-white rounded-lg p-4 flex items-center justify-between transition-all shadow-sm",
                   isCurrentPlayer && "ring-2 ring-blue-500 bg-blue-50 shadow-md"
                 )}
-                style={{ minHeight: "60px" }}
+                style={{ minHeight: "70px" }}
               >
                 <div className="flex-1 pr-3">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        "font-medium text-gray-900",
-                        isCurrentPlayer && "text-blue-900 font-semibold"
+                    <div>
+                      <div
+                        className={cn(
+                          "font-medium text-gray-900",
+                          isCurrentPlayer && "text-blue-900 font-semibold"
+                        )}
+                      >
+                        {abbreviateName(player.participantName)}
+                      </div>
+                      {player.participantType && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {player.participantType}
+                        </div>
                       )}
-                    >
-                      {abbreviateName(player.participantName)}
                     </div>
                     {player.isMultiPlayer && (
                       <div className="relative group">
@@ -3392,11 +4036,21 @@ export function ScoreEntry({
                       </div>
                     )}
                   </div>
-                  {hasScore && (
-                    <div className="text-xs text-green-600 mt-1">
-                      ✓ Score entered
+                  <div className="flex items-center gap-4 mt-1">
+                    {hasScore && (
+                      <div className="text-xs text-green-600">
+                        ✓ Score entered
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        "text-xs font-medium",
+                        getToParColor(toPar)
+                      )}
+                    >
+                      {formatToPar(toPar)}
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 <button
@@ -3410,7 +4064,7 @@ export function ScoreEntry({
                     isCurrentPlayer && "ring-2 ring-blue-400 ring-offset-1"
                   )}
                 >
-                  {hasScore ? score : "−"}
+                  {formatScoreDisplay(score)}
                 </button>
               </div>
             );
@@ -3434,6 +4088,7 @@ export function ScoreEntry({
         visible={keyboardVisible}
         onNumberPress={handleNumberPress}
         onSpecialPress={handleSpecialPress}
+        holePar={currentHoleData?.par || 4}
       />
 
       {/* Full Scorecard Modal */}
@@ -3444,7 +4099,7 @@ export function ScoreEntry({
         currentHole={currentHole}
         onClose={() => setFullScorecardVisible(false)}
         onContinueEntry={(hole) => {
-          setCurrentHole(hole);
+          setInternalCurrentHole(hole);
           setCurrentPlayerIndex(0);
           setFullScorecardVisible(false);
         }}
@@ -3455,7 +4110,7 @@ export function ScoreEntry({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-sm">
             <h3 className="text-lg font-bold mb-4">
-              Enter Score (12 or higher)
+              Enter Score (9 or higher)
             </h3>
             <input
               type="number"
@@ -3599,7 +4254,7 @@ export function useNativeKeyboard({
 
   const handleSubmit = useCallback(() => {
     const score = parseInt(inputValue, 10);
-    if (!isNaN(score) && score >= 12) {
+    if (!isNaN(score) && score >= 9) {
       onScoreSubmit(score);
       hide();
     }
@@ -4288,22 +4943,28 @@ createRoot(document.getElementById("root")!).render(
 # frontend/src/router.tsx
 
 ```tsx
-import { createRouter, RootRoute, Route } from "@tanstack/react-router";
+import {
+  createRouter,
+  RootRoute,
+  Route,
+  Navigate,
+} from "@tanstack/react-router";
 import App from "./App";
+import { getBasePath } from "./api/config";
 
 // Import Admin views
 import AdminLayout from "./views/admin/AdminLayout";
 import AdminTeams from "./views/admin/Teams";
 import AdminCourses from "./views/admin/Courses";
 import AdminCompetitions from "./views/admin/Competitions";
-import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes";
+import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 
 // Import Player views
 import PlayerLayout from "./views/player/PlayerLayout";
 import PlayerStandings from "./views/player/Standings";
 import PlayerCompetitions from "./views/player/Competitions";
 import CompetitionDetail from "./views/player/CompetitionDetail";
-import TeeTimeDetail from "./views/player/TeeTimeDetail";
+import CompetitionRound from "./views/player/CompetitionRound";
 
 // Root route
 const rootRoute = new RootRoute({
@@ -4369,17 +5030,14 @@ const competitionDetailRoute = new Route({
 const teeTimeDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId/tee-times/$teeTimeId",
-  component: TeeTimeDetail,
+  component: CompetitionRound,
 });
 
 // Default redirect to player standings
 const indexRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: () => {
-    window.location.href = "/player/standings";
-    return null;
-  },
+  component: () => <Navigate to="/player/standings" replace />,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -4400,6 +5058,7 @@ const routeTree = rootRoute.addChildren([
 
 const router = createRouter({
   routeTree,
+  basepath: getBasePath(),
 });
 
 export default router;
@@ -4594,6 +5253,7 @@ import { useCompetitions, type Competition } from "../../api/competitions";
 import { useCourses } from "../../api/courses";
 import { Plus, Edit, Trash2, MapPin, Clock } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { API_BASE_URL } from "../../api/config";
 
 export default function AdminCompetitions() {
   const { data: competitions, isLoading, error } = useCompetitions();
@@ -4631,7 +5291,7 @@ export default function AdminCompetitions() {
     e.preventDefault();
 
     try {
-      const response = await fetch("/api/competitions", {
+      const response = await fetch(`${API_BASE_URL}/competitions`, {
         method: editingCompetition ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
@@ -6313,8 +6973,8 @@ export default function Participants() {
 # frontend/src/views/player/CompetitionDetail.tsx
 
 ```tsx
-import { useState } from "react";
-import { Link, useParams } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { Link, useParams, useSearch } from "@tanstack/react-router";
 import {
   useCompetition,
   useCompetitionLeaderboard,
@@ -6329,13 +6989,28 @@ import {
   Trophy,
   ArrowLeft,
   Medal,
+  Edit3,
 } from "lucide-react";
+import { HamburgerMenu } from "../../components/navigation";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
 export default function CompetitionDetail() {
   const { competitionId } = useParams({ strict: false });
-  const [activeTab, setActiveTab] = useState<TabType>("startlist");
+  const searchParams = useSearch({ strict: false });
+
+  // Check if we came from score entry
+  const fromTeeTime = searchParams?.fromTeeTime;
+
+  // Check for hash-based navigation to set initial tab
+  const getInitialTab = (): TabType => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "leaderboard") return "leaderboard";
+    if (hash === "teamresult") return "teamresult";
+    return "startlist";
+  };
+
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
 
   const { data: competition, isLoading: competitionLoading } = useCompetition(
     competitionId ? parseInt(competitionId) : 0
@@ -6346,8 +7021,22 @@ export default function CompetitionDetail() {
   const { data: leaderboard, isLoading: leaderboardLoading } =
     useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
 
-  if (competitionLoading) return <div>Loading competition...</div>;
-  if (!competition) return <div>Competition not found</div>;
+  // ... existing useEffect for hash changes ...
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash === "leaderboard") setActiveTab("leaderboard");
+      else if (hash === "teamresult") setActiveTab("teamresult");
+      else setActiveTab("startlist");
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  if (competitionLoading)
+    return <div className="p-4">Loading competition...</div>;
+  if (!competition) return <div className="p-4">Competition not found</div>;
 
   const getPositionColor = (position: number) => {
     switch (position) {
@@ -6420,345 +7109,1052 @@ export default function CompetitionDetail() {
     });
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link
-          to="/player/competitions"
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {competition.name}
-          </h1>
-          <div className="flex items-center gap-6 mt-2 text-sm text-gray-600">
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6">
+        {/* Header - Much cleaner on mobile */}
+        <div className="flex items-center gap-3 md:gap-4">
+          <Link
+            to="/player/competitions"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl md:text-3xl font-bold text-gray-900 truncate">
+              {competition.name}
+            </h1>
+          </div>
+
+          {/* Back to Score Entry button - only show if coming from tee time */}
+          {fromTeeTime && (
+            <Link
+              to={`/player/competitions/${competitionId}/tee-times/${fromTeeTime}`}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Back to</span>
+              <span>Score</span>
+            </Link>
+          )}
+
+          <HamburgerMenu />
+        </div>
+
+        {/* Competition Info Header */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="flex items-center justify-center gap-4 md:gap-8 text-xs md:text-sm text-gray-600">
             <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              {new Date(competition.date).toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              <Calendar className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">
+                {new Date(competition.date).toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </span>
+              <span className="sm:hidden">
+                {new Date(competition.date).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
             </div>
             <div className="flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              {course?.name || "Loading course..."}
+              <MapPin className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="truncate">{course?.name || "Loading..."}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              {totalParticipants} participants
+              <Users className="h-3 w-3 md:h-4 md:w-4" />
+              <span>{totalParticipants} participants</span>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab("startlist")}
-            className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-              ${
-                activeTab === "startlist"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }
-            `}
-          >
-            <Clock className="h-4 w-4" />
-            Start List
-          </button>
-          <button
-            onClick={() => setActiveTab("leaderboard")}
-            className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-              ${
-                activeTab === "leaderboard"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }
-            `}
-          >
-            <Trophy className="h-4 w-4" />
-            Leaderboard
-          </button>
-          <button
-            onClick={() => setActiveTab("teamresult")}
-            className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-              ${
-                activeTab === "teamresult"
-                  ? "border-green-500 text-green-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }
-            `}
-          >
-            <Medal className="h-4 w-4" />
-            Team Result
-          </button>
-        </nav>
-      </div>
+        {/* Tabs - More compact on mobile */}
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-4 md:space-x-8">
+            <button
+              onClick={() => {
+                setActiveTab("startlist");
+                window.location.hash = "";
+              }}
+              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
+                ${
+                  activeTab === "startlist"
+                    ? "border-green-500 text-green-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }
+              `}
+            >
+              <Clock className="h-3 w-3 md:h-4 md:w-4" />
+              Start List
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("leaderboard");
+                window.location.hash = "leaderboard";
+              }}
+              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
+                ${
+                  activeTab === "leaderboard"
+                    ? "border-green-500 text-green-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }
+              `}
+            >
+              <Trophy className="h-3 w-3 md:h-4 md:w-4" />
+              Leaderboard
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("teamresult");
+                window.location.hash = "teamresult";
+              }}
+              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
+                ${
+                  activeTab === "teamresult"
+                    ? "border-green-500 text-green-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }
+              `}
+            >
+              <Medal className="h-3 w-3 md:h-4 md:w-4" />
+              Team Result
+            </button>
+          </nav>
+        </div>
 
-      {/* Tab Content */}
-      {activeTab === "startlist" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Tee Times</h2>
-            <div className="text-sm text-gray-500">
-              {teeTimes?.length || 0} tee times scheduled
+        {/* Tab Content */}
+        {activeTab === "startlist" && (
+          <div className="space-y-3 md:space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                Tee Times
+              </h2>
+              <div className="text-xs md:text-sm text-gray-500">
+                {teeTimes?.length || 0} tee times
+              </div>
             </div>
-          </div>
 
-          {teeTimesLoading ? (
-            <div>Loading tee times...</div>
-          ) : !teeTimes || teeTimes.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No tee times scheduled for this competition yet.
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {teeTimes.map((teeTime) => (
-                <Link
-                  key={teeTime.id}
-                  to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
-                  className="block bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200"
-                >
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-green-600" />
-                        <span className="text-lg font-semibold text-gray-900">
-                          {teeTime.teetime}
-                        </span>
+            {teeTimesLoading ? (
+              <div className="p-4">Loading tee times...</div>
+            ) : !teeTimes || teeTimes.length === 0 ? (
+              <div className="text-center py-6 md:py-8 text-gray-500 text-sm">
+                No tee times scheduled for this competition yet.
+              </div>
+            ) : (
+              <div className="grid gap-3 md:gap-4">
+                {teeTimes.map((teeTime) => (
+                  <Link
+                    key={teeTime.id}
+                    to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
+                    className="block bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="p-4 md:p-6">
+                      <div className="flex items-center justify-between mb-3 md:mb-4">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                          <span className="text-base md:text-lg font-semibold text-gray-900">
+                            {teeTime.teetime}
+                          </span>
+                        </div>
+                        <div className="text-xs md:text-sm text-gray-500">
+                          {teeTime.participants.length} players
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {teeTime.participants.length} players
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+                        {teeTime.participants.map((participant) => (
+                          <div
+                            key={participant.id}
+                            className="flex items-center justify-between p-2 md:p-3 bg-gray-50 rounded-lg"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="font-medium text-gray-900 text-sm md:text-base block truncate">
+                                {participant.team_name}{" "}
+                                {participant.position_name}
+                              </span>
+                              <div className="text-xs text-gray-500 truncate">
+                                {participant.player_names}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
+
+                      {teeTime.participants.length === 0 && (
+                        <div className="text-center py-3 md:py-4 text-gray-500 text-sm">
+                          No participants assigned to this tee time yet.
+                        </div>
+                      )}
                     </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {teeTime.participants.map((participant) => (
-                        <div
-                          key={participant.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                        >
-                          <div>
-                            <span className="font-medium text-gray-900">
-                              {participant.team_name}{" "}
-                              {participant.position_name}
-                            </span>
-                            <div className="text-xs text-gray-500">
-                              {participant.player_names}{" "}
+        {activeTab === "leaderboard" && (
+          <div className="space-y-3 md:space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                Leaderboard
+              </h2>
+              <div className="text-xs md:text-sm text-gray-500">
+                Live scoring
+              </div>
+            </div>
+
+            {leaderboardLoading ? (
+              <div className="p-4">Loading leaderboard...</div>
+            ) : !leaderboard || leaderboard.length === 0 ? (
+              <div className="text-center py-6 md:py-8 text-gray-500">
+                No scores reported yet.
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div className="divide-y divide-gray-200">
+                  {[...leaderboard]
+                    .sort((a, b) => {
+                      // First sort by whether they have started (holes played > 0)
+                      const aStarted = a.holesPlayed > 0;
+                      const bStarted = b.holesPlayed > 0;
+                      if (aStarted !== bStarted) {
+                        return aStarted ? -1 : 1;
+                      }
+                      // Then sort by relativeToPar
+                      return a.relativeToPar - b.relativeToPar;
+                    })
+                    .map((entry, index) => (
+                      <div
+                        key={entry.participant.id}
+                        className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
+                          index + 1
+                        )} border-l-4`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                            <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
+                              <span className="text-xs md:text-sm font-bold">
+                                {index + 1}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
+                                {entry.participant.team_name}{" "}
+                                {entry.participant.position_name}
+                              </h4>
+                              <p className="text-xs md:text-sm text-gray-600">
+                                Thru {entry.holesPlayed} holes
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="flex items-center gap-3 md:gap-6">
+                              <div>
+                                <div className="text-xs text-gray-600">
+                                  Score
+                                </div>
+                                <div className="text-lg md:text-xl font-bold text-gray-900">
+                                  {entry.totalShots}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-600">
+                                  To Par
+                                </div>
+                                <div
+                                  className={`text-lg md:text-xl font-bold ${getToParColor(
+                                    entry.relativeToPar
+                                  )}`}
+                                >
+                                  {formatToPar(entry.relativeToPar)}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-
-                    {teeTime.participants.length === 0 && (
-                      <div className="text-center py-4 text-gray-500 text-sm">
-                        No participants assigned to this tee time yet.
                       </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === "leaderboard" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Leaderboard</h2>
-            <div className="text-sm text-gray-500">Live scoring</div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
+        )}
 
-          {leaderboardLoading ? (
-            <div>Loading leaderboard...</div>
-          ) : !leaderboard || leaderboard.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No scores reported yet.
+        {activeTab === "teamresult" && (
+          <div className="space-y-3 md:space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                Team Results
+              </h2>
+              <div className="text-xs md:text-sm text-gray-500">
+                Final standings
+              </div>
             </div>
-          ) : (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="divide-y divide-gray-200">
-                {[...leaderboard]
-                  .sort((a, b) => {
-                    // First sort by whether they have started (holes played > 0)
-                    const aStarted = a.holesPlayed > 0;
-                    const bStarted = b.holesPlayed > 0;
-                    if (aStarted !== bStarted) {
-                      return aStarted ? -1 : 1;
-                    }
-                    // Then sort by relativeToPar
-                    return a.relativeToPar - b.relativeToPar;
-                  })
-                  .map((entry, index) => (
+
+            {leaderboardLoading ? (
+              <div className="p-4">Loading team results...</div>
+            ) : !sortedTeamResults || sortedTeamResults.length === 0 ? (
+              <div className="text-center py-6 md:py-8 text-gray-500">
+                No team results available yet.
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div className="divide-y divide-gray-200">
+                  {sortedTeamResults.map((team) => (
                     <div
-                      key={entry.participant.id}
-                      className={`px-6 py-4 ${getPositionColor(
-                        index + 1
+                      key={team.teamName}
+                      className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
+                        team.position
                       )} border-l-4`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white border-2">
-                            <span className="text-sm font-bold">
-                              {index + 1}
+                      <div className="flex items-center justify-between mb-3 md:mb-4">
+                        <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                          <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
+                            <span className="text-xs md:text-sm font-bold">
+                              {team.position}
                             </span>
                           </div>
-                          <div>
-                            <h4 className="text-lg font-medium text-gray-900">
-                              {entry.participant.team_name}{" "}
-                              {entry.participant.position_name}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
+                              {team.teamName}
                             </h4>
-                            <p className="text-sm text-gray-600">
-                              Thru {entry.holesPlayed} holes
+                            <p className="text-xs md:text-sm text-gray-600">
+                              {team.participants.length} players
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="flex items-center gap-6">
+                        <div className="text-right flex-shrink-0">
+                          <div className="flex items-center gap-2 md:gap-6">
                             <div>
-                              <div className="text-sm text-gray-600">Score</div>
-                              <div className="text-xl font-bold text-gray-900">
-                                {entry.totalShots}
+                              <div className="text-xs text-gray-600">Total</div>
+                              <div className="text-sm md:text-xl font-bold text-gray-900">
+                                {team.totalShots}
                               </div>
                             </div>
                             <div>
-                              <div className="text-sm text-gray-600">
+                              <div className="text-xs text-gray-600">
                                 To Par
                               </div>
                               <div
-                                className={`text-xl font-bold ${getToParColor(
-                                  entry.relativeToPar
+                                className={`text-sm md:text-xl font-bold ${getToParColor(
+                                  team.relativeToPar
                                 )}`}
                               >
-                                {formatToPar(entry.relativeToPar)}
+                                {formatToPar(team.relativeToPar)}
                               </div>
                             </div>
+                            <div>
+                              <div className="text-xs text-gray-600">
+                                Points
+                              </div>
+                              <div className="text-sm md:text-xl font-bold text-green-600">
+                                {team.points}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 md:gap-4 mt-2 md:mt-4">
+                        <div>
+                          <h5 className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">
+                            Player Scores
+                          </h5>
+                          <div className="space-y-1 md:space-y-2">
+                            {team.participants.map((participant) => (
+                              <div
+                                key={participant.name}
+                                className="flex items-center justify-between text-xs md:text-sm"
+                              >
+                                <span className="text-gray-600 truncate flex-1 mr-2">
+                                  {participant.name} ({participant.position})
+                                </span>
+                                <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                                  <span
+                                    className={getToParColor(
+                                      participant.relativeToPar
+                                    )}
+                                  >
+                                    {formatToPar(participant.relativeToPar)}
+                                  </span>
+                                  <span className="text-gray-900 font-medium">
+                                    {participant.totalShots}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === "teamresult" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Team Results
-            </h2>
-            <div className="text-sm text-gray-500">Final standings</div>
+            )}
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-          {leaderboardLoading ? (
-            <div>Loading team results...</div>
-          ) : !sortedTeamResults || sortedTeamResults.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No team results available yet.
+```
+
+# frontend/src/views/player/CompetitionRound.tsx
+
+```tsx
+import { useState } from "react";
+import { useParams, useNavigate } from "@tanstack/react-router";
+import {
+  useCompetition,
+  useCompetitionLeaderboard,
+} from "../../api/competitions";
+import { useCourse } from "../../api/courses";
+import {
+  useTeeTimesForCompetition,
+  useTeeTime,
+  useUpdateScore,
+  type TeeTimeParticipant,
+} from "../../api/tee-times";
+import { Calendar, MapPin, Users, ArrowLeft } from "lucide-react";
+import { ScoreEntry } from "../../components/score-entry";
+import {
+  BottomTabNavigation,
+  HoleNavigation,
+  HamburgerMenu,
+} from "../../components/navigation";
+import {
+  formatParticipantTypeDisplay,
+  isMultiPlayerFormat,
+} from "../../utils/playerUtils";
+
+type TabType = "score" | "leaderboard" | "teams" | "participants";
+
+export default function CompetitionRound() {
+  const { competitionId, teeTimeId } = useParams({ strict: false });
+  const navigate = useNavigate();
+
+  // Determine initial tab based on URL and params
+  const getInitialTab = (): TabType => {
+    if (teeTimeId) return "score"; // If we have a tee time, start with score entry
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "teams") return "teams";
+    if (hash === "participants") return "participants";
+    return "leaderboard"; // Default to leaderboard if no tee time
+  };
+
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
+  const [currentHole, setCurrentHole] = useState(1);
+
+  // Data fetching
+  const { data: competition, isLoading: competitionLoading } = useCompetition(
+    competitionId ? parseInt(competitionId) : 0
+  );
+  const { data: course } = useCourse(competition?.course_id || 0);
+  const { data: teeTimes } = useTeeTimesForCompetition(
+    competitionId ? parseInt(competitionId) : 0
+  );
+  const { data: leaderboard, isLoading: leaderboardLoading } =
+    useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+
+  // Tee time data for score entry
+  const { data: teeTime } = useTeeTime(teeTimeId ? parseInt(teeTimeId) : 0);
+  const updateScoreMutation = useUpdateScore();
+
+  // Handle tab changes and URL updates
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    // Keep all navigation within the Round context - don't navigate to different URLs
+    // This maintains the footer navigation experience
+  };
+
+  // Score entry functions
+  const handleScoreUpdate = (
+    participantId: string,
+    hole: number,
+    score: number
+  ) => {
+    updateScoreMutation.mutate({
+      participantId: parseInt(participantId),
+      hole,
+      shots: score,
+    });
+  };
+
+  const handleComplete = () => {
+    console.log("Score entry completed!");
+  };
+
+  // Helper functions from CompetitionDetail
+  const getPositionColor = (position: number) => {
+    switch (position) {
+      case 1:
+        return "text-yellow-600 bg-yellow-50 border-yellow-200";
+      case 2:
+        return "text-gray-600 bg-gray-50 border-gray-200";
+      case 3:
+        return "text-amber-600 bg-amber-50 border-amber-200";
+      default:
+        return "text-gray-900 bg-white border-gray-200";
+    }
+  };
+
+  const getToParColor = (toPar: number) => {
+    if (toPar < 0) return "text-green-600";
+    if (toPar > 0) return "text-red-600";
+    return "text-gray-600";
+  };
+
+  const formatToPar = (toPar: number) => {
+    if (toPar === 0) return "E";
+    return toPar > 0 ? `+${toPar}` : `${toPar}`;
+  };
+
+  // Prepare data for score entry
+  const teeTimeGroup = teeTime
+    ? {
+        id: teeTime.id.toString(),
+        players: teeTime.participants.map(
+          (participant: TeeTimeParticipant) => ({
+            participantId: participant.id.toString(),
+            participantName: participant.team_name,
+            participantType: formatParticipantTypeDisplay(
+              participant.position_name
+            ),
+            isMultiPlayer: isMultiPlayerFormat(participant.position_name),
+            scores: participant.score,
+          })
+        ),
+      }
+    : null;
+
+  const courseData =
+    teeTime && course
+      ? {
+          id: teeTime.id.toString(),
+          name: `${teeTime.course_name} ${teeTime.teetime}`,
+          holes: teeTime.pars.map((par: number, index: number) => ({
+            number: index + 1,
+            par,
+          })),
+        }
+      : null;
+
+  const currentHoleData = courseData?.holes.find(
+    (h: { number: number; par: number }) => h.number === currentHole
+  );
+
+  // Calculate team results (same logic as CompetitionDetail)
+  const teamResults = leaderboard?.reduce((acc, entry) => {
+    const teamName = entry.participant.team_name;
+    if (!acc[teamName]) {
+      acc[teamName] = {
+        teamName,
+        participants: [],
+        totalShots: 0,
+        relativeToPar: 0,
+      };
+    }
+    acc[teamName].participants.push({
+      name: entry.participant.player_names || "",
+      position: entry.participant.position_name,
+      totalShots: entry.totalShots,
+      relativeToPar: entry.relativeToPar,
+    });
+    acc[teamName].totalShots += entry.totalShots;
+    acc[teamName].relativeToPar += entry.relativeToPar;
+    return acc;
+  }, {} as Record<string, { teamName: string; participants: Array<{ name: string; position: string; totalShots: number; relativeToPar: number }>; totalShots: number; relativeToPar: number }>);
+
+  const sortedTeamResults = Object.values(teamResults || {})
+    .sort((a, b) => a.relativeToPar - b.relativeToPar)
+    .map((team, index, array) => {
+      const position = index + 1;
+      let points = array.length - position + 1;
+      if (position === 1) points += 2;
+      if (position === 2) points += 1;
+      return { ...team, position, points };
+    });
+
+  const totalParticipants =
+    teeTimes?.reduce(
+      (total, teeTime) => total + teeTime.participants.length,
+      0
+    ) || 0;
+
+  if (competitionLoading)
+    return <div className="p-4">Loading competition...</div>;
+  if (!competition) return <div className="p-4">Competition not found</div>;
+
+  return (
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() =>
+              navigate({
+                to: `/player/competitions/${competitionId}`,
+                replace: true,
+              })
+            }
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Back to Competition"
+          >
+            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">
+              {competition.name}
+            </h1>
+          </div>
+        </div>
+        <HamburgerMenu />
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden">
+        {activeTab === "score" ? (
+          teeTimeGroup && courseData ? (
+            <div className="h-full flex flex-col">
+              <div className="flex-1 overflow-hidden">
+                <ScoreEntry
+                  teeTimeGroup={teeTimeGroup}
+                  course={courseData}
+                  onScoreUpdate={handleScoreUpdate}
+                  onComplete={handleComplete}
+                  currentHole={currentHole}
+                  onHoleChange={setCurrentHole}
+                />
+              </div>
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="divide-y divide-gray-200">
-                {sortedTeamResults.map((team) => (
-                  <div
-                    key={team.teamName}
-                    className={`px-6 py-4 ${getPositionColor(
-                      team.position
-                    )} border-l-4`}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white border-2">
-                          <span className="text-sm font-bold">
-                            {team.position}
-                          </span>
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-900">
-                            {team.teamName}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            {team.participants.length} players
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-6">
-                          <div>
-                            <div className="text-sm text-gray-600">
-                              Total Score
+            // Show tee time selection when no tee time is selected
+            <div className="h-full overflow-y-auto">
+              <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                    Select Tee Time for Score Entry
+                  </h2>
+                </div>
+
+                {!teeTimes || teeTimes.length === 0 ? (
+                  <div className="text-center py-6 md:py-8 text-gray-500">
+                    No tee times available for this competition.
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="divide-y divide-gray-200">
+                      {teeTimes.map((teeTime) => (
+                        <button
+                          key={teeTime.id}
+                          onClick={() =>
+                            navigate({
+                              to: `/player/competitions/${competitionId}/tee-times/${teeTime.id}`,
+                              replace: true,
+                            })
+                          }
+                          className="w-full px-4 md:px-6 py-3 md:py-4 text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="text-sm md:text-lg font-medium text-gray-900">
+                                {teeTime.teetime}
+                              </h4>
+                              <p className="text-xs md:text-sm text-gray-600 mt-1">
+                                {teeTime.participants
+                                  .map((p) => p.team_name)
+                                  .join(", ")}
+                              </p>
                             </div>
-                            <div className="text-xl font-bold text-gray-900">
-                              {team.totalShots}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-sm text-gray-600">To Par</div>
-                            <div
-                              className={`text-xl font-bold ${getToParColor(
-                                team.relativeToPar
-                              )}`}
-                            >
-                              {formatToPar(team.relativeToPar)}
+                            <div className="text-xs text-gray-500">
+                              {teeTime.participants.length} player
+                              {teeTime.participants.length !== 1 ? "s" : ""}
                             </div>
                           </div>
-                          <div>
-                            <div className="text-sm text-gray-600">Points</div>
-                            <div className="text-xl font-bold text-green-600">
-                              {team.points}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <div>
-                        <h5 className="text-sm font-medium text-gray-700 mb-2">
-                          Player Scores
-                        </h5>
-                        <div className="space-y-2">
-                          {team.participants.map((participant) => (
-                            <div
-                              key={participant.name}
-                              className="flex items-center justify-between text-sm"
-                            >
-                              <span className="text-gray-600">
-                                {participant.name} ({participant.position})
-                              </span>
-                              <div className="flex items-center gap-4">
-                                <span
-                                  className={getToParColor(
-                                    participant.relativeToPar
-                                  )}
-                                >
-                                  {formatToPar(participant.relativeToPar)}
-                                </span>
-                                <span className="text-gray-900">
-                                  {participant.totalShots}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          )}
-        </div>
+          )
+        ) : activeTab === "leaderboard" ? (
+          <div className="h-full overflow-y-auto">
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                  Leaderboard
+                </h2>
+                <div className="text-xs md:text-sm text-gray-500">
+                  Live scoring
+                </div>
+              </div>
+
+              {leaderboardLoading ? (
+                <div className="p-4">Loading leaderboard...</div>
+              ) : !leaderboard || leaderboard.length === 0 ? (
+                <div className="text-center py-6 md:py-8 text-gray-500">
+                  No scores reported yet.
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                  <div className="divide-y divide-gray-200">
+                    {[...leaderboard]
+                      .sort((a, b) => {
+                        const aStarted = a.holesPlayed > 0;
+                        const bStarted = b.holesPlayed > 0;
+                        if (aStarted !== bStarted) {
+                          return aStarted ? -1 : 1;
+                        }
+                        return a.relativeToPar - b.relativeToPar;
+                      })
+                      .map((entry, index) => (
+                        <div
+                          key={entry.participant.id}
+                          className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
+                            index + 1
+                          )} border-l-4`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                              <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
+                                <span className="text-xs md:text-sm font-bold">
+                                  {index + 1}
+                                </span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
+                                  {entry.participant.team_name}{" "}
+                                  {entry.participant.position_name}
+                                </h4>
+                                <p className="text-xs md:text-sm text-gray-600">
+                                  Thru {entry.holesPlayed} holes
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="flex items-center gap-3 md:gap-6">
+                                <div>
+                                  <div className="text-xs text-gray-600">
+                                    Score
+                                  </div>
+                                  <div className="text-lg md:text-xl font-bold text-gray-900">
+                                    {entry.totalShots}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-600">
+                                    To Par
+                                  </div>
+                                  <div
+                                    className={`text-lg md:text-xl font-bold ${getToParColor(
+                                      entry.relativeToPar
+                                    )}`}
+                                  >
+                                    {formatToPar(entry.relativeToPar)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === "teams" ? (
+          // Team Results Tab
+          <div className="h-full overflow-y-auto">
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                  Team Results
+                </h2>
+                <div className="text-xs md:text-sm text-gray-500">
+                  Final standings
+                </div>
+              </div>
+
+              {leaderboardLoading ? (
+                <div className="p-4">Loading team results...</div>
+              ) : !sortedTeamResults || sortedTeamResults.length === 0 ? (
+                <div className="text-center py-6 md:py-8 text-gray-500">
+                  No team results available yet.
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                  <div className="divide-y divide-gray-200">
+                    {sortedTeamResults.map((team) => (
+                      <div
+                        key={team.teamName}
+                        className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
+                          team.position
+                        )} border-l-4`}
+                      >
+                        <div className="flex items-center justify-between mb-3 md:mb-4">
+                          <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                            <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
+                              <span className="text-xs md:text-sm font-bold">
+                                {team.position}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
+                                {team.teamName}
+                              </h4>
+                              <p className="text-xs md:text-sm text-gray-600">
+                                {team.participants.length} players
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="flex items-center gap-2 md:gap-6">
+                              <div>
+                                <div className="text-xs text-gray-600">
+                                  Total
+                                </div>
+                                <div className="text-sm md:text-xl font-bold text-gray-900">
+                                  {team.totalShots}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-600">
+                                  To Par
+                                </div>
+                                <div
+                                  className={`text-sm md:text-xl font-bold ${getToParColor(
+                                    team.relativeToPar
+                                  )}`}
+                                >
+                                  {formatToPar(team.relativeToPar)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-600">
+                                  Points
+                                </div>
+                                <div className="text-sm md:text-xl font-bold text-green-600">
+                                  {team.points}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 md:gap-4 mt-2 md:mt-4">
+                          <div>
+                            <h5 className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">
+                              Player Scores
+                            </h5>
+                            <div className="space-y-1 md:space-y-2">
+                              {team.participants.map((participant) => (
+                                <div
+                                  key={participant.name}
+                                  className="flex items-center justify-between text-xs md:text-sm"
+                                >
+                                  <span className="text-gray-600 truncate flex-1 mr-2">
+                                    {participant.name} ({participant.position})
+                                  </span>
+                                  <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                                    <span
+                                      className={getToParColor(
+                                        participant.relativeToPar
+                                      )}
+                                    >
+                                      {formatToPar(participant.relativeToPar)}
+                                    </span>
+                                    <span className="text-gray-900 font-medium">
+                                      {participant.totalShots}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Participants Tab - Current Round Context
+          <div className="h-full overflow-y-auto">
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+                  Round Participants
+                </h2>
+                <div className="text-xs md:text-sm text-gray-500">
+                  {teeTimeId ? "Current group" : `${totalParticipants} total`}
+                </div>
+              </div>
+
+              {/* Current Tee Time Group (if in score entry context) */}
+              {teeTimeId && teeTime && (
+                <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm md:text-lg font-semibold text-blue-900">
+                      Your Group - {teeTime.teetime}
+                    </h3>
+                    <span className="text-xs md:text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                      Active
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {teeTime.participants.map(
+                      (participant: TeeTimeParticipant) => (
+                        <div
+                          key={participant.id}
+                          className="flex items-center justify-between p-3 bg-white rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <h4 className="text-sm md:text-base font-medium text-gray-900">
+                              {participant.team_name}
+                            </h4>
+                            <p className="text-xs md:text-sm text-gray-600 mt-1">
+                              {formatParticipantTypeDisplay(
+                                participant.position_name
+                              )}
+                              {participant.player_names && (
+                                <span className="ml-2">
+                                  • {participant.player_names}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {isMultiPlayerFormat(participant.position_name) && (
+                              <Users className="w-4 h-4 inline-block" />
+                            )}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* All Other Tee Times */}
+              <div>
+                <h3 className="text-sm md:text-base font-medium text-gray-700 mb-3">
+                  {teeTimeId ? "Other Groups" : "All Groups"}
+                </h3>
+
+                {!teeTimes || teeTimes.length === 0 ? (
+                  <div className="text-center py-6 md:py-8 text-gray-500">
+                    No tee times scheduled for this competition.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {teeTimes
+                      .filter((t) => !teeTimeId || t.id !== parseInt(teeTimeId))
+                      .map((teeTimeGroup) => (
+                        <div
+                          key={teeTimeGroup.id}
+                          className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+                        >
+                          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                            <h4 className="text-sm md:text-base font-semibold text-gray-900">
+                              {teeTimeGroup.teetime}
+                            </h4>
+                          </div>
+                          <div className="divide-y divide-gray-200">
+                            {teeTimeGroup.participants.map(
+                              (participant: TeeTimeParticipant) => (
+                                <div
+                                  key={participant.id}
+                                  className="px-4 py-2 flex items-center justify-between"
+                                >
+                                  <div className="flex-1">
+                                    <h5 className="text-xs md:text-sm font-medium text-gray-900">
+                                      {participant.team_name}
+                                    </h5>
+                                    <p className="text-xs text-gray-600">
+                                      {formatParticipantTypeDisplay(
+                                        participant.position_name
+                                      )}
+                                    </p>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {isMultiPlayerFormat(
+                                      participant.position_name
+                                    ) && (
+                                      <Users className="w-3 h-3 inline-block" />
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Hole Navigation - only show during score entry */}
+      {activeTab === "score" && currentHoleData && (
+        <HoleNavigation
+          currentHole={currentHole}
+          holePar={currentHoleData.par}
+          onPrevious={() => setCurrentHole(Math.max(1, currentHole - 1))}
+          onNext={() => setCurrentHole(Math.min(18, currentHole + 1))}
+          canGoPrevious={currentHole > 1}
+          canGoNext={currentHole < 18}
+          className="flex-shrink-0"
+        />
       )}
+
+      {/* Bottom Tab Navigation - Always visible and sticky */}
+      <BottomTabNavigation
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        className="flex-shrink-0"
+      />
+
+      {/* Competition Info Footer - Always visible and sticky */}
+      <div className="bg-gray-50 border-t border-gray-200 px-4 py-2 flex-shrink-0">
+        <div className="flex items-center justify-center gap-4 md:gap-8 text-xs text-gray-600">
+          <div className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            <span className="hidden sm:inline">
+              {new Date(competition.date).toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+            <span className="sm:hidden">
+              {new Date(competition.date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            <span className="truncate">{course?.name || "Loading..."}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            <span>{totalParticipants} participants</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -6771,7 +8167,7 @@ export default function CompetitionDetail() {
 import { Link } from "@tanstack/react-router";
 import { useCompetitions } from "../../api/competitions";
 import { useCourses } from "../../api/courses";
-import { Calendar, MapPin, Users, ChevronRight } from "lucide-react";
+import { Calendar, Users, ChevronRight } from "lucide-react";
 
 export default function PlayerCompetitions() {
   const { data: competitions, isLoading, error } = useCompetitions();
@@ -6868,13 +8264,8 @@ export default function PlayerCompetitions() {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {course?.name || "Unknown Course"}
-                      </div>
-                      <div className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {/* Mock participant count - in real app this would come from API */}
-                        {Math.floor(Math.random() * 20) + 5} participants
+                        {competition.participant_count} participants
                       </div>
                     </div>
 
@@ -6931,6 +8322,16 @@ const playerNavLinks = [
 
 export default function PlayerLayout() {
   const { location } = useRouterState();
+
+  // Hide navigation for competition rounds (they have their own navigation)
+  const isCompetitionRound =
+    location.pathname.includes("/competitions/") &&
+    (location.pathname.includes("/tee-times/") ||
+      location.pathname.match(/\/competitions\/\d+$/));
+
+  if (isCompetitionRound) {
+    return <Outlet />;
+  }
 
   return (
     <div className="space-y-6">
@@ -7238,6 +8639,8 @@ export default function TeeTimeDetail() {
       hole,
       shots: score,
     });
+    // Note: All score states are now represented as numbers:
+    // -1 = gave up, 0 = unreported, 1+ = actual scores
   };
 
   const handleComplete = () => {
@@ -7253,10 +8656,8 @@ export default function TeeTimeDetail() {
     id: teeTime.id.toString(),
     players: teeTime.participants.map((participant: TeeTimeParticipant) => ({
       participantId: participant.id.toString(),
-      participantName: `${participant.team_name} ${formatParticipantTypeDisplay(
-        participant.position_name
-      )}`,
-      participantType: participant.position_name,
+      participantName: participant.team_name,
+      participantType: formatParticipantTypeDisplay(participant.position_name),
       isMultiPlayer: isMultiPlayerFormat(participant.position_name),
       scores: participant.score,
     })),
@@ -7288,14 +8689,6 @@ export default function TeeTimeDetail() {
         <div className="absolute top-2 right-2 z-10">
           <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
             ⚠️ {totalActualPlayers}/4 players
-          </div>
-        </div>
-      )}
-
-      {totalActualPlayers <= 4 && totalActualPlayers > 0 && (
-        <div className="absolute top-2 right-2 z-10">
-          <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
-            {totalActualPlayers}/4 players
           </div>
         </div>
       )}
@@ -7634,28 +9027,30 @@ import path from "path";
 import { defineConfig } from "vite";
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-  server: {
-    proxy: {
-      "/api": {
-        target: "http://localhost:3000",
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  // Use different base paths for development and production
+  const base = mode === "production" ? "/golf-serie/" : "/";
+
+  return {
+    base,
+    plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
       },
     },
-  },
+    server: {
+      proxy: {
+        "/api": {
+          target: "http://localhost:3010",
+          changeOrigin: true,
+        },
+      },
+    },
+  };
 });
 
 ```
-
-# golf_series.db
-
-This is a binary file of the type: Binary
 
 # index.ts
 
@@ -7677,19 +9072,16 @@ console.log("Hello via Bun!");
     "dev": "bun run --watch src/index.ts",
     "prod": "bun src/index.ts",
     "build": "bun build src/index.ts --outdir=./dist",
-    "test": "bun test",
+    "test": "bun test --concurrency 1",
     "test:watch": "bun test --watch",
-    "db:generate": "drizzle-kit generate:sqlite",
     "migrate": "bun run src/database/migrate.ts",
-    "db:seed": "bun src/infrastructure/database/seed.ts",
-    "db:studio": "drizzle-kit studio",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
-    "setup": "bun install && bun db:migrate && bun db:seed",
+    "setup": "bun install && bun run src/database/migrate.ts && bun run src/database/seed.ts",
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.29.1",
+    "hono": "^4.7.10",
     "uuid": "^9.0.1",
     "zod": "^3.22.4"
   },
@@ -7948,8 +9340,9 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
         });
       } catch (error) {
         if (error instanceof Error) {
+          const status = error.message === "Competition not found" ? 404 : 400;
           return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
+            status: status,
             headers: { "Content-Type": "application/json" },
           });
         }
@@ -8206,7 +9599,7 @@ export function createParticipantsApi(participantService: ParticipantService) {
       } catch (error) {
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
+            status: 404,
             headers: { "Content-Type": "application/json" },
           });
         }
@@ -8273,7 +9666,9 @@ export function createParticipantsApi(participantService: ParticipantService) {
     async updateScore(req: Request, id: number): Promise<Response> {
       try {
         const data = (await req.json()) as { hole: number; shots: number };
-        if (!data.shots) {
+
+        // Allow -1 (gave up) and 0 (unreported/cleared score) as valid values
+        if (data.shots === undefined || data.shots === null) {
           return new Response(JSON.stringify({ error: "Shots are required" }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
@@ -8293,6 +9688,181 @@ export function createParticipantsApi(participantService: ParticipantService) {
           data.shots
         );
         return new Response(JSON.stringify(participant), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          // Return 404 for participant not found, 400 for validation errors
+          const status = error.message === "Participant not found" ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+  };
+}
+
+```
+
+# src/api/series.ts
+
+```ts
+import { SeriesService } from "../services/series-service";
+import type { CreateSeriesDto, UpdateSeriesDto } from "../types";
+
+export function createSeriesApi(seriesService: SeriesService) {
+  return {
+    async create(req: Request): Promise<Response> {
+      try {
+        const data = (await req.json()) as CreateSeriesDto;
+        const series = await seriesService.create(data);
+        return new Response(JSON.stringify(series), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async findAll(): Promise<Response> {
+      try {
+        const series = await seriesService.findAll();
+        return new Response(JSON.stringify(series), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async findById(req: Request, id: number): Promise<Response> {
+      try {
+        const series = await seriesService.findById(id);
+        if (!series) {
+          return new Response(JSON.stringify({ error: "Series not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify(series), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async update(req: Request, id: number): Promise<Response> {
+      try {
+        const data = (await req.json()) as UpdateSeriesDto;
+        const series = await seriesService.update(id, data);
+        return new Response(JSON.stringify(series), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async delete(id: number): Promise<Response> {
+      try {
+        await seriesService.delete(id);
+        return new Response(null, { status: 204 });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async getCompetitions(id: number): Promise<Response> {
+      try {
+        const competitions = await seriesService.getCompetitions(id);
+        return new Response(JSON.stringify(competitions), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async getTeams(id: number): Promise<Response> {
+      try {
+        const teams = await seriesService.getTeams(id);
+        return new Response(JSON.stringify(teams), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -8472,6 +10042,15 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "Competition not found"
+        ) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         return new Response(
           JSON.stringify({ error: "Internal server error" }),
           {
@@ -8581,14 +10160,10 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
 
     async updateParticipantsOrder(req: Request, id: number): Promise<Response> {
       try {
-        const body = (await req.json()) as Array<{
-          participant_id: number;
-          tee_order: number;
-        }>;
-        const newOrder = body.map((item) => item.participant_id);
+        const body = (await req.json()) as { participantIds: number[] };
         const updatedTeeTime = await teeTimeService.updateParticipantsOrder(
           id,
-          newOrder
+          body.participantIds
         );
         return new Response(JSON.stringify(updatedTeeTime), {
           status: 200,
@@ -8596,6 +10171,12 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
         });
       } catch (error) {
         if (error instanceof Error) {
+          if (error.message === "Tee time not found") {
+            return new Response(JSON.stringify({ error: error.message }), {
+              status: 404,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
           return new Response(JSON.stringify({ error: error.message }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
@@ -8615,6 +10196,281 @@ export function createTeeTimesApi(teeTimeService: TeeTimeService) {
 
 ```
 
+# src/app.ts
+
+```ts
+import { Database } from "bun:sqlite";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { createCompetitionsApi } from "./api/competitions";
+import { createCoursesApi } from "./api/courses";
+import { createParticipantsApi } from "./api/participants";
+import { createSeriesApi } from "./api/series";
+import { createTeamsApi } from "./api/teams";
+import { createTeeTimesApi } from "./api/tee-times";
+import { CompetitionService } from "./services/competition-service";
+import { CourseService } from "./services/course-service";
+import { ParticipantService } from "./services/participant-service";
+import { SeriesService } from "./services/series-service";
+import { TeamService } from "./services/team-service";
+import { TeeTimeService } from "./services/tee-time-service";
+
+export function createApp(db: Database): Hono {
+  // Initialize services
+  const courseService = new CourseService(db);
+  const teamService = new TeamService(db);
+  const competitionService = new CompetitionService(db);
+  const teeTimeService = new TeeTimeService(db);
+  const participantService = new ParticipantService(db);
+  const seriesService = new SeriesService(db);
+
+  // Initialize APIs
+  const coursesApi = createCoursesApi(courseService);
+  const teamsApi = createTeamsApi(teamService);
+  const competitionsApi = createCompetitionsApi(competitionService);
+  const teeTimesApi = createTeeTimesApi(teeTimeService);
+  const participantsApi = createParticipantsApi(participantService);
+  const seriesApi = createSeriesApi(seriesService);
+
+  // Create Hono app
+  const app = new Hono();
+
+  // Add CORS middleware
+  app.use(
+    "*",
+    cors({
+      origin: "*",
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      allowHeaders: ["Content-Type", "Authorization"],
+    })
+  );
+
+  // Add request logging
+  app.use("*", async (c, next) => {
+    console.log(`${c.req.method} ${c.req.url}`);
+    await next();
+  });
+
+  // Course routes
+  app.post("/api/courses", async (c) => {
+    return await coursesApi.create(c.req.raw);
+  });
+
+  app.get("/api/courses", async (c) => {
+    return await coursesApi.findAll();
+  });
+
+  app.get("/api/courses/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await coursesApi.findById(c.req.raw, id);
+  });
+
+  app.put("/api/courses/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await coursesApi.update(c.req.raw, id);
+  });
+
+  app.delete("/api/courses/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await coursesApi.delete(id);
+  });
+
+  app.put("/api/courses/:id/holes", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await coursesApi.updateHoles(c.req.raw, id);
+  });
+
+  // Team routes
+  app.post("/api/teams", async (c) => {
+    return await teamsApi.create(c.req.raw);
+  });
+
+  app.get("/api/teams", async (c) => {
+    return await teamsApi.findAll();
+  });
+
+  app.get("/api/teams/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await teamsApi.findById(c.req.raw, id);
+  });
+
+  app.put("/api/teams/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await teamsApi.update(c.req.raw, id);
+  });
+
+  // Competition routes
+  app.post("/api/competitions", async (c) => {
+    return await competitionsApi.create(c.req.raw);
+  });
+
+  app.get("/api/competitions", async (c) => {
+    return await competitionsApi.findAll();
+  });
+
+  app.get("/api/competitions/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await competitionsApi.findById(c.req.raw, id);
+  });
+
+  app.put("/api/competitions/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await competitionsApi.update(c.req.raw, id);
+  });
+
+  app.delete("/api/competitions/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await competitionsApi.delete(id);
+  });
+
+  app.get("/api/competitions/:competitionId/participants", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await participantsApi.findAllForCompetition(competitionId);
+  });
+
+  app.get("/api/competitions/:competitionId/leaderboard", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await competitionsApi.getLeaderboard(competitionId);
+  });
+
+  // TeeTime routes
+  app.post("/api/competitions/:competitionId/tee-times", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await teeTimesApi.createForCompetition(c.req.raw, competitionId);
+  });
+
+  app.get("/api/competitions/:competitionId/tee-times", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await teeTimesApi.findAllForCompetition(competitionId);
+  });
+
+  app.get("/api/tee-times/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await teeTimesApi.findByIdWithParticipants(c.req.raw, id);
+  });
+
+  app.delete("/api/tee-times/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await teeTimesApi.delete(id);
+  });
+
+  app.put("/api/tee-times/:id/participants/order", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await teeTimesApi.updateParticipantsOrder(c.req.raw, id);
+  });
+
+  // Participant routes
+  app.post("/api/participants", async (c) => {
+    return await participantsApi.create(c.req.raw);
+  });
+
+  app.get("/api/participants", async (c) => {
+    return await participantsApi.findAll();
+  });
+
+  app.get("/api/participants/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await participantsApi.findById(c.req.raw, id);
+  });
+
+  app.put("/api/participants/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await participantsApi.update(c.req.raw, id);
+  });
+
+  app.delete("/api/participants/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await participantsApi.delete(id);
+  });
+
+  app.put("/api/participants/:id/score", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await participantsApi.updateScore(c.req.raw, id);
+  });
+
+  // Series routes
+  app.post("/api/series", async (c) => {
+    return await seriesApi.create(c.req.raw);
+  });
+
+  app.get("/api/series", async (c) => {
+    return await seriesApi.findAll();
+  });
+
+  app.get("/api/series/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await seriesApi.findById(c.req.raw, id);
+  });
+
+  app.put("/api/series/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await seriesApi.update(c.req.raw, id);
+  });
+
+  app.delete("/api/series/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await seriesApi.delete(id);
+  });
+
+  app.get("/api/series/:id/competitions", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await seriesApi.getCompetitions(id);
+  });
+
+  app.get("/api/series/:id/teams", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await seriesApi.getTeams(id);
+  });
+
+  // Static file serving - fallback for frontend
+  app.get("*", async (c) => {
+    const pathname = new URL(c.req.url).pathname;
+    console.log("Serving static file for:", pathname);
+
+    try {
+      let filePath = pathname === "/" ? "/index.html" : pathname;
+      const fullPath = `frontend_dist${filePath}`;
+
+      const file = Bun.file(fullPath);
+      if (file.size > 0 || filePath === "/index.html") {
+        const mimeType = filePath.endsWith(".js")
+          ? "application/javascript"
+          : filePath.endsWith(".css")
+          ? "text/css"
+          : filePath.endsWith(".html")
+          ? "text/html"
+          : filePath.endsWith(".png")
+          ? "image/png"
+          : filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")
+          ? "image/jpeg"
+          : filePath.endsWith(".svg")
+          ? "image/svg+xml"
+          : "text/plain";
+
+        return new Response(file, {
+          headers: { "Content-Type": mimeType },
+        });
+      }
+    } catch (error) {
+      console.log("File not found:", error);
+    }
+
+    // For SPA routes, serve index.html
+    try {
+      const indexFile = Bun.file("frontend_dist/index.html");
+      return new Response(indexFile, {
+        headers: { "Content-Type": "text/html" },
+      });
+    } catch (error) {
+      return c.text("Not Found", 404);
+    }
+  });
+
+  return app;
+}
+
+```
+
 # src/database/db.ts
 
 ```ts
@@ -8622,6 +10478,7 @@ import { Database } from "bun:sqlite";
 import { InitialSchemaMigration } from "./migrations/001_initial_schema";
 import { AddTeeTimeIdMigration } from "./migrations/002_add_tee_time_id";
 import { AddParticipantScoreMigration } from "./migrations/003_add_participant_score";
+import { AddSeriesMigration } from "./migrations/004_add_series";
 
 export function createDatabase(dbPath: string = "golf_series.db"): Database {
   const db = new Database(dbPath);
@@ -8653,6 +10510,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new InitialSchemaMigration(db),
     new AddTeeTimeIdMigration(db),
     new AddParticipantScoreMigration(db),
+    new AddSeriesMigration(db),
   ];
 
   // Apply pending migrations
@@ -8680,11 +10538,14 @@ export async function createTestDatabase(): Promise<Database> {
 ```ts
 import { createDatabase, initializeDatabase } from "./db";
 
-const db = createDatabase();
-initializeDatabase(db);
+async function migrate() {
+  const db = createDatabase();
+  await initializeDatabase(db);
+  console.log("Database initialized successfully!");
+  db.close();
+}
 
-console.log("Database initialized successfully!");
-db.close();
+migrate().catch(console.error);
 
 ```
 
@@ -8867,6 +10728,81 @@ export class AddParticipantScoreMigration extends Migration {
 
 ```
 
+# src/database/migrations/004_add_series.ts
+
+```ts
+import { Migration } from "./base";
+
+export class AddSeriesMigration extends Migration {
+  version = 4;
+  description = "Add series table and optional series relationships";
+
+  async up(): Promise<void> {
+    // Create series table
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS series (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add optional series_id column to competitions table
+    await this.execute(`
+      ALTER TABLE competitions 
+      ADD COLUMN series_id INTEGER REFERENCES series(id) ON DELETE SET NULL
+    `);
+
+    // Add optional series_id column to teams table
+    await this.execute(`
+      ALTER TABLE teams 
+      ADD COLUMN series_id INTEGER REFERENCES series(id) ON DELETE SET NULL
+    `);
+  }
+
+  async down(): Promise<void> {
+    // Remove series_id from teams table
+    await this.execute(`
+      CREATE TABLE teams_temp (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await this.execute(
+      `INSERT INTO teams_temp SELECT id, name, created_at, updated_at FROM teams`
+    );
+    await this.execute(`DROP TABLE teams`);
+    await this.execute(`ALTER TABLE teams_temp RENAME TO teams`);
+
+    // Remove series_id from competitions table
+    await this.execute(`
+      CREATE TABLE competitions_temp (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        date TEXT NOT NULL,
+        course_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (course_id) REFERENCES courses(id)
+      )
+    `);
+    await this.execute(
+      `INSERT INTO competitions_temp SELECT id, name, date, course_id, created_at, updated_at FROM competitions`
+    );
+    await this.execute(`DROP TABLE competitions`);
+    await this.execute(`ALTER TABLE competitions_temp RENAME TO competitions`);
+
+    // Drop series table
+    await this.execute("DROP TABLE IF EXISTS series");
+  }
+}
+
+```
+
 # src/database/migrations/base.ts
 
 ```ts
@@ -8882,7 +10818,7 @@ export abstract class Migration {
   abstract down(): Promise<void>;
 
   protected async execute(sql: string): Promise<void> {
-    await this.db.run(sql);
+    this.db.run(sql);
   }
 
   protected async columnExists(
@@ -8911,219 +10847,19 @@ console.log("Hello via Bun!");
 # src/server.ts
 
 ```ts
-import { createCompetitionsApi } from "./api/competitions";
-import { createCoursesApi } from "./api/courses";
-import { createParticipantsApi } from "./api/participants";
-import { createTeamsApi } from "./api/teams";
-import { createTeeTimesApi } from "./api/tee-times";
+import { createApp } from "./app";
 import { createDatabase, initializeDatabase } from "./database/db";
-import { CompetitionService } from "./services/competition-service";
-import { CourseService } from "./services/course-service";
-import { ParticipantService } from "./services/participant-service";
-import { TeamService } from "./services/team-service";
-import { TeeTimeService } from "./services/tee-time-service";
 
-// Initialize database
 const db = createDatabase();
 initializeDatabase(db);
+const app = createApp(db);
 
-// Initialize services
-const courseService = new CourseService(db);
-const teamService = new TeamService(db);
-const competitionService = new CompetitionService(db);
-const teeTimeService = new TeeTimeService(db);
-const participantService = new ParticipantService(db);
-
-// Initialize APIs
-const coursesApi = createCoursesApi(courseService);
-const teamsApi = createTeamsApi(teamService);
-const competitionsApi = createCompetitionsApi(competitionService);
-const teeTimesApi = createTeeTimesApi(teeTimeService);
-const participantsApi = createParticipantsApi(participantService);
-
-// CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-// Add CORS headers to response
-const addCorsHeaders = (response: Response): Response => {
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
-  return response;
-};
-
-// Start server
-const port = process.env.PORT || 3000;
-console.log(`Server starting on port ${port}...`);
-
-Bun.serve({
-  port,
-  routes: {
-    // Course routes
-    "/api/courses": {
-      POST: async (req) => addCorsHeaders(await coursesApi.create(req)),
-      GET: async () => addCorsHeaders(await coursesApi.findAll()),
-    },
-    "/api/courses/:id": {
-      GET: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await coursesApi.findById(req, id));
-      },
-      PUT: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await coursesApi.update(req, id));
-      },
-      DELETE: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await coursesApi.delete(id));
-      },
-    },
-    "/api/courses/:id/holes": {
-      PUT: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await coursesApi.updateHoles(req, id));
-      },
-    },
-
-    // Team routes
-    "/api/teams": {
-      POST: async (req) => addCorsHeaders(await teamsApi.create(req)),
-      GET: async () => addCorsHeaders(await teamsApi.findAll()),
-    },
-    "/api/teams/:id": {
-      GET: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await teamsApi.findById(req, id));
-      },
-      PUT: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await teamsApi.update(req, id));
-      },
-    },
-
-    // Competition routes
-    "/api/competitions": {
-      POST: async (req) => addCorsHeaders(await competitionsApi.create(req)),
-      GET: async () => addCorsHeaders(await competitionsApi.findAll()),
-    },
-    "/api/competitions/:id": {
-      GET: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await competitionsApi.findById(req, id));
-      },
-      PUT: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await competitionsApi.update(req, id));
-      },
-      DELETE: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await competitionsApi.delete(id));
-      },
-    },
-    "/api/competitions/:competitionId/participants": {
-      GET: async (req) => {
-        const competitionId = parseInt(req.params.competitionId);
-        return addCorsHeaders(
-          await participantsApi.findAllForCompetition(competitionId)
-        );
-      },
-    },
-    "/api/competitions/:competitionId/leaderboard": {
-      GET: async (req) => {
-        const competitionId = parseInt(req.params.competitionId);
-        return addCorsHeaders(
-          await competitionsApi.getLeaderboard(competitionId)
-        );
-      },
-    },
-
-    // TeeTime routes
-    "/api/competitions/:competitionId/tee-times": {
-      POST: async (req) => {
-        const competitionId = parseInt(req.params.competitionId);
-        return addCorsHeaders(
-          await teeTimesApi.createForCompetition(req, competitionId)
-        );
-      },
-      GET: async (req) => {
-        const competitionId = parseInt(req.params.competitionId);
-        return addCorsHeaders(
-          await teeTimesApi.findAllForCompetition(competitionId)
-        );
-      },
-    },
-    "/api/tee-times/:id": {
-      GET: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(
-          await teeTimesApi.findByIdWithParticipants(req, id)
-        );
-      },
-      DELETE: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await teeTimesApi.delete(id));
-      },
-    },
-    "/api/tee-times/:id/participants/order": {
-      PUT: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(
-          await teeTimesApi.updateParticipantsOrder(req, id)
-        );
-      },
-    },
-
-    // Participant routes
-    "/api/participants": {
-      POST: async (req) => addCorsHeaders(await participantsApi.create(req)),
-      GET: async () => addCorsHeaders(await participantsApi.findAll()),
-    },
-    "/api/participants/:id": {
-      GET: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await participantsApi.findById(req, id));
-      },
-      PUT: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await participantsApi.update(req, id));
-      },
-      DELETE: async (req) => {
-        console.log("DELETE /api/participants/:id");
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await participantsApi.delete(id));
-      },
-    },
-    "/api/participants/:id/score": {
-      PUT: async (req) => {
-        const id = parseInt(req.params.id);
-        return addCorsHeaders(await participantsApi.updateScore(req, id));
-      },
-    },
-  },
-
-  // Fallback for unmatched routes
-  fetch(req) {
-    return addCorsHeaders(
-      new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      })
-    );
-  },
-
-  // Error handling
-  error(error) {
-    console.error("Server error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  },
+const server = Bun.serve({
+  port: process.env.PORT || 3010,
+  fetch: app.fetch,
 });
+
+console.log(`Server running on port ${server.port}`);
 
 ```
 
@@ -9168,20 +10904,41 @@ export class CompetitionService {
       throw new Error("Course not found");
     }
 
+    // Verify series exists if provided
+    if (data.series_id) {
+      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
+      const series = seriesStmt.get(data.series_id);
+      if (!series) {
+        throw new Error("Series not found");
+      }
+    }
+
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id)
-      VALUES (?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id)
+      VALUES (?, ?, ?, ?)
       RETURNING *
     `);
 
-    return stmt.get(data.name, data.date, data.course_id) as Competition;
+    return stmt.get(
+      data.name,
+      data.date,
+      data.course_id,
+      data.series_id || null
+    ) as Competition;
   }
 
   async findAll(): Promise<
-    (Competition & { course: { id: number; name: string } })[]
+    (Competition & {
+      course: { id: number; name: string };
+      participant_count: number;
+    })[]
   > {
     const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name
+      SELECT c.*, co.name as course_name,
+        (SELECT COUNT(*) 
+         FROM participants p 
+         JOIN tee_times t ON p.tee_time_id = t.id 
+         WHERE t.competition_id = c.id) as participant_count
       FROM competitions c
       JOIN courses co ON c.course_id = co.id
     `);
@@ -9191,6 +10948,7 @@ export class CompetitionService {
         id: row.course_id,
         name: row.course_name,
       },
+      participant_count: row.participant_count,
     }));
   }
 
@@ -9238,6 +10996,20 @@ export class CompetitionService {
       }
     }
 
+    if (data.series_id !== undefined) {
+      if (data.series_id === null) {
+        // Allow setting series_id to null
+      } else {
+        const seriesStmt = this.db.prepare(
+          "SELECT id FROM series WHERE id = ?"
+        );
+        const series = seriesStmt.get(data.series_id);
+        if (!series) {
+          throw new Error("Series not found");
+        }
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -9254,6 +11026,11 @@ export class CompetitionService {
     if (data.course_id) {
       updates.push("course_id = ?");
       values.push(data.course_id);
+    }
+
+    if (data.series_id !== undefined) {
+      updates.push("series_id = ?");
+      values.push(data.series_id);
     }
 
     if (updates.length === 0) {
@@ -9277,6 +11054,15 @@ export class CompetitionService {
     const competition = await this.findById(id);
     if (!competition) {
       throw new Error("Competition not found");
+    }
+
+    // Check if competition has any tee times
+    const teeTimesStmt = this.db.prepare(
+      "SELECT id FROM tee_times WHERE competition_id = ?"
+    );
+    const teeTimes = teeTimesStmt.all(id);
+    if (teeTimes.length > 0) {
+      throw new Error("Cannot delete competition that has tee times");
     }
 
     const stmt = this.db.prepare("DELETE FROM competitions WHERE id = ?");
@@ -9325,23 +11111,32 @@ export class CompetitionService {
           : Array.isArray(participant.score)
           ? participant.score
           : [];
-      const holesPlayed = score.filter((s: number) => s > 0).length;
+
+      // Count holes played: positive scores and -1 (gave up) count as played
+      // 0 means unreported/cleared, so it doesn't count as played
+      const holesPlayed = score.filter((s: number) => s > 0 || s === -1).length;
+
+      // Calculate total shots: only count positive scores
+      // -1 (gave up) and 0 (unreported) don't count towards total
       const totalShots = score.reduce(
-        (sum: number, shots: number) => sum + (shots || 0),
+        (sum: number, shots: number) => sum + (shots > 0 ? shots : 0),
         0
       );
-      // Calculate relative to par
+
+      // Calculate relative to par: only count positive scores
       let relativeToPar = 0;
       try {
         for (let i = 0; i < score.length; i++) {
           if (score[i] > 0 && pars[i] !== undefined) {
             relativeToPar += score[i] - pars[i];
           }
+          // Note: -1 (gave up) and 0 (unreported) don't contribute to par calculation
         }
       } catch (error) {
         console.error("Error calculating relative to par", error);
         throw error;
       }
+
       return {
         participant: {
           ...participant,
@@ -9593,7 +11388,6 @@ export class ParticipantService {
 
     let score: any[] = [];
     try {
-      console.log("participant.score", participant.score);
       score = participant.score
         ? JSON.parse(participant.score as unknown as string)
         : [];
@@ -9742,8 +11536,12 @@ export class ParticipantService {
       throw new Error(`Hole number must be between 1 and ${pars.length}`);
     }
 
-    if (shots < 1) {
-      throw new Error("Shots must be greater than 0");
+    // Allow -1 (gave up) and 0 (unreported/cleared score) as special values
+    // Regular shots must be positive
+    if (shots !== -1 && shots !== 0 && shots < 1) {
+      throw new Error(
+        "Shots must be greater than 0, or -1 (gave up), or 0 (clear score)"
+      );
     }
 
     // Initialize score array with zeros if null or empty
@@ -9789,6 +11587,159 @@ export class ParticipantService {
 
 ```
 
+# src/services/series-service.ts
+
+```ts
+import { Database } from "bun:sqlite";
+import type { CreateSeriesDto, Series, UpdateSeriesDto } from "../types";
+
+export class SeriesService {
+  constructor(private db: Database) {}
+
+  async create(data: CreateSeriesDto): Promise<Series> {
+    if (!data.name?.trim()) {
+      throw new Error("Series name is required");
+    }
+
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO series (name, description, created_at, updated_at)
+        VALUES (?, ?, strftime('%Y-%m-%d %H:%M:%S.%f', 'now'), strftime('%Y-%m-%d %H:%M:%S.%f', 'now'))
+        RETURNING *
+      `);
+
+      return stmt.get(data.name, data.description || null) as Series;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("UNIQUE constraint failed")
+      ) {
+        throw new Error("Series name must be unique");
+      }
+      throw error;
+    }
+  }
+
+  async findAll(): Promise<Series[]> {
+    const stmt = this.db.prepare(`
+      SELECT id, name, description, created_at, updated_at 
+      FROM series 
+      ORDER BY strftime('%s.%f', created_at) DESC
+    `);
+    return stmt.all() as Series[];
+  }
+
+  async findById(id: number): Promise<Series | null> {
+    const stmt = this.db.prepare(`
+      SELECT id, name, description, created_at, updated_at 
+      FROM series 
+      WHERE id = ?
+    `);
+    return stmt.get(id) as Series | null;
+  }
+
+  async update(id: number, data: UpdateSeriesDto): Promise<Series> {
+    const series = await this.findById(id);
+    if (!series) {
+      throw new Error("Series not found");
+    }
+
+    if (data.name !== undefined && !data.name.trim()) {
+      throw new Error("Series name cannot be empty");
+    }
+
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (data.name !== undefined) {
+      updates.push("name = ?");
+      values.push(data.name);
+    }
+
+    if (data.description !== undefined) {
+      updates.push("description = ?");
+      values.push(data.description);
+    }
+
+    if (updates.length === 0) {
+      return series;
+    }
+
+    updates.push("updated_at = strftime('%Y-%m-%d %H:%M:%S.%f', 'now')");
+    values.push(id);
+
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE series 
+        SET ${updates.join(", ")}
+        WHERE id = ?
+        RETURNING *
+      `);
+
+      return stmt.get(...values) as Series;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("UNIQUE constraint failed")
+      ) {
+        throw new Error("Series name must be unique");
+      }
+      throw error;
+    }
+  }
+
+  async delete(id: number): Promise<void> {
+    const series = await this.findById(id);
+    if (!series) {
+      throw new Error("Series not found");
+    }
+
+    const stmt = this.db.prepare("DELETE FROM series WHERE id = ?");
+    stmt.run(id);
+  }
+
+  async getCompetitions(id: number): Promise<any[]> {
+    const series = await this.findById(id);
+    if (!series) {
+      throw new Error("Series not found");
+    }
+
+    const stmt = this.db.prepare(`
+      SELECT c.*, co.name as course_name
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      WHERE c.series_id = ?
+      ORDER BY c.date
+    `);
+
+    return stmt.all(id).map((row: any) => ({
+      ...row,
+      course: {
+        id: row.course_id,
+        name: row.course_name,
+      },
+    }));
+  }
+
+  async getTeams(id: number): Promise<any[]> {
+    const series = await this.findById(id);
+    if (!series) {
+      throw new Error("Series not found");
+    }
+
+    const stmt = this.db.prepare(`
+      SELECT id, name, created_at, updated_at
+      FROM teams
+      WHERE series_id = ?
+      ORDER BY name
+    `);
+
+    return stmt.all(id);
+  }
+}
+
+```
+
 # src/services/team-service.ts
 
 ```ts
@@ -9803,14 +11754,23 @@ export class TeamService {
       throw new Error("Team name is required");
     }
 
+    // Verify series exists if provided
+    if (data.series_id) {
+      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
+      const series = seriesStmt.get(data.series_id);
+      if (!series) {
+        throw new Error("Series not found");
+      }
+    }
+
     try {
       const stmt = this.db.prepare(`
-        INSERT INTO teams (name)
-        VALUES (?)
+        INSERT INTO teams (name, series_id)
+        VALUES (?, ?)
         RETURNING *
       `);
 
-      return stmt.get(data.name) as Team;
+      return stmt.get(data.name, data.series_id || null) as Team;
     } catch (error) {
       if (
         error instanceof Error &&
@@ -9833,19 +11793,52 @@ export class TeamService {
   }
 
   async update(id: number, data: UpdateTeamDto): Promise<Team> {
-    if (!data.name?.trim()) {
+    if (data.name !== undefined && !data.name.trim()) {
       throw new Error("Team name cannot be empty");
     }
+
+    // Verify series exists if provided
+    if (data.series_id) {
+      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
+      const series = seriesStmt.get(data.series_id);
+      if (!series) {
+        throw new Error("Series not found");
+      }
+    }
+
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (data.name !== undefined) {
+      updates.push("name = ?");
+      values.push(data.name);
+    }
+
+    if (data.series_id !== undefined) {
+      updates.push("series_id = ?");
+      values.push(data.series_id);
+    }
+
+    if (updates.length === 0) {
+      const team = await this.findById(id);
+      if (!team) {
+        throw new Error("Team not found");
+      }
+      return team;
+    }
+
+    updates.push("updated_at = CURRENT_TIMESTAMP");
+    values.push(id);
 
     try {
       const stmt = this.db.prepare(`
         UPDATE teams 
-        SET name = ?, updated_at = CURRENT_TIMESTAMP
+        SET ${updates.join(", ")}
         WHERE id = ?
         RETURNING *
       `);
 
-      const team = stmt.get(data.name, id) as Team | null;
+      const team = stmt.get(...values) as Team | null;
       if (!team) {
         throw new Error("Team not found");
       }
@@ -9931,11 +11924,19 @@ export class TeeTimeService {
       throw new Error("Competition not found");
     }
 
-    // Get all tee times for the competition
-    const teeTimesStmt = this.db.prepare(
-      "SELECT * FROM tee_times WHERE competition_id = ? ORDER BY teetime"
-    );
-    const teeTimes = teeTimesStmt.all(competitionId) as TeeTime[];
+    // Get all tee times for the competition with course info
+    const teeTimesStmt = this.db.prepare(`
+      SELECT t.*, co.name as course_name, co.pars
+      FROM tee_times t
+      JOIN competitions c ON t.competition_id = c.id
+      JOIN courses co ON c.course_id = co.id
+      WHERE t.competition_id = ?
+      ORDER BY t.teetime
+    `);
+    const teeTimes = teeTimesStmt.all(competitionId) as (TeeTime & {
+      course_name: string;
+      pars: string;
+    })[];
 
     // Get all participants for each tee time
     const participantsStmt = this.db.prepare(`
@@ -9959,8 +11960,13 @@ export class TeeTimeService {
             typeof p.score === "string" ? JSON.parse(p.score) : p.score || [],
         }));
 
+        // Parse course pars
+        const pars = JSON.parse(teeTime.pars);
+
         return {
           ...teeTime,
+          course_name: teeTime.course_name,
+          pars,
           participants: parsedParticipants,
         };
       }
@@ -9979,7 +11985,7 @@ export class TeeTimeService {
   ): Promise<TeeTimeWithParticipants | null> {
     // Get tee time with course information
     const teeTimeStmt = this.db.prepare(`
-      SELECT t.*, c.name as course_name, co.pars
+      SELECT t.*, co.name as course_name, co.pars
       FROM tee_times t
       JOIN competitions c ON t.competition_id = c.id
       JOIN courses co ON c.course_id = co.id
@@ -10137,9 +12143,18 @@ export interface Course {
   updated_at: string;
 }
 
+export interface Series {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Team {
   id: number;
   name: string;
+  series_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -10149,6 +12164,7 @@ export interface Competition {
   name: string;
   date: string;
   course_id: number;
+  series_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -10161,24 +12177,38 @@ export interface UpdateCourseDto {
   name?: string;
 }
 
+export interface CreateSeriesDto {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateSeriesDto {
+  name?: string;
+  description?: string;
+}
+
 export interface CreateTeamDto {
   name: string;
+  series_id?: number;
 }
 
 export interface UpdateTeamDto {
-  name: string;
+  name?: string;
+  series_id?: number;
 }
 
 export interface CreateCompetitionDto {
   name: string;
   date: string;
   course_id: number;
+  series_id?: number;
 }
 
 export interface UpdateCompetitionDto {
   name?: string;
   date?: string;
   course_id?: number;
+  series_id?: number;
 }
 
 export interface TeeTime {
@@ -10244,660 +12274,6 @@ export interface LeaderboardEntry {
   holesPlayed: number;
   relativeToPar: number;
 }
-
-```
-
-# tests/competitions.test.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-  cleanupTestDatabase,
-  expectErrorResponse,
-  expectJsonResponse,
-  makeRequest,
-  setupTestDatabase,
-} from "./test-helpers";
-
-describe("Competition API", () => {
-  let db: Database;
-  let courseId: number;
-
-  beforeEach(async () => {
-    db = await setupTestDatabase();
-
-    // Create a course for testing
-    const createCourseResponse = await makeRequest("/api/courses", "POST", {
-      name: "Augusta National",
-      pars: [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4],
-    });
-    const course = await createCourseResponse.json();
-    courseId = course.id;
-  });
-
-  afterEach(async () => {
-    await cleanupTestDatabase(db);
-  });
-
-  test("POST /api/competitions creates a competition", async () => {
-    const response = await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "2024-04-11",
-      course_id: courseId,
-    });
-
-    const competition = await expectJsonResponse(response);
-    expect(response.status).toBe(201);
-    expect(competition.name).toBe("Masters 2024");
-    expect(competition.date).toBe("2024-04-11");
-    expect(competition.course_id).toBe(courseId);
-  });
-
-  test("POST /api/competitions validates required fields", async () => {
-    const response = await makeRequest("/api/competitions", "POST", {
-      name: "",
-      date: "2024-04-11",
-      course_id: courseId,
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Competition name is required");
-  });
-
-  test("POST /api/competitions validates date format", async () => {
-    const response = await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "invalid-date",
-      course_id: courseId,
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Invalid date format");
-  });
-
-  test("POST /api/competitions validates course exists", async () => {
-    const response = await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "2024-04-11",
-      course_id: 999,
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Course not found");
-  });
-
-  test("GET /api/competitions lists all competitions", async () => {
-    // Create a competition first
-    await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "2024-04-11",
-      course_id: courseId,
-    });
-
-    const response = await makeRequest("/api/competitions");
-    const competitions = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(Array.isArray(competitions)).toBe(true);
-    expect(competitions.length).toBe(1);
-    expect(competitions[0].name).toBe("Masters 2024");
-    expect(competitions[0].course).toBeDefined();
-    expect(competitions[0].course.name).toBe("Augusta National");
-  });
-
-  test("GET /api/competitions/:id gets a single competition", async () => {
-    // Create a competition first
-    const createResponse = await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "2024-04-11",
-      course_id: courseId,
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(`/api/competitions/${created.id}`);
-    const competition = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(competition.id).toBe(created.id);
-    expect(competition.name).toBe("Masters 2024");
-    expect(competition.course).toBeDefined();
-    expect(competition.course.name).toBe("Augusta National");
-  });
-
-  test("GET /api/competitions/:id returns 404 for non-existent competition", async () => {
-    const response = await makeRequest("/api/competitions/999");
-    expectErrorResponse(response, 404);
-  });
-
-  test("PUT /api/competitions/:id updates a competition", async () => {
-    // Create a competition first
-    const createResponse = await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "2024-04-11",
-      course_id: courseId,
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(
-      `/api/competitions/${created.id}`,
-      "PUT",
-      {
-        name: "The Masters 2024",
-        date: "2024-04-12",
-      }
-    );
-
-    const updated = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(updated.name).toBe("The Masters 2024");
-    expect(updated.date).toBe("2024-04-12");
-  });
-
-  test("PUT /api/competitions/:id validates date format", async () => {
-    // Create a competition first
-    const createResponse = await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "2024-04-11",
-      course_id: courseId,
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(
-      `/api/competitions/${created.id}`,
-      "PUT",
-      {
-        date: "invalid-date",
-      }
-    );
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Invalid date format");
-  });
-
-  test("PUT /api/competitions/:id validates course exists", async () => {
-    // Create a competition first
-    const createResponse = await makeRequest("/api/competitions", "POST", {
-      name: "Masters 2024",
-      date: "2024-04-11",
-      course_id: courseId,
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(
-      `/api/competitions/${created.id}`,
-      "PUT",
-      {
-        course_id: 999,
-      }
-    );
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Course not found");
-  });
-});
-
-```
-
-# tests/courses.test.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-  cleanupTestDatabase,
-  expectErrorResponse,
-  expectJsonResponse,
-  makeRequest,
-  setupTestDatabase,
-} from "./test-helpers";
-
-describe("Course API", () => {
-  let db: Database;
-
-  beforeEach(async () => {
-    db = await setupTestDatabase();
-  });
-
-  afterEach(async () => {
-    await cleanupTestDatabase(db);
-  });
-
-  test("POST /api/courses creates a course", async () => {
-    const response = await makeRequest("/api/courses", "POST", {
-      name: "Augusta National",
-      pars: [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4],
-    });
-
-    const course = await expectJsonResponse(response);
-    expect(response.status).toBe(201);
-    expect(course.name).toBe("Augusta National");
-    expect(course.pars).toHaveLength(18);
-    expect(course.pars).toEqual([
-      4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4,
-    ]);
-  });
-
-  test("POST /api/courses validates pars", async () => {
-    const response = await makeRequest("/api/courses", "POST", {
-      name: "Invalid Course",
-      pars: [4, 5, 4], // Too few pars
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Course must have exactly 18 pars");
-  });
-
-  test("GET /api/courses lists all courses", async () => {
-    // Create a course first
-    await makeRequest("/api/courses", "POST", {
-      name: "Augusta National",
-      pars: [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4],
-    });
-
-    const response = await makeRequest("/api/courses");
-    const courses = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(Array.isArray(courses)).toBe(true);
-    expect(courses.length).toBe(1);
-    expect(courses[0].name).toBe("Augusta National");
-  });
-
-  test("GET /api/courses/:id gets a single course", async () => {
-    // Create a course first
-    const createResponse = await makeRequest("/api/courses", "POST", {
-      name: "Augusta National",
-      pars: [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4],
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(`/api/courses/${created.id}`);
-    const course = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(course.id).toBe(created.id);
-    expect(course.name).toBe("Augusta National");
-  });
-
-  test("GET /api/courses/:id returns 404 for non-existent course", async () => {
-    const response = await makeRequest("/api/courses/999");
-    expectErrorResponse(response, 404);
-  });
-
-  test("PUT /api/courses/:id updates a course", async () => {
-    // Create a course first
-    const createResponse = await makeRequest("/api/courses", "POST", {
-      name: "Augusta National",
-      pars: [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4],
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(`/api/courses/${created.id}`, "PUT", {
-      name: "Augusta National Golf Club",
-      pars: [4, 4, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4],
-    });
-
-    const updated = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(updated.name).toBe("Augusta National Golf Club");
-    expect(updated.pars).toEqual([
-      4, 4, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4,
-    ]);
-  });
-
-  test("PUT /api/courses/:id validates pars", async () => {
-    // Create a course first
-    const createResponse = await makeRequest("/api/courses", "POST", {
-      name: "Augusta National",
-      pars: [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4],
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(`/api/courses/${created.id}`, "PUT", {
-      pars: [4, 5, 4], // Too few pars
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Course must have exactly 18 pars");
-  });
-});
-
-```
-
-# tests/teams.test.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-  cleanupTestDatabase,
-  expectErrorResponse,
-  expectJsonResponse,
-  makeRequest,
-  setupTestDatabase,
-} from "./test-helpers";
-
-describe("Team API", () => {
-  let db: Database;
-
-  beforeEach(async () => {
-    db = await setupTestDatabase();
-  });
-
-  afterEach(async () => {
-    await cleanupTestDatabase(db);
-  });
-
-  test("POST /api/teams creates a team", async () => {
-    const response = await makeRequest("/api/teams", "POST", {
-      name: "Tiger's Team",
-    });
-
-    const team = await expectJsonResponse(response);
-    expect(response.status).toBe(201);
-    expect(team.name).toBe("Tiger's Team");
-  });
-
-  test("POST /api/teams validates name", async () => {
-    const response = await makeRequest("/api/teams", "POST", {
-      name: "",
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Team name is required");
-  });
-
-  test("POST /api/teams enforces unique names", async () => {
-    // Create first team
-    await makeRequest("/api/teams", "POST", {
-      name: "Tiger's Team",
-    });
-
-    // Try to create team with same name
-    const response = await makeRequest("/api/teams", "POST", {
-      name: "Tiger's Team",
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Team name must be unique");
-  });
-
-  test("GET /api/teams lists all teams", async () => {
-    // Create a team first
-    await makeRequest("/api/teams", "POST", {
-      name: "Tiger's Team",
-    });
-
-    const response = await makeRequest("/api/teams");
-    const teams = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(Array.isArray(teams)).toBe(true);
-    expect(teams.length).toBe(1);
-    expect(teams[0].name).toBe("Tiger's Team");
-  });
-
-  test("GET /api/teams/:id gets a single team", async () => {
-    // Create a team first
-    const createResponse = await makeRequest("/api/teams", "POST", {
-      name: "Tiger's Team",
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(`/api/teams/${created.id}`);
-    const team = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(team.id).toBe(created.id);
-    expect(team.name).toBe("Tiger's Team");
-  });
-
-  test("GET /api/teams/:id returns 404 for non-existent team", async () => {
-    const response = await makeRequest("/api/teams/999");
-    expectErrorResponse(response, 404);
-  });
-
-  test("PUT /api/teams/:id updates a team", async () => {
-    // Create a team first
-    const createResponse = await makeRequest("/api/teams", "POST", {
-      name: "Tiger's Team",
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(`/api/teams/${created.id}`, "PUT", {
-      name: "Tiger's Golf Team",
-    });
-
-    const updated = await expectJsonResponse(response);
-    expect(response.status).toBe(200);
-    expect(updated.name).toBe("Tiger's Golf Team");
-  });
-
-  test("PUT /api/teams/:id validates name", async () => {
-    // Create a team first
-    const createResponse = await makeRequest("/api/teams", "POST", {
-      name: "Tiger's Team",
-    });
-    const created = await createResponse.json();
-
-    const response = await makeRequest(`/api/teams/${created.id}`, "PUT", {
-      name: "",
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Team name cannot be empty");
-  });
-
-  test("PUT /api/teams/:id enforces unique names", async () => {
-    // Create two teams
-    await makeRequest("/api/teams", "POST", {
-      name: "Team A",
-    });
-    const createResponse = await makeRequest("/api/teams", "POST", {
-      name: "Team B",
-    });
-    const created = await createResponse.json();
-
-    // Try to update Team B to have Team A's name
-    const response = await makeRequest(`/api/teams/${created.id}`, "PUT", {
-      name: "Team A",
-    });
-
-    expectErrorResponse(response, 400);
-    const error = await response.json();
-    expect(error.error).toBe("Team name must be unique");
-  });
-});
-
-```
-
-# tests/test-helpers.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import { expect } from "bun:test";
-import { createTestDatabase } from "../src/database/db";
-import { startTestServer, stopTestServer, TEST_PORT } from "./test-server";
-
-export async function setupTestDatabase(): Promise<Database> {
-  const db = createTestDatabase();
-  await startTestServer(db);
-  return db;
-}
-
-export async function cleanupTestDatabase(db: Database): Promise<void> {
-  await stopTestServer();
-  db.close();
-}
-
-export async function makeRequest(
-  path: string,
-  method: string = "GET",
-  body?: any
-): Promise<Response> {
-  const url = `http://localhost:${TEST_PORT}${path}`;
-  const options: RequestInit = {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  };
-
-  if (body) {
-    options.body = JSON.stringify(body);
-  }
-
-  return fetch(url, options);
-}
-
-export function expectJsonResponse(response: Response): any {
-  expect(response.headers.get("content-type")).toContain("application/json");
-  return response.json();
-}
-
-export function expectErrorResponse(response: Response, status: number): void {
-  expect(response.status).toBe(status);
-  expect(response.headers.get("content-type")).toContain("application/json");
-}
-
-```
-
-# tests/test-server.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import { createCompetitionsApi } from "../src/api/competitions";
-import { createCoursesApi } from "../src/api/courses";
-import { createTeamsApi } from "../src/api/teams";
-import { CompetitionService } from "../src/services/competition-service";
-import { CourseService } from "../src/services/course-service";
-import { TeamService } from "../src/services/team-service";
-
-let server: ReturnType<typeof Bun.serve> | null = null;
-const TEST_PORT = 3001; // Use a different port for tests
-
-// CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-// Add CORS headers to response
-const addCorsHeaders = (response: Response): Response => {
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    response.headers.set(key, value);
-  });
-  return response;
-};
-
-export async function startTestServer(db: Database): Promise<void> {
-  if (server) return; // Server already running
-
-  // Initialize services with test database
-  const courseService = new CourseService(db);
-  const teamService = new TeamService(db);
-  const competitionService = new CompetitionService(db);
-
-  // Initialize APIs
-  const coursesApi = createCoursesApi(courseService);
-  const teamsApi = createTeamsApi(teamService);
-  const competitionsApi = createCompetitionsApi(competitionService);
-
-  // Start server
-  server = Bun.serve({
-    port: TEST_PORT,
-    routes: {
-      // Course routes
-      "/api/courses": {
-        POST: async (req) => addCorsHeaders(await coursesApi.create(req)),
-        GET: async () => addCorsHeaders(await coursesApi.findAll()),
-      },
-      "/api/courses/:id": {
-        GET: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await coursesApi.findById(req, id));
-        },
-        PUT: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await coursesApi.update(req, id));
-        },
-      },
-
-      // Team routes
-      "/api/teams": {
-        POST: async (req) => addCorsHeaders(await teamsApi.create(req)),
-        GET: async () => addCorsHeaders(await teamsApi.findAll()),
-      },
-      "/api/teams/:id": {
-        GET: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await teamsApi.findById(req, id));
-        },
-        PUT: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await teamsApi.update(req, id));
-        },
-      },
-
-      // Competition routes
-      "/api/competitions": {
-        POST: async (req) => addCorsHeaders(await competitionsApi.create(req)),
-        GET: async () => addCorsHeaders(await competitionsApi.findAll()),
-      },
-      "/api/competitions/:id": {
-        GET: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await competitionsApi.findById(req, id));
-        },
-        PUT: async (req) => {
-          const id = parseInt(req.params.id);
-          return addCorsHeaders(await competitionsApi.update(req, id));
-        },
-      },
-
-      // Handle preflight requests
-      OPTIONS: () => new Response(null, { status: 204, headers: corsHeaders }),
-    },
-
-    // Fallback for unmatched routes
-    fetch(req) {
-      return addCorsHeaders(
-        new Response(JSON.stringify({ error: "Not found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        })
-      );
-    },
-
-    // Error handling
-    error(error) {
-      console.error("Server error:", error);
-      return new Response(JSON.stringify({ error: "Internal server error" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-  });
-
-  // Wait for server to start
-  await new Promise((resolve) => setTimeout(resolve, 100));
-}
-
-export async function stopTestServer(): Promise<void> {
-  if (server) {
-    server.stop();
-    server = null;
-  }
-}
-
-// Export the test port for use in test helpers
-export { TEST_PORT };
 
 ```
 

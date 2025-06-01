@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useCompetitions } from "../../api/competitions";
 import { useCourses } from "../../api/courses";
-import { Calendar, MapPin, Users, ChevronRight } from "lucide-react";
+import { Calendar, Users, ChevronRight } from "lucide-react";
 
 export default function PlayerCompetitions() {
   const { data: competitions, isLoading, error } = useCompetitions();
@@ -96,10 +96,6 @@ export default function PlayerCompetitions() {
                             day: "numeric",
                           }
                         )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {course?.name || "Unknown Course"}
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-4 w-4" />

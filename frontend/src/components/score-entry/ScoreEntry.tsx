@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CustomKeyboard } from "./CustomKeyboard";
 import { FullScorecardModal } from "./FullScorecardModal";
-import { ChevronLeft, ChevronRight, BarChart3, Users } from "lucide-react";
+import { BarChart3, Users } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
 
 interface PlayerScore {
@@ -32,6 +32,8 @@ interface ScoreEntryProps {
   course: Course;
   onScoreUpdate: (participantId: string, hole: number, score: number) => void;
   onComplete: () => void;
+  currentHole?: number;
+  onHoleChange?: (hole: number) => void;
 }
 
 export function ScoreEntry({
@@ -39,8 +41,45 @@ export function ScoreEntry({
   course,
   onScoreUpdate,
   onComplete,
+  currentHole: externalCurrentHole,
+  onHoleChange,
 }: ScoreEntryProps) {
-  const [currentHole, setCurrentHole] = useState(1);
+  // Helper function to find the latest incomplete hole
+  const findLatestIncompleteHole = (): number => {
+    for (let holeIndex = 17; holeIndex >= 0; holeIndex--) {
+      const hasAnyPlayerWithScore = teeTimeGroup.players.some((player) => {
+        const score = player.scores[holeIndex];
+        return score && score > 0; // Has valid score
+      });
+
+      if (hasAnyPlayerWithScore) {
+        // Found the latest hole with some scores, check if it's complete
+        const allPlayersHaveScores = teeTimeGroup.players.every((player) => {
+          const score = player.scores[holeIndex];
+          return score && score !== 0; // All players have scores (including -1 for gave up)
+        });
+
+        if (!allPlayersHaveScores) {
+          return holeIndex + 1; // Return 1-based hole number
+        } else if (holeIndex < 17) {
+          return holeIndex + 2; // Move to next hole
+        }
+      }
+    }
+
+    return 1; // Default to hole 1 if no scores found
+  };
+
+  const [internalCurrentHole, setInternalCurrentHole] = useState(() =>
+    findLatestIncompleteHole()
+  );
+
+  // Use external hole if provided, otherwise use internal
+  const currentHole =
+    externalCurrentHole !== undefined
+      ? externalCurrentHole
+      : internalCurrentHole;
+
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [fullScorecardVisible, setFullScorecardVisible] = useState(false);
@@ -68,13 +107,47 @@ export function ScoreEntry({
   const currentPlayer = teeTimeGroup.players[currentPlayerIndex];
   const currentHoleData = course.holes.find((h) => h.number === currentHole);
 
+  // Calculate player's current score relative to par
+  const calculatePlayerToPar = (player: PlayerScore): number => {
+    let totalShots = 0;
+    let totalPar = 0;
+
+    for (let i = 0; i < Math.min(currentHole, 18); i++) {
+      const score = player.scores[i];
+      if (score && score > 0) {
+        totalShots += score;
+        totalPar += course.holes[i].par;
+      }
+    }
+
+    return totalShots - totalPar;
+  };
+
+  // Format +/- to par display
+  const formatToPar = (toPar: number): string => {
+    if (toPar === 0) return "E";
+    return toPar > 0 ? `+${toPar}` : `${toPar}`;
+  };
+
+  // Get color for +/- to par
+  const getToParColor = (toPar: number): string => {
+    if (toPar < 0) return "text-green-600";
+    if (toPar > 0) return "text-red-600";
+    return "text-gray-600";
+  };
+
   const moveToNextPlayer = () => {
     if (currentPlayerIndex < teeTimeGroup.players.length - 1) {
       setCurrentPlayerIndex(currentPlayerIndex + 1);
     } else {
       // Last player on this hole
       if (currentHole < 18) {
-        setCurrentHole(currentHole + 1);
+        const nextHole = currentHole + 1;
+        if (onHoleChange) {
+          onHoleChange(nextHole);
+        } else {
+          setInternalCurrentHole(nextHole);
+        }
         setCurrentPlayerIndex(0);
       } else {
         onComplete();
@@ -109,20 +182,6 @@ export function ScoreEntry({
       // Set score to 0 for unreported
       onScoreUpdate(currentPlayer.participantId, currentHole, 0);
       moveToNextPlayer();
-    }
-  };
-
-  const handlePreviousHole = () => {
-    if (currentHole > 1) {
-      setCurrentHole(currentHole - 1);
-      setCurrentPlayerIndex(0);
-    }
-  };
-
-  const handleNextHole = () => {
-    if (currentHole < 18) {
-      setCurrentHole(currentHole + 1);
-      setCurrentPlayerIndex(0);
     }
   };
 
@@ -161,36 +220,6 @@ export function ScoreEntry({
 
   return (
     <div className="score-entry flex flex-col h-screen-mobile bg-gray-50">
-      {/* Ultra-Compact Header - Max 50px */}
-      <div
-        className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0"
-        style={{ height: "50px" }}
-      >
-        <div className="flex items-center justify-between h-full px-3">
-          <button
-            onClick={handlePreviousHole}
-            disabled={currentHole === 1}
-            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-
-          <div className="flex-1 text-center">
-            <span className="text-sm font-semibold text-gray-900">
-              {course.name} • Hole {currentHole} (Par {currentHoleData?.par})
-            </span>
-          </div>
-
-          <button
-            onClick={handleNextHole}
-            disabled={currentHole === 18}
-            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
       {/* Maximized Player Area - 60% of remaining space */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         <div className="p-3 space-y-2">
@@ -198,6 +227,7 @@ export function ScoreEntry({
             const isCurrentPlayer = index === currentPlayerIndex;
             const score = player.scores[currentHole - 1] ?? 0;
             const hasScore = hasValidScore(score);
+            const toPar = calculatePlayerToPar(player);
 
             return (
               <div
@@ -206,17 +236,24 @@ export function ScoreEntry({
                   "bg-white rounded-lg p-4 flex items-center justify-between transition-all shadow-sm",
                   isCurrentPlayer && "ring-2 ring-blue-500 bg-blue-50 shadow-md"
                 )}
-                style={{ minHeight: "60px" }}
+                style={{ minHeight: "70px" }}
               >
                 <div className="flex-1 pr-3">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        "font-medium text-gray-900",
-                        isCurrentPlayer && "text-blue-900 font-semibold"
+                    <div>
+                      <div
+                        className={cn(
+                          "font-medium text-gray-900",
+                          isCurrentPlayer && "text-blue-900 font-semibold"
+                        )}
+                      >
+                        {abbreviateName(player.participantName)}
+                      </div>
+                      {player.participantType && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {player.participantType}
+                        </div>
                       )}
-                    >
-                      {abbreviateName(player.participantName)}
                     </div>
                     {player.isMultiPlayer && (
                       <div className="relative group">
@@ -227,11 +264,21 @@ export function ScoreEntry({
                       </div>
                     )}
                   </div>
-                  {hasScore && (
-                    <div className="text-xs text-green-600 mt-1">
-                      ✓ Score entered
+                  <div className="flex items-center gap-4 mt-1">
+                    {hasScore && (
+                      <div className="text-xs text-green-600">
+                        ✓ Score entered
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        "text-xs font-medium",
+                        getToParColor(toPar)
+                      )}
+                    >
+                      {formatToPar(toPar)}
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 <button
@@ -280,7 +327,7 @@ export function ScoreEntry({
         currentHole={currentHole}
         onClose={() => setFullScorecardVisible(false)}
         onContinueEntry={(hole) => {
-          setCurrentHole(hole);
+          setInternalCurrentHole(hole);
           setCurrentPlayerIndex(0);
           setFullScorecardVisible(false);
         }}

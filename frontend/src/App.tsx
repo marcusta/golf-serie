@@ -1,4 +1,4 @@
-import { Outlet } from "@tanstack/react-router";
+import { Outlet, useRouterState } from "@tanstack/react-router";
 
 function GolfIcon() {
   return (
@@ -26,6 +26,20 @@ function GolfIcon() {
 }
 
 export default function App() {
+  const { location } = useRouterState();
+
+  // Check if we're in a competition round (full-screen mode)
+  const isCompetitionRound =
+    location.pathname.includes("/competitions/") &&
+    (location.pathname.includes("/tee-times/") ||
+      location.pathname.match(/\/competitions\/\d+$/));
+
+  if (isCompetitionRound) {
+    // Full-screen layout for competition rounds
+    return <Outlet />;
+  }
+
+  // Regular layout for other pages
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-green-50 via-white to-green-50">
       <header className="border-b bg-white/95 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
@@ -48,19 +62,6 @@ export default function App() {
           </div>
         </main>
       </div>
-
-      <footer className="bg-white border-t border-gray-200 py-6 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <GolfIcon />
-            <span className="font-medium text-gray-900">Golf Scorecard</span>
-          </div>
-          <p className="text-sm text-gray-600">
-            &copy; {new Date().getFullYear()} Golf Scorecard. Made with ❤️ for
-            golf enthusiasts.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

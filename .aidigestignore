@@ -1,0 +1,8 @@
+*.db
+*.svg
+node_modules
+frontend_dist
+dist
+tests
+*.test.ts
+.cursor
