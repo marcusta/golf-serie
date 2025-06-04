@@ -1,6 +1,6 @@
 ---
 description: 
-globs: *.ts,*.tsx,*.css
+globs: 
 alwaysApply: false
 ---
 # Golf Scorecard Frontend - Cursor Rules
@@ -148,7 +148,7 @@ src/
 - **Deploy**: Automated copy to `../frontend_dist/` directory
 
 ## Integration Points
-- **Backend API**: RESTful API on port 3010 with CORS support
+- **Backend API**: RESTful API ron port 3010 with CORS support
 - **Course Data**: Handles 18-hole courses with par information
 - **Multi-team**: Supports multiple teams with flexible participant types
 - **Score Tracking**: Real-time score updates with leaderboard calculation

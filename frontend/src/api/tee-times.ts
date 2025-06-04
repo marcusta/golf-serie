@@ -69,8 +69,6 @@ export function useTeeTime(teeTimeId: number) {
 }
 
 export function useUpdateScore() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({
       participantId,
@@ -96,10 +94,10 @@ export function useUpdateScore() {
       }
       return response.json();
     },
-    onSuccess: () => {
-      // Invalidate the tee time query to refetch the updated data
-      queryClient.invalidateQueries({ queryKey: ["teeTime"] });
-    },
+    // Removed automatic invalidation - sync is now managed manually to prevent server spam
+    // onSuccess: () => {
+    //   queryClient.invalidateQueries({ queryKey: ["teeTime"] });
+    // },
   });
 }
 

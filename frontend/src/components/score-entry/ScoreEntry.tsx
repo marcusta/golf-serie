@@ -34,6 +34,12 @@ interface ScoreEntryProps {
   onComplete: () => void;
   currentHole?: number;
   onHoleChange?: (hole: number) => void;
+  syncStatus?: {
+    pendingCount: number;
+    lastSyncTime: number;
+    isOnline: boolean;
+    hasConnectivityIssues: boolean;
+  };
 }
 
 export function ScoreEntry({
@@ -43,6 +49,7 @@ export function ScoreEntry({
   onComplete,
   currentHole: externalCurrentHole,
   onHoleChange,
+  syncStatus,
 }: ScoreEntryProps) {
   // Helper function to find the latest incomplete hole
   const findLatestIncompleteHole = (): number => {
@@ -220,6 +227,28 @@ export function ScoreEntry({
 
   return (
     <div className="score-entry flex flex-col h-screen-mobile bg-gray-50">
+      {/* Sync Status Indicator */}
+      {syncStatus &&
+        (syncStatus.pendingCount > 0 || syncStatus.hasConnectivityIssues) && (
+          <div
+            className={cn(
+              "px-3 py-2 text-center text-xs font-medium",
+              syncStatus.hasConnectivityIssues
+                ? "bg-red-100 text-red-700 border-b border-red-200"
+                : "bg-yellow-100 text-yellow-700 border-b border-yellow-200"
+            )}
+          >
+            {syncStatus.hasConnectivityIssues ? (
+              <span>
+                ⚠️ Connection issues - {syncStatus.pendingCount} score(s)
+                pending
+              </span>
+            ) : (
+              <span>📡 Saving {syncStatus.pendingCount} score(s)...</span>
+            )}
+          </div>
+        )}
+
       {/* Maximized Player Area - 60% of remaining space */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         <div className="p-3 space-y-2">
@@ -266,8 +295,17 @@ export function ScoreEntry({
                   </div>
                   <div className="flex items-center gap-4 mt-1">
                     {hasScore && (
-                      <div className="text-xs text-green-600">
-                        ✓ Score entered
+                      <div
+                        className={cn(
+                          "text-xs",
+                          syncStatus?.hasConnectivityIssues && hasScore
+                            ? "text-yellow-600"
+                            : "text-green-600"
+                        )}
+                      >
+                        {syncStatus?.hasConnectivityIssues && hasScore
+                          ? "⚠️ Score saved locally"
+                          : "✓ Score entered"}
                       </div>
                     )}
                     <div

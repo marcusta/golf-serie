@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import {
   useCompetition,
@@ -22,6 +22,11 @@ import {
   formatParticipantTypeDisplay,
   isMultiPlayerFormat,
 } from "../../utils/playerUtils";
+import { ScoreStorageManager } from "../../utils/scoreStorage";
+import {
+  getInitialHole,
+  rememberCurrentHole,
+} from "../../utils/holeNavigation";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -39,7 +44,6 @@ export default function CompetitionRound() {
   };
 
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
-  const [currentHole, setCurrentHole] = useState(1);
 
   // Data fetching
   const { data: competition, isLoading: competitionLoading } = useCompetition(
@@ -53,32 +57,212 @@ export default function CompetitionRound() {
     useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
 
   // Tee time data for score entry
-  const { data: teeTime } = useTeeTime(teeTimeId ? parseInt(teeTimeId) : 0);
+  const { data: teeTime, refetch: refetchTeeTime } = useTeeTime(
+    teeTimeId ? parseInt(teeTimeId) : 0
+  );
   const updateScoreMutation = useUpdateScore();
+
+  // Smart hole navigation - initialize after tee time data is loaded
+  const [currentHole, setCurrentHole] = useState(() =>
+    getInitialHole(teeTimeId, teeTime?.participants)
+  );
+
+  // Score sync tracking using ScoreStorageManager
+  const scoreManager = ScoreStorageManager.getInstance();
+  const [pendingScoresCount, setPendingScoresCount] = useState(
+    scoreManager.getPendingCount()
+  );
+  const [lastSyncTime, setLastSyncTime] = useState(Date.now());
+
+  // Update currentHole when teeTime data first loads
+  useEffect(() => {
+    if (teeTime?.participants && teeTimeId) {
+      setCurrentHole(getInitialHole(teeTimeId, teeTime.participants));
+    }
+  }, [teeTime?.participants, teeTimeId]);
+
+  // Remember current hole in session storage
+  useEffect(() => {
+    if (teeTimeId && currentHole) {
+      rememberCurrentHole(teeTimeId, currentHole);
+    }
+  }, [teeTimeId, currentHole]);
+
+  // Initial sync when entering score entry view
+  useEffect(() => {
+    if (activeTab === "score" && teeTimeId && teeTime) {
+      const sessionKey = `golf-sync-${teeTimeId}`;
+      const lastSyncedThisSession = sessionStorage.getItem(sessionKey);
+
+      if (!lastSyncedThisSession) {
+        console.log("Initial sync for score entry session...");
+        refetchTeeTime();
+        setLastSyncTime(Date.now());
+        sessionStorage.setItem(sessionKey, Date.now().toString());
+      }
+    }
+  }, [activeTab, teeTimeId, teeTime, refetchTeeTime]);
+
+  // Sync when returning to the browser tab (after being away)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && activeTab === "score" && teeTimeId) {
+        const timeSinceLastSync = Date.now() - lastSyncTime;
+        if (timeSinceLastSync > 60000) {
+          // Only if it's been more than 1 minute
+          console.log("Syncing after returning to tab...");
+          refetchTeeTime();
+          setLastSyncTime(Date.now());
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [activeTab, teeTimeId, lastSyncTime, refetchTeeTime]);
+
+  // Periodic sync validation and retry logic
+  useEffect(() => {
+    if (!teeTimeId) return;
+
+    const syncInterval = setInterval(async () => {
+      try {
+        let shouldRefetch = false;
+
+        // Try to retry any pending scores
+        const retryableScores = scoreManager.getRetryableScores();
+
+        if (retryableScores.length > 0) {
+          console.log(`Retrying ${retryableScores.length} pending scores...`);
+          shouldRefetch = true;
+
+          for (const score of retryableScores) {
+            try {
+              await updateScoreMutation.mutateAsync({
+                participantId: score.participantId,
+                hole: score.hole,
+                shots: score.shots,
+              });
+
+              // Success - remove from pending
+              scoreManager.removePendingScore(score.participantId, score.hole);
+            } catch (error) {
+              // Mark as attempted
+              scoreManager.markAttempted(score.participantId, score.hole);
+              console.error(
+                `Retry failed for score ${score.participantId}-${score.hole}:`,
+                error
+              );
+            }
+          }
+        }
+
+        // Only refetch if we have pending scores, or if it's been more than 30 seconds since last sync
+        // This allows us to get updates from other players without spamming
+        const timeSinceLastSync = Date.now() - lastSyncTime;
+        if (shouldRefetch || timeSinceLastSync > 30000) {
+          console.log("Syncing with server for latest scores...");
+          await refetchTeeTime();
+          setLastSyncTime(Date.now());
+        }
+
+        // Update pending count regardless
+        setPendingScoresCount(scoreManager.getPendingCount());
+      } catch (error) {
+        console.error("Sync validation failed:", error);
+      }
+    }, 30000); // Check every 30 seconds instead of 10
+
+    return () => clearInterval(syncInterval);
+  }, [
+    teeTimeId,
+    updateScoreMutation,
+    refetchTeeTime,
+    scoreManager,
+    lastSyncTime,
+  ]);
 
   // Handle tab changes and URL updates
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
-    // Keep all navigation within the Round context - don't navigate to different URLs
-    // This maintains the footer navigation experience
+
+    // Sync when switching to score tab to get latest data
+    if (tab === "score" && teeTimeId) {
+      const timeSinceLastSync = Date.now() - lastSyncTime;
+      if (timeSinceLastSync > 15000) {
+        // Only if it's been more than 15 seconds
+        console.log("Syncing on tab change to score entry...");
+        refetchTeeTime();
+        setLastSyncTime(Date.now());
+      }
+    }
   };
 
-  // Score entry functions
-  const handleScoreUpdate = (
-    participantId: string,
-    hole: number,
-    score: number
-  ) => {
-    updateScoreMutation.mutate({
-      participantId: parseInt(participantId),
-      hole,
-      shots: score,
-    });
-  };
+  // Enhanced score entry functions with resilience
+  const handleScoreUpdate = useCallback(
+    (participantId: string, hole: number, score: number) => {
+      const participantIdNum = parseInt(participantId);
+
+      // Add to local storage immediately
+      scoreManager.addPendingScore(participantIdNum, hole, score);
+      setPendingScoresCount(scoreManager.getPendingCount());
+
+      updateScoreMutation.mutate(
+        {
+          participantId: participantIdNum,
+          hole,
+          shots: score,
+        },
+        {
+          onSuccess: () => {
+            // Remove from pending scores on success
+            scoreManager.removePendingScore(participantIdNum, hole);
+            setPendingScoresCount(scoreManager.getPendingCount());
+            setLastSyncTime(Date.now());
+
+            // Only refetch if this was a retry or if it's been a while since last update
+            // This ensures we see our own score immediately without excessive server calls
+            const timeSinceLastSync = Date.now() - lastSyncTime;
+            if (timeSinceLastSync > 10000) {
+              console.log("Syncing after successful score update...");
+              refetchTeeTime();
+            }
+          },
+          onError: (error) => {
+            console.error("Score update failed:", error);
+            // Score is already in pending storage, will be retried
+          },
+        }
+      );
+    },
+    [updateScoreMutation, scoreManager, lastSyncTime, refetchTeeTime]
+  );
 
   const handleComplete = () => {
     console.log("Score entry completed!");
   };
+
+  // Handle hole navigation with occasional sync
+  const handleHoleChange = useCallback(
+    (newHole: number) => {
+      setCurrentHole(newHole);
+
+      // Sync every few holes to get updates from other players
+      // This balances staying current with not overloading the server
+      const shouldSync = newHole % 3 === 1; // Sync on holes 1, 4, 7, 10, 13, 16
+      if (shouldSync && teeTimeId) {
+        const timeSinceLastSync = Date.now() - lastSyncTime;
+        if (timeSinceLastSync > 20000) {
+          // Only if it's been more than 20 seconds
+          console.log(`Syncing on hole navigation to hole ${newHole}...`);
+          refetchTeeTime();
+          setLastSyncTime(Date.now());
+        }
+      }
+    },
+    [lastSyncTime, refetchTeeTime, teeTimeId]
+  );
 
   // Helper functions from CompetitionDetail
   const getPositionColor = (position: number) => {
@@ -138,6 +322,15 @@ export default function CompetitionRound() {
   const currentHoleData = courseData?.holes.find(
     (h: { number: number; par: number }) => h.number === currentHole
   );
+
+  // Calculate sync status for display
+  const syncStatus = {
+    pendingCount: pendingScoresCount,
+    lastSyncTime,
+    isOnline: navigator.onLine,
+    hasConnectivityIssues:
+      pendingScoresCount > 0 && Date.now() - lastSyncTime > 30000, // 30 seconds
+  };
 
   // Calculate team results (same logic as CompetitionDetail)
   const teamResults = leaderboard?.reduce((acc, entry) => {
@@ -219,7 +412,8 @@ export default function CompetitionRound() {
                   onScoreUpdate={handleScoreUpdate}
                   onComplete={handleComplete}
                   currentHole={currentHole}
-                  onHoleChange={setCurrentHole}
+                  onHoleChange={handleHoleChange}
+                  syncStatus={syncStatus}
                 />
               </div>
             </div>
@@ -602,8 +796,8 @@ export default function CompetitionRound() {
         <HoleNavigation
           currentHole={currentHole}
           holePar={currentHoleData.par}
-          onPrevious={() => setCurrentHole(Math.max(1, currentHole - 1))}
-          onNext={() => setCurrentHole(Math.min(18, currentHole + 1))}
+          onPrevious={() => handleHoleChange(Math.max(1, currentHole - 1))}
+          onNext={() => handleHoleChange(Math.min(18, currentHole + 1))}
           canGoPrevious={currentHole > 1}
           canGoNext={currentHole < 18}
           className="flex-shrink-0"

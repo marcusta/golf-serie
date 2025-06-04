@@ -1,0 +1,326 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Golf Tournament & Scoring Platform - Product Specification
+
+## 1. Executive Summary
+
+This document outlines the product specification for a comprehensive digital golf scoring platform that supports various tournament formats, series, tours, and adhoc games. The platform serves both competitive organized golf (team series, individual tours) and casual play, with real-time scoring, leaderboards, and statistics.
+
+### Core Value Proposition
+- Digital scoring for all golf formats (stroke play, stableford, match play, etc.)
+- Support for team series, individual tours, and standalone competitions
+- Real-time leaderboards and results
+- Mobile-first scoring interface
+- Comprehensive statistics and historical data
+
+### Target Users
+1. **Golf Clubs & Organizations** - Running official series and tours
+2. **Golf Groups & Friends** - Organizing casual series, tours, or one-off competitions
+3. **Individual Players** - Participating in events and tracking personal statistics
+
+## 2. User Types & Access Levels
+
+### 2.1 Registered Users
+- **Players**: Can join competitions, enter scores, view statistics
+- **Admins**: Can create/manage series, tours, competitions, and teams
+- **Player-Admins**: Have both player and admin capabilities
+- Authentication via email/password
+- Profile management with handicap, home club, etc.
+
+### 2.2 Temporary Token Users
+- Access specific competitions via unique token/code
+- Limited to scoring and viewing for that specific event
+- No account required
+- Token expires after competition ends
+- Ideal for guest players or one-time participants
+
+### 2.3 Anonymous Users
+- Browse public series, tours, and competitions
+- View leaderboards and results (read-only)
+- Can access events via direct link (for semi-private events)
+- Cannot enter scores or join competitions
+
+## 3. Application Structure
+
+### 3.1 Public Section (Player Interface)
+
+#### Landing Page (`/`)
+- **Available Series**: Card grid showing active team series with:
+  - Series name and logo
+  - Current standings summary
+  - Next upcoming competition
+  - Number of participating teams
+- **Available Tours**: Similar grid for individual tours
+- **Upcoming Competitions**: Timeline view of all competitions across series/tours
+- **Live Leaderboards**: Real-time top 5 from ongoing competitions
+- **Quick Actions**:
+  - "Create Adhoc Game" button
+  - "Join with Code" input field
+  - "My Competitions" (for logged-in users)
+
+#### Series View (`/series/{series-id}`)
+- **Header Section**:
+  - Series banner image
+  - Series name and description
+  - Sponsor logos (if applicable)
+- **Navigation Tabs**:
+  - Overview
+  - Standings
+  - Competitions
+  - Teams
+  - Statistics
+  - Info/Rules
+- **Content Area**: Dynamic based on selected tab
+
+#### Tour View (`/tours/{tour-id}`)
+- Similar structure to Series View but focused on individuals
+- Leaderboard shows players instead of teams
+- Statistics focus on individual performance
+
+#### Competition View (`/competitions/{competition-id}`)
+- **Pre-Competition**: Start list, course info, format rules
+- **During Competition**: Live scoring, real-time leaderboard
+- **Post-Competition**: Final results, statistics, downloadable scorecard
+
+#### Score Entry (`/competitions/{competition-id}/score-entry`)
+- Mobile-optimized interface
+- Hole-by-hole scoring with custom keyboard
+- Support for different scoring formats
+- Offline capability with sync when connection restored
+- Quick navigation between holes
+- Full scorecard view
+
+### 3.2 Admin Section (`/admin`)
+
+#### Admin Dashboard (`/admin`)
+- Overview statistics (active series/tours/competitions)
+- Recent activity feed
+- Quick action buttons
+- Upcoming events calendar
+
+#### Series Management (`/admin/series`)
+- Create/Edit/Delete series
+- Configure point systems
+- Manage participating teams
+- Set competition schedule
+- Upload branding assets
+
+#### Tour Management (`/admin/tours`)
+- Similar to series but for individual competitions
+- Player registration management
+- Tour-specific rules and formats
+
+#### Competition Management (`/admin/competitions`)
+- Create competitions with various formats
+- Assign to series/tour or standalone
+- Configure tee times and groups
+- Set participant types (e.g., "Single 1", "Single 2", "Better Ball")
+- Real-time monitoring during play
+
+#### Team Management (`/admin/teams`)
+- CRUD operations for teams
+- Assign players to teams
+- Team statistics and history
+
+#### Course Management (`/admin/courses`)
+- Add/edit golf courses
+- Configure hole pars and handicaps
+- Multiple tee configurations
+
+## 4. Core Features
+
+### 4.1 Competition Formats (Modular Design)
+
+#### Base Competition Module
+```typescript
+interface CompetitionFormat {
+  id: string;
+  name: string;
+  scoreEntry: ScoreEntryComponent;
+  leaderboardCalculation: LeaderboardCalculator;
+  resultDisplay: ResultDisplayComponent;
+  rules: RulesConfiguration;
+}
+```
+
+#### Supported Formats
+1. **Stroke Play**
+   - Gross and net scoring
+   - Individual or team aggregate
+   - Cut line support
+
+2. **Stableford**
+   - Point-based scoring
+   - Modified stableford variants
+   - Team stableford
+
+3. **Match Play**
+   - Bracket management
+   - Automatic advancement
+   - Consolation brackets
+
+4. **Better Ball**
+   - 2-person teams
+   - Best score per hole
+   - Gross and net variants
+
+5. **Scramble/Texas Scramble**
+   - Team format
+   - Shot selection interface
+   - Handicap allowances
+
+6. **Custom Formats**
+   - Plugin architecture for new formats
+   - Configuration without code changes
+
+### 4.2 Scoring System
+
+#### Mobile-First Score Entry
+- Large touch targets
+- Custom numeric keyboard
+- Quick score entry (1-9+ strokes)
+- Special states (DNF, DQ, NR)
+- Offline capability
+- Auto-save and sync
+
+#### Real-time Updates
+- WebSocket connections for live scoring
+- Optimistic UI updates
+- Conflict resolution
+- Battery-efficient sync intervals
+
+### 4.3 Team & Player Management
+
+#### Team Features
+- Team rosters with roles
+- Substitute players
+- Team handicaps
+- Historical performance
+
+#### Player Features
+- Player profiles
+- Handicap tracking
+- Performance statistics
+- Competition history
+
+### 4.4 Points & Standings
+
+#### Flexible Point Systems
+- Configurable point tables
+- Major/minor competition weighting
+- Dropped scores
+- Playoff scenarios
+
+#### Live Standings
+- Real-time calculation
+- Projected standings
+- Historical progression
+- Export capabilities
+
+## 5. Technical Architecture
+
+### 5.1 Frontend Stack
+- **Framework**: React 19 with TypeScript
+- **Routing**: TanStack Router (file-based)
+- **State Management**: TanStack Query for server state
+- **UI Components**: Radix UI + custom components
+- **Styling**: Tailwind CSS
+- **Build Tool**: Vite
+
+### 5.2 Key Design Principles
+- **Mobile-First**: All interfaces optimized for mobile devices
+- **Offline-First**: Score entry works without connection
+- **Real-time**: Live updates across all connected clients
+- **Modular**: Pluggable competition formats
+- **Accessible**: WCAG 2.1 AA compliance
+
+### 5.3 Data Flow
+```
+User Action → Local State → Optimistic Update → API Call → 
+Server Processing → WebSocket Broadcast → UI Update
+```
+
+## 6. Navigation Structure
+
+```
+/
+├── series/
+│   ├── {series-id}/
+│   │   ├── standings/
+│   │   ├── competitions/
+│   │   ├── teams/
+│   │   ├── statistics/
+│   │   └── info/
+├── tours/
+│   ├── {tour-id}/
+│   │   ├── leaderboard/
+│   │   ├── competitions/
+│   │   ├── players/
+│   │   ├── statistics/
+│   │   └── info/
+├── competitions/
+│   ├── {competition-id}/
+│   │   ├── startlist/
+│   │   ├── leaderboard/
+│   │   ├── results/
+│   │   └── score-entry/
+├── create-adhoc-game/
+├── join-with-code/
+├── my-profile/
+├── my-statistics/
+└── admin/
+    ├── series/
+    ├── tours/
+    ├── competitions/
+    ├── teams/
+    ├── players/
+    ├── courses/
+    └── settings/
+```
+
+## 7. Implementation Priorities
+
+### Phase 1: Core Functionality
+1. Complete scoring system for stroke play
+2. Basic series/tour creation
+3. Team management
+4. Real-time leaderboards
+
+### Phase 2: Extended Formats
+1. Stableford scoring
+2. Match play brackets
+3. Better ball formats
+4. Points system
+
+### Phase 3: Enhanced Features
+1. Comprehensive statistics
+2. Mobile apps (React Native)
+3. Advanced tournament formats
+4. Integration APIs
+
+### Phase 4: Premium Features
+1. Live streaming integration
+2. Sponsor management
+3. Advanced analytics
+4. White-label options
+
+## 8. Success Metrics
+
+- **Adoption**: Number of active series/tours
+- **Engagement**: Scores entered per competition
+- **Reliability**: Uptime and sync success rate
+- **Performance**: Score entry time < 2 seconds
+- **User Satisfaction**: NPS score > 50
+
+## 9. Future Considerations
+
+- **AI-powered insights**: Performance predictions, strategy suggestions
+- **Social features**: Comments, likes, sharing
+- **Betting integration**: (where legally permitted)
+- **Hardware integration**: GPS rangefinders, smart watches
+- **Virtual tournaments**: Cross-course competitions with handicapping
+
+This specification provides the foundation for building a comprehensive golf tournament platform that can scale from casual friend groups to official golf associations while maintaining ease of use and reliability.

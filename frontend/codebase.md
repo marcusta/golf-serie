@@ -1,146 +1,165 @@
+# .cursor/rules/frontend-rules.mdc
+
+```mdc
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Golf Scorecard Frontend - Cursor Rules
+
+## Project Overview
+This is a React TypeScript frontend for a golf scorecard application with dual interfaces: **Admin Panel** for managing competitions/teams/courses and **Player View** for score entry and leaderboards.
+
+## Tech Stack & Core Dependencies
+- **Framework**: React 19.1.0 + TypeScript
+- **Build Tool**: Vite 6.3.5
+- **Routing**: TanStack Router with file-based routing
+- **State Management**: TanStack Query (React Query) for server state
+- **Styling**: Tailwind CSS 4.1.7 with custom design system
+- **UI Components**: Radix UI primitives + custom shadcn/ui components
+- **Icons**: Lucide React
+- **HTTP Client**: Native fetch API with custom config
+
+## Project Structure
+
+\`\`\`
+src/
+├── api/           # API layer with React Query hooks
+├── components/    # Reusable UI components
+│   ├── ui/        # shadcn/ui base components
+│   └── score-entry/ # Specialized score entry components
+├── views/         # Page-level components
+│   ├── admin/     # Admin panel pages
+│   └── player/    # Player interface pages
+├── utils/         # Utility functions
+├── lib/           # Core utilities (utils.ts for cn() helper)
+└── router.tsx     # Route definitions
+\`\`\`
+
+## API Layer (`src/api/`)
+- **Pattern**: Each entity has its own file (teams.ts, courses.ts, etc.)
+- **Hooks**: Custom React Query hooks for CRUD operations
+  - `use[Entity]()` - fetch list
+  - `use[Entity](id)` - fetch single
+  - `useCreate[Entity]()` - mutation for creation
+  - `useUpdate[Entity]()` - mutation for updates
+  - `useDelete[Entity]()` - mutation for deletion
+- **Config**: `config.ts` handles base URL detection for dev/prod environments
+- **Base URL**: Uses dynamic detection (`/api` in dev, `/golf-serie/api` in production)
+
+## Components Architecture
+
+### UI Components (`src/components/ui/`)
+- **Base**: shadcn/ui components with Radix UI primitives
+- **Styling**: Uses `cn()` utility for conditional classes
+- **Variants**: CVA (class-variance-authority) for component variants
+- **Theme**: CSS custom properties for consistent theming
+
+### Specialized Components
+- **ParticipantAssignment**: Complex drag-and-drop assignment interface
+- **ScoreEntry**: Mobile-optimized score entry with custom keyboard
+- **Custom Keyboard**: Touch-optimized number input for mobile score entry
+
+## Routing & Navigation
+- **Router**: TanStack Router with dynamic base path support
+- **Structure**: 
+  - `/admin/*` - Admin panel routes
+  - `/player/*` - Player interface routes
+  - Default redirect to `/player/standings`
+- **Base Path**: Configurable for deployment under subpaths (e.g., `/golf-serie/`)
+
+## Views Structure
+
+### Admin Views (`src/views/admin/`)
+- **AdminLayout**: Shared layout with navigation tabs
+- **Teams**: Team CRUD with modal forms
+- **Courses**: Course management with hole par configuration
+- **Competitions**: Competition creation and management
+- **CompetitionTeeTimes**: Complex tee time and participant assignment
+
+### Player Views (`src/views/player/`)
+- **PlayerLayout**: Player-focused layout
+- **Standings**: General leaderboard and statistics
+- **Competitions**: Browse and view competitions
+- **CompetitionDetail**: Detailed competition view with tabs
+- **TeeTimeDetail**: Full-screen score entry interface
+
+## Styling Conventions
+- **Utility-First**: Tailwind CSS with custom design tokens
+- **Colors**: Green primary theme with semantic color usage
+- **Responsive**: Mobile-first design with `md:` and `lg:` breakpoints
+- **Components**: Consistent padding, shadows, and border radius
+- **State Indicators**: Color-coded status (green=success, blue=info, red=error)
+
+## Data Flow & State Management
+- **Server State**: TanStack Query for all API interactions
+- **Local State**: React useState for component-specific state
+- **Mutations**: Optimistic updates with error handling and cache invalidation
+- **Real-time**: Automatic cache invalidation for data consistency
+
+## Key Features & Patterns
+
+### Participant Assignment System
+- **Multi-format Support**: Handles single players and team formats (Bästboll, etc.)
+- **Player Limits**: 4-player maximum per tee time with validation
+- **Drag & Drop**: Native HTML5 drag-and-drop with touch support
+- **Reordering**: Participant order management within tee times
+
+### Score Entry Interface
+- **Mobile-Optimized**: Full-screen interface with custom keyboard
+- **Touch-First**: Large touch targets and gesture support
+- **Progressive**: Hole-by-hole entry with navigation
+- **Flexible Input**: Custom keyboard for common scores + native input for edge cases
+
+### Deployment Configuration
+- **Multi-Environment**: Supports root deployment and subpath deployment
+- **Dynamic Config**: Runtime detection of deployment context
+- **Reverse Proxy Ready**: Configured for Nginx/Apache deployment
+- **Asset Paths**: Correct static asset handling in all environments
+
+## Development Conventions
+
+### Code Style
+- **TypeScript**: Strict mode enabled with proper typing
+- **Components**: Functional components with hooks
+- **Props**: Interface definitions for all component props
+- **Exports**: Named exports preferred, default exports for pages/layouts
+
+### Error Handling
+- **API Errors**: Handled in React Query with user-friendly messages
+- **Loading States**: Consistent loading indicators and skeletons
+- **Validation**: Client-side validation with server-side backup
+- **Fallbacks**: Graceful degradation for missing data
+
+### Performance
+- **Query Optimization**: Efficient React Query cache management
+- **Bundle Splitting**: Route-based code splitting
+- **Mobile Performance**: Optimized for mobile devices and touch interactions
+- **Memory Management**: Proper cleanup of event listeners and timers
+
+## File Naming & Organization
+- **PascalCase**: React components and TypeScript interfaces
+- **camelCase**: Functions, variables, and file names (except components)
+- **kebab-case**: CSS classes and some utility files
+- **Grouping**: Related functionality grouped in folders (api/, components/, views/)
+
+## Environment & Build
+- **Development**: Vite dev server with proxy to localhost:3010
+- **Production**: Static build with configurable base path
+- **Preview**: Production preview mode for testing
+- **Deploy**: Automated copy to `../frontend_dist/` directory
+
+## Integration Points
+- **Backend API**: RESTful API ron port 3010 with CORS support
+- **Course Data**: Handles 18-hole courses with par information
+- **Multi-team**: Supports multiple teams with flexible participant types
+- **Score Tracking**: Real-time score updates with leaderboard calculation
+
+Remember to maintain consistency with existing patterns, use the established API hooks, and follow the mobile-first responsive design principles throughout the codebase.
+```
+
 # .gitignore
-
-```
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
-
-# Diagnostic reports (https://nodejs.org/api/report.html)
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Directory for instrumented libs generated by jscoverage/JSCover
-lib-cov
-
-# Coverage directory used by tools like istanbul
-coverage
-*.lcov
-
-# nyc test coverage
-.nyc_output
-
-# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
-.grunt
-
-# Bower dependency directory (https://bower.io/)
-bower_components
-
-# node-waf configuration
-.lock-wscript
-
-# Compiled binary addons (https://nodejs.org/api/addons.html)
-build/Release
-
-# Dependency directories
-node_modules/
-jspm_packages/
-
-# Snowpack dependency directory (https://snowpack.dev/)
-web_modules/
-
-# TypeScript cache
-*.tsbuildinfo
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional stylelint cache
-.stylelintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# Next.js build output
-.next
-out
-
-# Nuxt.js build / generate output
-.nuxt
-dist
-
-# Gatsby files
-.cache/
-# Comment in the public line in if your project uses Gatsby and not Next.js
-# https://nextjs.org/blog/next-9-1#public-directory-support
-# public
-
-# vuepress build output
-.vuepress/dist
-
-# vuepress v2.x temp and cache directory
-.temp
-.cache
-
-# vitepress build output
-**/.vitepress/dist
-
-# vitepress cache directory
-**/.vitepress/cache
-
-# Docusaurus cache and generated files
-.docusaurus
-
-# Serverless directories
-.serverless/
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# yarn v2
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
-
-```
-
-# frontend/.gitignore
 
 ```
 # Logs
@@ -170,7 +189,7 @@ dist-ssr
 
 ```
 
-# frontend/components.json
+# components.json
 
 ```json
 {
@@ -196,7 +215,7 @@ dist-ssr
 }
 ```
 
-# frontend/DEPLOYMENT_GUIDE.md
+# DEPLOYMENT_GUIDE.md
 
 ```md
 # Golf Serie Frontend - Deployment Guide
@@ -392,7 +411,7 @@ To deploy at the root path (`/`):
 2. The API configuration will automatically use `/api` for root deployments. 
 ```
 
-# frontend/eslint.config.js
+# eslint.config.js
 
 ```js
 import js from '@eslint/js'
@@ -426,7 +445,7 @@ export default tseslint.config(
 
 ```
 
-# frontend/index.html
+# index.html
 
 ```html
 <!doctype html>
@@ -445,7 +464,7 @@ export default tseslint.config(
 
 ```
 
-# frontend/package.json
+# package.json
 
 ```json
 {
@@ -500,7 +519,7 @@ export default tseslint.config(
 
 ```
 
-# frontend/PARTICIPANT_ASSIGNMENT_README.md
+# PARTICIPANT_ASSIGNMENT_README.md
 
 ```md
 # Participant Assignment UI Implementation
@@ -738,7 +757,11 @@ The component relies on:
 This implementation provides a complete, production-ready solution for participant assignment in golf competitions. The dual interaction methods (drag-and-drop and click-to-assign) ensure accessibility and usability across different devices and user preferences. The clean architecture makes it easy to extend and maintain. 
 ```
 
-# frontend/QUICK_START_GUIDE.md
+# public/vite.svg
+
+This is a file of the type: SVG Image
+
+# QUICK_START_GUIDE.md
 
 ```md
 # Participant Assignment - Quick Start Guide
@@ -885,7 +908,7 @@ After assigning all participants:
 *This interface is designed to be intuitive - if something feels natural to try, it probably works!* 
 ```
 
-# frontend/README.md
+# README.md
 
 ```md
 # React + TypeScript + Vite
@@ -945,7 +968,7 @@ export default tseslint.config({
 
 ```
 
-# frontend/src/api/competitions.ts
+# src/api/competitions.ts
 
 ```ts
 import { useQuery } from "@tanstack/react-query";
@@ -1016,7 +1039,7 @@ export function useCompetitionLeaderboard(competitionId: number) {
 
 ```
 
-# frontend/src/api/config.ts
+# src/api/config.ts
 
 ```ts
 // API configuration that works in both development and production
@@ -1054,7 +1077,7 @@ export const API_BASE_URL = getApiBaseUrl();
 
 ```
 
-# frontend/src/api/courses.ts
+# src/api/courses.ts
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1173,7 +1196,7 @@ export function useDeleteCourse() {
 
 ```
 
-# frontend/src/api/participants.ts
+# src/api/participants.ts
 
 ```ts
 import { useQuery } from "@tanstack/react-query";
@@ -1220,7 +1243,7 @@ export function useParticipant(id: number) {
 
 ```
 
-# frontend/src/api/teams.ts
+# src/api/teams.ts
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1326,7 +1349,7 @@ export function useDeleteTeam() {
 
 ```
 
-# frontend/src/api/tee-times.ts
+# src/api/tee-times.ts
 
 ```ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1551,7 +1574,7 @@ export function useDeleteParticipant() {
 
 ```
 
-# frontend/src/App.css
+# src/App.css
 
 ```css
 #root {
@@ -1599,7 +1622,7 @@ export function useDeleteParticipant() {
 
 ```
 
-# frontend/src/App.tsx
+# src/App.tsx
 
 ```tsx
 import { Outlet, useRouterState } from "@tanstack/react-router";
@@ -1672,7 +1695,11 @@ export default function App() {
 
 ```
 
-# frontend/src/components/navigation/BottomTabNavigation.tsx
+# src/assets/react.svg
+
+This is a file of the type: SVG Image
+
+# src/components/navigation/BottomTabNavigation.tsx
 
 ```tsx
 import { cn } from "@/lib/utils";
@@ -1772,7 +1799,7 @@ export function BottomTabNavigation({
 
 ```
 
-# frontend/src/components/navigation/HamburgerMenu.tsx
+# src/components/navigation/HamburgerMenu.tsx
 
 ```tsx
 import { useState } from "react";
@@ -1877,7 +1904,7 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
 
 ```
 
-# frontend/src/components/navigation/HoleNavigation.tsx
+# src/components/navigation/HoleNavigation.tsx
 
 ```tsx
 import { cn } from "@/lib/utils";
@@ -1962,7 +1989,7 @@ export function HoleNavigation({
 
 ```
 
-# frontend/src/components/navigation/index.ts
+# src/components/navigation/index.ts
 
 ```ts
 export { BottomTabNavigation } from "./BottomTabNavigation";
@@ -1971,7 +1998,7 @@ export { HoleNavigation } from "./HoleNavigation";
 
 ```
 
-# frontend/src/components/ParticipantAssignment.tsx
+# src/components/ParticipantAssignment.tsx
 
 ```tsx
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -3120,7 +3147,7 @@ export default function ParticipantAssignment({
 
 ```
 
-# frontend/src/components/ParticipantAssignmentDemo.tsx
+# src/components/ParticipantAssignmentDemo.tsx
 
 ```tsx
 import { useState } from "react";
@@ -3270,7 +3297,7 @@ export default function ParticipantAssignmentDemo() {
 
 ```
 
-# frontend/src/components/score-entry/CustomKeyboard.tsx
+# src/components/score-entry/CustomKeyboard.tsx
 
 ```tsx
 import { cn } from "@/lib/utils";
@@ -3410,7 +3437,7 @@ export function CustomKeyboard({
 
 ```
 
-# frontend/src/components/score-entry/FullScorecardModal.tsx
+# src/components/score-entry/FullScorecardModal.tsx
 
 ```tsx
 import { useState } from "react";
@@ -3748,7 +3775,7 @@ export function FullScorecardModal({
 
 ```
 
-# frontend/src/components/score-entry/index.ts
+# src/components/score-entry/index.ts
 
 ```ts
 export { CustomKeyboard } from "./CustomKeyboard";
@@ -3759,7 +3786,7 @@ export { useNativeKeyboard } from "./useNativeKeyboard";
 
 ```
 
-# frontend/src/components/score-entry/ScoreEntry.tsx
+# src/components/score-entry/ScoreEntry.tsx
 
 ```tsx
 import { useState, useEffect } from "react";
@@ -4173,7 +4200,7 @@ export function ScoreEntry({
 
 ```
 
-# frontend/src/components/score-entry/ScoreEntryDemo.tsx
+# src/components/score-entry/ScoreEntryDemo.tsx
 
 ```tsx
 import { useState } from "react";
@@ -4254,7 +4281,7 @@ export function ScoreEntryDemo() {
 
 ```
 
-# frontend/src/components/score-entry/useNativeKeyboard.ts
+# src/components/score-entry/useNativeKeyboard.ts
 
 ```ts
 import { useCallback, useState } from "react";
@@ -4313,7 +4340,7 @@ export function useNativeKeyboard({
 
 ```
 
-# frontend/src/components/ui/avatar.tsx
+# src/components/ui/avatar.tsx
 
 ```tsx
 import * as React from "react"
@@ -4370,7 +4397,7 @@ export { Avatar, AvatarImage, AvatarFallback }
 
 ```
 
-# frontend/src/components/ui/badge.tsx
+# src/components/ui/badge.tsx
 
 ```tsx
 import * as React from "react"
@@ -4422,7 +4449,7 @@ export { Badge, badgeVariants }
 
 ```
 
-# frontend/src/components/ui/button.tsx
+# src/components/ui/button.tsx
 
 ```tsx
 import * as React from "react"
@@ -4487,7 +4514,7 @@ export { Button, buttonVariants }
 
 ```
 
-# frontend/src/components/ui/card.tsx
+# src/components/ui/card.tsx
 
 ```tsx
 import * as React from "react"
@@ -4585,7 +4612,7 @@ export {
 
 ```
 
-# frontend/src/components/ui/dialog.tsx
+# src/components/ui/dialog.tsx
 
 ```tsx
 import * as React from "react";
@@ -4710,7 +4737,7 @@ export {
 
 ```
 
-# frontend/src/components/ui/input.tsx
+# src/components/ui/input.tsx
 
 ```tsx
 import * as React from "react";
@@ -4740,7 +4767,7 @@ export { Input };
 
 ```
 
-# frontend/src/components/ui/skeleton.tsx
+# src/components/ui/skeleton.tsx
 
 ```tsx
 import { cn } from "@/lib/utils"
@@ -4759,7 +4786,7 @@ export { Skeleton }
 
 ```
 
-# frontend/src/index.css
+# src/index.css
 
 ```css
 @import "tailwindcss";
@@ -4934,7 +4961,7 @@ export { Skeleton }
 
 ```
 
-# frontend/src/lib/utils.ts
+# src/lib/utils.ts
 
 ```ts
 import { clsx, type ClassValue } from "clsx"
@@ -4946,7 +4973,7 @@ export function cn(...inputs: ClassValue[]) {
 
 ```
 
-# frontend/src/main.tsx
+# src/main.tsx
 
 ```tsx
 import { StrictMode } from "react";
@@ -4970,7 +4997,7 @@ createRoot(document.getElementById("root")!).render(
 
 ```
 
-# frontend/src/router.tsx
+# src/router.tsx
 
 ```tsx
 import {
@@ -5095,7 +5122,7 @@ export default router;
 
 ```
 
-# frontend/src/utils/holeNavigation.ts
+# src/utils/holeNavigation.ts
 
 ```ts
 // Utility for smart hole navigation and session management
@@ -5162,7 +5189,7 @@ export const clearRememberedHole = (teeTimeId: string): void => {
 
 ```
 
-# frontend/src/utils/playerUtils.ts
+# src/utils/playerUtils.ts
 
 ```ts
 /**
@@ -5271,7 +5298,7 @@ export function isMultiPlayerFormat(participantType: string): boolean {
 
 ```
 
-# frontend/src/utils/scoreStorage.ts
+# src/utils/scoreStorage.ts
 
 ```ts
 // Utility for managing local score storage and sync resilience
@@ -5397,7 +5424,7 @@ export class ScoreStorageManager {
 
 ```
 
-# frontend/src/views/admin/AdminLayout.tsx
+# src/views/admin/AdminLayout.tsx
 
 ```tsx
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
@@ -5468,7 +5495,7 @@ export default function AdminLayout() {
 
 ```
 
-# frontend/src/views/admin/Competitions.tsx
+# src/views/admin/Competitions.tsx
 
 ```tsx
 import { useState } from "react";
@@ -5709,7 +5736,7 @@ export default function AdminCompetitions() {
 
 ```
 
-# frontend/src/views/admin/CompetitionTeeTimes.tsx
+# src/views/admin/CompetitionTeeTimes.tsx
 
 ```tsx
 import { useState, useEffect } from "react";
@@ -6111,7 +6138,7 @@ export default function AdminCompetitionTeeTimes() {
 
 ```
 
-# frontend/src/views/admin/Courses.tsx
+# src/views/admin/Courses.tsx
 
 ```tsx
 import { useState } from "react";
@@ -6536,7 +6563,7 @@ function CourseCard({
 
 ```
 
-# frontend/src/views/admin/Teams.tsx
+# src/views/admin/Teams.tsx
 
 ```tsx
 import { useState } from "react";
@@ -6835,7 +6862,7 @@ export default function Teams() {
 
 ```
 
-# frontend/src/views/Competitions.tsx
+# src/views/Competitions.tsx
 
 ```tsx
 import { useCompetitions } from "../api/competitions";
@@ -6863,7 +6890,7 @@ export default function Competitions() {
 
 ```
 
-# frontend/src/views/Courses.tsx
+# src/views/Courses.tsx
 
 ```tsx
 import { useCourses } from "../api/courses";
@@ -7022,7 +7049,7 @@ export default function Courses() {
 
 ```
 
-# frontend/src/views/Participants.tsx
+# src/views/Participants.tsx
 
 ```tsx
 import { useParticipants } from "../api/participants";
@@ -7193,7 +7220,7 @@ export default function Participants() {
 
 ```
 
-# frontend/src/views/player/CompetitionDetail.tsx
+# src/views/player/CompetitionDetail.tsx
 
 ```tsx
 import { useState, useEffect } from "react";
@@ -7727,7 +7754,7 @@ export default function CompetitionDetail() {
 
 ```
 
-# frontend/src/views/player/CompetitionRound.tsx
+# src/views/player/CompetitionRound.tsx
 
 ```tsx
 import { useState, useEffect, useCallback } from "react";
@@ -8578,7 +8605,7 @@ export default function CompetitionRound() {
 
 ```
 
-# frontend/src/views/player/Competitions.tsx
+# src/views/player/Competitions.tsx
 
 ```tsx
 import { Link } from "@tanstack/react-router";
@@ -8726,7 +8753,7 @@ export default function PlayerCompetitions() {
 
 ```
 
-# frontend/src/views/player/PlayerLayout.tsx
+# src/views/player/PlayerLayout.tsx
 
 ```tsx
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
@@ -8791,7 +8818,7 @@ export default function PlayerLayout() {
 
 ```
 
-# frontend/src/views/player/Standings.tsx
+# src/views/player/Standings.tsx
 
 ```tsx
 import { useParticipants } from "../../api/participants";
@@ -9018,7 +9045,7 @@ export default function PlayerStandings() {
 
 ```
 
-# frontend/src/views/player/TeeTimeDetail.tsx
+# src/views/player/TeeTimeDetail.tsx
 
 ```tsx
 import { Link, useParams } from "@tanstack/react-router";
@@ -9122,7 +9149,7 @@ export default function TeeTimeDetail() {
 
 ```
 
-# frontend/src/views/Teams.tsx
+# src/views/Teams.tsx
 
 ```tsx
 import { useTeams } from "../api/teams";
@@ -9310,7 +9337,7 @@ export default function Teams() {
 
 ```
 
-# frontend/src/views/TeeTimes.tsx
+# src/views/TeeTimes.tsx
 
 ```tsx
 import { useTeeTimes } from "../api/tee-times";
@@ -9337,14 +9364,14 @@ export default function TeeTimes() {
 
 ```
 
-# frontend/src/vite-env.d.ts
+# src/vite-env.d.ts
 
 ```ts
 /// <reference types="vite/client" />
 
 ```
 
-# frontend/tsconfig.app.json
+# tsconfig.app.json
 
 ```json
 {
@@ -9380,7 +9407,7 @@ export default function TeeTimes() {
 
 ```
 
-# frontend/tsconfig.json
+# tsconfig.json
 
 ```json
 {
@@ -9403,7 +9430,7 @@ export default function TeeTimes() {
 
 ```
 
-# frontend/tsconfig.node.json
+# tsconfig.node.json
 
 ```json
 {
@@ -9434,7 +9461,7 @@ export default function TeeTimes() {
 
 ```
 
-# frontend/vite.config.ts
+# vite.config.ts
 
 ```ts
 import tailwindcss from "@tailwindcss/vite";
@@ -9465,3264 +9492,6 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
-
-```
-
-# index.ts
-
-```ts
-console.log("Hello via Bun!");
-```
-
-# package.json
-
-```json
-{
-  "name": "golf-serie",
-  "version": "1.0.0",
-  "description": "Golf Series Backend with Hexagonal Architecture",
-  "module": "src/index.ts",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "prod": "bun src/index.ts",
-    "build": "bun build src/index.ts --outdir=./dist",
-    "test": "bun test --concurrency 1",
-    "test:watch": "bun test --watch",
-    "migrate": "bun run src/database/migrate.ts",
-    "type-check": "tsc --noEmit",
-    "lint": "eslint src/**/*.ts",
-    "setup": "bun install && bun run src/database/migrate.ts && bun run src/database/seed.ts",
-    "start": "bun run src/index.ts"
-  },
-  "dependencies": {
-    "hono": "^4.7.10",
-    "uuid": "^9.0.1",
-    "zod": "^3.22.4"
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/uuid": "^9.0.7",
-    "drizzle-kit": "^0.20.8",
-    "typescript": "^5.3.3",
-    "bun-types": "latest"
-  },
-  "engines": {
-    "bun": ">=1.0.0"
-  }
-}
-
-```
-
-# README.md
-
-```md
-# Golf Series Backend
-
-A simple backend system for managing golf courses, teams, and competitions.
-
-## Technology Stack
-
-- **Runtime**: Bun.js
-- **Language**: TypeScript (strict mode)
-- **Database**: SQLite3 using Bun's built-in SQLite library
-- **HTTP Server**: Bun's built-in HTTP server
-- **Testing**: Bun's built-in test runner
-
-## Prerequisites
-
-- [Bun](https://bun.sh/) installed on your system
-
-## Setup
-
-1. Clone the repository
-2. Install dependencies:
-   \`\`\`bash
-   bun install
-   \`\`\`
-3. Run database migrations:
-   \`\`\`bash
-   bun run migrate
-   \`\`\`
-
-## Development
-
-Start the development server:
-\`\`\`bash
-bun run dev
-\`\`\`
-
-The server will start on port 3000 by default. You can change this by setting the `PORT` environment variable.
-
-## Testing
-
-Run the test suite:
-\`\`\`bash
-bun test
-\`\`\`
-
-## API Endpoints
-
-### Courses
-
-- `POST /api/courses` - Create a course
-- `GET /api/courses` - List all courses
-- `GET /api/courses/:id` - Get single course
-- `PUT /api/courses/:id` - Update a course
-
-### Teams
-
-- `POST /api/teams` - Create a team
-- `GET /api/teams` - List all teams
-- `GET /api/teams/:id` - Get single team
-- `PUT /api/teams/:id` - Update team name
-
-### Competitions
-
-- `POST /api/competitions` - Create a competition
-- `GET /api/competitions` - List all competitions
-- `GET /api/competitions/:id` - Get single competition
-- `PUT /api/competitions/:id` - Update a competition
-
-## Data Models
-
-### Course
-- id (integer, primary key)
-- name (text)
-- pars (JSON array of 18 numbers)
-- created_at, updated_at (datetime)
-
-### Team
-- id (integer, primary key)
-- name (text, unique)
-- created_at, updated_at (datetime)
-
-### Competition
-- id (integer, primary key)
-- name (text)
-- date (text/date)
-- course_id (foreign key to Course)
-- created_at, updated_at (datetime)
-
-## Validation Rules
-
-### Course
-- Name is required and non-empty
-- Pars must be array of exactly 18 positive integers (3-6 range)
-
-### Team
-- Name is required and non-empty
-- Name must be unique
-
-### Competition
-- Name is required and non-empty
-- Date is required (basic date format)
-- course_id must reference existing course
-```
-
-# src/api/competitions.ts
-
-```ts
-import { CompetitionService } from "../services/competition-service";
-import type { CreateCompetitionDto, UpdateCompetitionDto } from "../types";
-
-export function createCompetitionsApi(competitionService: CompetitionService) {
-  return {
-    async create(req: Request): Promise<Response> {
-      try {
-        const data = (await req.json()) as CreateCompetitionDto;
-        const competition = await competitionService.create(data);
-        return new Response(JSON.stringify(competition), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findAll(): Promise<Response> {
-      try {
-        const competitions = await competitionService.findAll();
-        return new Response(JSON.stringify(competitions), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findById(req: Request, id: number): Promise<Response> {
-      try {
-        const competition = await competitionService.findById(id);
-        if (!competition) {
-          return new Response(
-            JSON.stringify({ error: "Competition not found" }),
-            {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-        }
-        return new Response(JSON.stringify(competition), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async update(req: Request, id: number): Promise<Response> {
-      try {
-        const data = (await req.json()) as UpdateCompetitionDto;
-        const competition = await competitionService.update(id, data);
-        return new Response(JSON.stringify(competition), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async delete(id: number): Promise<Response> {
-      try {
-        await competitionService.delete(id);
-        return new Response(null, { status: 204 });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async getLeaderboard(competitionId: number): Promise<Response> {
-      try {
-        const leaderboard = await competitionService.getLeaderboard(
-          competitionId
-        );
-        return new Response(JSON.stringify(leaderboard), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          const status = error.message === "Competition not found" ? 404 : 400;
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: status,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-  };
-}
-
-```
-
-# src/api/courses.ts
-
-```ts
-import { CourseService } from "../services/course-service";
-import type { CreateCourseDto, UpdateCourseDto } from "../types";
-
-export function createCoursesApi(courseService: CourseService) {
-  return {
-    async create(req: Request): Promise<Response> {
-      try {
-        const data = (await req.json()) as CreateCourseDto;
-        const course = await courseService.create(data);
-        return new Response(JSON.stringify(course), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findAll(): Promise<Response> {
-      try {
-        const courses = await courseService.findAll();
-        return new Response(JSON.stringify(courses), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findById(req: Request, id: number): Promise<Response> {
-      try {
-        const course = await courseService.findById(id);
-        if (!course) {
-          return new Response(JSON.stringify({ error: "Course not found" }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify(course), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async update(req: Request, id: number): Promise<Response> {
-      try {
-        const data = (await req.json()) as UpdateCourseDto;
-        const course = await courseService.update(id, data);
-        return new Response(JSON.stringify(course), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async updateHoles(req: Request, id: number): Promise<Response> {
-      try {
-        const pars = (await req.json()) as number[];
-        const course = await courseService.updateHoles(id, pars);
-        return new Response(JSON.stringify(course), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async delete(id: number): Promise<Response> {
-      try {
-        await courseService.delete(id);
-        return new Response(null, { status: 204 });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-  };
-}
-
-```
-
-# src/api/participants.ts
-
-```ts
-import { ParticipantService } from "../services/participant-service";
-import type { CreateParticipantDto, UpdateParticipantDto } from "../types";
-
-export function createParticipantsApi(participantService: ParticipantService) {
-  return {
-    async create(req: Request): Promise<Response> {
-      try {
-        const data = (await req.json()) as CreateParticipantDto;
-        const participant = await participantService.create(data);
-        return new Response(JSON.stringify(participant), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findAll(): Promise<Response> {
-      try {
-        const participants = await participantService.findAll();
-        return new Response(JSON.stringify(participants), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findById(req: Request, id: number): Promise<Response> {
-      try {
-        const participant = await participantService.findById(id);
-        if (!participant) {
-          return new Response(
-            JSON.stringify({ error: "Participant not found" }),
-            {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-        }
-        return new Response(JSON.stringify(participant), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async update(req: Request, id: number): Promise<Response> {
-      try {
-        const data = (await req.json()) as UpdateParticipantDto;
-        const participant = await participantService.update(id, data);
-        return new Response(JSON.stringify(participant), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async delete(id: number): Promise<Response> {
-      try {
-        console.log("delete! /api/participants/:id", id);
-        await participantService.delete(id);
-        console.log("delete complete! /api/participants/:id", id);
-        return new Response(null, { status: 204 });
-      } catch (error) {
-        console.log("delete error! /api/participants/:id", id, error);
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findAllForCompetition(competitionId: number): Promise<Response> {
-      try {
-        const participants = await participantService.findAllForCompetition(
-          competitionId
-        );
-        return new Response(JSON.stringify(participants), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async updateScore(req: Request, id: number): Promise<Response> {
-      try {
-        const data = (await req.json()) as { hole: number; shots: number };
-
-        // Allow -1 (gave up) and 0 (unreported/cleared score) as valid values
-        if (data.shots === undefined || data.shots === null) {
-          return new Response(JSON.stringify({ error: "Shots are required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        if (!data.hole) {
-          return new Response(JSON.stringify({ error: "Hole is required" }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        const participant = await participantService.updateScore(
-          id,
-          data.hole,
-          data.shots
-        );
-        return new Response(JSON.stringify(participant), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          // Return 404 for participant not found, 400 for validation errors
-          const status = error.message === "Participant not found" ? 404 : 400;
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: status,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-  };
-}
-
-```
-
-# src/api/series.ts
-
-```ts
-import { SeriesService } from "../services/series-service";
-import type { CreateSeriesDto, UpdateSeriesDto } from "../types";
-
-export function createSeriesApi(seriesService: SeriesService) {
-  return {
-    async create(req: Request): Promise<Response> {
-      try {
-        const data = (await req.json()) as CreateSeriesDto;
-        const series = await seriesService.create(data);
-        return new Response(JSON.stringify(series), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findAll(): Promise<Response> {
-      try {
-        const series = await seriesService.findAll();
-        return new Response(JSON.stringify(series), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findById(req: Request, id: number): Promise<Response> {
-      try {
-        const series = await seriesService.findById(id);
-        if (!series) {
-          return new Response(JSON.stringify({ error: "Series not found" }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify(series), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async update(req: Request, id: number): Promise<Response> {
-      try {
-        const data = (await req.json()) as UpdateSeriesDto;
-        const series = await seriesService.update(id, data);
-        return new Response(JSON.stringify(series), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async delete(id: number): Promise<Response> {
-      try {
-        await seriesService.delete(id);
-        return new Response(null, { status: 204 });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async getCompetitions(id: number): Promise<Response> {
-      try {
-        const competitions = await seriesService.getCompetitions(id);
-        return new Response(JSON.stringify(competitions), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async getTeams(id: number): Promise<Response> {
-      try {
-        const teams = await seriesService.getTeams(id);
-        return new Response(JSON.stringify(teams), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-  };
-}
-
-```
-
-# src/api/teams.ts
-
-```ts
-import { TeamService } from "../services/team-service";
-import type { CreateTeamDto, UpdateTeamDto } from "../types";
-
-export function createTeamsApi(teamService: TeamService) {
-  return {
-    async create(req: Request): Promise<Response> {
-      try {
-        const data = (await req.json()) as CreateTeamDto;
-        const team = await teamService.create(data);
-        return new Response(JSON.stringify(team), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findAll(): Promise<Response> {
-      try {
-        const teams = await teamService.findAll();
-        return new Response(JSON.stringify(teams), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findById(req: Request, id: number): Promise<Response> {
-      try {
-        const team = await teamService.findById(id);
-        if (!team) {
-          return new Response(JSON.stringify({ error: "Team not found" }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify(team), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async update(req: Request, id: number): Promise<Response> {
-      try {
-        const data = (await req.json()) as UpdateTeamDto;
-        const team = await teamService.update(id, data);
-        return new Response(JSON.stringify(team), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-  };
-}
-
-```
-
-# src/api/tee-times.ts
-
-```ts
-import { TeeTimeService } from "../services/tee-time-service";
-import type { CreateTeeTimeDto, UpdateTeeTimeDto } from "../types";
-
-export function createTeeTimesApi(teeTimeService: TeeTimeService) {
-  return {
-    async createForCompetition(
-      req: Request,
-      competitionId: number
-    ): Promise<Response> {
-      try {
-        const data = (await req.json()) as CreateTeeTimeDto;
-        // Override competition_id with the one from the URL
-        const teeTime = await teeTimeService.create({
-          ...data,
-          competition_id: competitionId,
-        });
-        return new Response(JSON.stringify(teeTime), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findAllForCompetition(competitionId: number): Promise<Response> {
-      try {
-        const teeTimes =
-          await teeTimeService.findAllForCompetitionWithParticipants(
-            competitionId
-          );
-        return new Response(JSON.stringify(teeTimes), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message === "Competition not found"
-        ) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findById(req: Request, id: number): Promise<Response> {
-      try {
-        const teeTime = await teeTimeService.findById(id);
-        if (!teeTime) {
-          return new Response(JSON.stringify({ error: "Tee time not found" }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify(teeTime), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async findByIdWithParticipants(
-      req: Request,
-      id: number
-    ): Promise<Response> {
-      try {
-        const teeTime = await teeTimeService.findByIdWithParticipants(id);
-        if (!teeTime) {
-          return new Response(JSON.stringify({ error: "Tee time not found" }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify(teeTime), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async update(req: Request, id: number): Promise<Response> {
-      try {
-        const data = (await req.json()) as UpdateTeeTimeDto;
-        const teeTime = await teeTimeService.update(id, data);
-        return new Response(JSON.stringify(teeTime), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async delete(id: number): Promise<Response> {
-      try {
-        await teeTimeService.delete(id);
-        return new Response(null, { status: 204 });
-      } catch (error) {
-        if (error instanceof Error) {
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-
-    async updateParticipantsOrder(req: Request, id: number): Promise<Response> {
-      try {
-        const body = (await req.json()) as { participantIds: number[] };
-        const updatedTeeTime = await teeTimeService.updateParticipantsOrder(
-          id,
-          body.participantIds
-        );
-        return new Response(JSON.stringify(updatedTeeTime), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === "Tee time not found") {
-            return new Response(JSON.stringify({ error: error.message }), {
-              status: 404,
-              headers: { "Content-Type": "application/json" },
-            });
-          }
-          return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(
-          JSON.stringify({ error: "Internal server error" }),
-          {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-    },
-  };
-}
-
-```
-
-# src/app.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { createCompetitionsApi } from "./api/competitions";
-import { createCoursesApi } from "./api/courses";
-import { createParticipantsApi } from "./api/participants";
-import { createSeriesApi } from "./api/series";
-import { createTeamsApi } from "./api/teams";
-import { createTeeTimesApi } from "./api/tee-times";
-import { CompetitionService } from "./services/competition-service";
-import { CourseService } from "./services/course-service";
-import { ParticipantService } from "./services/participant-service";
-import { SeriesService } from "./services/series-service";
-import { TeamService } from "./services/team-service";
-import { TeeTimeService } from "./services/tee-time-service";
-
-export function createApp(db: Database): Hono {
-  // Initialize services
-  const courseService = new CourseService(db);
-  const teamService = new TeamService(db);
-  const competitionService = new CompetitionService(db);
-  const teeTimeService = new TeeTimeService(db);
-  const participantService = new ParticipantService(db);
-  const seriesService = new SeriesService(db);
-
-  // Initialize APIs
-  const coursesApi = createCoursesApi(courseService);
-  const teamsApi = createTeamsApi(teamService);
-  const competitionsApi = createCompetitionsApi(competitionService);
-  const teeTimesApi = createTeeTimesApi(teeTimeService);
-  const participantsApi = createParticipantsApi(participantService);
-  const seriesApi = createSeriesApi(seriesService);
-
-  // Create Hono app
-  const app = new Hono();
-
-  // Add CORS middleware
-  app.use(
-    "*",
-    cors({
-      origin: "*",
-      allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
-    })
-  );
-
-  // Add request logging
-  app.use("*", async (c, next) => {
-    console.log(`${c.req.method} ${c.req.url}`);
-    await next();
-  });
-
-  // Course routes
-  app.post("/api/courses", async (c) => {
-    return await coursesApi.create(c.req.raw);
-  });
-
-  app.get("/api/courses", async (c) => {
-    return await coursesApi.findAll();
-  });
-
-  app.get("/api/courses/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await coursesApi.findById(c.req.raw, id);
-  });
-
-  app.put("/api/courses/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await coursesApi.update(c.req.raw, id);
-  });
-
-  app.delete("/api/courses/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await coursesApi.delete(id);
-  });
-
-  app.put("/api/courses/:id/holes", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await coursesApi.updateHoles(c.req.raw, id);
-  });
-
-  // Team routes
-  app.post("/api/teams", async (c) => {
-    return await teamsApi.create(c.req.raw);
-  });
-
-  app.get("/api/teams", async (c) => {
-    return await teamsApi.findAll();
-  });
-
-  app.get("/api/teams/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await teamsApi.findById(c.req.raw, id);
-  });
-
-  app.put("/api/teams/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await teamsApi.update(c.req.raw, id);
-  });
-
-  // Competition routes
-  app.post("/api/competitions", async (c) => {
-    return await competitionsApi.create(c.req.raw);
-  });
-
-  app.get("/api/competitions", async (c) => {
-    return await competitionsApi.findAll();
-  });
-
-  app.get("/api/competitions/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await competitionsApi.findById(c.req.raw, id);
-  });
-
-  app.put("/api/competitions/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await competitionsApi.update(c.req.raw, id);
-  });
-
-  app.delete("/api/competitions/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await competitionsApi.delete(id);
-  });
-
-  app.get("/api/competitions/:competitionId/participants", async (c) => {
-    const competitionId = parseInt(c.req.param("competitionId"));
-    return await participantsApi.findAllForCompetition(competitionId);
-  });
-
-  app.get("/api/competitions/:competitionId/leaderboard", async (c) => {
-    const competitionId = parseInt(c.req.param("competitionId"));
-    return await competitionsApi.getLeaderboard(competitionId);
-  });
-
-  // TeeTime routes
-  app.post("/api/competitions/:competitionId/tee-times", async (c) => {
-    const competitionId = parseInt(c.req.param("competitionId"));
-    return await teeTimesApi.createForCompetition(c.req.raw, competitionId);
-  });
-
-  app.get("/api/competitions/:competitionId/tee-times", async (c) => {
-    const competitionId = parseInt(c.req.param("competitionId"));
-    return await teeTimesApi.findAllForCompetition(competitionId);
-  });
-
-  app.get("/api/tee-times/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await teeTimesApi.findByIdWithParticipants(c.req.raw, id);
-  });
-
-  app.delete("/api/tee-times/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await teeTimesApi.delete(id);
-  });
-
-  app.put("/api/tee-times/:id/participants/order", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await teeTimesApi.updateParticipantsOrder(c.req.raw, id);
-  });
-
-  // Participant routes
-  app.post("/api/participants", async (c) => {
-    return await participantsApi.create(c.req.raw);
-  });
-
-  app.get("/api/participants", async (c) => {
-    return await participantsApi.findAll();
-  });
-
-  app.get("/api/participants/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await participantsApi.findById(c.req.raw, id);
-  });
-
-  app.put("/api/participants/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await participantsApi.update(c.req.raw, id);
-  });
-
-  app.delete("/api/participants/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await participantsApi.delete(id);
-  });
-
-  app.put("/api/participants/:id/score", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await participantsApi.updateScore(c.req.raw, id);
-  });
-
-  // Series routes
-  app.post("/api/series", async (c) => {
-    return await seriesApi.create(c.req.raw);
-  });
-
-  app.get("/api/series", async (c) => {
-    return await seriesApi.findAll();
-  });
-
-  app.get("/api/series/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await seriesApi.findById(c.req.raw, id);
-  });
-
-  app.put("/api/series/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await seriesApi.update(c.req.raw, id);
-  });
-
-  app.delete("/api/series/:id", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await seriesApi.delete(id);
-  });
-
-  app.get("/api/series/:id/competitions", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await seriesApi.getCompetitions(id);
-  });
-
-  app.get("/api/series/:id/teams", async (c) => {
-    const id = parseInt(c.req.param("id"));
-    return await seriesApi.getTeams(id);
-  });
-
-  // Static file serving - fallback for frontend
-  app.get("*", async (c) => {
-    const pathname = new URL(c.req.url).pathname;
-    console.log("Serving static file for:", pathname);
-
-    try {
-      let filePath = pathname === "/" ? "/index.html" : pathname;
-      const fullPath = `frontend_dist${filePath}`;
-
-      const file = Bun.file(fullPath);
-      if (file.size > 0 || filePath === "/index.html") {
-        const mimeType = filePath.endsWith(".js")
-          ? "application/javascript"
-          : filePath.endsWith(".css")
-          ? "text/css"
-          : filePath.endsWith(".html")
-          ? "text/html"
-          : filePath.endsWith(".png")
-          ? "image/png"
-          : filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")
-          ? "image/jpeg"
-          : filePath.endsWith(".svg")
-          ? "image/svg+xml"
-          : "text/plain";
-
-        return new Response(file, {
-          headers: { "Content-Type": mimeType },
-        });
-      }
-    } catch (error) {
-      console.log("File not found:", error);
-    }
-
-    // For SPA routes, serve index.html
-    try {
-      const indexFile = Bun.file("frontend_dist/index.html");
-      return new Response(indexFile, {
-        headers: { "Content-Type": "text/html" },
-      });
-    } catch (error) {
-      return c.text("Not Found", 404);
-    }
-  });
-
-  return app;
-}
-
-```
-
-# src/database/db.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import { InitialSchemaMigration } from "./migrations/001_initial_schema";
-import { AddTeeTimeIdMigration } from "./migrations/002_add_tee_time_id";
-import { AddParticipantScoreMigration } from "./migrations/003_add_participant_score";
-import { AddSeriesMigration } from "./migrations/004_add_series";
-
-export function createDatabase(dbPath: string = "golf_series.db"): Database {
-  const db = new Database(dbPath);
-
-  // Enable foreign keys
-  db.run("PRAGMA foreign_keys = ON");
-
-  return db;
-}
-
-export async function initializeDatabase(db: Database): Promise<void> {
-  // Create migrations table if it doesn't exist
-  db.run(`
-    CREATE TABLE IF NOT EXISTS migrations (
-      version INTEGER PRIMARY KEY,
-      description TEXT NOT NULL,
-      applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Get applied migrations
-  const appliedMigrations = db
-    .query("SELECT version FROM migrations")
-    .all() as { version: number }[];
-  const appliedVersions = new Set(appliedMigrations.map((m) => m.version));
-
-  // Define migrations in order
-  const migrations = [
-    new InitialSchemaMigration(db),
-    new AddTeeTimeIdMigration(db),
-    new AddParticipantScoreMigration(db),
-    new AddSeriesMigration(db),
-  ];
-
-  // Apply pending migrations
-  for (const migration of migrations) {
-    if (!appliedVersions.has(migration.version)) {
-      await migration.up();
-      db.run("INSERT INTO migrations (version, description) VALUES (?, ?)", [
-        migration.version,
-        migration.description,
-      ]);
-    }
-  }
-}
-
-export async function createTestDatabase(): Promise<Database> {
-  const db = createDatabase(":memory:");
-  await initializeDatabase(db);
-  return db;
-}
-
-```
-
-# src/database/migrate.ts
-
-```ts
-import { createDatabase, initializeDatabase } from "./db";
-
-async function migrate() {
-  const db = createDatabase();
-  await initializeDatabase(db);
-  console.log("Database initialized successfully!");
-  db.close();
-}
-
-migrate().catch(console.error);
-
-```
-
-# src/database/migrations/001_initial_schema.ts
-
-```ts
-import { Migration } from "./base";
-
-export class InitialSchemaMigration extends Migration {
-  version = 1;
-  description = "Initial database schema";
-
-  async up(): Promise<void> {
-    // Create courses table
-    await this.execute(`
-      CREATE TABLE IF NOT EXISTS courses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        pars TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create teams table
-    await this.execute(`
-      CREATE TABLE IF NOT EXISTS teams (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create competitions table
-    await this.execute(`
-      CREATE TABLE IF NOT EXISTS competitions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        date TEXT NOT NULL,
-        course_id INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (course_id) REFERENCES courses(id)
-      )
-    `);
-
-    // Create tee_times table
-    await this.execute(`
-      CREATE TABLE IF NOT EXISTS tee_times (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        teetime TEXT NOT NULL,
-        competition_id INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (competition_id) REFERENCES competitions(id)
-      )
-    `);
-
-    // Create participants table
-    await this.execute(`
-      CREATE TABLE IF NOT EXISTS participants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tee_order INTEGER NOT NULL,
-        team_id INTEGER NOT NULL,
-        position_name TEXT NOT NULL,
-        player_names TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (team_id) REFERENCES teams(id)
-      )
-    `);
-  }
-
-  async down(): Promise<void> {
-    await this.execute("DROP TABLE IF EXISTS participants");
-    await this.execute("DROP TABLE IF EXISTS tee_times");
-    await this.execute("DROP TABLE IF EXISTS competitions");
-    await this.execute("DROP TABLE IF EXISTS teams");
-    await this.execute("DROP TABLE IF EXISTS courses");
-  }
-}
-
-```
-
-# src/database/migrations/002_add_tee_time_id.ts
-
-```ts
-import { Migration } from "./base";
-
-export class AddTeeTimeIdMigration extends Migration {
-  version = 2;
-  description = "Add tee_time_id to participants table";
-
-  async up(): Promise<void> {
-    const columnExists = await this.columnExists("participants", "tee_time_id");
-    if (!columnExists) {
-      await this.execute(`
-        ALTER TABLE participants 
-        ADD COLUMN tee_time_id INTEGER REFERENCES tee_times(id)
-      `);
-    }
-  }
-
-  async down(): Promise<void> {
-    // SQLite doesn't support dropping columns, so we need to recreate the table
-    // This is a simplified version that would need to be more robust in production
-    await this.execute(`
-      CREATE TABLE participants_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tee_order INTEGER NOT NULL,
-        team_id INTEGER NOT NULL,
-        position_name TEXT NOT NULL,
-        player_names TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (team_id) REFERENCES teams(id)
-      )
-    `);
-
-    await this.execute(`
-      INSERT INTO participants_new 
-      SELECT id, tee_order, team_id, position_name, player_names, created_at, updated_at 
-      FROM participants
-    `);
-
-    await this.execute("DROP TABLE participants");
-    await this.execute("ALTER TABLE participants_new RENAME TO participants");
-  }
-}
-
-```
-
-# src/database/migrations/003_add_participant_score.ts
-
-```ts
-import { Migration } from "./base";
-
-export class AddParticipantScoreMigration extends Migration {
-  version = 3;
-  description = "Add score field to participants table";
-
-  async up(): Promise<void> {
-    const columnExists = await this.columnExists("participants", "score");
-    if (!columnExists) {
-      await this.execute(`
-        ALTER TABLE participants 
-        ADD COLUMN score TEXT DEFAULT '[]'
-      `);
-    }
-  }
-
-  async down(): Promise<void> {
-    // SQLite doesn't support dropping columns, so we need to recreate the table
-    await this.execute(`
-      CREATE TABLE participants_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tee_order INTEGER NOT NULL,
-        team_id INTEGER NOT NULL,
-        tee_time_id INTEGER NOT NULL,
-        position_name TEXT NOT NULL,
-        player_names TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (team_id) REFERENCES teams(id),
-        FOREIGN KEY (tee_time_id) REFERENCES tee_times(id)
-      )
-    `);
-
-    await this.execute(`
-      INSERT INTO participants_new 
-      SELECT id, tee_order, team_id, tee_time_id, position_name, player_names, created_at, updated_at 
-      FROM participants
-    `);
-
-    await this.execute("DROP TABLE participants");
-    await this.execute("ALTER TABLE participants_new RENAME TO participants");
-  }
-}
-
-```
-
-# src/database/migrations/004_add_series.ts
-
-```ts
-import { Migration } from "./base";
-
-export class AddSeriesMigration extends Migration {
-  version = 4;
-  description = "Add series table and optional series relationships";
-
-  async up(): Promise<void> {
-    // Create series table
-    await this.execute(`
-      CREATE TABLE IF NOT EXISTS series (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        description TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Add optional series_id column to competitions table
-    await this.execute(`
-      ALTER TABLE competitions 
-      ADD COLUMN series_id INTEGER REFERENCES series(id) ON DELETE SET NULL
-    `);
-
-    // Add optional series_id column to teams table
-    await this.execute(`
-      ALTER TABLE teams 
-      ADD COLUMN series_id INTEGER REFERENCES series(id) ON DELETE SET NULL
-    `);
-  }
-
-  async down(): Promise<void> {
-    // Remove series_id from teams table
-    await this.execute(`
-      CREATE TABLE teams_temp (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    await this.execute(
-      `INSERT INTO teams_temp SELECT id, name, created_at, updated_at FROM teams`
-    );
-    await this.execute(`DROP TABLE teams`);
-    await this.execute(`ALTER TABLE teams_temp RENAME TO teams`);
-
-    // Remove series_id from competitions table
-    await this.execute(`
-      CREATE TABLE competitions_temp (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        date TEXT NOT NULL,
-        course_id INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (course_id) REFERENCES courses(id)
-      )
-    `);
-    await this.execute(
-      `INSERT INTO competitions_temp SELECT id, name, date, course_id, created_at, updated_at FROM competitions`
-    );
-    await this.execute(`DROP TABLE competitions`);
-    await this.execute(`ALTER TABLE competitions_temp RENAME TO competitions`);
-
-    // Drop series table
-    await this.execute("DROP TABLE IF EXISTS series");
-  }
-}
-
-```
-
-# src/database/migrations/base.ts
-
-```ts
-import { Database } from "bun:sqlite";
-
-export abstract class Migration {
-  abstract version: number;
-  abstract description: string;
-
-  constructor(protected db: Database) {}
-
-  abstract up(): Promise<void>;
-  abstract down(): Promise<void>;
-
-  protected async execute(sql: string): Promise<void> {
-    this.db.run(sql);
-  }
-
-  protected async columnExists(
-    table: string,
-    column: string
-  ): Promise<boolean> {
-    const stmt = this.db.prepare(
-      `SELECT name FROM pragma_table_info(?) WHERE name = ?`
-    );
-    const result = stmt.get(table, column);
-    return result !== null;
-  }
-}
-
-```
-
-# src/index.ts
-
-```ts
-import "./server";
-
-console.log("Hello via Bun!");
-
-```
-
-# src/server.ts
-
-```ts
-import { createApp } from "./app";
-import { createDatabase, initializeDatabase } from "./database/db";
-
-const db = createDatabase();
-initializeDatabase(db);
-const app = createApp(db);
-
-const server = Bun.serve({
-  port: process.env.PORT || 3010,
-  fetch: app.fetch,
-});
-
-console.log(`Server running on port ${server.port}`);
-
-```
-
-# src/services/competition-service.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import type {
-  Competition,
-  CreateCompetitionDto,
-  LeaderboardEntry,
-  Participant,
-  UpdateCompetitionDto,
-} from "../types";
-
-function isValidYYYYMMDD(date: string): boolean {
-  const parsed = Date.parse(date);
-  return !isNaN(parsed) && /^\d{4}-\d{2}-\d{2}$/.test(date);
-}
-
-export class CompetitionService {
-  constructor(private db: Database) {}
-
-  async create(data: CreateCompetitionDto): Promise<Competition> {
-    if (!data.name?.trim()) {
-      throw new Error("Competition name is required");
-    }
-
-    if (!data.date?.trim()) {
-      throw new Error("Competition date is required");
-    }
-
-    // Validate YYYY-MM-DD format
-    if (!isValidYYYYMMDD(data.date)) {
-      throw new Error("Date must be in YYYY-MM-DD format (e.g., 2024-03-21)");
-    }
-
-    // Verify course exists
-    const courseStmt = this.db.prepare("SELECT id FROM courses WHERE id = ?");
-    const course = courseStmt.get(data.course_id);
-    if (!course) {
-      throw new Error("Course not found");
-    }
-
-    // Verify series exists if provided
-    if (data.series_id) {
-      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
-      const series = seriesStmt.get(data.series_id);
-      if (!series) {
-        throw new Error("Series not found");
-      }
-    }
-
-    const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id)
-      VALUES (?, ?, ?, ?)
-      RETURNING *
-    `);
-
-    return stmt.get(
-      data.name,
-      data.date,
-      data.course_id,
-      data.series_id || null
-    ) as Competition;
-  }
-
-  async findAll(): Promise<
-    (Competition & {
-      course: { id: number; name: string };
-      participant_count: number;
-    })[]
-  > {
-    const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name,
-        (SELECT COUNT(*) 
-         FROM participants p 
-         JOIN tee_times t ON p.tee_time_id = t.id 
-         WHERE t.competition_id = c.id) as participant_count
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-    `);
-    return stmt.all().map((row: any) => ({
-      ...row,
-      course: {
-        id: row.course_id,
-        name: row.course_name,
-      },
-      participant_count: row.participant_count,
-    }));
-  }
-
-  async findById(
-    id: number
-  ): Promise<(Competition & { course: { id: number; name: string } }) | null> {
-    const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.id = ?
-    `);
-    const row = stmt.get(id) as any;
-
-    if (!row) return null;
-
-    return {
-      ...row,
-      course: {
-        id: row.course_id,
-        name: row.course_name,
-      },
-    };
-  }
-
-  async update(id: number, data: UpdateCompetitionDto): Promise<Competition> {
-    const competition = await this.findById(id);
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
-
-    if (data.name && !data.name.trim()) {
-      throw new Error("Competition name cannot be empty");
-    }
-
-    if (data.date && !isValidYYYYMMDD(data.date)) {
-      throw new Error("Date must be in YYYY-MM-DD format (e.g., 2024-03-21)");
-    }
-
-    if (data.course_id) {
-      const courseStmt = this.db.prepare("SELECT id FROM courses WHERE id = ?");
-      const course = courseStmt.get(data.course_id);
-      if (!course) {
-        throw new Error("Course not found");
-      }
-    }
-
-    if (data.series_id !== undefined) {
-      if (data.series_id === null) {
-        // Allow setting series_id to null
-      } else {
-        const seriesStmt = this.db.prepare(
-          "SELECT id FROM series WHERE id = ?"
-        );
-        const series = seriesStmt.get(data.series_id);
-        if (!series) {
-          throw new Error("Series not found");
-        }
-      }
-    }
-
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (data.date) {
-      updates.push("date = ?");
-      values.push(data.date);
-    }
-
-    if (data.course_id) {
-      updates.push("course_id = ?");
-      values.push(data.course_id);
-    }
-
-    if (data.series_id !== undefined) {
-      updates.push("series_id = ?");
-      values.push(data.series_id);
-    }
-
-    if (updates.length === 0) {
-      return competition;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    const stmt = this.db.prepare(`
-      UPDATE competitions 
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `);
-
-    return stmt.get(...values) as Competition;
-  }
-
-  async delete(id: number): Promise<void> {
-    const competition = await this.findById(id);
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
-
-    // Check if competition has any tee times
-    const teeTimesStmt = this.db.prepare(
-      "SELECT id FROM tee_times WHERE competition_id = ?"
-    );
-    const teeTimes = teeTimesStmt.all(id);
-    if (teeTimes.length > 0) {
-      throw new Error("Cannot delete competition that has tee times");
-    }
-
-    const stmt = this.db.prepare("DELETE FROM competitions WHERE id = ?");
-    stmt.run(id);
-  }
-
-  async getLeaderboard(competitionId: number): Promise<LeaderboardEntry[]> {
-    // Verify competition exists and get course info
-    const competitionStmt = this.db.prepare(`
-      SELECT c.*, co.pars
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.id = ?
-    `);
-    const competition = competitionStmt.get(competitionId) as
-      | (Competition & { pars: string })
-      | null;
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
-    console.log("competition leaderboard 1");
-    // Get all participants for this competition
-    const participantsStmt = this.db.prepare(`
-      SELECT p.*, tm.name as team_name
-      FROM participants p
-      JOIN tee_times t ON p.tee_time_id = t.id
-      JOIN teams tm ON p.team_id = tm.id
-      WHERE t.competition_id = ?
-      ORDER BY t.teetime, p.tee_order
-    `);
-    const participants = participantsStmt.all(competitionId) as (Participant & {
-      team_name: string;
-    })[];
-    // Parse course pars
-    const coursePars = JSON.parse(competition.pars);
-    if (!coursePars || coursePars.length === 0) {
-      throw new Error("Invalid course pars data structure, no pars found");
-    }
-    const pars = coursePars;
-    // Calculate leaderboard entries
-    const leaderboard: LeaderboardEntry[] = participants.map((participant) => {
-      // Parse the score field
-      const score =
-        typeof participant.score === "string"
-          ? JSON.parse(participant.score)
-          : Array.isArray(participant.score)
-          ? participant.score
-          : [];
-
-      // Count holes played: positive scores and -1 (gave up) count as played
-      // 0 means unreported/cleared, so it doesn't count as played
-      const holesPlayed = score.filter((s: number) => s > 0 || s === -1).length;
-
-      // Calculate total shots: only count positive scores
-      // -1 (gave up) and 0 (unreported) don't count towards total
-      const totalShots = score.reduce(
-        (sum: number, shots: number) => sum + (shots > 0 ? shots : 0),
-        0
-      );
-
-      // Calculate relative to par: only count positive scores
-      let relativeToPar = 0;
-      try {
-        for (let i = 0; i < score.length; i++) {
-          if (score[i] > 0 && pars[i] !== undefined) {
-            relativeToPar += score[i] - pars[i];
-          }
-          // Note: -1 (gave up) and 0 (unreported) don't contribute to par calculation
-        }
-      } catch (error) {
-        console.error("Error calculating relative to par", error);
-        throw error;
-      }
-
-      return {
-        participant: {
-          ...participant,
-          score,
-        },
-        totalShots,
-        holesPlayed,
-        relativeToPar,
-      };
-    });
-    // Sort by relative to par (ascending)
-    return leaderboard.sort((a, b) => a.relativeToPar - b.relativeToPar);
-  }
-}
-
-```
-
-# src/services/course-service.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import type { Course, CreateCourseDto, UpdateCourseDto } from "../types";
-
-interface ParsData {
-  holes: number[];
-  out: number;
-  in: number;
-  total: number;
-}
-
-function calculatePars(pars: number[]): ParsData {
-  const holes = pars;
-  const out = pars.slice(0, 9).reduce((sum, par) => sum + par, 0);
-  const in_ = pars.slice(9).reduce((sum, par) => sum + par, 0);
-  const total = out + in_;
-
-  return {
-    holes,
-    out,
-    in: in_,
-    total,
-  };
-}
-
-export class CourseService {
-  constructor(private db: Database) {}
-
-  async create(data: CreateCourseDto): Promise<Course> {
-    if (!data.name?.trim()) {
-      throw new Error("Course name is required");
-    }
-
-    const stmt = this.db.prepare(`
-      INSERT INTO courses (name, pars)
-      VALUES (?, ?)
-      RETURNING *
-    `);
-
-    const course = stmt.get(data.name, JSON.stringify([])) as Course;
-    const pars = JSON.parse(course.pars as unknown as string);
-    course.pars = calculatePars(pars);
-    return course;
-  }
-
-  async findAll(): Promise<Course[]> {
-    const stmt = this.db.prepare("SELECT * FROM courses");
-    const courses = stmt.all() as Course[];
-    return courses.map((course) => ({
-      ...course,
-      pars: calculatePars(JSON.parse(course.pars as unknown as string)),
-    }));
-  }
-
-  async findById(id: number): Promise<Course | null> {
-    const stmt = this.db.prepare("SELECT * FROM courses WHERE id = ?");
-    const course = stmt.get(id) as Course | null;
-
-    if (!course) return null;
-
-    const pars = JSON.parse(course.pars as unknown as string);
-    return {
-      ...course,
-      pars: calculatePars(pars),
-    };
-  }
-
-  async update(id: number, data: UpdateCourseDto): Promise<Course> {
-    const course = await this.findById(id);
-    if (!course) {
-      throw new Error("Course not found");
-    }
-
-    if (data.name && !data.name.trim()) {
-      throw new Error("Course name cannot be empty");
-    }
-
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (updates.length === 0) {
-      return course;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    const stmt = this.db.prepare(`
-      UPDATE courses 
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `);
-
-    const updated = stmt.get(...values) as Course;
-    const pars = JSON.parse(updated.pars as unknown as string);
-    return {
-      ...updated,
-      pars: calculatePars(pars),
-    };
-  }
-
-  async updateHoles(id: number, pars: number[]): Promise<Course> {
-    const course = await this.findById(id);
-    if (!course) {
-      throw new Error("Course not found");
-    }
-
-    if (pars.length > 18) {
-      throw new Error("Course cannot have more than 18 holes");
-    }
-
-    if (!pars.every((par) => Number.isInteger(par) && par >= 3 && par <= 6)) {
-      throw new Error("All pars must be integers between 3 and 6");
-    }
-
-    const stmt = this.db.prepare(`
-      UPDATE courses 
-      SET pars = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-      RETURNING *
-    `);
-
-    const updated = stmt.get(JSON.stringify(pars), id) as Course;
-    return {
-      ...updated,
-      pars: calculatePars(pars),
-    };
-  }
-
-  async delete(id: number): Promise<void> {
-    const course = await this.findById(id);
-    if (!course) {
-      throw new Error("Course not found");
-    }
-
-    // Check if course is used in any competitions
-    const competitionsStmt = this.db.prepare(
-      "SELECT id FROM competitions WHERE course_id = ?"
-    );
-    const competitions = competitionsStmt.all(id);
-    if (competitions.length > 0) {
-      throw new Error("Cannot delete course that is used in competitions");
-    }
-
-    const stmt = this.db.prepare("DELETE FROM courses WHERE id = ?");
-    stmt.run(id);
-  }
-}
-
-```
-
-# src/services/participant-service.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import type {
-  CreateParticipantDto,
-  Participant,
-  UpdateParticipantDto,
-} from "../types";
-
-export class ParticipantService {
-  constructor(private db: Database) {}
-
-  async create(data: CreateParticipantDto): Promise<Participant> {
-    if (!data.position_name?.trim()) {
-      throw new Error("Position name is required");
-    }
-
-    if (data.tee_order < 1) {
-      throw new Error("Tee order must be greater than 0");
-    }
-
-    // Verify team exists
-    const teamStmt = this.db.prepare("SELECT id FROM teams WHERE id = ?");
-    const team = teamStmt.get(data.team_id);
-    if (!team) {
-      throw new Error("Team not found");
-    }
-
-    // Verify tee time exists
-    const teeTimeStmt = this.db.prepare(
-      "SELECT id FROM tee_times WHERE id = ?"
-    );
-    const teeTime = teeTimeStmt.get(data.tee_time_id);
-    if (!teeTime) {
-      throw new Error("Tee time not found");
-    }
-
-    const stmt = this.db.prepare(`
-      INSERT INTO participants (tee_order, team_id, tee_time_id, position_name, player_names, score)
-      VALUES (?, ?, ?, ?, ?, ?)
-      RETURNING *
-    `);
-
-    const participant = stmt.get(
-      data.tee_order,
-      data.team_id,
-      data.tee_time_id,
-      data.position_name,
-      data.player_names || null,
-      JSON.stringify([])
-    ) as Participant;
-
-    return {
-      ...participant,
-      score: JSON.parse(participant.score as unknown as string),
-    };
-  }
-
-  async findAll(): Promise<Participant[]> {
-    const stmt = this.db.prepare("SELECT * FROM participants");
-    const participants = stmt.all() as Participant[];
-    return participants.map((p) => ({
-      ...p,
-      score: JSON.parse(p.score as unknown as string),
-    }));
-  }
-
-  async findById(id: number): Promise<Participant | null> {
-    const stmt = this.db.prepare("SELECT * FROM participants WHERE id = ?");
-    const participant = stmt.get(id) as Participant | null;
-    if (!participant) return null;
-
-    let score: any[] = [];
-    try {
-      score = participant.score
-        ? JSON.parse(participant.score as unknown as string)
-        : [];
-    } catch (e) {
-      score = [];
-    }
-
-    return {
-      ...participant,
-      score,
-    };
-  }
-
-  async update(id: number, data: UpdateParticipantDto): Promise<Participant> {
-    const participant = await this.findById(id);
-    if (!participant) {
-      throw new Error("Participant not found");
-    }
-
-    if (data.position_name && !data.position_name.trim()) {
-      throw new Error("Position name cannot be empty");
-    }
-
-    if (data.tee_order && data.tee_order < 1) {
-      throw new Error("Tee order must be greater than 0");
-    }
-
-    if (data.team_id) {
-      const teamStmt = this.db.prepare("SELECT id FROM teams WHERE id = ?");
-      const team = teamStmt.get(data.team_id);
-      if (!team) {
-        throw new Error("Team not found");
-      }
-    }
-
-    if (data.tee_time_id) {
-      const teeTimeStmt = this.db.prepare(
-        "SELECT id FROM tee_times WHERE id = ?"
-      );
-      const teeTime = teeTimeStmt.get(data.tee_time_id);
-      if (!teeTime) {
-        throw new Error("Tee time not found");
-      }
-    }
-
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.tee_order) {
-      updates.push("tee_order = ?");
-      values.push(data.tee_order);
-    }
-
-    if (data.team_id) {
-      updates.push("team_id = ?");
-      values.push(data.team_id);
-    }
-
-    if (data.tee_time_id) {
-      updates.push("tee_time_id = ?");
-      values.push(data.tee_time_id);
-    }
-
-    if (data.position_name) {
-      updates.push("position_name = ?");
-      values.push(data.position_name);
-    }
-
-    if (data.player_names !== undefined) {
-      updates.push("player_names = ?");
-      values.push(data.player_names);
-    }
-
-    if (updates.length === 0) {
-      return participant;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    const stmt = this.db.prepare(`
-      UPDATE participants 
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `);
-
-    const updated = stmt.get(...values) as Participant;
-    return {
-      ...updated,
-      score: JSON.parse(updated.score as unknown as string),
-    };
-  }
-
-  async findAllForCompetition(competitionId: number): Promise<Participant[]> {
-    // Verify competition exists
-    const competitionStmt = this.db.prepare(
-      "SELECT id FROM competitions WHERE id = ?"
-    );
-    const competition = competitionStmt.get(competitionId);
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
-
-    // Join with tee_times to get participants for this competition
-    const stmt = this.db.prepare(`
-      SELECT p.* 
-      FROM participants p
-      JOIN tee_times t ON p.tee_time_id = t.id
-      WHERE t.competition_id = ?
-      ORDER BY t.teetime, p.tee_order
-    `);
-    const participants = stmt.all(competitionId) as Participant[];
-    return participants.map((p) => ({
-      ...p,
-      score: JSON.parse(p.score as unknown as string),
-    }));
-  }
-
-  async updateScore(
-    id: number,
-    hole: number,
-    shots: number
-  ): Promise<Participant> {
-    const participant = await this.findById(id);
-    if (!participant) {
-      throw new Error("Participant not found");
-    }
-
-    // Get the course to validate hole number
-    const courseStmt = this.db.prepare(`
-      SELECT co.pars
-      FROM participants p
-      JOIN tee_times t ON p.tee_time_id = t.id
-      JOIN competitions c ON t.competition_id = c.id
-      JOIN courses co ON c.course_id = co.id
-      WHERE p.id = ?
-    `);
-    const course = courseStmt.get(id) as { pars: string } | null;
-    if (!course) {
-      throw new Error("Could not find course for participant");
-    }
-
-    const pars = JSON.parse(course.pars);
-    if (hole < 1 || hole > pars.length) {
-      throw new Error(`Hole number must be between 1 and ${pars.length}`);
-    }
-
-    // Allow -1 (gave up) and 0 (unreported/cleared score) as special values
-    // Regular shots must be positive
-    if (shots !== -1 && shots !== 0 && shots < 1) {
-      throw new Error(
-        "Shots must be greater than 0, or -1 (gave up), or 0 (clear score)"
-      );
-    }
-
-    // Initialize score array with zeros if null or empty
-    let score = participant.score || [];
-    if (!Array.isArray(score)) {
-      score = new Array(pars.length).fill(0);
-    } else {
-      for (let i = 0; i < pars.length; i++) {
-        if (score[i] === null || score[i] === undefined) {
-          score[i] = 0;
-        }
-      }
-    }
-
-    score[hole - 1] = shots;
-
-    const stmt = this.db.prepare(`
-      UPDATE participants 
-      SET score = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-      RETURNING *
-    `);
-
-    const stringifiedScore = JSON.stringify(score);
-    stmt.run(stringifiedScore, id);
-    const updated = await this.findById(id);
-    if (!updated) {
-      throw new Error("Participant not found");
-    }
-    return updated;
-  }
-
-  async delete(id: number): Promise<void> {
-    const participant = await this.findById(id);
-    if (!participant) {
-      throw new Error("Participant not found");
-    }
-
-    const stmt = this.db.prepare("DELETE FROM participants WHERE id = ?");
-    stmt.run(id);
-  }
-}
-
-```
-
-# src/services/series-service.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import type { CreateSeriesDto, Series, UpdateSeriesDto } from "../types";
-
-export class SeriesService {
-  constructor(private db: Database) {}
-
-  async create(data: CreateSeriesDto): Promise<Series> {
-    if (!data.name?.trim()) {
-      throw new Error("Series name is required");
-    }
-
-    try {
-      const stmt = this.db.prepare(`
-        INSERT INTO series (name, description, created_at, updated_at)
-        VALUES (?, ?, strftime('%Y-%m-%d %H:%M:%S.%f', 'now'), strftime('%Y-%m-%d %H:%M:%S.%f', 'now'))
-        RETURNING *
-      `);
-
-      return stmt.get(data.name, data.description || null) as Series;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        throw new Error("Series name must be unique");
-      }
-      throw error;
-    }
-  }
-
-  async findAll(): Promise<Series[]> {
-    const stmt = this.db.prepare(`
-      SELECT id, name, description, created_at, updated_at 
-      FROM series 
-      ORDER BY strftime('%s.%f', created_at) DESC
-    `);
-    return stmt.all() as Series[];
-  }
-
-  async findById(id: number): Promise<Series | null> {
-    const stmt = this.db.prepare(`
-      SELECT id, name, description, created_at, updated_at 
-      FROM series 
-      WHERE id = ?
-    `);
-    return stmt.get(id) as Series | null;
-  }
-
-  async update(id: number, data: UpdateSeriesDto): Promise<Series> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    if (data.name !== undefined && !data.name.trim()) {
-      throw new Error("Series name cannot be empty");
-    }
-
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name !== undefined) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (data.description !== undefined) {
-      updates.push("description = ?");
-      values.push(data.description);
-    }
-
-    if (updates.length === 0) {
-      return series;
-    }
-
-    updates.push("updated_at = strftime('%Y-%m-%d %H:%M:%S.%f', 'now')");
-    values.push(id);
-
-    try {
-      const stmt = this.db.prepare(`
-        UPDATE series 
-        SET ${updates.join(", ")}
-        WHERE id = ?
-        RETURNING *
-      `);
-
-      return stmt.get(...values) as Series;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        throw new Error("Series name must be unique");
-      }
-      throw error;
-    }
-  }
-
-  async delete(id: number): Promise<void> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    const stmt = this.db.prepare("DELETE FROM series WHERE id = ?");
-    stmt.run(id);
-  }
-
-  async getCompetitions(id: number): Promise<any[]> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.series_id = ?
-      ORDER BY c.date
-    `);
-
-    return stmt.all(id).map((row: any) => ({
-      ...row,
-      course: {
-        id: row.course_id,
-        name: row.course_name,
-      },
-    }));
-  }
-
-  async getTeams(id: number): Promise<any[]> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    const stmt = this.db.prepare(`
-      SELECT id, name, created_at, updated_at
-      FROM teams
-      WHERE series_id = ?
-      ORDER BY name
-    `);
-
-    return stmt.all(id);
-  }
-}
-
-```
-
-# src/services/team-service.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import type { CreateTeamDto, Team, UpdateTeamDto } from "../types";
-
-export class TeamService {
-  constructor(private db: Database) {}
-
-  async create(data: CreateTeamDto): Promise<Team> {
-    if (!data.name?.trim()) {
-      throw new Error("Team name is required");
-    }
-
-    // Verify series exists if provided
-    if (data.series_id) {
-      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
-      const series = seriesStmt.get(data.series_id);
-      if (!series) {
-        throw new Error("Series not found");
-      }
-    }
-
-    try {
-      const stmt = this.db.prepare(`
-        INSERT INTO teams (name, series_id)
-        VALUES (?, ?)
-        RETURNING *
-      `);
-
-      return stmt.get(data.name, data.series_id || null) as Team;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        throw new Error("Team name must be unique");
-      }
-      throw error;
-    }
-  }
-
-  async findAll(): Promise<Team[]> {
-    const stmt = this.db.prepare("SELECT id, name FROM teams");
-    return stmt.all() as Team[];
-  }
-
-  async findById(id: number): Promise<Team | null> {
-    const stmt = this.db.prepare("SELECT id, name FROM teams WHERE id = ?");
-    return stmt.get(id) as Team | null;
-  }
-
-  async update(id: number, data: UpdateTeamDto): Promise<Team> {
-    if (data.name !== undefined && !data.name.trim()) {
-      throw new Error("Team name cannot be empty");
-    }
-
-    // Verify series exists if provided
-    if (data.series_id) {
-      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
-      const series = seriesStmt.get(data.series_id);
-      if (!series) {
-        throw new Error("Series not found");
-      }
-    }
-
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name !== undefined) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (data.series_id !== undefined) {
-      updates.push("series_id = ?");
-      values.push(data.series_id);
-    }
-
-    if (updates.length === 0) {
-      const team = await this.findById(id);
-      if (!team) {
-        throw new Error("Team not found");
-      }
-      return team;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    try {
-      const stmt = this.db.prepare(`
-        UPDATE teams 
-        SET ${updates.join(", ")}
-        WHERE id = ?
-        RETURNING *
-      `);
-
-      const team = stmt.get(...values) as Team | null;
-      if (!team) {
-        throw new Error("Team not found");
-      }
-
-      return team;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        throw new Error("Team name must be unique");
-      }
-      throw error;
-    }
-  }
-}
-
-```
-
-# src/services/tee-time-service.ts
-
-```ts
-import { Database } from "bun:sqlite";
-import type {
-  CreateTeeTimeDto,
-  Participant,
-  TeeTime,
-  TeeTimeWithParticipants,
-  UpdateTeeTimeDto,
-} from "../types";
-
-export class TeeTimeService {
-  constructor(private db: Database) {}
-
-  async create(data: CreateTeeTimeDto): Promise<TeeTime> {
-    if (!data.teetime?.trim()) {
-      throw new Error("Tee time is required");
-    }
-
-    // Verify competition exists
-    const competitionStmt = this.db.prepare(
-      "SELECT id FROM competitions WHERE id = ?"
-    );
-    const competition = competitionStmt.get(data.competition_id);
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
-
-    const stmt = this.db.prepare(`
-      INSERT INTO tee_times (teetime, competition_id)
-      VALUES (?, ?)
-      RETURNING *
-    `);
-
-    return stmt.get(data.teetime, data.competition_id) as TeeTime;
-  }
-
-  async findAllForCompetition(competitionId: number): Promise<TeeTime[]> {
-    // Verify competition exists
-    const competitionStmt = this.db.prepare(
-      "SELECT id FROM competitions WHERE id = ?"
-    );
-    const competition = competitionStmt.get(competitionId);
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
-
-    const stmt = this.db.prepare(
-      "SELECT * FROM tee_times WHERE competition_id = ? order by teetime"
-    );
-    return stmt.all(competitionId) as TeeTime[];
-  }
-
-  async findAllForCompetitionWithParticipants(
-    competitionId: number
-  ): Promise<TeeTimeWithParticipants[]> {
-    // Verify competition exists
-    const competitionStmt = this.db.prepare(
-      "SELECT id FROM competitions WHERE id = ?"
-    );
-    const competition = competitionStmt.get(competitionId);
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
-
-    // Get all tee times for the competition with course info
-    const teeTimesStmt = this.db.prepare(`
-      SELECT t.*, co.name as course_name, co.pars
-      FROM tee_times t
-      JOIN competitions c ON t.competition_id = c.id
-      JOIN courses co ON c.course_id = co.id
-      WHERE t.competition_id = ?
-      ORDER BY t.teetime
-    `);
-    const teeTimes = teeTimesStmt.all(competitionId) as (TeeTime & {
-      course_name: string;
-      pars: string;
-    })[];
-
-    // Get all participants for each tee time
-    const participantsStmt = this.db.prepare(`
-      SELECT p.*, t.name as team_name 
-      FROM participants p
-      LEFT JOIN teams t ON p.team_id = t.id
-      WHERE p.tee_time_id = ?
-      ORDER BY p.tee_order
-    `);
-
-    const teeTimesWithParticipants: TeeTimeWithParticipants[] = teeTimes.map(
-      (teeTime) => {
-        const participants = participantsStmt.all(
-          teeTime.id
-        ) as (Participant & { team_name?: string })[];
-
-        // Parse the score field for each participant
-        const parsedParticipants = participants.map((p) => ({
-          ...p,
-          score:
-            typeof p.score === "string" ? JSON.parse(p.score) : p.score || [],
-        }));
-
-        // Parse course pars
-        const pars = JSON.parse(teeTime.pars);
-
-        return {
-          ...teeTime,
-          course_name: teeTime.course_name,
-          pars,
-          participants: parsedParticipants,
-        };
-      }
-    );
-
-    return teeTimesWithParticipants;
-  }
-
-  async findById(id: number): Promise<TeeTime | null> {
-    const stmt = this.db.prepare("SELECT * FROM tee_times WHERE id = ?");
-    return stmt.get(id) as TeeTime | null;
-  }
-
-  async findByIdWithParticipants(
-    id: number
-  ): Promise<TeeTimeWithParticipants | null> {
-    // Get tee time with course information
-    const teeTimeStmt = this.db.prepare(`
-      SELECT t.*, co.name as course_name, co.pars
-      FROM tee_times t
-      JOIN competitions c ON t.competition_id = c.id
-      JOIN courses co ON c.course_id = co.id
-      WHERE t.id = ?
-    `);
-    const teeTimeWithCourse = teeTimeStmt.get(id) as
-      | (TeeTime & { course_name: string; pars: string })
-      | null;
-    if (!teeTimeWithCourse) return null;
-
-    // Get all participants for this tee time
-    const participantsStmt = this.db.prepare(`
-      SELECT p.*, t.name as team_name 
-      FROM participants p
-      LEFT JOIN teams t ON p.team_id = t.id
-      WHERE p.tee_time_id = ?
-      ORDER BY p.tee_order
-    `);
-
-    const participants = participantsStmt.all(id) as (Participant & {
-      team_name?: string;
-    })[];
-
-    // Parse the score field for each participant
-    const parsedParticipants = participants.map((p) => ({
-      ...p,
-      score: typeof p.score === "string" ? JSON.parse(p.score) : p.score || [],
-    }));
-
-    // Parse course pars
-    const pars = JSON.parse(teeTimeWithCourse.pars);
-
-    return {
-      ...teeTimeWithCourse,
-      course_name: teeTimeWithCourse.course_name,
-      pars,
-      participants: parsedParticipants,
-    };
-  }
-
-  async update(id: number, data: UpdateTeeTimeDto): Promise<TeeTime> {
-    const teeTime = await this.findById(id);
-    if (!teeTime) {
-      throw new Error("Tee time not found");
-    }
-
-    if (data.teetime && !data.teetime.trim()) {
-      throw new Error("Tee time cannot be empty");
-    }
-
-    if (data.competition_id) {
-      const competitionStmt = this.db.prepare(
-        "SELECT id FROM competitions WHERE id = ?"
-      );
-      const competition = competitionStmt.get(data.competition_id);
-      if (!competition) {
-        throw new Error("Competition not found");
-      }
-    }
-
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.teetime) {
-      updates.push("teetime = ?");
-      values.push(data.teetime);
-    }
-
-    if (data.competition_id) {
-      updates.push("competition_id = ?");
-      values.push(data.competition_id);
-    }
-
-    if (updates.length === 0) {
-      return teeTime;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    const stmt = this.db.prepare(`
-      UPDATE tee_times 
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `);
-
-    return stmt.get(...values) as TeeTime;
-  }
-
-  async delete(id: number): Promise<void> {
-    const teeTime = await this.findById(id);
-    if (!teeTime) {
-      throw new Error("Tee time not found");
-    }
-
-    const stmt = this.db.prepare("DELETE FROM tee_times WHERE id = ?");
-    stmt.run(id);
-  }
-
-  async updateParticipantsOrder(
-    id: number,
-    newOrder: number[]
-  ): Promise<TeeTimeWithParticipants> {
-    const teeTime = await this.findById(id);
-    if (!teeTime) {
-      throw new Error("Tee time not found");
-    }
-
-    // Verify that all participant IDs in newOrder belong to this tee time
-    const participantsStmt = this.db.prepare(`
-      SELECT id FROM participants WHERE tee_time_id = ?
-    `);
-    const participants = participantsStmt.all(id) as { id: number }[];
-    const participantIds = participants.map((p) => p.id);
-    const invalidIds = newOrder.filter((id) => !participantIds.includes(id));
-    if (invalidIds.length > 0) {
-      throw new Error(`Invalid participant IDs: ${invalidIds.join(", ")}`);
-    }
-
-    // Update the tee_order for each participant
-    const updateStmt = this.db.prepare(`
-      UPDATE participants SET tee_order = ? WHERE id = ?
-    `);
-    newOrder.forEach((participantId, index) => {
-      updateStmt.run(index + 1, participantId);
-    });
-
-    // Return the updated tee time with participants
-    const updatedTeeTime = await this.findByIdWithParticipants(id);
-    if (!updatedTeeTime) {
-      throw new Error("Failed to retrieve updated tee time");
-    }
-    return updatedTeeTime;
-  }
-}
-
-```
-
-# src/types/index.ts
-
-```ts
-export interface ParsData {
-  holes: number[];
-  out: number;
-  in: number;
-  total: number;
-}
-
-export interface Course {
-  id: number;
-  name: string;
-  pars: ParsData;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Series {
-  id: number;
-  name: string;
-  description?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Team {
-  id: number;
-  name: string;
-  series_id?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Competition {
-  id: number;
-  name: string;
-  date: string;
-  course_id: number;
-  series_id?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateCourseDto {
-  name: string;
-}
-
-export interface UpdateCourseDto {
-  name?: string;
-}
-
-export interface CreateSeriesDto {
-  name: string;
-  description?: string;
-}
-
-export interface UpdateSeriesDto {
-  name?: string;
-  description?: string;
-}
-
-export interface CreateTeamDto {
-  name: string;
-  series_id?: number;
-}
-
-export interface UpdateTeamDto {
-  name?: string;
-  series_id?: number;
-}
-
-export interface CreateCompetitionDto {
-  name: string;
-  date: string;
-  course_id: number;
-  series_id?: number;
-}
-
-export interface UpdateCompetitionDto {
-  name?: string;
-  date?: string;
-  course_id?: number;
-  series_id?: number;
-}
-
-export interface TeeTime {
-  id: number;
-  teetime: string;
-  competition_id: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TeeTimeWithParticipants {
-  id: number;
-  teetime: string;
-  competition_id: number;
-  created_at: string;
-  updated_at: string;
-  course_name: string;
-  pars: ParsData;
-  participants: Participant[];
-}
-
-export interface Participant {
-  id: number;
-  tee_order: number;
-  team_id: number;
-  tee_time_id: number;
-  position_name: string;
-  player_names?: string;
-  score: number[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateTeeTimeDto {
-  teetime: string;
-  competition_id: number;
-}
-
-export interface UpdateTeeTimeDto {
-  teetime?: string;
-  competition_id?: number;
-}
-
-export interface CreateParticipantDto {
-  tee_order: number;
-  team_id: number;
-  tee_time_id: number;
-  position_name: string;
-  player_names?: string;
-}
-
-export interface UpdateParticipantDto {
-  tee_order?: number;
-  team_id?: number;
-  tee_time_id?: number;
-  position_name?: string;
-  player_names?: string;
-}
-
-export interface LeaderboardEntry {
-  participant: Participant;
-  totalShots: number;
-  holesPlayed: number;
-  relativeToPar: number;
-}
-
-```
-
-# tsconfig.json
-
-```json
-{
-  "compilerOptions": {
-    // Enable latest features
-    "lib": ["ESNext", "DOM"],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleDetection": "force",
-    "jsx": "react-jsx",
-    "allowJs": true,
-
-    // Bundler mode
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "noEmit": true,
-
-    // Best practices
-    "strict": true,
-    "skipLibCheck": true,
-    "noFallthroughCasesInSwitch": true,
-
-    // Some stricter flags (disabled by default)
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
-  }
-}
 
 ```
 
