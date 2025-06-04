@@ -192,6 +192,11 @@ export function ScoreEntry({
     }
   };
 
+  const handleKeyboardDismiss = () => {
+    setKeyboardVisible(false);
+    setIsEditing(false);
+  };
+
   const abbreviateName = (name: string) => {
     const parts = name.split(" ");
     if (parts.length >= 2) {
@@ -355,6 +360,8 @@ export function ScoreEntry({
         onNumberPress={handleNumberPress}
         onSpecialPress={handleSpecialPress}
         holePar={currentHoleData?.par || 4}
+        currentHole={currentHole}
+        onDismiss={handleKeyboardDismiss}
       />
 
       {/* Full Scorecard Modal */}
