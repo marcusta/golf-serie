@@ -5,7 +5,7 @@ import {
   useCompetitionLeaderboard,
 } from "../../api/competitions";
 import { useCourse } from "../../api/courses";
-import { useTeeTimesForCompetition } from "../../api/tee-times";
+import { useTeeTimesForCompetition, useParticipant } from "../../api/tee-times";
 import {
   Calendar,
   MapPin,
@@ -17,6 +17,8 @@ import {
   Edit3,
 } from "lucide-react";
 import { HamburgerMenu } from "../../components/navigation";
+import { ParticipantScorecard } from "../../components/scorecard";
+import type { ParticipantData, CourseData } from "../../components/scorecard";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -37,14 +39,65 @@ export default function CompetitionDetail() {
 
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
 
+  // Scorecard modal state
+  const [selectedParticipantId, setSelectedParticipantId] = useState<
+    number | null
+  >(null);
+
   const { data: competition, isLoading: competitionLoading } = useCompetition(
     competitionId ? parseInt(competitionId) : 0
   );
   const { data: course } = useCourse(competition?.course_id || 0);
-  const { data: teeTimes, isLoading: teeTimesLoading } =
-    useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
-  const { data: leaderboard, isLoading: leaderboardLoading } =
-    useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+  const {
+    data: teeTimes,
+    isLoading: teeTimesLoading,
+    refetch: refetchTeeTimes,
+  } = useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
+  const {
+    data: leaderboard,
+    isLoading: leaderboardLoading,
+    refetch: refetchLeaderboard,
+  } = useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+
+  // Fetch selected participant data for scorecard
+  const { data: selectedParticipant } = useParticipant(
+    selectedParticipantId || 0
+  );
+
+  // Handle opening participant scorecard
+  const handleParticipantClick = (participantId: number) => {
+    setSelectedParticipantId(participantId);
+  };
+
+  // Handle closing participant scorecard
+  const handleCloseScorecardModal = () => {
+    setSelectedParticipantId(null);
+  };
+
+  // Create course data format for scorecard component
+  const scorecardCourseData: CourseData | null =
+    teeTimes && teeTimes.length > 0 && course
+      ? {
+          id: course.id.toString(),
+          name: course.name,
+          holes: teeTimes[0].pars.map((par: number, index: number) => ({
+            number: index + 1,
+            par,
+          })),
+        }
+      : null;
+
+  // Convert selected participant to scorecard format
+  const scorecardParticipantData: ParticipantData | null = selectedParticipant
+    ? {
+        id: selectedParticipant.id,
+        team_name: selectedParticipant.team_name,
+        position_name: selectedParticipant.position_name,
+        player_names: selectedParticipant.player_names,
+        score: selectedParticipant.score,
+        tee_time_id: selectedParticipant.tee_time_id,
+      }
+    : null;
 
   // ... existing useEffect for hash changes ...
   useEffect(() => {
@@ -58,6 +111,46 @@ export default function CompetitionDetail() {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
+
+  // Fetch fresh data when first entering leaderboard or team results views
+  useEffect(() => {
+    if (activeTab === "leaderboard" || activeTab === "teamresult") {
+      // Check if we haven't fetched data for this view recently
+      const lastFetchKey = `lastFetch-${activeTab}-${competitionId}`;
+      const lastFetch = sessionStorage.getItem(lastFetchKey);
+      const timeSinceLastFetch = lastFetch
+        ? Date.now() - parseInt(lastFetch)
+        : Infinity;
+
+      if (timeSinceLastFetch > 10000) {
+        // Only if it's been more than 10 seconds
+        console.log(`Initial fetch for ${activeTab} view...`);
+        refetchLeaderboard();
+        if (activeTab === "teamresult") {
+          refetchTeeTimes(); // Team results also need tee times data
+        }
+        sessionStorage.setItem(lastFetchKey, Date.now().toString());
+      }
+    }
+  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+
+  // Periodic sync for leaderboard and team results data
+  useEffect(() => {
+    if (!competitionId) return;
+
+    // Only run periodic sync when viewing leaderboard or team results
+    if (activeTab !== "leaderboard" && activeTab !== "teamresult") return;
+
+    const syncInterval = setInterval(() => {
+      console.log(`Periodic sync for ${activeTab} view...`);
+      refetchLeaderboard();
+      if (activeTab === "teamresult") {
+        refetchTeeTimes(); // Team results data comes from teeTimes
+      }
+    }, 30000); // Sync every 30 seconds
+
+    return () => clearInterval(syncInterval);
+  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
 
   if (competitionLoading)
     return <div className="p-4">Loading competition...</div>;
@@ -220,6 +313,9 @@ export default function CompetitionDetail() {
               onClick={() => {
                 setActiveTab("leaderboard");
                 window.location.hash = "leaderboard";
+                // Immediately fetch fresh data when switching to leaderboard
+                console.log("Syncing data for leaderboard view...");
+                refetchLeaderboard();
               }}
               className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
                 ${
@@ -236,6 +332,10 @@ export default function CompetitionDetail() {
               onClick={() => {
                 setActiveTab("teamresult");
                 window.location.hash = "teamresult";
+                // Immediately fetch fresh data when switching to team results
+                console.log("Syncing data for team results view...");
+                refetchLeaderboard();
+                refetchTeeTimes();
               }}
               className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
                 ${
@@ -354,11 +454,14 @@ export default function CompetitionDetail() {
                       return a.relativeToPar - b.relativeToPar;
                     })
                     .map((entry, index) => (
-                      <div
+                      <button
                         key={entry.participant.id}
-                        className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
+                        onClick={() =>
+                          handleParticipantClick(entry.participant.id)
+                        }
+                        className={`w-full text-left px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
                           index + 1
-                        )} border-l-4`}
+                        )} border-l-4 hover:bg-opacity-80 transition-colors cursor-pointer`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
@@ -402,7 +505,7 @@ export default function CompetitionDetail() {
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                 </div>
               </div>
@@ -523,6 +626,14 @@ export default function CompetitionDetail() {
           </div>
         )}
       </div>
+
+      {/* Participant Scorecard Modal */}
+      <ParticipantScorecard
+        visible={selectedParticipantId !== null}
+        participant={scorecardParticipantData}
+        course={scorecardCourseData}
+        onClose={handleCloseScorecardModal}
+      />
     </div>
   );
 }

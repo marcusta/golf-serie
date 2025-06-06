@@ -223,3 +223,19 @@ export function useDeleteParticipant() {
     },
   });
 }
+
+export function useParticipant(participantId: number) {
+  return useQuery<TeeTimeParticipant>({
+    queryKey: ["participant", participantId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${participantId}`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: participantId > 0,
+  });
+}
