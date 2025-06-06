@@ -120,19 +120,26 @@ export function ScoreEntry({
       : null;
 
   // Calculate player's current score relative to par
-  const calculatePlayerToPar = (player: PlayerScore): number => {
+  const calculatePlayerToPar = (player: PlayerScore): number | null => {
     let totalShots = 0;
     let totalPar = 0;
 
-    for (let i = 0; i < Math.min(currentHole, 18); i++) {
+    for (let i = 0; i < course.holes.length; i++) {
       const score = player.scores[i];
+
+      if (score === -1) {
+        // Player gave up on a hole – result is invalid
+        return null;
+      }
+
       if (score && score > 0) {
         totalShots += score;
         totalPar += course.holes[i].par;
       }
+      // if score is 0 or undefined/null, just skip
     }
 
-    return totalShots - totalPar;
+    return totalPar === 0 ? null : totalShots - totalPar;
   };
 
   // Format +/- to par display
@@ -217,15 +224,15 @@ export function ScoreEntry({
   };
 
   // Helper function to format score display
-  const formatScoreDisplay = (score: number): string => {
-    if (score === -1) return "−"; // Gave up
-    if (score === 0) return "NR"; // Not reported
+  const formatScoreDisplay = (score: number | null): string => {
+    if (score === -1 || score === null) return "−"; // Gave up
+    if (score === 0) return "0"; // Not reported
     return score.toString(); // Actual score
   };
 
   // Helper function to check if a score has been entered
   const hasValidScore = (score: number): boolean => {
-    return score > 0;
+    return score !== 0;
   };
 
   // Close keyboard when clicking outside
@@ -369,10 +376,12 @@ export function ScoreEntry({
                       <div
                         className={cn(
                           "text-xs font-medium",
-                          getToParColor(toPar)
+                          toPar !== null
+                            ? getToParColor(toPar)
+                            : "text-gray-600"
                         )}
                       >
-                        {formatToPar(toPar)}
+                        {toPar !== null ? formatToPar(toPar) : "-"}
                       </div>
                     </div>
                   </div>

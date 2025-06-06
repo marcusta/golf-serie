@@ -221,13 +221,11 @@ export default function CompetitionRound() {
             setPendingScoresCount(scoreManager.getPendingCount());
             setLastSyncTime(Date.now());
 
-            // Only refetch if this was a retry or if it's been a while since last update
-            // This ensures we see our own score immediately without excessive server calls
-            const timeSinceLastSync = Date.now() - lastSyncTime;
-            if (timeSinceLastSync > 10000) {
-              console.log("Syncing after successful score update...");
-              refetchTeeTime();
-            }
+            console.log(
+              "Score update successful, cache invalidated automatically"
+            );
+            // The React Query cache is now automatically invalidated in useUpdateScore
+            // No need for manual refetching as the data will be fresh
           },
           onError: (error) => {
             console.error("Score update failed:", error);
@@ -236,7 +234,7 @@ export default function CompetitionRound() {
         }
       );
     },
-    [updateScoreMutation, scoreManager, lastSyncTime, refetchTeeTime]
+    [updateScoreMutation, scoreManager, lastSyncTime]
   );
 
   const handleComplete = () => {
