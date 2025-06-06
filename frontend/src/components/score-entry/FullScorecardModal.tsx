@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { X, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,13 +40,10 @@ export function FullScorecardModal({
   onClose,
   onContinueEntry,
 }: FullScorecardModalProps) {
-  const [currentView, setCurrentView] = useState<"front" | "back">("front");
-
   if (!visible) return null;
 
   const frontNine = course.holes.slice(0, 9);
   const backNine = course.holes.slice(9, 18);
-  const displayHoles = currentView === "front" ? frontNine : backNine;
 
   const calculateTotal = (
     playerScores: number[],
@@ -56,14 +52,15 @@ export function FullScorecardModal({
     return holes.reduce((total, hole) => {
       const score = playerScores[hole.number - 1];
       // Only count actual scores (positive numbers) in totals
+      // Exclude gave up (-1) and not reported (0) holes
       return total + (score && score > 0 ? score : 0);
     }, 0);
   };
 
   // Helper function to format score display
   const formatScoreDisplay = (score: number): string => {
-    if (score === -1) return "−"; // Gave up
-    if (score === 0) return "NR"; // Not reported
+    if (score === -1) return "-"; // Gave up
+    if (score === 0) return "0"; // Not reported
     return score.toString(); // Actual score
   };
 
@@ -72,22 +69,50 @@ export function FullScorecardModal({
     return score > 0;
   };
 
+  // Helper function to calculate played holes par
+  const calculatePlayedPar = (
+    playerScores: number[],
+    holes: { number: number; par: number }[]
+  ) => {
+    return holes.reduce((totalPar, hole) => {
+      const score = playerScores[hole.number - 1];
+      // Only count par for holes that have been played (score > 0)
+      // Exclude gave up (-1) and not reported (0) holes
+      return totalPar + (score && score > 0 ? hole.par : 0);
+    }, 0);
+  };
+
   const getPlayerTotals = (player: PlayerScore) => {
+    // Check if player gave up on any hole - if so, invalidate entire round
+    const hasGaveUp = player.scores.some((score) => score === -1);
+
+    if (hasGaveUp) {
+      return {
+        frontTotal: null,
+        backTotal: null,
+        totalScore: null,
+        toPar: null,
+        frontToPar: null,
+        backToPar: null,
+      };
+    }
+
     const frontTotal = calculateTotal(player.scores, frontNine);
     const backTotal = calculateTotal(player.scores, backNine);
     const totalScore = frontTotal + backTotal;
 
-    const frontPar = frontNine.reduce((sum, hole) => sum + hole.par, 0);
-    const backPar = backNine.reduce((sum, hole) => sum + hole.par, 0);
-    const totalPar = frontPar + backPar;
+    // Calculate par only for played holes
+    const frontPlayedPar = calculatePlayedPar(player.scores, frontNine);
+    const backPlayedPar = calculatePlayedPar(player.scores, backNine);
+    const totalPlayedPar = frontPlayedPar + backPlayedPar;
 
     return {
       frontTotal,
       backTotal,
       totalScore,
-      toPar: totalScore - totalPar,
-      frontToPar: frontTotal - frontPar,
-      backToPar: backTotal - backPar,
+      toPar: totalScore > 0 ? totalScore - totalPlayedPar : 0,
+      frontToPar: frontTotal > 0 ? frontTotal - frontPlayedPar : 0,
+      backToPar: backTotal > 0 ? backTotal - backPlayedPar : 0,
     };
   };
 
@@ -96,12 +121,25 @@ export function FullScorecardModal({
     return toPar > 0 ? `+${toPar}` : `${toPar}`;
   };
 
-  const abbreviateName = (name: string) => {
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0]} ${parts[1].charAt(0)}.`;
+  const renderScoreColor = (score: number, par: number) => {
+    let scoreColor = "text-gray-900";
+
+    if (isValidScore(score)) {
+      if (score === 1) scoreColor = "text-purple-600 font-bold"; // Hole in one
+      else if (score < par - 1)
+        scoreColor = "text-purple-600 font-bold"; // Eagle or better
+      else if (score === par - 1)
+        scoreColor = "text-blue-600 font-bold"; // Birdie
+      else if (score === par) scoreColor = "text-gray-900"; // Par
+      else if (score === par + 1) scoreColor = "text-orange-600"; // Bogey
+      else if (score >= par + 2) scoreColor = "text-red-600"; // Double bogey or worse
+    } else if (score === -1) {
+      scoreColor = "text-red-500"; // Gave up
+    } else if (score === 0) {
+      scoreColor = "text-gray-400"; // Not reported
     }
-    return name.length > 12 ? `${name.substring(0, 12)}...` : name;
+
+    return scoreColor;
   };
 
   return (
@@ -129,191 +167,213 @@ export function FullScorecardModal({
           </button>
         </div>
 
-        <div className="overflow-auto max-h-[calc(90vh-180px)]">
-          {/* Nine selector */}
-          <div className="flex bg-gray-50 m-4 rounded-lg p-1">
-            <button
-              onClick={() => setCurrentView("front")}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors",
-                currentView === "front"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              )}
-            >
-              Front 9
-            </button>
-            <button
-              onClick={() => setCurrentView("back")}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors",
-                currentView === "back"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              )}
-            >
-              Back 9
-            </button>
-          </div>
+        {/* Scrollable content area */}
+        <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
+          <div className="px-2 py-4 space-y-6">
+            {teeTimeGroup.players.map((player) => {
+              const totals = getPlayerTotals(player);
 
-          {/* Scorecard table */}
-          <div className="px-4">
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              {/* Header row */}
-              <div className="bg-gray-50 border-b border-gray-200">
-                <div className="grid grid-cols-11 gap-0 text-xs font-medium text-gray-700">
-                  <div className="p-2 border-r border-gray-200">Player</div>
-                  {displayHoles.map((hole) => (
-                    <div
-                      key={hole.number}
-                      className={cn(
-                        "p-2 text-center border-r border-gray-200",
-                        hole.number === currentHole &&
-                          "bg-blue-100 text-blue-900"
+              return (
+                <div
+                  key={player.participantId}
+                  className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+                >
+                  {/* Player Name Header */}
+                  <div className="bg-green-600 text-white px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-lg">
+                          {player.participantName}
+                        </span>
+                        {player.isMultiPlayer && (
+                          <span className="text-green-200 text-sm">👥</span>
+                        )}
+                      </div>
+                      {player.participantType && (
+                        <span className="text-green-200 text-sm">
+                          {player.participantType}
+                        </span>
                       )}
-                    >
-                      {hole.number}
                     </div>
-                  ))}
-                  <div className="p-2 text-center">Total</div>
-                </div>
-              </div>
-
-              {/* Par row */}
-              <div className="border-b border-gray-200 bg-gray-25">
-                <div className="grid grid-cols-11 gap-0 text-xs font-medium">
-                  <div className="p-2 border-r border-gray-200 text-gray-600">
-                    Par
                   </div>
-                  {displayHoles.map((hole) => (
-                    <div
-                      key={hole.number}
-                      className="p-2 text-center border-r border-gray-200 text-gray-600"
-                    >
-                      {hole.par}
-                    </div>
-                  ))}
-                  <div className="p-2 text-center text-gray-600">
-                    {displayHoles.reduce((sum, hole) => sum + hole.par, 0)}
-                  </div>
-                </div>
-              </div>
 
-              {/* Player rows */}
-              {teeTimeGroup.players.map((player) => {
-                const totals = getPlayerTotals(player);
-                const displayTotal =
-                  currentView === "front"
-                    ? totals.frontTotal
-                    : totals.backTotal;
-                const displayToPar =
-                  currentView === "front"
-                    ? totals.frontToPar
-                    : totals.backToPar;
-
-                return (
-                  <div
-                    key={player.participantId}
-                    className="border-b border-gray-200 last:border-b-0"
-                  >
-                    <div className="grid grid-cols-11 gap-0 text-sm">
-                      <div className="p-2 border-r border-gray-200 font-medium text-gray-900 text-xs flex items-center gap-1">
-                        <span>{abbreviateName(player.participantName)}</span>
-                        {player.isMultiPlayer && (
-                          <span className="text-blue-500 text-[10px]">👥</span>
-                        )}
-                      </div>
-                      {displayHoles.map((hole) => {
-                        const score = player.scores[hole.number - 1] ?? 0;
-                        const par = hole.par;
-                        let scoreColor = "text-gray-900";
-
-                        if (isValidScore(score)) {
-                          if (score === 1)
-                            scoreColor = "text-purple-600 font-bold";
-                          // Hole in one
-                          else if (score! < par - 1)
-                            scoreColor = "text-purple-600 font-bold";
-                          // Eagle or better
-                          else if (score! === par - 1)
-                            scoreColor = "text-blue-600 font-bold"; // Birdie
-                          else if (score! === par)
-                            scoreColor = "text-gray-900"; // Par
-                          else if (score! === par + 1)
-                            scoreColor = "text-orange-600"; // Bogey
-                          else if (score! >= par + 2)
-                            scoreColor = "text-red-600"; // Double bogey or worse
-                        } else if (score === -1) {
-                          scoreColor = "text-red-500"; // Gave up
-                        } else if (score === 0) {
-                          scoreColor = "text-gray-400"; // Not reported
-                        }
-
-                        return (
-                          <div
-                            key={hole.number}
-                            className={cn(
-                              "p-2 text-center border-r border-gray-200",
-                              hole.number === currentHole && "bg-blue-50",
-                              scoreColor
-                            )}
-                          >
-                            {formatScoreDisplay(score)}
+                  {/* Front Nine */}
+                  <div className="overflow-x-auto">
+                    <div className="min-w-max">
+                      {/* Front Nine Header */}
+                      <div className="bg-green-500 text-white">
+                        <div className="flex">
+                          <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium">
+                            Hole
                           </div>
-                        );
-                      })}
-                      <div className="p-2 text-center font-medium">
-                        <div>{displayTotal || "-"}</div>
-                        {displayTotal > 0 && (
-                          <div className="text-xs text-gray-500">
-                            {formatToPar(displayToPar)}
+                          {frontNine.map((hole) => (
+                            <div
+                              key={hole.number}
+                              className={cn(
+                                "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
+                                hole.number === currentHole && "bg-blue-500"
+                              )}
+                            >
+                              {hole.number}
+                            </div>
+                          ))}
+                          <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-medium">
+                            Out
                           </div>
-                        )}
+                        </div>
+                      </div>
+
+                      {/* Front Nine Par */}
+                      <div className="bg-gray-100 border-b border-gray-200">
+                        <div className="flex">
+                          <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                            Par
+                          </div>
+                          {frontNine.map((hole) => (
+                            <div
+                              key={hole.number}
+                              className="w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium text-gray-700"
+                            >
+                              {hole.par}
+                            </div>
+                          ))}
+                          <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-700">
+                            {frontNine.reduce((sum, hole) => sum + hole.par, 0)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Front Nine Results */}
+                      <div className="bg-white border-b border-gray-300">
+                        <div className="flex">
+                          <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                            Result
+                          </div>
+                          {frontNine.map((hole) => {
+                            const score = player.scores[hole.number - 1] ?? 0;
+                            const scoreColor = renderScoreColor(
+                              score,
+                              hole.par
+                            );
+
+                            return (
+                              <div
+                                key={hole.number}
+                                className={cn(
+                                  "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
+                                  hole.number === currentHole && "bg-blue-50",
+                                  scoreColor
+                                )}
+                              >
+                                {formatScoreDisplay(score)}
+                              </div>
+                            );
+                          })}
+                          <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-900">
+                            {totals.frontTotal ?? "-"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back Nine Header */}
+                      <div className="bg-green-500 text-white">
+                        <div className="flex">
+                          <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium">
+                            Hole
+                          </div>
+                          {backNine.map((hole) => (
+                            <div
+                              key={hole.number}
+                              className={cn(
+                                "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
+                                hole.number === currentHole && "bg-blue-500"
+                              )}
+                            >
+                              {hole.number}
+                            </div>
+                          ))}
+                          <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-medium">
+                            In
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back Nine Par */}
+                      <div className="bg-gray-100 border-b border-gray-200">
+                        <div className="flex">
+                          <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                            Par
+                          </div>
+                          {backNine.map((hole) => (
+                            <div
+                              key={hole.number}
+                              className="w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium text-gray-700"
+                            >
+                              {hole.par}
+                            </div>
+                          ))}
+                          <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-700">
+                            {backNine.reduce((sum, hole) => sum + hole.par, 0)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back Nine Results */}
+                      <div className="bg-white">
+                        <div className="flex">
+                          <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                            Result
+                          </div>
+                          {backNine.map((hole) => {
+                            const score = player.scores[hole.number - 1] ?? 0;
+                            const scoreColor = renderScoreColor(
+                              score,
+                              hole.par
+                            );
+
+                            return (
+                              <div
+                                key={hole.number}
+                                className={cn(
+                                  "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
+                                  hole.number === currentHole && "bg-blue-50",
+                                  scoreColor
+                                )}
+                              >
+                                {formatScoreDisplay(score)}
+                              </div>
+                            );
+                          })}
+                          <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-900">
+                            {totals.backTotal ?? "-"}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
 
-            {/* Overall totals */}
-            <div className="mt-4 bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                Overall Totals
-              </h3>
-              <div className="space-y-2">
-                {teeTimeGroup.players.map((player) => {
-                  const totals = getPlayerTotals(player);
-                  return (
-                    <div
-                      key={player.participantId}
-                      className="flex justify-between items-center text-sm"
-                    >
-                      <span className="font-medium text-gray-900 flex items-center gap-1">
-                        <span>{abbreviateName(player.participantName)}</span>
-                        {player.isMultiPlayer && (
-                          <span className="text-blue-500 text-xs">👥</span>
-                        )}
+                  {/* Player Total Section */}
+                  <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">
+                        Total Score
                       </span>
                       <div className="flex items-center gap-4">
-                        <span className="text-gray-600">
-                          F: {totals.frontTotal || "-"} | B:{" "}
-                          {totals.backTotal || "-"}
+                        <span className="text-gray-600 text-sm">
+                          Total: {totals.totalScore ?? "-"}
                         </span>
-                        <span className="font-bold text-gray-900">
-                          {totals.totalScore || "-"}
-                          {totals.totalScore > 0 && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({formatToPar(totals.toPar)})
-                            </span>
-                          )}
+                        <span className="text-lg font-bold text-gray-900">
+                          To par:{" "}
+                          {totals.totalScore && totals.toPar !== null
+                            ? formatToPar(totals.toPar)
+                            : "-"}
                         </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

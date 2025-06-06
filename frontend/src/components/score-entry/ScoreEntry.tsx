@@ -218,15 +218,37 @@ export function ScoreEntry({
   const abbreviateName = (name: string) => {
     const parts = name.split(" ");
     if (parts.length >= 2) {
-      return `${parts[0]} ${parts[1].charAt(0)}.`;
+      // For two-part names, use different strategies based on length
+      const firstName = parts[0];
+      const lastName = parts[1];
+
+      // If total length is reasonable, keep both
+      if (name.length <= 14) {
+        return name;
+      }
+
+      // If first name is short, use first name + last initial
+      if (firstName.length <= 8) {
+        return `${firstName} ${lastName.charAt(0)}.`;
+      }
+
+      // If first name is long, use first initial + last name
+      if (lastName.length <= 8) {
+        return `${firstName.charAt(0)}. ${lastName}`;
+      }
+
+      // Both names are long, use initials
+      return `${firstName.charAt(0)}. ${lastName.charAt(0)}.`;
     }
-    return name.length > 20 ? `${name.substring(0, 20)}...` : name;
+
+    // Single name - truncate if too long
+    return name.length > 12 ? `${name.substring(0, 11)}...` : name;
   };
 
   // Helper function to format score display
   const formatScoreDisplay = (score: number | null): string => {
-    if (score === -1 || score === null) return "−"; // Gave up
-    if (score === 0) return "0"; // Not reported
+    if (score === -1 || score === null) return "-"; // Gave up
+    if (score === 0) return "NR"; // Not reported
     return score.toString(); // Actual score
   };
 
