@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { Menu, X, Trophy, TrendingUp } from "lucide-react";
+import { Menu, X, Trophy } from "lucide-react";
 
 interface HamburgerMenuProps {
   className?: string;

@@ -166,4 +166,75 @@
   .keyboard-transition {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  /* Hole transition animations */
+  .hole-transition {
+    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hole-slide-left {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  .hole-slide-right {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  .hole-fade-in {
+    animation: holeSlideIn 0.5s ease-out forwards;
+  }
+
+  .hole-bounce {
+    animation: holeBounce 0.6s ease-in-out;
+  }
+
+  /* Score confirmation animations */
+  .score-confirmation {
+    animation: scoreConfirmation 1s ease-in-out;
+  }
+
+  @keyframes holeSlideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes holeBounce {
+    0%,
+    20%,
+    53%,
+    80%,
+    100% {
+      transform: scale(1);
+    }
+    40%,
+    43% {
+      transform: scale(1.1);
+    }
+    70% {
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes scoreConfirmation {
+    0% {
+      opacity: 0;
+      transform: scale(0.8) translateY(20px);
+    }
+    20% {
+      opacity: 1;
+      transform: scale(1.1) translateY(0);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
 }

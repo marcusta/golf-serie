@@ -91,6 +91,7 @@ export function ScoreEntry({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [fullScorecardVisible, setFullScorecardVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showingConfirmation, setShowingConfirmation] = useState(false);
 
   const {
     isVisible: nativeKeyboardVisible,
@@ -113,6 +114,10 @@ export function ScoreEntry({
 
   const currentPlayer = teeTimeGroup.players[currentPlayerIndex];
   const currentHoleData = course.holes.find((h) => h.number === currentHole);
+  const previousHoleData =
+    currentHole > 1
+      ? course.holes.find((h) => h.number === currentHole - 1)
+      : null;
 
   // Calculate player's current score relative to par
   const calculatePlayerToPar = (player: PlayerScore): number => {
@@ -147,18 +152,24 @@ export function ScoreEntry({
     if (currentPlayerIndex < teeTimeGroup.players.length - 1) {
       setCurrentPlayerIndex(currentPlayerIndex + 1);
     } else {
-      // Last player on this hole
-      if (currentHole < 18) {
-        const nextHole = currentHole + 1;
-        if (onHoleChange) {
-          onHoleChange(nextHole);
+      // Last player on this hole - show confirmation briefly
+      setShowingConfirmation(true);
+
+      setTimeout(() => {
+        setShowingConfirmation(false);
+
+        if (currentHole < 18) {
+          const nextHole = currentHole + 1;
+          if (onHoleChange) {
+            onHoleChange(nextHole);
+          } else {
+            setInternalCurrentHole(nextHole);
+          }
+          setCurrentPlayerIndex(0);
         } else {
-          setInternalCurrentHole(nextHole);
+          onComplete();
         }
-        setCurrentPlayerIndex(0);
-      } else {
-        onComplete();
-      }
+      }, 800); // Show confirmation for shorter time
     }
   };
 
@@ -231,7 +242,7 @@ export function ScoreEntry({
   }, [isEditing]);
 
   return (
-    <div className="score-entry flex flex-col h-screen-mobile bg-gray-50">
+    <div className="score-entry flex flex-col h-screen-mobile bg-gray-50 relative">
       {/* Sync Status Indicator */}
       {syncStatus &&
         (syncStatus.pendingCount > 0 || syncStatus.hasConnectivityIssues) && (
@@ -254,89 +265,150 @@ export function ScoreEntry({
           </div>
         )}
 
-      {/* Maximized Player Area - 60% of remaining space */}
+      {/* Compact Green Score Header */}
+      <div className="bg-green-700 text-white px-4 py-2 border-b border-green-700">
+        <div className="flex items-center justify-end gap-4 pr-6">
+          {/* Previous Hole Column (if exists) */}
+          {previousHoleData && (
+            <div className="text-center w-[60px]">
+              <div className="text-2xl font-bold">{currentHole - 1}</div>
+              <div className="text-xs font-medium opacity-90">
+                Par {previousHoleData.par}
+              </div>
+            </div>
+          )}
+
+          {/* Current Hole Column */}
+          <div className="text-center w-[60px]">
+            <div className="text-2xl font-bold">{currentHole}</div>
+            <div className="text-xs font-medium opacity-90">
+              Par {currentHoleData?.par}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Message */}
+      {showingConfirmation && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-30 animate-pulse">
+          <div className="text-center">
+            <div className="text-lg font-bold">
+              ✓ Hole {currentHole} Complete!
+            </div>
+            <div className="text-sm opacity-90">
+              Moving to hole {currentHole + 1}...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Player Area with Aligned Score Columns */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         <div className="p-3 space-y-2">
           {teeTimeGroup.players.map((player, index) => {
             const isCurrentPlayer = index === currentPlayerIndex;
-            const score = player.scores[currentHole - 1] ?? 0;
-            const hasScore = hasValidScore(score);
+            const currentScore = player.scores[currentHole - 1] ?? 0;
+            const previousScore = previousHoleData
+              ? player.scores[currentHole - 2] ?? 0
+              : null;
+            const hasCurrentScore = hasValidScore(currentScore);
             const toPar = calculatePlayerToPar(player);
 
             return (
               <div
                 key={player.participantId}
                 className={cn(
-                  "bg-white rounded-lg p-4 flex items-center justify-between transition-all shadow-sm",
+                  "bg-white rounded-lg p-4 transition-all shadow-sm",
                   isCurrentPlayer && "ring-2 ring-blue-500 bg-blue-50 shadow-md"
                 )}
                 style={{ minHeight: "70px" }}
               >
-                <div className="flex-1 pr-3">
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <div
-                        className={cn(
-                          "font-medium text-gray-900",
-                          isCurrentPlayer && "text-blue-900 font-semibold"
+                <div className="flex items-center justify-between">
+                  {/* Player Info */}
+                  <div className="flex-1 pr-3">
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <div
+                          className={cn(
+                            "font-medium text-gray-900",
+                            isCurrentPlayer && "text-blue-900 font-semibold"
+                          )}
+                        >
+                          {abbreviateName(player.participantName)}
+                        </div>
+                        {player.participantType && (
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {player.participantType}
+                          </div>
                         )}
-                      >
-                        {abbreviateName(player.participantName)}
                       </div>
-                      {player.participantType && (
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {player.participantType}
+                      {player.isMultiPlayer && (
+                        <div className="relative group">
+                          <Users className="w-3 h-3 text-blue-500" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                            Multi-player format
+                          </div>
                         </div>
                       )}
                     </div>
-                    {player.isMultiPlayer && (
-                      <div className="relative group">
-                        <Users className="w-3 h-3 text-blue-500" />
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                          Multi-player format
+                    <div className="flex items-center gap-4 mt-1">
+                      {hasCurrentScore && (
+                        <div
+                          className={cn(
+                            "text-xs",
+                            syncStatus?.hasConnectivityIssues && hasCurrentScore
+                              ? "text-yellow-600"
+                              : "text-green-600"
+                          )}
+                        >
+                          {syncStatus?.hasConnectivityIssues && hasCurrentScore
+                            ? "⚠️ Score saved locally"
+                            : "✓ "}
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          "text-xs font-medium",
+                          getToParColor(toPar)
+                        )}
+                      >
+                        {formatToPar(toPar)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Score Columns - Aligned with Header */}
+                  <div className="flex items-center gap-0 pr-6 ml-2">
+                    {/* Previous Hole Score */}
+                    {previousHoleData && (
+                      <div className="w-[60px] text-center">
+                        <div className="text-lg font-bold text-gray-600">
+                          {previousScore !== null
+                            ? formatScoreDisplay(previousScore)
+                            : "-"}
                         </div>
                       </div>
                     )}
-                  </div>
-                  <div className="flex items-center gap-4 mt-1">
-                    {hasScore && (
-                      <div
+
+                    {/* Current Hole Score */}
+                    <div className="w-[60px] text-center ml-2 left-4 relative">
+                      <button
+                        onClick={() => handleScoreFieldClick(index)}
                         className={cn(
-                          "text-xs",
-                          syncStatus?.hasConnectivityIssues && hasScore
-                            ? "text-yellow-600"
-                            : "text-green-600"
+                          "w-12 h-12 rounded-lg text-center font-bold transition-all touch-manipulation",
+                          "border-2 text-lg flex items-center justify-center",
+                          hasCurrentScore
+                            ? "bg-white text-gray-900 border-green-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                          isCurrentPlayer &&
+                            "ring-2 ring-blue-400 ring-offset-1"
                         )}
                       >
-                        {syncStatus?.hasConnectivityIssues && hasScore
-                          ? "⚠️ Score saved locally"
-                          : "✓ Score entered"}
-                      </div>
-                    )}
-                    <div
-                      className={cn(
-                        "text-xs font-medium",
-                        getToParColor(toPar)
-                      )}
-                    >
-                      {formatToPar(toPar)}
+                        {formatScoreDisplay(currentScore)}
+                      </button>
                     </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => handleScoreFieldClick(index)}
-                  className={cn(
-                    "w-14 h-12 rounded-lg text-center font-bold transition-all touch-manipulation",
-                    "border-2 text-lg flex items-center justify-center",
-                    hasScore
-                      ? "bg-white text-gray-900 border-green-200"
-                      : "bg-gray-50 text-gray-400 border-gray-200",
-                    isCurrentPlayer && "ring-2 ring-blue-400 ring-offset-1"
-                  )}
-                >
-                  {formatScoreDisplay(score)}
-                </button>
               </div>
             );
           })}
@@ -354,7 +426,7 @@ export function ScoreEntry({
         </div>
       </div>
 
-      {/* Compact Custom Keyboard - 40% of remaining space */}
+      {/* Enhanced Custom Keyboard with Previous Hole Display */}
       <CustomKeyboard
         visible={keyboardVisible}
         onNumberPress={handleNumberPress}
@@ -362,6 +434,8 @@ export function ScoreEntry({
         holePar={currentHoleData?.par || 4}
         currentHole={currentHole}
         onDismiss={handleKeyboardDismiss}
+        teeTimeGroup={teeTimeGroup}
+        course={course}
       />
 
       {/* Full Scorecard Modal */}

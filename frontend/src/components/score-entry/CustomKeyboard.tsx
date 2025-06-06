@@ -1,6 +1,28 @@
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
+interface PlayerScore {
+  participantId: string;
+  participantName: string;
+  participantType?: string;
+  isMultiPlayer?: boolean;
+  scores: number[];
+}
+
+interface TeeTimeGroup {
+  id: string;
+  players: PlayerScore[];
+}
+
+interface Course {
+  id: string;
+  name: string;
+  holes: {
+    number: number;
+    par: number;
+  }[];
+}
+
 interface CustomKeyboardProps {
   onNumberPress: (number: number) => void;
   onSpecialPress: (action: "more" | "clear" | "unreported") => void;
@@ -8,6 +30,8 @@ interface CustomKeyboardProps {
   visible: boolean;
   holePar: number;
   currentHole?: number;
+  teeTimeGroup?: TeeTimeGroup;
+  course?: Course;
 }
 
 export function CustomKeyboard({
@@ -57,31 +81,32 @@ export function CustomKeyboard({
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 transition-transform duration-300 ease-in-out",
+        "fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 transition-transform duration-300 ease-in-out z-50",
         visible ? "translate-y-0" : "translate-y-full",
         "shadow-lg rounded-t-xl"
       )}
     >
-      {/* Header with hole info and dismiss button */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50 rounded-t-xl">
-        <div className="flex items-center gap-3">
-          {currentHole && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-600">Hole</span>
-              <span className="text-xl font-bold text-gray-900">
-                {currentHole}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">Par</span>
-            <span className="text-xl font-bold text-blue-600">{holePar}</span>
+      {/* Current Hole Strip */}
+      <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-bold">
+            Hole {currentHole} | Par {holePar}
           </div>
+        </div>
+      </div>
+
+      {/* Header with dismiss button */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-600">Enter Score</span>
         </div>
         {onDismiss && (
           <button
-            onClick={handleDismiss}
-            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors touch-manipulation"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleDismiss();
+            }}
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors touch-manipulation focus:outline-none"
             aria-label="Close keyboard"
           >
             <X className="w-5 h-5 text-gray-600" />
@@ -96,8 +121,11 @@ export function CustomKeyboard({
           {[1, 2, 3].map((num) => (
             <button
               key={num}
-              onClick={() => handleNumberPress(num)}
-              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleNumberPress(num);
+              }}
+              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
             >
               <span>{num}</span>
               <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
@@ -112,8 +140,11 @@ export function CustomKeyboard({
           {[4, 5, 6].map((num) => (
             <button
               key={num}
-              onClick={() => handleNumberPress(num)}
-              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleNumberPress(num);
+              }}
+              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
             >
               <span>{num}</span>
               <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
@@ -128,8 +159,11 @@ export function CustomKeyboard({
           {[7, 8].map((num) => (
             <button
               key={num}
-              onClick={() => handleNumberPress(num)}
-              className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleNumberPress(num);
+              }}
+              className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
             >
               <span>{num}</span>
               <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
@@ -138,8 +172,11 @@ export function CustomKeyboard({
             </button>
           ))}
           <button
-            onClick={() => handleSpecialPress("more")}
-            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSpecialPress("more");
+            }}
+            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
           >
             <span>9+</span>
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
@@ -151,8 +188,11 @@ export function CustomKeyboard({
         {/* Row 4: -, 0 */}
         <div className="grid grid-cols-2 gap-1">
           <button
-            onClick={() => handleSpecialPress("clear")}
-            className="h-14 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-lg text-xl font-bold text-red-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSpecialPress("clear");
+            }}
+            className="h-14 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-lg text-xl font-bold text-red-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
           >
             <span>−</span>
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
@@ -160,8 +200,11 @@ export function CustomKeyboard({
             </span>
           </button>
           <button
-            onClick={() => handleSpecialPress("unreported")}
-            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSpecialPress("unreported");
+            }}
+            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
           >
             <span>0</span>
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
