@@ -121,25 +121,51 @@ export function FullScorecardModal({
     return toPar > 0 ? `+${toPar}` : `${toPar}`;
   };
 
-  const renderScoreColor = (score: number, par: number) => {
-    let scoreColor = "text-gray-900";
-
-    if (isValidScore(score)) {
-      if (score === 1) scoreColor = "text-purple-600 font-bold"; // Hole in one
-      else if (score < par - 1)
-        scoreColor = "text-purple-600 font-bold"; // Eagle or better
-      else if (score === par - 1)
-        scoreColor = "text-blue-600 font-bold"; // Birdie
-      else if (score === par) scoreColor = "text-gray-900"; // Par
-      else if (score === par + 1) scoreColor = "text-orange-600"; // Bogey
-      else if (score >= par + 2) scoreColor = "text-red-600"; // Double bogey or worse
-    } else if (score === -1) {
-      scoreColor = "text-red-500"; // Gave up
-    } else if (score === 0) {
-      scoreColor = "text-gray-400"; // Not reported
+  const renderScoreDecoration = (score: number, par: number) => {
+    if (!isValidScore(score)) {
+      if (score === -1) return { color: "text-red-500", decoration: "" }; // Gave up
+      if (score === 0) return { color: "text-gray-400", decoration: "" }; // Not reported
+      return { color: "text-gray-900", decoration: "" };
     }
 
-    return scoreColor;
+    if (score === 1) {
+      // Hole in one - special case (purple circle)
+      return {
+        color: "text-white font-bold",
+        decoration: "bg-purple-600 rounded-full border-2 border-purple-600",
+      };
+    } else if (score < par - 1) {
+      // Eagle or better - red double circle
+      return {
+        color: "text-red-600 font-bold",
+        decoration:
+          "border-2 border-red-600 rounded-full shadow-[0_0_0_2px_white,0_0_0_4px_red]",
+      };
+    } else if (score === par - 1) {
+      // Birdie - red circle
+      return {
+        color: "text-red-600 font-bold",
+        decoration: "border-2 border-red-600 rounded-full",
+      };
+    } else if (score === par) {
+      // Par - no decoration
+      return { color: "text-gray-900", decoration: "" };
+    } else if (score === par + 1) {
+      // Bogey - blue square
+      return {
+        color: "text-blue-600 font-bold",
+        decoration: "border-2 border-blue-600",
+      };
+    } else if (score >= par + 2) {
+      // Double bogey or worse - double blue square
+      return {
+        color: "text-blue-600 font-bold",
+        decoration:
+          "border-2 border-blue-600 shadow-[0_0_0_2px_white,0_0_0_4px_blue]",
+      };
+    }
+
+    return { color: "text-gray-900", decoration: "" };
   };
 
   return (
@@ -251,7 +277,7 @@ export function FullScorecardModal({
                           </div>
                           {frontNine.map((hole) => {
                             const score = player.scores[hole.number - 1] ?? 0;
-                            const scoreColor = renderScoreColor(
+                            const scoreStyle = renderScoreDecoration(
                               score,
                               hole.par
                             );
@@ -260,12 +286,19 @@ export function FullScorecardModal({
                               <div
                                 key={hole.number}
                                 className={cn(
-                                  "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
-                                  hole.number === currentHole && "bg-blue-50",
-                                  scoreColor
+                                  "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium flex items-center justify-center",
+                                  hole.number === currentHole && "bg-blue-50"
                                 )}
                               >
-                                {formatScoreDisplay(score)}
+                                <div
+                                  className={cn(
+                                    "w-6 h-6 flex items-center justify-center",
+                                    scoreStyle.color,
+                                    scoreStyle.decoration
+                                  )}
+                                >
+                                  {formatScoreDisplay(score)}
+                                </div>
                               </div>
                             );
                           })}
@@ -326,7 +359,7 @@ export function FullScorecardModal({
                           </div>
                           {backNine.map((hole) => {
                             const score = player.scores[hole.number - 1] ?? 0;
-                            const scoreColor = renderScoreColor(
+                            const scoreStyle = renderScoreDecoration(
                               score,
                               hole.par
                             );
@@ -335,12 +368,19 @@ export function FullScorecardModal({
                               <div
                                 key={hole.number}
                                 className={cn(
-                                  "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
-                                  hole.number === currentHole && "bg-blue-50",
-                                  scoreColor
+                                  "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium flex items-center justify-center",
+                                  hole.number === currentHole && "bg-blue-50"
                                 )}
                               >
-                                {formatScoreDisplay(score)}
+                                <div
+                                  className={cn(
+                                    "w-6 h-6 flex items-center justify-center",
+                                    scoreStyle.color,
+                                    scoreStyle.decoration
+                                  )}
+                                >
+                                  {formatScoreDisplay(score)}
+                                </div>
                               </div>
                             );
                           })}
