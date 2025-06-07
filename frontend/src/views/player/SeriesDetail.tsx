@@ -4,9 +4,10 @@ import {
   useSingleSeries,
   useSeriesStandings,
   useSeriesCompetitions,
-} from "../../api/series";
+} from "@/api/series";
 import { ArrowLeft, Calendar, Trophy, Users, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function SeriesDetail() {
   const { serieId } = useParams({ from: "/player/series/$serieId" });
@@ -76,7 +77,9 @@ export default function SeriesDetail() {
             About this Series
           </h2>
           <div className="prose prose-gray max-w-none">
-            <ReactMarkdown>{series.description}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {series.description}
+            </ReactMarkdown>
           </div>
         </div>
       )}

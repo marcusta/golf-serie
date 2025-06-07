@@ -41,6 +41,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function AdminSeriesDetail() {
   const { serieId } = useParams({ from: "/admin/series/$serieId" });
@@ -479,7 +480,9 @@ export default function AdminSeriesDetail() {
                   </CardHeader>
                   <CardContent>
                     <div className="prose prose-gray max-w-none">
-                      <ReactMarkdown>{document.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {document.content}
+                      </ReactMarkdown>
                     </div>
                   </CardContent>
                 </Card>
