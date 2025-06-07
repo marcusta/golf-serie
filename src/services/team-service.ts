@@ -9,23 +9,14 @@ export class TeamService {
       throw new Error("Team name is required");
     }
 
-    // Verify series exists if provided
-    if (data.series_id) {
-      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
-      const series = seriesStmt.get(data.series_id);
-      if (!series) {
-        throw new Error("Series not found");
-      }
-    }
-
     try {
       const stmt = this.db.prepare(`
-        INSERT INTO teams (name, series_id)
-        VALUES (?, ?)
+        INSERT INTO teams (name)
+        VALUES (?)
         RETURNING *
       `);
 
-      return stmt.get(data.name, data.series_id || null) as Team;
+      return stmt.get(data.name) as Team;
     } catch (error) {
       if (
         error instanceof Error &&
@@ -52,26 +43,12 @@ export class TeamService {
       throw new Error("Team name cannot be empty");
     }
 
-    // Verify series exists if provided
-    if (data.series_id) {
-      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
-      const series = seriesStmt.get(data.series_id);
-      if (!series) {
-        throw new Error("Series not found");
-      }
-    }
-
     const updates: string[] = [];
     const values: any[] = [];
 
     if (data.name !== undefined) {
       updates.push("name = ?");
       values.push(data.name);
-    }
-
-    if (data.series_id !== undefined) {
-      updates.push("series_id = ?");
-      values.push(data.series_id);
     }
 
     if (updates.length === 0) {

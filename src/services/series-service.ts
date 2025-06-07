@@ -191,13 +191,72 @@ export class SeriesService {
     }
 
     const stmt = this.db.prepare(`
-      SELECT id, name, created_at, updated_at
-      FROM teams
-      WHERE series_id = ?
-      ORDER BY name
+      SELECT t.id, t.name, t.created_at, t.updated_at
+      FROM teams t
+      JOIN series_teams st ON t.id = st.team_id
+      WHERE st.series_id = ?
+      ORDER BY t.name
     `);
 
     return stmt.all(id);
+  }
+
+  async addTeam(seriesId: number, teamId: number): Promise<void> {
+    // Verify series exists
+    const series = await this.findById(seriesId);
+    if (!series) {
+      throw new Error("Series not found");
+    }
+
+    // Verify team exists
+    const teamStmt = this.db.prepare("SELECT id FROM teams WHERE id = ?");
+    const team = teamStmt.get(teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO series_teams (series_id, team_id)
+        VALUES (?, ?)
+      `);
+      stmt.run(seriesId, teamId);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("UNIQUE constraint failed")
+      ) {
+        throw new Error("Team is already in this series");
+      }
+      throw error;
+    }
+  }
+
+  async removeTeam(seriesId: number, teamId: number): Promise<void> {
+    const stmt = this.db.prepare(`
+      DELETE FROM series_teams
+      WHERE series_id = ? AND team_id = ?
+    `);
+    const result = stmt.run(seriesId, teamId);
+
+    if (result.changes === 0) {
+      throw new Error("Team is not in this series");
+    }
+  }
+
+  async getAvailableTeams(seriesId: number): Promise<any[]> {
+    const stmt = this.db.prepare(`
+      SELECT t.id, t.name, t.created_at, t.updated_at
+      FROM teams t
+      WHERE t.id NOT IN (
+        SELECT team_id
+        FROM series_teams
+        WHERE series_id = ?
+      )
+      ORDER BY t.name
+    `);
+
+    return stmt.all(seriesId);
   }
 
   async getStandings(id: number): Promise<SeriesStandings> {

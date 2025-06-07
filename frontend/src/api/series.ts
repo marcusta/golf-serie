@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { API_BASE_URL } from "./config";
 import type { Competition } from "./competitions";
+import { API_BASE_URL } from "./config";
 import type { Team } from "./teams";
 
 export interface Series {
@@ -194,6 +194,94 @@ export function useDeleteSeries() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["series"] });
       queryClient.invalidateQueries({ queryKey: ["series", "public"] });
+    },
+  });
+}
+
+export function useAvailableTeams(seriesId: number) {
+  return useQuery<Team[]>({
+    queryKey: ["series", seriesId, "available-teams"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/available-teams`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: seriesId > 0,
+  });
+}
+
+export function useAddTeamToSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      teamId,
+    }: {
+      seriesId: number;
+      teamId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/teams/${teamId}`,
+        {
+          method: "POST",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "available-teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "standings"],
+      });
+    },
+  });
+}
+
+export function useRemoveTeamFromSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      teamId,
+    }: {
+      seriesId: number;
+      teamId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/teams/${teamId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "available-teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "standings"],
+      });
     },
   });
 }

@@ -4,8 +4,13 @@ import {
   useCreateSeries,
   useUpdateSeries,
   useDeleteSeries,
+  useSeriesTeams,
+  useAvailableTeams,
+  useAddTeamToSeries,
+  useRemoveTeamFromSeries,
   type Series,
 } from "@/api/series";
+import { type Team } from "@/api/teams";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,15 +60,26 @@ export default function AdminSeries() {
   const createSeries = useCreateSeries();
   const updateSeries = useUpdateSeries();
   const deleteSeries = useDeleteSeries();
+  const addTeamToSeries = useAddTeamToSeries();
+  const removeTeamFromSeries = useRemoveTeamFromSeries();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingSeries, setEditingSeries] = useState<Series | null>(null);
+  const [showTeamDialog, setShowTeamDialog] = useState(false);
+  const [managingTeamsForSeries, setManagingTeamsForSeries] =
+    useState<Series | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     banner_image_url: "",
     is_public: true,
   });
+
+  // Team management queries
+  const { data: seriesTeams } = useSeriesTeams(managingTeamsForSeries?.id || 0);
+  const { data: availableTeams } = useAvailableTeams(
+    managingTeamsForSeries?.id || 0
+  );
 
   const handleCreate = () => {
     setEditingSeries(null);
@@ -127,6 +143,37 @@ export default function AdminSeries() {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleManageTeams = (series: Series) => {
+    setManagingTeamsForSeries(series);
+    setShowTeamDialog(true);
+  };
+
+  const handleAddTeam = async (teamId: number) => {
+    if (!managingTeamsForSeries) return;
+    try {
+      await addTeamToSeries.mutateAsync({
+        seriesId: managingTeamsForSeries.id,
+        teamId,
+      });
+    } catch (error) {
+      console.error("Failed to add team to series:", error);
+      alert("Failed to add team to series. Please try again.");
+    }
+  };
+
+  const handleRemoveTeam = async (teamId: number) => {
+    if (!managingTeamsForSeries) return;
+    try {
+      await removeTeamFromSeries.mutateAsync({
+        seriesId: managingTeamsForSeries.id,
+        teamId,
+      });
+    } catch (error) {
+      console.error("Failed to remove team from series:", error);
+      alert("Failed to remove team from series. Please try again.");
+    }
   };
 
   if (isLoading) {
@@ -451,15 +498,15 @@ export default function AdminSeries() {
                   )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <Link
-                        to="/admin/teams"
+                      <button
+                        onClick={() => handleManageTeams(seriesItem)}
                         className="flex items-center gap-1 hover:text-blue-600"
                       >
                         <Users className="h-4 w-4" />
-                        <span>Teams</span>
-                      </Link>
+                        <span>Manage Teams</span>
+                      </button>
                       <Link
-                        to="/admin/competitions"
+                        to={`/admin/competitions?series=${seriesItem.id}`}
                         className="flex items-center gap-1 hover:text-blue-600"
                       >
                         <Calendar className="h-4 w-4" />
@@ -546,6 +593,90 @@ export default function AdminSeries() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTeamDialog} onOpenChange={setShowTeamDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Teams - {managingTeamsForSeries?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Current Teams */}
+            <div>
+              <h3 className="text-lg font-medium mb-3">Teams in Series</h3>
+              {seriesTeams && seriesTeams.length > 0 ? (
+                <div className="space-y-2">
+                  {seriesTeams.map((team: Team) => (
+                    <div
+                      key={team.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-blue-600" />
+                        <span className="font-medium">{team.name}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveTeam(team.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  No teams in this series yet.
+                </p>
+              )}
+            </div>
+
+            {/* Available Teams */}
+            <div>
+              <h3 className="text-lg font-medium mb-3">Available Teams</h3>
+              {availableTeams && availableTeams.length > 0 ? (
+                <div className="space-y-2">
+                  {availableTeams.map((team: Team) => (
+                    <div
+                      key={team.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-gray-600" />
+                        <span className="font-medium">{team.name}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAddTeam(team.id)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Add to Series
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  All teams are already in this series.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowTeamDialog(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

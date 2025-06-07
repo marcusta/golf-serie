@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
 import type { TeeTimeParticipant } from "./tee-times";
 
@@ -81,3 +81,79 @@ export interface UpdateCompetitionDto {
 
 // Note: These mutation hooks will be added when needed for admin functionality
 // For now, competitions are read-only in the current implementation
+
+export function useCreateCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateCompetitionDto): Promise<Competition> => {
+      const response = await fetch(`${API_BASE_URL}/competitions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create competition");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["competitions"] });
+    },
+  });
+}
+
+export function useUpdateCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: UpdateCompetitionDto;
+    }): Promise<Competition> => {
+      const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update competition");
+      }
+
+      return response.json();
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["competition", id] });
+    },
+  });
+}
+
+export function useDeleteCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete competition");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["competitions"] });
+    },
+  });
+}

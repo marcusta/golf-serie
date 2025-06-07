@@ -1,15 +1,43 @@
 import { useState } from "react";
-import { useCompetitions, type Competition } from "../../api/competitions";
+import {
+  useCompetitions,
+  useCreateCompetition,
+  useUpdateCompetition,
+  useDeleteCompetition,
+  type Competition,
+} from "../../api/competitions";
 import { useCourses } from "../../api/courses";
-import { useSeries } from "../../api/series";
-import { Plus, Edit, Trash2, MapPin, Clock, Award } from "lucide-react";
-import { Link } from "@tanstack/react-router";
-import { API_BASE_URL } from "../../api/config";
+import { useSeries, useSeriesCompetitions } from "../../api/series";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  MapPin,
+  Clock,
+  Award,
+  ArrowLeft,
+} from "lucide-react";
+import { Link, useSearch } from "@tanstack/react-router";
 
 export default function AdminCompetitions() {
-  const { data: competitions, isLoading, error } = useCompetitions();
+  // Get series filter from URL search params
+  const search = useSearch({ from: "/admin/competitions" }) as {
+    series?: string;
+  };
+  const seriesFilter = search.series ? parseInt(search.series) : null;
+
+  const { data: allCompetitions, isLoading, error } = useCompetitions();
+  const { data: seriesCompetitions } = useSeriesCompetitions(seriesFilter || 0);
   const { data: courses } = useCourses();
   const { data: series } = useSeries();
+  const createCompetition = useCreateCompetition();
+  const updateCompetition = useUpdateCompetition();
+  const deleteCompetition = useDeleteCompetition();
+
+  // Use series-specific competitions if filtering, otherwise all competitions
+  const competitions = seriesFilter ? seriesCompetitions : allCompetitions;
+  const filteredSeries = series?.find((s) => s.id === seriesFilter);
+
   const [showForm, setShowForm] = useState(false);
   const [editingCompetition, setEditingCompetition] =
     useState<Competition | null>(null);
@@ -17,7 +45,7 @@ export default function AdminCompetitions() {
     name: "",
     date: "",
     course_id: "",
-    series_id: "",
+    series_id: seriesFilter?.toString() || "",
   });
 
   if (isLoading) return <div>Loading competitions...</div>;
@@ -36,41 +64,49 @@ export default function AdminCompetitions() {
 
   const handleDelete = (competitionId: number) => {
     if (confirm("Are you sure you want to delete this competition?")) {
-      // TODO: Implement delete functionality
-      console.log("Delete competition:", competitionId);
+      deleteCompetition.mutate(competitionId, {
+        onError: (error) => {
+          console.error("Error deleting competition:", error);
+          alert("Failed to delete competition. Please try again.");
+        },
+      });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/competitions`, {
-        method: editingCompetition ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...formData,
-          course_id: parseInt(formData.course_id),
-          series_id: formData.series_id
-            ? parseInt(formData.series_id)
-            : undefined,
-          ...(editingCompetition && { id: editingCompetition.id }),
-        }),
-      });
+    const competitionData = {
+      name: formData.name,
+      date: formData.date,
+      course_id: parseInt(formData.course_id),
+      series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
+    };
 
-      if (!response.ok) {
-        throw new Error("Failed to save competition");
-      }
-
+    const onSuccess = () => {
       // Reset form and close
-      setFormData({ name: "", date: "", course_id: "", series_id: "" });
+      setFormData({
+        name: "",
+        date: "",
+        course_id: "",
+        series_id: seriesFilter?.toString() || "",
+      });
       setShowForm(false);
       setEditingCompetition(null);
-    } catch (error) {
+    };
+
+    const onError = (error: Error) => {
       console.error("Error saving competition:", error);
       alert("Failed to save competition. Please try again.");
+    };
+
+    if (editingCompetition) {
+      updateCompetition.mutate(
+        { id: editingCompetition.id, data: competitionData },
+        { onSuccess, onError }
+      );
+    } else {
+      createCompetition.mutate(competitionData, { onSuccess, onError });
     }
   };
 
@@ -89,15 +125,37 @@ export default function AdminCompetitions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Competitions</h2>
+          {seriesFilter && filteredSeries ? (
+            <div className="flex items-center gap-3 mb-2">
+              <Link
+                to="/admin/series"
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Series
+              </Link>
+            </div>
+          ) : null}
+          <h2 className="text-2xl font-bold text-gray-900">
+            {seriesFilter && filteredSeries
+              ? `${filteredSeries.name} - Competitions`
+              : "Competitions"}
+          </h2>
           <p className="text-gray-600">
-            Manage golf competitions and tournaments
+            {seriesFilter && filteredSeries
+              ? `Competitions in the ${filteredSeries.name} series`
+              : "Manage golf competitions and tournaments"}
           </p>
         </div>
         <button
           onClick={() => {
             setEditingCompetition(null);
-            setFormData({ name: "", date: "", course_id: "", series_id: "" });
+            setFormData({
+              name: "",
+              date: "",
+              course_id: "",
+              series_id: seriesFilter?.toString() || "",
+            });
             setShowForm(true);
           }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -183,9 +241,16 @@ export default function AdminCompetitions() {
             <div className="flex items-end gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                disabled={
+                  createCompetition.isPending || updateCompetition.isPending
+                }
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingCompetition ? "Update" : "Create"}
+                {createCompetition.isPending || updateCompetition.isPending
+                  ? "Saving..."
+                  : editingCompetition
+                  ? "Update"
+                  : "Create"}
               </button>
               <button
                 type="button"
@@ -196,7 +261,7 @@ export default function AdminCompetitions() {
                     name: "",
                     date: "",
                     course_id: "",
-                    series_id: "",
+                    series_id: seriesFilter?.toString() || "",
                   });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
@@ -211,60 +276,83 @@ export default function AdminCompetitions() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">
-            All Competitions
+            {seriesFilter && filteredSeries
+              ? `${filteredSeries.name} Competitions`
+              : "All Competitions"}
           </h3>
+          {competitions && (
+            <p className="text-sm text-gray-500 mt-1">
+              {competitions.length} competition
+              {competitions.length !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
         <div className="divide-y divide-gray-200">
-          {competitions?.map((competition) => {
-            const course = getCourse(competition.course_id);
-            return (
-              <div key={competition.id} className="px-6 py-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h4 className="text-lg font-medium text-gray-900">
-                      {competition.name}
-                    </h4>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {course?.name || "Unknown Course"}
-                      </div>
-                      {competition.series_id && (
-                        <div className="flex items-center gap-1 text-blue-600">
-                          <Award className="h-4 w-4" />
-                          {series?.find((s) => s.id === competition.series_id)
-                            ?.name || `Series #${competition.series_id}`}
+          {competitions && competitions.length === 0 ? (
+            <div className="px-6 py-8 text-center text-gray-500">
+              {seriesFilter && filteredSeries ? (
+                <p>
+                  No competitions found in the {filteredSeries.name} series.
+                </p>
+              ) : (
+                <p>No competitions found.</p>
+              )}
+            </div>
+          ) : (
+            competitions?.map((competition) => {
+              const course = getCourse(competition.course_id);
+              return (
+                <div
+                  key={competition.id}
+                  className="px-6 py-4 hover:bg-gray-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-medium text-gray-900">
+                        {competition.name}
+                      </h4>
+                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {course?.name || "Unknown Course"}
                         </div>
-                      )}
+                        {competition.series_id && (
+                          <div className="flex items-center gap-1 text-blue-600">
+                            <Award className="h-4 w-4" />
+                            {series?.find((s) => s.id === competition.series_id)
+                              ?.name || `Series #${competition.series_id}`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/admin/competitions/${competition.id}/tee-times`}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Manage tee times"
+                      >
+                        <Clock className="h-4 w-4" />
+                      </Link>
+                      <button
+                        onClick={() => handleEdit(competition)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit competition"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(competition.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete competition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`/admin/competitions/${competition.id}/tee-times`}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Manage tee times"
-                    >
-                      <Clock className="h-4 w-4" />
-                    </Link>
-                    <button
-                      onClick={() => handleEdit(competition)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit competition"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(competition.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete competition"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </div>

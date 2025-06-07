@@ -26,7 +26,6 @@ export interface Series {
 export interface Team {
   id: number;
   name: string;
-  series_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -86,12 +85,10 @@ export interface SeriesStandings {
 
 export interface CreateTeamDto {
   name: string;
-  series_id?: number;
 }
 
 export interface UpdateTeamDto {
   name?: string;
-  series_id?: number;
 }
 
 export interface CreateCompetitionDto {
