@@ -4,6 +4,7 @@ import { API_BASE_URL } from "./config";
 export interface Team {
   id: number;
   name: string;
+  series_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -38,13 +39,13 @@ export function useCreateTeam() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (data: { name: string; series_id?: number }) => {
       const response = await fetch(`${API_BASE_URL}/teams`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(data),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");
@@ -61,13 +62,19 @@ export function useUpdateTeam() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { name?: string; series_id?: number };
+    }) => {
       const response = await fetch(`${API_BASE_URL}/teams/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(data),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");

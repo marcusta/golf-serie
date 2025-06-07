@@ -7,6 +7,7 @@ export interface Competition {
   name: string;
   date: string;
   course_id: number;
+  series_id?: number;
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -63,3 +64,20 @@ export function useCompetitionLeaderboard(competitionId: number) {
     enabled: competitionId > 0,
   });
 }
+
+export interface CreateCompetitionDto {
+  name: string;
+  date: string;
+  course_id: number;
+  series_id?: number;
+}
+
+export interface UpdateCompetitionDto {
+  name?: string;
+  date?: string;
+  course_id?: number;
+  series_id?: number;
+}
+
+// Note: These mutation hooks will be added when needed for admin functionality
+// For now, competitions are read-only in the current implementation

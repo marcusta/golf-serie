@@ -129,9 +129,12 @@ export default function Teams() {
     e.preventDefault();
     try {
       if (editingTeam) {
-        await updateTeam.mutateAsync({ id: editingTeam.id, name: teamName });
+        await updateTeam.mutateAsync({
+          id: editingTeam.id,
+          data: { name: teamName },
+        });
       } else {
-        await createTeam.mutateAsync(teamName);
+        await createTeam.mutateAsync({ name: teamName });
       }
       setShowDialog(false);
     } catch (error) {
