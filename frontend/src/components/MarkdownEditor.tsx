@@ -1,5 +1,6 @@
 import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
+import { useEffect } from "react";
 
 interface MarkdownEditorProps {
   value: string;
@@ -12,6 +13,13 @@ export default function MarkdownEditor({
   onChange,
   height = 400,
 }: MarkdownEditorProps) {
+  // Ensure body overflow is reset when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   return (
     <div className="markdown-editor">
       <MDEditor
@@ -21,6 +29,14 @@ export default function MarkdownEditor({
         preview="edit"
         hideToolbar={false}
         data-color-mode="light"
+        onFocus={() => {
+          // Ensure scrolling works when editor is focused
+          document.body.style.overflow = "";
+        }}
+        onBlur={() => {
+          // Reset overflow when editor loses focus
+          document.body.style.overflow = "";
+        }}
       />
     </div>
   );

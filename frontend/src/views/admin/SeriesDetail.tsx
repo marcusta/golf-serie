@@ -90,6 +90,21 @@ export default function AdminSeriesDetail() {
     }
   }, [series]);
 
+  // Fix scrolling issue when document dialog closes
+  useEffect(() => {
+    if (!showDocumentDialog) {
+      // Reset body overflow when dialog closes
+      document.body.style.overflow = "";
+    }
+  }, [showDocumentDialog]);
+
+  // Cleanup body overflow on component unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   const handleBasicInfoSave = async () => {
     if (!series) return;
     try {
