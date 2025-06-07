@@ -32,6 +32,7 @@ import {
   formatParticipantForScorecard,
 } from "../../utils/participantFormatting";
 import { formatCourseFromTeeTime } from "../../utils/courseFormatting";
+import type { TeeTime } from "@/api/tee-times";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -182,55 +183,10 @@ export default function CompetitionRound() {
       case "score":
         if (!teeTimeGroup || !courseData) {
           return (
-            <div className="h-full overflow-y-auto">
-              <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                    Select Tee Time for Score Entry
-                  </h2>
-                </div>
-
-                {!teeTimes || teeTimes.length === 0 ? (
-                  <div className="text-center py-6 md:py-8 text-gray-500">
-                    No tee times available for this competition.
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="divide-y divide-gray-200">
-                      {teeTimes.map((teeTime) => (
-                        <button
-                          key={teeTime.id}
-                          onClick={() =>
-                            navigate({
-                              to: `/player/competitions/${competitionId}/tee-times/${teeTime.id}`,
-                              replace: true,
-                            })
-                          }
-                          className="w-full px-4 md:px-6 py-3 md:py-4 text-left hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h4 className="text-sm md:text-lg font-medium text-gray-900">
-                                {teeTime.teetime}
-                              </h4>
-                              <p className="text-xs md:text-sm text-gray-600 mt-1">
-                                {teeTime.participants
-                                  .map((p) => p.team_name)
-                                  .join(", ")}
-                              </p>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {teeTime.participants.length} player
-                              {teeTime.participants.length !== 1 ? "s" : ""}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <InvalidTeeTimes
+              teeTimes={teeTimes || []}
+              competitionId={competitionId || ""}
+            />
           );
         }
         return (
@@ -350,6 +306,67 @@ export default function CompetitionRound() {
         course={scorecardCourseData}
         onClose={handleCloseScorecardModal}
       />
+    </div>
+  );
+}
+
+function InvalidTeeTimes({
+  teeTimes,
+  competitionId,
+}: {
+  teeTimes: TeeTime[];
+  competitionId: string;
+}) {
+  const navigate = useNavigate();
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+            Select Tee Time for Score Entry
+          </h2>
+        </div>
+
+        {!teeTimes || teeTimes.length === 0 ? (
+          <div className="text-center py-6 md:py-8 text-gray-500">
+            No tee times available for this competition.
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="divide-y divide-gray-200">
+              {teeTimes.map((teeTime) => (
+                <button
+                  key={teeTime.id}
+                  onClick={() =>
+                    navigate({
+                      to: `/player/competitions/${competitionId}/tee-times/${teeTime.id}`,
+                      replace: true,
+                    })
+                  }
+                  className="w-full px-4 md:px-6 py-3 md:py-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-sm md:text-lg font-medium text-gray-900">
+                        {teeTime.teetime}
+                      </h4>
+                      <p className="text-xs md:text-sm text-gray-600 mt-1">
+                        {teeTime.participants
+                          .map((p) => p.team_name)
+                          .join(", ")}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {teeTime.participants.length} player
+                      {teeTime.participants.length !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
