@@ -6,10 +6,19 @@ import {
   useDeleteTeam,
   type Team,
 } from "@/api/teams";
+import { useSeries } from "@/api/series";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Shield, Calendar, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  Users,
+  Shield,
+  Calendar,
+  Plus,
+  Edit,
+  Trash2,
+  Award,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -92,23 +101,33 @@ function getTeamColor(index: number) {
 
 export default function Teams() {
   const { data: teams, isLoading, error } = useTeams();
+  const { data: series } = useSeries();
   const createTeam = useCreateTeam();
   const updateTeam = useUpdateTeam();
   const deleteTeam = useDeleteTeam();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [teamName, setTeamName] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    series_id: "",
+  });
 
   const handleCreate = () => {
     setEditingTeam(null);
-    setTeamName("");
+    setFormData({
+      name: "",
+      series_id: "",
+    });
     setShowDialog(true);
   };
 
   const handleEdit = (team: Team) => {
     setEditingTeam(team);
-    setTeamName(team.name);
+    setFormData({
+      name: team.name,
+      series_id: team.series_id?.toString() || "",
+    });
     setShowDialog(true);
   };
 
@@ -128,19 +147,33 @@ export default function Teams() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
+      const data = {
+        name: formData.name,
+        series_id: formData.series_id
+          ? parseInt(formData.series_id)
+          : undefined,
+      };
+
       if (editingTeam) {
         await updateTeam.mutateAsync({
           id: editingTeam.id,
-          data: { name: teamName },
+          data,
         });
       } else {
-        await createTeam.mutateAsync({ name: teamName });
+        await createTeam.mutateAsync(data);
       }
       setShowDialog(false);
     } catch (error) {
       console.error("Failed to save team:", error);
       alert("Failed to save team. Please try again.");
     }
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   if (isLoading) {
@@ -247,9 +280,21 @@ export default function Teams() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="h-4 w-4" />
-                    <span>Poäng:</span>
+                  <div className="space-y-2">
+                    {team.series_id && (
+                      <div className="flex items-center gap-2 text-sm text-blue-600">
+                        <Award className="h-4 w-4" />
+                        <span>
+                          Series:{" "}
+                          {series?.find((s) => s.id === team.series_id)?.name ||
+                            `#${team.series_id}`}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="h-4 w-4" />
+                      <span>Poäng:</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -267,16 +312,36 @@ export default function Teams() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="teamName" className="text-sm font-medium">
+              <label htmlFor="name" className="text-sm font-medium">
                 Team Name
               </label>
               <Input
-                id="teamName"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
                 placeholder="Enter team name"
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="series_id" className="text-sm font-medium">
+                Series (Optional)
+              </label>
+              <select
+                id="series_id"
+                name="series_id"
+                value={formData.series_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">No series (standalone team)</option>
+                {series?.map((seriesItem) => (
+                  <option key={seriesItem.id} value={seriesItem.id}>
+                    {seriesItem.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <DialogFooter>
               <Button

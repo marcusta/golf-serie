@@ -1,7 +1,8 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Users, Map, Trophy, Settings } from "lucide-react";
+import { Users, Map, Trophy, Settings, Award } from "lucide-react";
 
 const adminNavLinks = [
+  { to: "/admin/series", label: "Series", icon: Award },
   { to: "/admin/teams", label: "Teams", icon: Users },
   { to: "/admin/courses", label: "Courses", icon: Map },
   { to: "/admin/competitions", label: "Competitions", icon: Trophy },
@@ -19,7 +20,7 @@ export default function AdminLayout() {
             Admin Panel
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage teams, courses, and competitions
+            Manage series, teams, courses, and competitions
           </p>
         </div>
         <Link

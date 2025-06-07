@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useCompetitions, type Competition } from "../../api/competitions";
 import { useCourses } from "../../api/courses";
-import { Plus, Edit, Trash2, MapPin, Clock } from "lucide-react";
+import { useSeries } from "../../api/series";
+import { Plus, Edit, Trash2, MapPin, Clock, Award } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { API_BASE_URL } from "../../api/config";
 
 export default function AdminCompetitions() {
   const { data: competitions, isLoading, error } = useCompetitions();
   const { data: courses } = useCourses();
+  const { data: series } = useSeries();
   const [showForm, setShowForm] = useState(false);
   const [editingCompetition, setEditingCompetition] =
     useState<Competition | null>(null);
@@ -15,6 +17,7 @@ export default function AdminCompetitions() {
     name: "",
     date: "",
     course_id: "",
+    series_id: "",
   });
 
   if (isLoading) return <div>Loading competitions...</div>;
@@ -26,6 +29,7 @@ export default function AdminCompetitions() {
       name: competition.name,
       date: competition.date,
       course_id: competition.course_id.toString(),
+      series_id: competition.series_id?.toString() || "",
     });
     setShowForm(true);
   };
@@ -49,6 +53,9 @@ export default function AdminCompetitions() {
         body: JSON.stringify({
           ...formData,
           course_id: parseInt(formData.course_id),
+          series_id: formData.series_id
+            ? parseInt(formData.series_id)
+            : undefined,
           ...(editingCompetition && { id: editingCompetition.id }),
         }),
       });
@@ -58,7 +65,7 @@ export default function AdminCompetitions() {
       }
 
       // Reset form and close
-      setFormData({ name: "", date: "", course_id: "" });
+      setFormData({ name: "", date: "", course_id: "", series_id: "" });
       setShowForm(false);
       setEditingCompetition(null);
     } catch (error) {
@@ -90,7 +97,7 @@ export default function AdminCompetitions() {
         <button
           onClick={() => {
             setEditingCompetition(null);
-            setFormData({ name: "", date: "", course_id: "" });
+            setFormData({ name: "", date: "", course_id: "", series_id: "" });
             setShowForm(true);
           }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -155,6 +162,24 @@ export default function AdminCompetitions() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Series (Optional)
+              </label>
+              <select
+                name="series_id"
+                value={formData.series_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">No series (standalone competition)</option>
+                {series?.map((seriesItem) => (
+                  <option key={seriesItem.id} value={seriesItem.id}>
+                    {seriesItem.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-end gap-2">
               <button
                 type="submit"
@@ -167,7 +192,12 @@ export default function AdminCompetitions() {
                 onClick={() => {
                   setShowForm(false);
                   setEditingCompetition(null);
-                  setFormData({ name: "", date: "", course_id: "" });
+                  setFormData({
+                    name: "",
+                    date: "",
+                    course_id: "",
+                    series_id: "",
+                  });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >
@@ -199,6 +229,13 @@ export default function AdminCompetitions() {
                         <MapPin className="h-4 w-4" />
                         {course?.name || "Unknown Course"}
                       </div>
+                      {competition.series_id && (
+                        <div className="flex items-center gap-1 text-blue-600">
+                          <Award className="h-4 w-4" />
+                          {series?.find((s) => s.id === competition.series_id)
+                            ?.name || `Series #${competition.series_id}`}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
