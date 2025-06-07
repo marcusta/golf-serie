@@ -73,6 +73,7 @@ export default function AdminSeriesDetail() {
 
   // Document management state
   const [showDocumentDialog, setShowDocumentDialog] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [editingDocument, setEditingDocument] = useState<SeriesDocument | null>(
     null
   );
@@ -515,16 +516,7 @@ export default function AdminSeriesDetail() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const selectedDoc = documents?.find(
-                        (doc) => doc.id === formData.landing_document_id
-                      );
-                      if (selectedDoc) {
-                        alert(
-                          `Preview: Players will see "${selectedDoc.title}" as the main content for this series.`
-                        );
-                      }
-                    }}
+                    onClick={() => setShowPreviewDialog(true)}
                   >
                     Preview
                   </Button>
@@ -660,6 +652,64 @@ export default function AdminSeriesDetail() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Landing Page Preview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              This is how players will see the landing page for this series:
+            </p>
+
+            {(() => {
+              const selectedDoc = documents?.find(
+                (doc) => doc.id === formData.landing_document_id
+              );
+
+              if (!selectedDoc) {
+                return (
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <p className="text-gray-500">
+                      No document selected for preview.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="border rounded-lg overflow-hidden">
+                  {/* Preview header */}
+                  <div className="bg-gray-50 border-b px-4 py-2">
+                    <h3 className="font-medium text-gray-900">
+                      {selectedDoc.title}
+                    </h3>
+                  </div>
+
+                  {/* Preview content */}
+                  <div className="p-6">
+                    <div className="prose prose-gray max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {selectedDoc.content}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPreviewDialog(false)}
+            >
+              Close Preview
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
