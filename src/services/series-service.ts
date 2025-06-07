@@ -47,7 +47,7 @@ export class SeriesService {
 
   async findAll(): Promise<Series[]> {
     const stmt = this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, created_at, updated_at
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
       FROM series
       ORDER BY strftime('%s.%f', created_at) DESC
     `);
@@ -60,7 +60,7 @@ export class SeriesService {
 
   async findPublic(): Promise<Series[]> {
     const stmt = this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, created_at, updated_at
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
       FROM series
       WHERE is_public = 1
       ORDER BY strftime('%s.%f', created_at) DESC
@@ -74,7 +74,7 @@ export class SeriesService {
 
   async findById(id: number): Promise<Series | null> {
     const stmt = this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, created_at, updated_at
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
       FROM series
       WHERE id = ?
     `);
@@ -95,6 +95,24 @@ export class SeriesService {
 
     if (data.name !== undefined && !data.name.trim()) {
       throw new Error("Series name cannot be empty");
+    }
+
+    // Validate landing_document_id if provided
+    if (data.landing_document_id !== undefined) {
+      if (data.landing_document_id !== null) {
+        const documentStmt = this.db.prepare(`
+          SELECT id, series_id FROM documents WHERE id = ?
+        `);
+        const document = documentStmt.get(data.landing_document_id) as any;
+
+        if (!document) {
+          throw new Error("Landing document not found");
+        }
+
+        if (document.series_id !== id) {
+          throw new Error("Landing document must belong to the same series");
+        }
+      }
     }
 
     const updates: string[] = [];
@@ -118,6 +136,11 @@ export class SeriesService {
     if (data.is_public !== undefined) {
       updates.push("is_public = ?");
       values.push(data.is_public ? 1 : 0);
+    }
+
+    if (data.landing_document_id !== undefined) {
+      updates.push("landing_document_id = ?");
+      values.push(data.landing_document_id);
     }
 
     if (updates.length === 0) {

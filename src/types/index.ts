@@ -19,6 +19,7 @@ export interface Series {
   description?: string;
   banner_image_url?: string;
   is_public: boolean;
+  landing_document_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +61,7 @@ export interface UpdateSeriesDto {
   description?: string;
   banner_image_url?: string;
   is_public?: boolean;
+  landing_document_id?: number;
 }
 
 export interface SeriesTeamStanding {

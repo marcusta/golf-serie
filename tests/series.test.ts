@@ -38,6 +38,7 @@ describe("Series API", () => {
       expect(series.description).toBe(seriesData.description);
       expect(series.banner_image_url).toBeNull();
       expect(series.is_public).toBe(true); // Default value
+      expect(series.landing_document_id).toBeNull(); // Default value
       expect(series.created_at).toBeTypeOf("string");
       expect(series.updated_at).toBeTypeOf("string");
     });
@@ -285,6 +286,147 @@ describe("Series API", () => {
 
       const error = await expectJsonResponse(response);
       expect(error.error).toBe("Series not found");
+    });
+
+    test("should update landing_document_id with valid document", async () => {
+      const createResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+      });
+      const series = await expectJsonResponse(createResponse);
+
+      // Create a document for this series
+      const docResponse = await makeRequest(
+        `/api/series/${series.id}/documents`,
+        "POST",
+        {
+          title: "Landing Document",
+          content: "This is the landing document content",
+        }
+      );
+      const document = await expectJsonResponse(docResponse);
+
+      // Update series with landing document
+      const response = await makeRequest(`/api/series/${series.id}`, "PUT", {
+        landing_document_id: document.id,
+      });
+      expect(response.status).toBe(200);
+
+      const updatedSeries = await expectJsonResponse(response);
+      expect(updatedSeries.landing_document_id).toBe(document.id);
+    });
+
+    test("should set landing_document_id to null", async () => {
+      const createResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+      });
+      const series = await expectJsonResponse(createResponse);
+
+      // Create a document and set it as landing document
+      const docResponse = await makeRequest(
+        `/api/series/${series.id}/documents`,
+        "POST",
+        {
+          title: "Landing Document",
+          content: "This is the landing document content",
+        }
+      );
+      const document = await expectJsonResponse(docResponse);
+
+      await makeRequest(`/api/series/${series.id}`, "PUT", {
+        landing_document_id: document.id,
+      });
+
+      // Now set to null
+      const response = await makeRequest(`/api/series/${series.id}`, "PUT", {
+        landing_document_id: null,
+      });
+      expect(response.status).toBe(200);
+
+      const updatedSeries = await expectJsonResponse(response);
+      expect(updatedSeries.landing_document_id).toBeNull();
+    });
+
+    test("should return 400 when landing document does not exist", async () => {
+      const createResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+      });
+      const series = await expectJsonResponse(createResponse);
+
+      const response = await makeRequest(`/api/series/${series.id}`, "PUT", {
+        landing_document_id: 99999,
+      });
+      expectErrorResponse(response, 400);
+
+      const error = await expectJsonResponse(response);
+      expect(error.error).toBe("Landing document not found");
+    });
+
+    test("should return 400 when landing document belongs to different series", async () => {
+      // Create two series
+      const series1Response = await makeRequest("/api/series", "POST", {
+        name: "Series 1",
+      });
+      const series1 = await expectJsonResponse(series1Response);
+
+      const series2Response = await makeRequest("/api/series", "POST", {
+        name: "Series 2",
+      });
+      const series2 = await expectJsonResponse(series2Response);
+
+      // Create document for series1
+      const docResponse = await makeRequest(
+        `/api/series/${series1.id}/documents`,
+        "POST",
+        {
+          title: "Series 1 Document",
+          content: "This belongs to series 1",
+        }
+      );
+      const document = await expectJsonResponse(docResponse);
+
+      // Try to use it as landing document for series2
+      const response = await makeRequest(`/api/series/${series2.id}`, "PUT", {
+        landing_document_id: document.id,
+      });
+      expectErrorResponse(response, 400);
+
+      const error = await expectJsonResponse(response);
+      expect(error.error).toBe(
+        "Landing document must belong to the same series"
+      );
+    });
+
+    test("should automatically set landing_document_id to null when document is deleted", async () => {
+      const createResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+      });
+      const series = await expectJsonResponse(createResponse);
+
+      // Create a document and set it as landing document
+      const docResponse = await makeRequest(
+        `/api/series/${series.id}/documents`,
+        "POST",
+        {
+          title: "Landing Document",
+          content: "This is the landing document content",
+        }
+      );
+      const document = await expectJsonResponse(docResponse);
+
+      await makeRequest(`/api/series/${series.id}`, "PUT", {
+        landing_document_id: document.id,
+      });
+
+      // Delete the document
+      await makeRequest(
+        `/api/series/${series.id}/documents/${document.id}`,
+        "DELETE"
+      );
+
+      // Check that series landing_document_id is now null
+      const getResponse = await makeRequest(`/api/series/${series.id}`);
+      const updatedSeries = await expectJsonResponse(getResponse);
+      expect(updatedSeries.landing_document_id).toBeNull();
     });
   });
 
