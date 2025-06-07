@@ -4,7 +4,6 @@ import { API_BASE_URL } from "./config";
 export interface Team {
   id: number;
   name: string;
-  series_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -39,7 +38,7 @@ export function useCreateTeam() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string; series_id?: number }) => {
+    mutationFn: async (data: { name: string }) => {
       const response = await fetch(`${API_BASE_URL}/teams`, {
         method: "POST",
         headers: {
@@ -67,7 +66,7 @@ export function useUpdateTeam() {
       data,
     }: {
       id: number;
-      data: { name?: string; series_id?: number };
+      data: { name?: string };
     }) => {
       const response = await fetch(`${API_BASE_URL}/teams/${id}`, {
         method: "PUT",

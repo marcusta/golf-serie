@@ -5,6 +5,7 @@ import { AddParticipantScoreMigration } from "./migrations/003_add_participant_s
 import { AddSeriesMigration } from "./migrations/004_add_series";
 import { AddSeriesFieldsMigration } from "./migrations/005_add_series_fields";
 import { SeriesTeamsJunctionMigration } from "./migrations/006_series_teams_junction";
+import { AddDocumentsMigration } from "./migrations/007_add_documents";
 
 export function createDatabase(dbPath: string = "golf_series.db"): Database {
   const db = new Database(dbPath);
@@ -39,6 +40,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddSeriesMigration(db),
     new AddSeriesFieldsMigration(db),
     new SeriesTeamsJunctionMigration(db),
+    new AddDocumentsMigration(db),
   ];
 
   // Apply pending migrations

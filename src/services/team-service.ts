@@ -11,8 +11,8 @@ export class TeamService {
 
     try {
       const stmt = this.db.prepare(`
-        INSERT INTO teams (name)
-        VALUES (?)
+        INSERT INTO teams (name, created_at, updated_at)
+        VALUES (?, strftime('%Y-%m-%d %H:%M:%S.%f', 'now'), strftime('%Y-%m-%d %H:%M:%S.%f', 'now'))
         RETURNING *
       `);
 
@@ -29,12 +29,16 @@ export class TeamService {
   }
 
   async findAll(): Promise<Team[]> {
-    const stmt = this.db.prepare("SELECT id, name FROM teams");
+    const stmt = this.db.prepare(
+      "SELECT id, name, created_at, updated_at FROM teams"
+    );
     return stmt.all() as Team[];
   }
 
   async findById(id: number): Promise<Team | null> {
-    const stmt = this.db.prepare("SELECT id, name FROM teams WHERE id = ?");
+    const stmt = this.db.prepare(
+      "SELECT id, name, created_at, updated_at FROM teams WHERE id = ?"
+    );
     return stmt.get(id) as Team | null;
   }
 
@@ -59,7 +63,7 @@ export class TeamService {
       return team;
     }
 
-    updates.push("updated_at = CURRENT_TIMESTAMP");
+    updates.push("updated_at = strftime('%Y-%m-%d %H:%M:%S.%f', 'now')");
     values.push(id);
 
     try {

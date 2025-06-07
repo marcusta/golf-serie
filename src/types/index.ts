@@ -168,3 +168,26 @@ export interface LeaderboardEntry {
   holesPlayed: number;
   relativeToPar: number;
 }
+
+export interface Document {
+  id: number;
+  title: string;
+  content: string;
+  type: string;
+  series_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDocumentDto {
+  title: string;
+  content: string;
+  type: string;
+  series_id: number;
+}
+
+export interface UpdateDocumentDto {
+  title?: string;
+  content?: string;
+  type?: string;
+}

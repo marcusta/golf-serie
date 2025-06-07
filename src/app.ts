@@ -3,12 +3,14 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createCompetitionsApi } from "./api/competitions";
 import { createCoursesApi } from "./api/courses";
+import { createDocumentsApi } from "./api/documents";
 import { createParticipantsApi } from "./api/participants";
 import { createSeriesApi } from "./api/series";
 import { createTeamsApi } from "./api/teams";
 import { createTeeTimesApi } from "./api/tee-times";
 import { CompetitionService } from "./services/competition-service";
 import { CourseService } from "./services/course-service";
+import { DocumentService } from "./services/document-service";
 import { ParticipantService } from "./services/participant-service";
 import { SeriesService } from "./services/series-service";
 import { TeamService } from "./services/team-service";
@@ -22,6 +24,7 @@ export function createApp(db: Database): Hono {
   const teeTimeService = new TeeTimeService(db);
   const participantService = new ParticipantService(db);
   const seriesService = new SeriesService(db);
+  const documentService = new DocumentService(db);
 
   // Initialize APIs
   const coursesApi = createCoursesApi(courseService);
@@ -30,6 +33,7 @@ export function createApp(db: Database): Hono {
   const teeTimesApi = createTeeTimesApi(teeTimeService);
   const participantsApi = createParticipantsApi(participantService);
   const seriesApi = createSeriesApi(seriesService);
+  const documentsApi = createDocumentsApi(documentService);
 
   // Create Hono app
   const app = new Hono();
@@ -245,6 +249,46 @@ export function createApp(db: Database): Hono {
   app.get("/api/series/:id/available-teams", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await seriesApi.getAvailableTeams(id);
+  });
+
+  // Document routes
+  app.post("/api/documents", async (c) => {
+    return await documentsApi.create(c.req.raw);
+  });
+
+  app.get("/api/documents", async (c) => {
+    return await documentsApi.findAll();
+  });
+
+  app.get("/api/documents/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await documentsApi.findById(c.req.raw, id);
+  });
+
+  app.put("/api/documents/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await documentsApi.update(c.req.raw, id);
+  });
+
+  app.delete("/api/documents/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await documentsApi.delete(id);
+  });
+
+  app.get("/api/series/:seriesId/documents", async (c) => {
+    const seriesId = parseInt(c.req.param("seriesId"));
+    return await documentsApi.findBySeriesId(seriesId);
+  });
+
+  app.get("/api/series/:seriesId/documents/types", async (c) => {
+    const seriesId = parseInt(c.req.param("seriesId"));
+    return await documentsApi.getDocumentTypes(seriesId);
+  });
+
+  app.get("/api/series/:seriesId/documents/type/:type", async (c) => {
+    const seriesId = parseInt(c.req.param("seriesId"));
+    const type = c.req.param("type");
+    return await documentsApi.findBySeriesIdAndType(seriesId, type);
   });
 
   // Static file serving - fallback for frontend
