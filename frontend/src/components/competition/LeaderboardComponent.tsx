@@ -1,3 +1,9 @@
+import {
+  formatToPar,
+  getToParColor,
+  getPositionColor,
+} from "../../utils/scoreCalculations";
+
 interface LeaderboardEntry {
   participant: {
     id: number;
@@ -24,30 +30,6 @@ export function LeaderboardComponent({
   onParticipantClick,
   isRoundView = false,
 }: LeaderboardComponentProps) {
-  const getPositionColor = (position: number) => {
-    switch (position) {
-      case 1:
-        return "text-yellow-600 bg-yellow-50 border-yellow-200";
-      case 2:
-        return "text-gray-600 bg-gray-50 border-gray-200";
-      case 3:
-        return "text-amber-600 bg-amber-50 border-amber-200";
-      default:
-        return "text-gray-900 bg-white border-gray-200";
-    }
-  };
-
-  const getToParColor = (toPar: number) => {
-    if (toPar < 0) return "text-green-600";
-    if (toPar > 0) return "text-red-600";
-    return "text-gray-600";
-  };
-
-  const formatToPar = (toPar: number) => {
-    if (toPar === 0) return "E";
-    return toPar > 0 ? `+${toPar}` : `${toPar}`;
-  };
-
   const content = (
     <div className="space-y-3 md:space-y-4">
       <div className="flex items-center justify-between">

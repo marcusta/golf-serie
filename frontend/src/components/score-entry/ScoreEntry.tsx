@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CustomKeyboard } from "./CustomKeyboard";
+import {
+  formatToPar,
+  getToParColor,
+  formatScoreEntryDisplay,
+  hasValidScore,
+} from "../../utils/scoreCalculations";
 import { FullScorecardModal } from "./FullScorecardModal";
 import { BarChart3, Users } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
@@ -142,19 +148,6 @@ export function ScoreEntry({
     return totalPar === 0 ? null : totalShots - totalPar;
   };
 
-  // Format +/- to par display
-  const formatToPar = (toPar: number): string => {
-    if (toPar === 0) return "E";
-    return toPar > 0 ? `+${toPar}` : `${toPar}`;
-  };
-
-  // Get color for +/- to par
-  const getToParColor = (toPar: number): string => {
-    if (toPar < 0) return "text-green-600";
-    if (toPar > 0) return "text-red-600";
-    return "text-gray-600";
-  };
-
   const moveToNextPlayer = () => {
     if (currentPlayerIndex < teeTimeGroup.players.length - 1) {
       setCurrentPlayerIndex(currentPlayerIndex + 1);
@@ -243,18 +236,6 @@ export function ScoreEntry({
 
     // Single name - truncate if too long
     return name.length > 12 ? `${name.substring(0, 11)}...` : name;
-  };
-
-  // Helper function to format score display
-  const formatScoreDisplay = (score: number | null): string => {
-    if (score === -1 || score === null) return "-"; // Gave up
-    if (score === 0) return "NR"; // Not reported
-    return score.toString(); // Actual score
-  };
-
-  // Helper function to check if a score has been entered
-  const hasValidScore = (score: number): boolean => {
-    return score !== 0;
   };
 
   // Close keyboard when clicking outside
@@ -415,7 +396,7 @@ export function ScoreEntry({
                       <div className="w-[60px] text-center">
                         <div className="text-lg font-bold text-gray-600">
                           {previousScore !== null
-                            ? formatScoreDisplay(previousScore)
+                            ? formatScoreEntryDisplay(previousScore)
                             : "-"}
                         </div>
                       </div>
@@ -435,7 +416,7 @@ export function ScoreEntry({
                             "ring-2 ring-blue-400 ring-offset-1"
                         )}
                       >
-                        {formatScoreDisplay(currentScore)}
+                        {formatScoreEntryDisplay(currentScore)}
                       </button>
                     </div>
                   </div>

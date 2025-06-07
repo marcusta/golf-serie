@@ -35,6 +35,10 @@ import {
   LeaderboardComponent,
   TeamResultComponent,
 } from "../../components/competition";
+import {
+  calculateTeamResults,
+  calculateTotalParticipants,
+} from "../../utils/scoreCalculations";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -411,43 +415,17 @@ export default function CompetitionRound() {
       pendingScoresCount > 0 && Date.now() - lastSyncTime > 30000, // 30 seconds
   };
 
-  // Calculate team results (same logic as CompetitionDetail)
-  const teamResults = leaderboard?.reduce((acc, entry) => {
-    const teamName = entry.participant.team_name;
-    if (!acc[teamName]) {
-      acc[teamName] = {
-        teamName,
-        participants: [],
-        totalShots: 0,
-        relativeToPar: 0,
-      };
-    }
-    acc[teamName].participants.push({
-      name: entry.participant.player_names || "",
-      position: entry.participant.position_name,
-      totalShots: entry.totalShots,
-      relativeToPar: entry.relativeToPar,
-    });
-    acc[teamName].totalShots += entry.totalShots;
-    acc[teamName].relativeToPar += entry.relativeToPar;
-    return acc;
-  }, {} as Record<string, { teamName: string; participants: Array<{ name: string; position: string; totalShots: number; relativeToPar: number }>; totalShots: number; relativeToPar: number }>);
+  // Calculate team results
+  const sortedTeamResults = leaderboard
+    ? calculateTeamResults(
+        leaderboard.map((entry) => ({
+          ...entry,
+          participantId: entry.participant.id,
+        }))
+      )
+    : [];
 
-  const sortedTeamResults = Object.values(teamResults || {})
-    .sort((a, b) => a.relativeToPar - b.relativeToPar)
-    .map((team, index, array) => {
-      const position = index + 1;
-      let points = array.length - position + 1;
-      if (position === 1) points += 2;
-      if (position === 2) points += 1;
-      return { ...team, position, points };
-    });
-
-  const totalParticipants =
-    teeTimes?.reduce(
-      (total, teeTime) => total + teeTime.participants.length,
-      0
-    ) || 0;
+  const totalParticipants = calculateTotalParticipants(teeTimes);
 
   if (competitionLoading)
     return <div className="p-4">Loading competition...</div>;

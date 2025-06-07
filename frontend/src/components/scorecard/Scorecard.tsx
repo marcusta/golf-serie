@@ -1,4 +1,11 @@
 import { cn } from "@/lib/utils";
+import {
+  formatToPar,
+  formatScoreDisplay,
+  isValidScore,
+  calculateHoleTotal,
+  calculatePlayedPar,
+} from "../../utils/scoreCalculations";
 
 interface ScorecardParticipant {
   id: string;
@@ -29,43 +36,6 @@ export function Scorecard({
   const frontNine = course.holes.slice(0, 9);
   const backNine = course.holes.slice(9, 18);
 
-  const calculateTotal = (
-    playerScores: number[],
-    holes: { number: number }[]
-  ) => {
-    return holes.reduce((total, hole) => {
-      const score = playerScores[hole.number - 1];
-      // Only count actual scores (positive numbers) in totals
-      // Exclude gave up (-1) and not reported (0) holes
-      return total + (score && score > 0 ? score : 0);
-    }, 0);
-  };
-
-  // Helper function to format score display
-  const formatScoreDisplay = (score: number): string => {
-    if (score === -1) return "-"; // Gave up
-    if (score === 0) return "0"; // Not reported
-    return score.toString(); // Actual score
-  };
-
-  // Helper function to check if score should be counted in color coding
-  const isValidScore = (score: number): boolean => {
-    return score > 0;
-  };
-
-  // Helper function to calculate played holes par
-  const calculatePlayedPar = (
-    playerScores: number[],
-    holes: { number: number; par: number }[]
-  ) => {
-    return holes.reduce((totalPar, hole) => {
-      const score = playerScores[hole.number - 1];
-      // Only count par for holes that have been played (score > 0)
-      // Exclude gave up (-1) and not reported (0) holes
-      return totalPar + (score && score > 0 ? hole.par : 0);
-    }, 0);
-  };
-
   const getPlayerTotals = () => {
     // Check if player gave up on any hole - if so, invalidate entire round
     const hasGaveUp = participant.scores.some((score) => score === -1);
@@ -81,8 +51,8 @@ export function Scorecard({
       };
     }
 
-    const frontTotal = calculateTotal(participant.scores, frontNine);
-    const backTotal = calculateTotal(participant.scores, backNine);
+    const frontTotal = calculateHoleTotal(participant.scores, frontNine);
+    const backTotal = calculateHoleTotal(participant.scores, backNine);
     const totalScore = frontTotal + backTotal;
 
     // Calculate par only for played holes
@@ -98,11 +68,6 @@ export function Scorecard({
       frontToPar: frontTotal > 0 ? frontTotal - frontPlayedPar : 0,
       backToPar: backTotal > 0 ? backTotal - backPlayedPar : 0,
     };
-  };
-
-  const formatToPar = (toPar: number) => {
-    if (toPar === 0) return "E";
-    return toPar > 0 ? `+${toPar}` : `${toPar}`;
   };
 
   const renderScoreDecoration = (score: number, par: number) => {

@@ -24,6 +24,10 @@ import {
   LeaderboardComponent,
   TeamResultComponent,
 } from "../../components/competition";
+import {
+  calculateTeamResults,
+  calculateTotalParticipants,
+} from "../../utils/scoreCalculations";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -161,51 +165,17 @@ export default function CompetitionDetail() {
     return <div className="p-4">Loading competition...</div>;
   if (!competition) return <div className="p-4">Competition not found</div>;
 
-  const totalParticipants =
-    teeTimes?.reduce(
-      (total, teeTime) => total + teeTime.participants.length,
-      0
-    ) || 0;
+  const totalParticipants = calculateTotalParticipants(teeTimes);
 
   // Calculate team results
-  const teamResults = leaderboard?.reduce((acc, entry) => {
-    const teamName = entry.participant.team_name;
-    if (!acc[teamName]) {
-      acc[teamName] = {
-        teamName,
-        participants: [],
-        totalShots: 0,
-        relativeToPar: 0,
-      };
-    }
-    acc[teamName].participants.push({
-      name: entry.participant.player_names || "",
-      position: entry.participant.position_name,
-      totalShots: entry.totalShots,
-      relativeToPar: entry.relativeToPar,
-    });
-    acc[teamName].totalShots += entry.totalShots;
-    acc[teamName].relativeToPar += entry.relativeToPar;
-    return acc;
-  }, {} as Record<string, { teamName: string; participants: Array<{ name: string; position: string; totalShots: number; relativeToPar: number }>; totalShots: number; relativeToPar: number }>);
-
-  // Sort teams by relativeToPar and assign points
-  const sortedTeamResults = Object.values(teamResults || {})
-    .sort((a, b) => a.relativeToPar - b.relativeToPar)
-    .map((team, index, array) => {
-      const position = index + 1;
-      let points = array.length - position + 1; // Base points (last place gets 1 point)
-
-      // Add extra points for top 3 positions
-      if (position === 1) points += 2; // First place gets 2 extra points
-      if (position === 2) points += 1; // Second place gets 1 extra point
-
-      return {
-        ...team,
-        position,
-        points,
-      };
-    });
+  const sortedTeamResults = leaderboard
+    ? calculateTeamResults(
+        leaderboard.map((entry) => ({
+          ...entry,
+          participantId: entry.participant.id,
+        }))
+      )
+    : [];
 
   return (
     <div className="min-h-screen flex flex-col">
