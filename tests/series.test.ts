@@ -36,8 +36,28 @@ describe("Series API", () => {
       expect(series.id).toBeTypeOf("number");
       expect(series.name).toBe(seriesData.name);
       expect(series.description).toBe(seriesData.description);
+      expect(series.banner_image_url).toBeNull();
+      expect(series.is_public).toBe(true); // Default value
       expect(series.created_at).toBeTypeOf("string");
       expect(series.updated_at).toBeTypeOf("string");
+    });
+
+    test("should create a series with all fields including banner and privacy", async () => {
+      const seriesData = {
+        name: "Private Championship",
+        description: "An exclusive golf series",
+        banner_image_url: "https://example.com/banner.jpg",
+        is_public: false,
+      };
+
+      const response = await makeRequest("/api/series", "POST", seriesData);
+      expect(response.status).toBe(201);
+
+      const series = await expectJsonResponse(response);
+      expect(series.name).toBe(seriesData.name);
+      expect(series.description).toBe(seriesData.description);
+      expect(series.banner_image_url).toBe(seriesData.banner_image_url);
+      expect(series.is_public).toBe(false);
     });
 
     test("should create a series with only name (description optional)", async () => {
@@ -51,6 +71,8 @@ describe("Series API", () => {
       const series = await expectJsonResponse(response);
       expect(series.name).toBe(seriesData.name);
       expect(series.description).toBeNull();
+      expect(series.banner_image_url).toBeNull();
+      expect(series.is_public).toBe(true); // Default value
     });
 
     test("should return 400 when name is missing", async () => {
@@ -338,6 +360,122 @@ describe("Series API", () => {
 
       const error = await expectJsonResponse(response);
       expect(error.error).toBe("Series not found");
+    });
+  });
+
+  describe("GET /api/series/public", () => {
+    test("should return only public series", async () => {
+      // Create public series
+      await makeRequest("/api/series", "POST", {
+        name: "Public Series 1",
+        is_public: true,
+      });
+      await makeRequest("/api/series", "POST", {
+        name: "Public Series 2",
+        is_public: true,
+      });
+
+      // Create private series
+      await makeRequest("/api/series", "POST", {
+        name: "Private Series",
+        is_public: false,
+      });
+
+      const response = await makeRequest("/api/series/public");
+      expect(response.status).toBe(200);
+
+      const series = await expectJsonResponse(response);
+      expect(series).toHaveLength(2);
+      expect(series.every((s: any) => s.is_public === true)).toBe(true);
+      expect(series.map((s: any) => s.name)).toContain("Public Series 1");
+      expect(series.map((s: any) => s.name)).toContain("Public Series 2");
+      expect(series.map((s: any) => s.name)).not.toContain("Private Series");
+    });
+
+    test("should return empty array when no public series exist", async () => {
+      // Create only private series
+      await makeRequest("/api/series", "POST", {
+        name: "Private Only",
+        is_public: false,
+      });
+
+      const response = await makeRequest("/api/series/public");
+      expect(response.status).toBe(200);
+
+      const series = await expectJsonResponse(response);
+      expect(series).toEqual([]);
+    });
+  });
+
+  describe("GET /api/series/:id/standings", () => {
+    test("should return empty standings when series has no competitions", async () => {
+      const createResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+      });
+      const series = await expectJsonResponse(createResponse);
+
+      const response = await makeRequest(`/api/series/${series.id}/standings`);
+      expect(response.status).toBe(200);
+
+      const standings = await expectJsonResponse(response);
+      expect(standings.series.id).toBe(series.id);
+      expect(standings.series.name).toBe("Test Series");
+      expect(standings.team_standings).toEqual([]);
+      expect(standings.total_competitions).toBe(0);
+    });
+
+    test("should return 400 when series not found", async () => {
+      const response = await makeRequest("/api/series/999/standings");
+      expectErrorResponse(response, 400);
+
+      const error = await expectJsonResponse(response);
+      expect(error.error).toBe("Series not found");
+    });
+  });
+
+  describe("PUT /api/series/:id - New Fields", () => {
+    test("should update banner_image_url and is_public", async () => {
+      const createResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+        is_public: true,
+      });
+      const createdSeries = await expectJsonResponse(createResponse);
+
+      const updateData = {
+        banner_image_url: "https://example.com/new-banner.jpg",
+        is_public: false,
+      };
+
+      const response = await makeRequest(
+        `/api/series/${createdSeries.id}`,
+        "PUT",
+        updateData
+      );
+      expect(response.status).toBe(200);
+
+      const series = await expectJsonResponse(response);
+      expect(series.banner_image_url).toBe(updateData.banner_image_url);
+      expect(series.is_public).toBe(false);
+    });
+
+    test("should update banner_image_url to null", async () => {
+      const createResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+        banner_image_url: "https://example.com/banner.jpg",
+      });
+      const createdSeries = await expectJsonResponse(createResponse);
+
+      const response = await makeRequest(
+        `/api/series/${createdSeries.id}`,
+        "PUT",
+        {
+          banner_image_url: null,
+        }
+      );
+      expect(response.status).toBe(200);
+
+      const series = await expectJsonResponse(response);
+      expect(series.banner_image_url).toBeNull();
     });
   });
 });

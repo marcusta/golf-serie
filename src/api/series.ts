@@ -163,5 +163,47 @@ export function createSeriesApi(seriesService: SeriesService) {
         );
       }
     },
+
+    async getStandings(id: number): Promise<Response> {
+      try {
+        const standings = await seriesService.getStandings(id);
+        return new Response(JSON.stringify(standings), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async findPublic(): Promise<Response> {
+      try {
+        const series = await seriesService.findPublic();
+        return new Response(JSON.stringify(series), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
   };
 }

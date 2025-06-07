@@ -17,6 +17,8 @@ export interface Series {
   id: number;
   name: string;
   description?: string;
+  banner_image_url?: string;
+  is_public: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -50,11 +52,36 @@ export interface UpdateCourseDto {
 export interface CreateSeriesDto {
   name: string;
   description?: string;
+  banner_image_url?: string;
+  is_public?: boolean;
 }
 
 export interface UpdateSeriesDto {
   name?: string;
   description?: string;
+  banner_image_url?: string;
+  is_public?: boolean;
+}
+
+export interface SeriesTeamStanding {
+  team_id: number;
+  team_name: string;
+  total_points: number;
+  competitions_played: number;
+  position: number;
+  competitions: {
+    competition_id: number;
+    competition_name: string;
+    competition_date: string;
+    points: number;
+    position: number;
+  }[];
+}
+
+export interface SeriesStandings {
+  series: Series;
+  team_standings: SeriesTeamStanding[];
+  total_competitions: number;
 }
 
 export interface CreateTeamDto {

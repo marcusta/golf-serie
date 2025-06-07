@@ -3,6 +3,7 @@ import { InitialSchemaMigration } from "./migrations/001_initial_schema";
 import { AddTeeTimeIdMigration } from "./migrations/002_add_tee_time_id";
 import { AddParticipantScoreMigration } from "./migrations/003_add_participant_score";
 import { AddSeriesMigration } from "./migrations/004_add_series";
+import { AddSeriesFieldsMigration } from "./migrations/005_add_series_fields";
 
 export function createDatabase(dbPath: string = "golf_series.db"): Database {
   const db = new Database(dbPath);
@@ -35,6 +36,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddTeeTimeIdMigration(db),
     new AddParticipantScoreMigration(db),
     new AddSeriesMigration(db),
+    new AddSeriesFieldsMigration(db),
   ];
 
   // Apply pending migrations

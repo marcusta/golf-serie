@@ -196,6 +196,10 @@ export function createApp(db: Database): Hono {
     return await seriesApi.findAll();
   });
 
+  app.get("/api/series/public", async (c) => {
+    return await seriesApi.findPublic();
+  });
+
   app.get("/api/series/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await seriesApi.findById(c.req.raw, id);
@@ -219,6 +223,11 @@ export function createApp(db: Database): Hono {
   app.get("/api/series/:id/teams", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await seriesApi.getTeams(id);
+  });
+
+  app.get("/api/series/:id/standings", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await seriesApi.getStandings(id);
   });
 
   // Static file serving - fallback for frontend
