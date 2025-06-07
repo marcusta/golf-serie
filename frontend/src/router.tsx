@@ -19,6 +19,8 @@ import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 import PlayerLayout from "./views/player/PlayerLayout";
 import PlayerStandings from "./views/player/Standings";
 import PlayerCompetitions from "./views/player/Competitions";
+import PlayerSeries from "./views/player/Series";
+import SeriesDetail from "./views/player/SeriesDetail";
 import CompetitionDetail from "./views/player/CompetitionDetail";
 import CompetitionRound from "./views/player/CompetitionRound";
 
@@ -83,6 +85,18 @@ const playerCompetitionsRoute = new Route({
   component: PlayerCompetitions,
 });
 
+const playerSeriesRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series",
+  component: PlayerSeries,
+});
+
+const seriesDetailRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series/$serieId",
+  component: SeriesDetail,
+});
+
 const competitionDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId",
@@ -114,6 +128,8 @@ const routeTree = rootRoute.addChildren([
   playerRoute.addChildren([
     playerStandingsRoute,
     playerCompetitionsRoute,
+    playerSeriesRoute,
+    seriesDetailRoute,
     competitionDetailRoute,
     teeTimeDetailRoute,
   ]),

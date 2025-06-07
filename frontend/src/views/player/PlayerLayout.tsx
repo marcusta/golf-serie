@@ -1,20 +1,22 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { List } from "lucide-react";
+import { List, Trophy } from "lucide-react";
 
 const playerNavLinks = [
   { to: "/player/competitions", label: "Competitions", icon: List },
+  { to: "/player/series", label: "Series", icon: Trophy },
 ];
 
 export default function PlayerLayout() {
   const { location } = useRouterState();
 
-  // Hide navigation for competition rounds (they have their own navigation)
-  const isCompetitionRound =
-    location.pathname.includes("/competitions/") &&
-    (location.pathname.includes("/tee-times/") ||
-      location.pathname.match(/\/competitions\/\d+$/));
+  // Hide navigation for detailed views (they have their own navigation)
+  const isDetailView =
+    (location.pathname.includes("/competitions/") &&
+      (location.pathname.includes("/tee-times/") ||
+        location.pathname.match(/\/competitions\/\d+$/))) ||
+    location.pathname.match(/\/series\/\d+$/);
 
-  if (isCompetitionRound) {
+  if (isDetailView) {
     return <Outlet />;
   }
 
@@ -28,7 +30,12 @@ export default function PlayerLayout() {
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
           {playerNavLinks.map((link) => {
-            const isActive = location.pathname === link.to;
+            const isActive =
+              location.pathname === link.to ||
+              (link.to === "/player/series" &&
+                location.pathname.startsWith("/player/series")) ||
+              (link.to === "/player/competitions" &&
+                location.pathname.startsWith("/player/competitions"));
             const IconComponent = link.icon;
             return (
               <Link
