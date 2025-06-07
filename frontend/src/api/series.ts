@@ -48,6 +48,25 @@ export interface SeriesStandings {
   total_competitions: number;
 }
 
+export interface SeriesDocument {
+  id: number;
+  series_id: number;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSeriesDocumentDto {
+  title: string;
+  content: string;
+}
+
+export interface UpdateSeriesDocumentDto {
+  title?: string;
+  content?: string;
+}
+
 export function useSeries() {
   return useQuery<Series[]>({
     queryKey: ["series"],
@@ -281,6 +300,123 @@ export function useRemoveTeamFromSeries() {
       });
       queryClient.invalidateQueries({
         queryKey: ["series", seriesId, "standings"],
+      });
+    },
+  });
+}
+
+// Series documents functions
+export function useSeriesDocuments(seriesId: number) {
+  return useQuery<SeriesDocument[]>({
+    queryKey: ["series", seriesId, "documents"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: seriesId > 0,
+  });
+}
+
+export function useCreateSeriesDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      data,
+    }: {
+      seriesId: number;
+      data: CreateSeriesDocumentDto;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "documents"],
+      });
+    },
+  });
+}
+
+export function useUpdateSeriesDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      documentId,
+      data,
+    }: {
+      seriesId: number;
+      documentId: number;
+      data: UpdateSeriesDocumentDto;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents/${documentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "documents"],
+      });
+    },
+  });
+}
+
+export function useDeleteSeriesDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      documentId,
+    }: {
+      seriesId: number;
+      documentId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents/${documentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "documents"],
       });
     },
   });

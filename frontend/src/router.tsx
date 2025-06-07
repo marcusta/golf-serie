@@ -10,6 +10,7 @@ import { getBasePath } from "./api/config";
 // Import Admin views
 import AdminLayout from "./views/admin/AdminLayout";
 import AdminSeries from "./views/admin/Series";
+import AdminSeriesDetail from "./views/admin/SeriesDetail";
 import AdminTeams from "./views/admin/Teams";
 import AdminCourses from "./views/admin/Courses";
 import AdminCompetitions from "./views/admin/Competitions";
@@ -40,6 +41,12 @@ const adminSeriesRoute = new Route({
   getParentRoute: () => adminRoute,
   path: "/series",
   component: AdminSeries,
+});
+
+const adminSeriesDetailRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/series/$serieId",
+  component: AdminSeriesDetail,
 });
 
 const adminTeamsRoute = new Route({
@@ -120,6 +127,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   adminRoute.addChildren([
     adminSeriesRoute,
+    adminSeriesDetailRoute,
     adminTeamsRoute,
     adminCoursesRoute,
     adminCompetitionsRoute,

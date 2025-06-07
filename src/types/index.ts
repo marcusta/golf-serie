@@ -191,3 +191,13 @@ export interface UpdateDocumentDto {
   content?: string;
   type?: string;
 }
+
+export interface CreateSeriesDocumentDto {
+  title: string;
+  content: string;
+}
+
+export interface UpdateSeriesDocumentDto {
+  title?: string;
+  content?: string;
+}

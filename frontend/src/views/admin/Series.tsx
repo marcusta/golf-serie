@@ -24,6 +24,7 @@ import {
   Image,
   Users,
   Calendar,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -498,6 +499,13 @@ export default function AdminSeries() {
                   )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <Link
+                        to={`/admin/series/${seriesItem.id}`}
+                        className="flex items-center gap-1 hover:text-blue-600"
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span>Admin</span>
+                      </Link>
                       <button
                         onClick={() => handleManageTeams(seriesItem)}
                         className="flex items-center gap-1 hover:text-blue-600"

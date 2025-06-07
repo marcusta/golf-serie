@@ -275,9 +275,26 @@ export function createApp(db: Database): Hono {
     return await documentsApi.delete(id);
   });
 
+  app.post("/api/series/:seriesId/documents", async (c) => {
+    const seriesId = parseInt(c.req.param("seriesId"));
+    return await documentsApi.createForSeries(c.req.raw, seriesId);
+  });
+
   app.get("/api/series/:seriesId/documents", async (c) => {
     const seriesId = parseInt(c.req.param("seriesId"));
     return await documentsApi.findBySeriesId(seriesId);
+  });
+
+  app.put("/api/series/:seriesId/documents/:documentId", async (c) => {
+    const seriesId = parseInt(c.req.param("seriesId"));
+    const documentId = parseInt(c.req.param("documentId"));
+    return await documentsApi.updateForSeries(c.req.raw, seriesId, documentId);
+  });
+
+  app.delete("/api/series/:seriesId/documents/:documentId", async (c) => {
+    const seriesId = parseInt(c.req.param("seriesId"));
+    const documentId = parseInt(c.req.param("documentId"));
+    return await documentsApi.deleteForSeries(seriesId, documentId);
   });
 
   app.get("/api/series/:seriesId/documents/types", async (c) => {
