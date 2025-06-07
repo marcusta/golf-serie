@@ -68,6 +68,7 @@ export default function AdminSeriesDetail() {
     name: "",
     banner_image_url: "",
     is_public: true,
+    landing_document_id: undefined as number | undefined,
   });
 
   // Document management state
@@ -87,6 +88,7 @@ export default function AdminSeriesDetail() {
         name: series.name,
         banner_image_url: series.banner_image_url || "",
         is_public: series.is_public,
+        landing_document_id: series.landing_document_id,
       });
     }
   }, [series]);
@@ -115,6 +117,7 @@ export default function AdminSeriesDetail() {
           name: formData.name,
           banner_image_url: formData.banner_image_url || undefined,
           is_public: formData.is_public,
+          landing_document_id: formData.landing_document_id,
         },
       });
       setIsEditingBasic(false);
@@ -183,10 +186,29 @@ export default function AdminSeriesDetail() {
   };
 
   const handleDeleteDocument = async (document: SeriesDocument) => {
-    if (
-      window.confirm(`Are you sure you want to delete "${document.title}"?`)
-    ) {
+    if (!series) return;
+
+    const isLandingPage = series.landing_document_id === document.id;
+    const confirmMessage = isLandingPage
+      ? `Are you sure you want to delete "${document.title}"? This is currently set as the landing page and will be unset.`
+      : `Are you sure you want to delete "${document.title}"?`;
+
+    if (window.confirm(confirmMessage)) {
       try {
+        // If deleting the landing page document, unset it first
+        if (isLandingPage) {
+          await updateSeries.mutateAsync({
+            id: series.id,
+            data: {
+              landing_document_id: undefined,
+            },
+          });
+          setFormData((prev) => ({
+            ...prev,
+            landing_document_id: undefined,
+          }));
+        }
+
         await deleteDocument.mutateAsync({
           seriesId,
           documentId: document.id,
@@ -271,6 +293,7 @@ export default function AdminSeriesDetail() {
                           name: series.name,
                           banner_image_url: series.banner_image_url || "",
                           is_public: series.is_public,
+                          landing_document_id: series.landing_document_id,
                         });
                       }}
                     >
@@ -440,6 +463,76 @@ export default function AdminSeriesDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6">
+          {/* Landing Page Settings Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Landing Page Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label
+                  htmlFor="landing-document"
+                  className="text-sm font-medium"
+                >
+                  Landing Page Document
+                </label>
+                <select
+                  id="landing-document"
+                  value={formData.landing_document_id || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      landing_document_id: value ? parseInt(value) : undefined,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">None (use series description)</option>
+                  {documents?.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Select which document players will see as the main content for
+                  this series.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBasicInfoSave}
+                  disabled={updateSeries.isPending}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Landing Page Settings
+                </Button>
+                {formData.landing_document_id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const selectedDoc = documents?.find(
+                        (doc) => doc.id === formData.landing_document_id
+                      );
+                      if (selectedDoc) {
+                        alert(
+                          `Preview: Players will see "${selectedDoc.title}" as the main content for this series.`
+                        );
+                      }
+                    }}
+                  >
+                    Preview
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Series Documents</h3>
             <Button onClick={handleCreateDocument}>
@@ -454,9 +547,19 @@ export default function AdminSeriesDetail() {
                 <Card key={document.id}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">
-                        {document.title}
-                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">
+                          {document.title}
+                        </CardTitle>
+                        {series?.landing_document_id === document.id && (
+                          <Badge
+                            variant="default"
+                            className="bg-blue-100 text-blue-800 hover:bg-blue-100"
+                          >
+                            Landing Page
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
