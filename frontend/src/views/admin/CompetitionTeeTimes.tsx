@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useCompetition } from "../../api/competitions";
 import { useTeams } from "../../api/teams";
+import { useSeriesTeams } from "../../api/series";
 import {
   useTeeTimesForCompetition,
   useCreateTeeTime,
@@ -21,9 +22,15 @@ export default function AdminCompetitionTeeTimes() {
   const { data: competition, isLoading: competitionLoading } = useCompetition(
     competitionId ? parseInt(competitionId) : 0
   );
-  const { data: teams } = useTeams();
+  const { data: allTeams } = useTeams();
+  const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
   const { data: teeTimes, refetch: refetchTeeTimes } =
     useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
+
+  // Use series teams if competition belongs to a series, otherwise use all teams
+  // This ensures that when administering a competition that belongs to a series,
+  // only teams that are part of that series are shown for participation
+  const teams = competition?.series_id ? seriesTeams : allTeams;
 
   const [participantTypes, setParticipantTypes] = useState<ParticipantType[]>(
     []
@@ -229,6 +236,11 @@ export default function AdminCompetitionTeeTimes() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Select Participating Teams
+          {competition?.series_id && (
+            <span className="ml-2 text-sm font-normal text-blue-600">
+              (from series)
+            </span>
+          )}
           {hasAnalyzedExistingData && selectedTeams.length > 0 && (
             <span className="ml-2 text-sm font-normal text-green-600">
               (auto-selected from existing)
@@ -254,7 +266,9 @@ export default function AdminCompetitionTeeTimes() {
 
         {teams?.length === 0 && (
           <div className="text-center py-4 text-gray-500">
-            No teams available. Please add teams first.
+            {competition?.series_id
+              ? "No teams available in this series. Please add teams to the series first."
+              : "No teams available. Please add teams first."}
           </div>
         )}
       </div>
