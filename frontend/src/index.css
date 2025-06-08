@@ -646,6 +646,43 @@
       transform: scale(1) translateY(0);
     }
   }
+
+  /* Transparency Utility Classes - Using real RGBA for better compatibility */
+
+  /* 
+   * These classes replace Tailwind's bg-opacity- utilities which may not work 
+   * properly in all browsers. Use these instead:
+   * 
+   * bg-black bg-opacity-40 → bg-overlay-light
+   * bg-charcoal bg-opacity-20 → bg-charcoal-transparent
+   * bg-rough bg-opacity-30 → bg-rough-transparent
+   * bg-scorecard bg-opacity-90 → bg-scorecard-transparent
+   * bg-soft-grey bg-opacity-30 → bg-soft-grey-transparent
+   */
+
+  .bg-overlay-light {
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+
+  .bg-overlay-dark {
+    background-color: rgba(28, 28, 30, 0.4);
+  }
+
+  .bg-rough-transparent {
+    background-color: rgba(149, 213, 178, 0.3);
+  }
+
+  .bg-scorecard-transparent {
+    background-color: rgba(248, 249, 250, 0.9);
+  }
+
+  .bg-soft-grey-transparent {
+    background-color: rgba(206, 212, 218, 0.3);
+  }
+
+  .bg-charcoal-transparent {
+    background-color: rgba(28, 28, 30, 0.2);
+  }
 }
 
 /* Custom prose styles for better markdown formatting */

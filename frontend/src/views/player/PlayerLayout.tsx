@@ -14,6 +14,8 @@ export default function PlayerLayout() {
   const isDetailView =
     location.pathname === "/player" ||
     location.pathname === "/player/" || // Landing page
+    location.pathname === "/player/competitions" || // Full-screen competitions page
+    location.pathname === "/player/series" || // Full-screen series page
     (location.pathname.includes("/competitions/") &&
       (location.pathname.includes("/tee-times/") ||
         location.pathname.match(/\/competitions\/\d+$/))) ||
