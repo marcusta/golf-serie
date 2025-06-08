@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import {
   useCompetition,
@@ -83,6 +83,32 @@ export default function CompetitionDetail() {
   const handleCloseScorecardModal = () => {
     setSelectedParticipantId(null);
   };
+
+  // Clean navigation with proper browser history back
+  const handleBackNavigation = useCallback((e: React.MouseEvent) => {
+    // Prevent any potential event bubbling
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Capture the target element before async operations
+    const target = e.currentTarget;
+
+    // Ensure we only go back once by using a flag
+    if (!target.hasAttribute("data-navigating")) {
+      target.setAttribute("data-navigating", "true");
+
+      // Use browser's native history back for reliable single-step navigation
+      window.history.back();
+
+      // Clear the flag after a brief delay
+      setTimeout(() => {
+        // Check if element still exists before removing attribute
+        if (target && target.removeAttribute) {
+          target.removeAttribute("data-navigating");
+        }
+      }, 500);
+    }
+  }, []);
 
   // Create course data format for scorecard component
   const scorecardCourseData: CourseData | null =
@@ -194,12 +220,13 @@ export default function CompetitionDetail() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
-              <Link
-                to="/player/competitions"
+              <button
+                onClick={handleBackNavigation}
                 className="p-2 hover:bg-turf hover:bg-opacity-30 rounded-xl transition-colors"
+                title="Go Back"
               >
                 <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-scorecard" />
-              </Link>
+              </button>
               <TapScoreLogo size="md" variant="color" layout="horizontal" />
             </div>
 

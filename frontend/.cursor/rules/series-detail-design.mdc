@@ -1,0 +1,270 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# TapScore Series Detail - Mobile-First Redesign Proposal
+
+## 🎯 Current Issues Identified
+
+### Problems with Current Design:
+1. **Tab overflow**: Horizontal scrolling tabs break mobile UX
+2. **Poor header hierarchy**: Header doesn't follow TapScore design system
+3. **Inconsistent with Competition Detail**: Different interaction patterns
+4. **Missing visual hierarchy**: No clear content prioritization
+5. **Outdated color scheme**: Not using TapScore brand colors
+
+### Comparison with Competition Detail:
+- ✅ Competition Detail: Clean header, proper tab navigation, consistent styling
+- ❌ Series Detail: Cluttered header, scrolling tabs, inconsistent branding
+
+---
+
+## 🎨 Proposed Mobile-First Redesign
+
+### Header Structure
+```
+┌─────────────────────────────────────┐
+│ [←] TapScore Logo          [≡]      │ ← Fairway Green (#1B4332)
+├─────────────────────────────────────┤
+│                                     │
+│   📸 Hero Banner (if available)     │ ← Optional banner with overlay
+│   📍 Östgöta H40 2025              │ ← White text on image
+│                                     │
+├─────────────────────────────────────┤
+│ 📅 Season Info | 🏆 Teams | 📊 Stats│ ← Light Rough (#95D5B2) info bar
+└─────────────────────────────────────┘
+```
+
+### Navigation Strategy
+**Replace horizontal scrolling tabs with:**
+1. **Primary Content Area**: Overview/Landing document (default)
+2. **Bottom Sheet Navigation**: Slide-up panels for secondary content
+3. **Quick Action Buttons**: Strategic placement for key actions
+
+### Content Layout Priority
+```
+┌─────────────────────────────────────┐
+│ 1. HERO SECTION                     │
+│   - Series name + banner            │
+│   - Key stats in info bar           │
+├─────────────────────────────────────┤
+│ 2. PRIMARY CONTENT                  │
+│   - Landing document OR             │
+│   - Welcome message + quick cards   │
+├─────────────────────────────────────┤
+│ 3. QUICK ACCESS CARDS               │
+│   [📋 Latest Results] [📅 Next Event]│
+│   [🏆 Standings] [📄 Documents]     │
+├─────────────────────────────────────┤
+│ 4. RECENT ACTIVITY                  │
+│   - Latest competition results      │
+│   - Recent standings changes        │
+└─────────────────────────────────────┘
+```
+
+### Navigation Patterns
+- **Primary Tab**: Overview (always visible)
+- **Secondary Access**: Bottom sheet or dedicated pages
+- **Deep Links**: Direct access to standings, competitions, documents
+
+---
+
+## 📱 Detailed Component Specifications
+
+### 1. Header Component
+```css
+.series-header {
+  background: linear-gradient(180deg, var(--fairway-green), var(--turf-green));
+  color: var(--scorecard-white);
+  padding: 1rem;
+}
+
+.hero-banner {
+  height: 200px;
+  border-radius: 1rem;
+  background-size: cover;
+  position: relative;
+}
+
+.hero-overlay {
+  background: linear-gradient(to bottom, transparent, rgba(27, 67, 50, 0.7));
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem;
+}
+
+.series-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+```
+
+### 2. Info Bar Component
+```css
+.info-bar {
+  background: var(--light-rough);
+  border-radius: 1rem;
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.info-item {
+  text-align: center;
+  color: var(--charcoal-text);
+}
+
+.info-value {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--fairway-green);
+}
+
+.info-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+```
+
+### 3. Quick Access Cards
+```css
+.quick-access-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.quick-card {
+  background: var(--scorecard-white);
+  border: 1px solid var(--soft-grey);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(27, 67, 50, 0.05);
+}
+
+.quick-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(27, 67, 50, 0.1);
+  border-color: var(--turf-green);
+}
+
+.quick-card-icon {
+  width: 3rem;
+  height: 3rem;
+  background: var(--light-rough);
+  border-radius: 50%;
+  margin: 0 auto 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--turf-green);
+}
+
+.quick-card-title {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  color: var(--charcoal-text);
+  margin-bottom: 0.5rem;
+}
+
+.quick-card-subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  color: var(--soft-grey);
+}
+```
+
+### 4. Bottom Sheet Navigation
+```css
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--scorecard-white);
+  border-radius: 1rem 1rem 0 0;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 50;
+}
+
+.bottom-sheet.open {
+  transform: translateY(0);
+}
+
+.bottom-sheet-handle {
+  width: 3rem;
+  height: 0.25rem;
+  background: var(--soft-grey);
+  border-radius: 0.125rem;
+  margin: 1rem auto;
+}
+
+.bottom-sheet-content {
+  padding: 0 1.5rem 2rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+```
+
+---
+
+## 🔄 Implementation Approach
+
+### Phase 1: Header Redesign
+- Remove current complex banner system
+- Implement clean header with TapScore branding
+- Add hero banner with proper overlay
+- Create responsive info bar with key metrics
+
+### Phase 2: Content Restructure
+- Replace scrolling tabs with single overview page
+- Implement quick access card grid
+- Add recent activity section
+- Create proper content hierarchy
+
+### Phase 3: Navigation Enhancement
+- Implement bottom sheet for secondary navigation
+- Add direct routing to detailed views
+- Create smooth transitions between sections
+- Ensure deep linking works properly
+
+### Phase 4: Mobile Optimization
+- Test touch targets and interactions
+- Optimize for one-handed use
+- Ensure proper scroll behavior
+- Add haptic feedback where appropriate
+
+---
+
+## 🎯 Success Metrics
+
+### User Experience
+- ✅ No horizontal scrolling required
+- ✅ All content accessible within 2 taps
+- ✅ Consistent with Competition Detail patterns
+- ✅ Fast loading and smooth animations
+
+### Technical Requirements
+- ✅ Responsive design (mobile-first)
+- ✅ Accessibility compliance
+- ✅ Performance optimization
+- ✅ Consistent with TapScore design system
+
+### Visual Consistency
+- ✅ Matches TapScore brand colors
+- ✅ Uses proper typography hierarchy
+- ✅ Consistent with other app sections
+- ✅ Professional golf tournament aesthetic
