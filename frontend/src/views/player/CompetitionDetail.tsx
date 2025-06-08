@@ -162,8 +162,17 @@ export default function CompetitionDetail() {
   }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
 
   if (competitionLoading)
-    return <div className="p-4">Loading competition...</div>;
-  if (!competition) return <div className="p-4">Competition not found</div>;
+    return (
+      <div className="p-4 text-charcoal font-primary">
+        Loading competition...
+      </div>
+    );
+  if (!competition)
+    return (
+      <div className="p-4 text-charcoal font-primary">
+        Competition not found
+      </div>
+    );
 
   const totalParticipants = calculateTotalParticipants(teeTimes);
 
@@ -178,27 +187,27 @@ export default function CompetitionDetail() {
     : [];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-scorecard">
       <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6">
-        {/* Header - Much cleaner on mobile */}
+        {/* Header with TapScore Styling */}
         <div className="flex items-center gap-3 md:gap-4">
           <Link
             to="/player/competitions"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-rough hover:bg-opacity-30 rounded-xl transition-colors"
           >
-            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
+            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-fairway" />
           </Link>
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl md:text-3xl font-bold text-gray-900 truncate">
+            <h1 className="text-xl md:text-3xl font-bold text-fairway truncate font-display">
               {competition.name}
             </h1>
           </div>
 
-          {/* Back to Score Entry button - only show if coming from tee time */}
+          {/* Back to Score Entry button with TapScore styling */}
           {fromTeeTime && (
             <Link
               to={`/player/competitions/${competitionId}/tee-times/${fromTeeTime}`}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-3 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors text-sm font-medium font-primary"
             >
               <Edit3 className="h-4 w-4" />
               <span className="hidden sm:inline">Back to</span>
@@ -209,11 +218,11 @@ export default function CompetitionDetail() {
           <HamburgerMenu />
         </div>
 
-        {/* Competition Info Header */}
-        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center justify-center gap-4 md:gap-8 text-xs md:text-sm text-gray-600">
+        {/* Competition Info Header with TapScore Styling */}
+        <div className="bg-rough bg-opacity-30 rounded-xl p-4 border border-soft-grey">
+          <div className="flex items-center justify-center gap-4 md:gap-8 text-xs md:text-sm text-charcoal font-primary">
             <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 md:h-4 md:w-4" />
+              <Calendar className="h-3 w-3 md:h-4 md:w-4 text-turf" />
               <span className="hidden sm:inline">
                 {new Date(competition.date).toLocaleDateString("en-US", {
                   weekday: "long",
@@ -231,29 +240,29 @@ export default function CompetitionDetail() {
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <MapPin className="h-3 w-3 md:h-4 md:w-4" />
+              <MapPin className="h-3 w-3 md:h-4 md:w-4 text-turf" />
               <span className="truncate">{course?.name || "Loading..."}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Users className="h-3 w-3 md:h-4 md:w-4" />
+              <Users className="h-3 w-3 md:h-4 md:w-4 text-turf" />
               <span>{totalParticipants} participants</span>
             </div>
           </div>
         </div>
 
-        {/* Tabs - More compact on mobile */}
-        <div className="border-b border-gray-200">
+        {/* Tabs with TapScore Styling */}
+        <div className="border-b border-soft-grey">
           <nav className="flex space-x-4 md:space-x-8">
             <button
               onClick={() => {
                 setActiveTab("startlist");
                 window.location.hash = "";
               }}
-              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
+              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
                 ${
                   activeTab === "startlist"
-                    ? "border-green-500 text-green-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-coral text-coral"
+                    : "border-transparent text-charcoal hover:text-turf hover:border-rough"
                 }
               `}
             >
@@ -268,11 +277,11 @@ export default function CompetitionDetail() {
                 console.log("Syncing data for leaderboard view...");
                 refetchLeaderboard();
               }}
-              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
+              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
                 ${
                   activeTab === "leaderboard"
-                    ? "border-green-500 text-green-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-coral text-coral"
+                    : "border-transparent text-charcoal hover:text-turf hover:border-rough"
                 }
               `}
             >
@@ -288,11 +297,11 @@ export default function CompetitionDetail() {
                 refetchLeaderboard();
                 refetchTeeTimes();
               }}
-              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
+              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
                 ${
                   activeTab === "teamresult"
-                    ? "border-green-500 text-green-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-coral text-coral"
+                    : "border-transparent text-charcoal hover:text-turf hover:border-rough"
                 }
               `}
             >

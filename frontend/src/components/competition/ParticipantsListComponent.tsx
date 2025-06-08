@@ -39,18 +39,20 @@ export function ParticipantsListComponent({
     return (
       <div className="space-y-3 md:space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+          <h2 className="text-lg md:text-xl font-semibold text-fairway font-display">
             Tee Times
           </h2>
-          <div className="text-xs md:text-sm text-gray-500">
+          <div className="text-xs md:text-sm text-turf font-primary">
             {teeTimes?.length || 0} tee times
           </div>
         </div>
 
         {teeTimesLoading ? (
-          <div className="p-4">Loading tee times...</div>
+          <div className="p-4 text-charcoal font-primary">
+            Loading tee times...
+          </div>
         ) : !teeTimes || teeTimes.length === 0 ? (
-          <div className="text-center py-6 md:py-8 text-gray-500 text-sm">
+          <div className="text-center py-6 md:py-8 text-soft-grey text-sm font-primary">
             No tee times scheduled for this competition yet.
           </div>
         ) : (
@@ -59,17 +61,17 @@ export function ParticipantsListComponent({
               <Link
                 key={teeTime.id}
                 to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
-                className="block bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200"
+                className="block bg-scorecard rounded-xl border border-soft-grey hover:border-turf hover:shadow-md transition-all duration-200"
               >
                 <div className="p-4 md:p-6">
                   <div className="flex items-center justify-between mb-3 md:mb-4">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
-                      <span className="text-base md:text-lg font-semibold text-gray-900">
+                      <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />
+                      <span className="text-base md:text-lg font-semibold text-fairway font-display">
                         {teeTime.teetime}
                       </span>
                     </div>
-                    <div className="text-xs md:text-sm text-gray-500">
+                    <div className="text-xs md:text-sm text-turf font-primary">
                       {teeTime.participants.length} players
                     </div>
                   </div>
@@ -78,13 +80,13 @@ export function ParticipantsListComponent({
                     {teeTime.participants.map((participant) => (
                       <div
                         key={participant.id}
-                        className="flex items-center justify-between p-2 md:p-3 bg-gray-50 rounded-lg"
+                        className="flex items-center justify-between p-2 md:p-3 bg-rough bg-opacity-30 rounded-xl border border-soft-grey"
                       >
                         <div className="min-w-0 flex-1">
-                          <span className="font-medium text-gray-900 text-sm md:text-base block truncate">
+                          <span className="font-medium text-fairway text-sm md:text-base block truncate font-primary">
                             {participant.team_name} {participant.position_name}
                           </span>
-                          <div className="text-xs text-gray-500 truncate">
+                          <div className="text-xs text-turf truncate font-primary">
                             {participant.player_names}
                           </div>
                         </div>
@@ -93,7 +95,7 @@ export function ParticipantsListComponent({
                   </div>
 
                   {teeTime.participants.length === 0 && (
-                    <div className="text-center py-3 md:py-4 text-gray-500 text-sm">
+                    <div className="text-center py-3 md:py-4 text-soft-grey text-sm font-primary">
                       No participants assigned to this tee time yet.
                     </div>
                   )}
@@ -108,25 +110,25 @@ export function ParticipantsListComponent({
 
   // For CompetitionRound.tsx - participants view with current group context
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto bg-scorecard">
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+          <h2 className="text-lg md:text-xl font-semibold text-fairway font-display">
             Round Participants
           </h2>
-          <div className="text-xs md:text-sm text-gray-500">
+          <div className="text-xs md:text-sm text-turf font-primary">
             {currentTeeTimeId ? "Current group" : `${totalParticipants} total`}
           </div>
         </div>
 
         {/* Current Tee Time Group (if in score entry context) */}
         {currentTeeTimeId && currentTeeTime && (
-          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-4">
+          <div className="bg-rough bg-opacity-20 rounded-xl border border-turf p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm md:text-lg font-semibold text-blue-900">
+              <h3 className="text-sm md:text-lg font-semibold text-fairway font-display">
                 Your Group - {currentTeeTime.teetime}
               </h3>
-              <span className="text-xs md:text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+              <span className="text-xs md:text-sm text-scorecard bg-coral px-2 py-1 rounded-full font-primary font-medium">
                 Active
               </span>
             </div>
@@ -135,13 +137,13 @@ export function ParticipantsListComponent({
                 (participant: TeeTimeParticipant) => (
                   <div
                     key={participant.id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg"
+                    className="flex items-center justify-between p-3 bg-scorecard rounded-xl border border-turf"
                   >
                     <div className="flex-1">
-                      <h4 className="text-sm md:text-base font-medium text-gray-900">
+                      <h4 className="text-sm md:text-base font-medium text-fairway font-primary">
                         {participant.team_name}
                       </h4>
-                      <p className="text-xs md:text-sm text-gray-600 mt-1">
+                      <p className="text-xs md:text-sm text-turf mt-1 font-primary">
                         {formatParticipantTypeDisplay(
                           participant.position_name
                         )}
@@ -152,7 +154,7 @@ export function ParticipantsListComponent({
                         )}
                       </p>
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-turf">
                       {isMultiPlayerFormat(participant.position_name) && (
                         <Users className="w-4 h-4 inline-block" />
                       )}
@@ -166,12 +168,12 @@ export function ParticipantsListComponent({
 
         {/* All Other Tee Times */}
         <div>
-          <h3 className="text-sm md:text-base font-medium text-gray-700 mb-3">
+          <h3 className="text-sm md:text-base font-medium text-fairway mb-3 font-primary">
             {currentTeeTimeId ? "Other Groups" : "All Groups"}
           </h3>
 
           {!teeTimes || teeTimes.length === 0 ? (
-            <div className="text-center py-6 md:py-8 text-gray-500">
+            <div className="text-center py-6 md:py-8 text-soft-grey font-primary">
               No tee times scheduled for this competition.
             </div>
           ) : (
@@ -184,14 +186,14 @@ export function ParticipantsListComponent({
                 .map((teeTimeGroup) => (
                   <div
                     key={teeTimeGroup.id}
-                    className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+                    className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden"
                   >
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                      <h4 className="text-sm md:text-base font-semibold text-gray-900">
+                    <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
+                      <h4 className="text-sm md:text-base font-semibold text-fairway font-display">
                         {teeTimeGroup.teetime}
                       </h4>
                     </div>
-                    <div className="divide-y divide-gray-200">
+                    <div className="divide-y divide-soft-grey">
                       {teeTimeGroup.participants.map(
                         (participant: TeeTimeParticipant) => (
                           <div
@@ -199,16 +201,16 @@ export function ParticipantsListComponent({
                             className="px-4 py-2 flex items-center justify-between"
                           >
                             <div className="flex-1">
-                              <h5 className="text-xs md:text-sm font-medium text-gray-900">
+                              <h5 className="text-xs md:text-sm font-medium text-fairway font-primary">
                                 {participant.team_name}
                               </h5>
-                              <p className="text-xs text-gray-600">
+                              <p className="text-xs text-turf font-primary">
                                 {formatParticipantTypeDisplay(
                                   participant.position_name
                                 )}
                               </p>
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-turf">
                               {isMultiPlayerFormat(
                                 participant.position_name
                               ) && <Users className="w-3 h-3 inline-block" />}

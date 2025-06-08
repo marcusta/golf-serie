@@ -47,7 +47,10 @@ export function BottomTabNavigation({
 
   return (
     <div
-      className={cn("bg-white border-t border-gray-200 shadow-lg", className)}
+      className={cn(
+        "bg-scorecard border-t-2 border-soft-grey shadow-[0_-2px_8px_rgba(27,67,50,0.08)]",
+        className
+      )}
     >
       <div className="grid grid-cols-4 max-w-lg mx-auto">
         {tabs.map((tab) => {
@@ -60,11 +63,11 @@ export function BottomTabNavigation({
               onClick={() => !tab.disabled && onTabChange(tab.id)}
               disabled={tab.disabled}
               className={cn(
-                "flex flex-col items-center justify-center py-3 px-2 transition-all duration-200",
-                "min-h-[60px] md:min-h-[64px]",
+                "flex flex-col items-center justify-center py-3 px-2 transition-all duration-200 touch-manipulation",
+                "min-h-[60px] md:min-h-[64px] font-['Inter']",
                 isActive
-                  ? "text-green-600 bg-green-50"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                  ? "text-coral bg-gradient-to-b from-coral/10 to-coral/5 border-t-2 border-coral"
+                  : "text-charcoal hover:text-turf hover:bg-rough/30",
                 tab.disabled && "opacity-50 cursor-not-allowed"
               )}
             >

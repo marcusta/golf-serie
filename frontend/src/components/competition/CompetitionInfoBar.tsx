@@ -15,14 +15,14 @@ export function CompetitionInfoBar({
 }: CompetitionInfoBarProps) {
   const baseClass =
     variant === "header"
-      ? "bg-gray-50 rounded-lg p-4 border border-gray-200"
-      : "bg-gray-50 border-t border-gray-200 px-4 py-2 flex-shrink-0";
+      ? "bg-rough bg-opacity-30 rounded-xl p-4 border border-soft-grey"
+      : "bg-rough bg-opacity-30 border-t border-soft-grey px-4 py-2 flex-shrink-0";
 
   return (
     <div className={baseClass}>
-      <div className="flex items-center justify-center gap-4 md:gap-8 text-xs text-gray-600">
+      <div className="flex items-center justify-center gap-4 md:gap-8 text-xs text-charcoal font-primary">
         <div className="flex items-center gap-1">
-          <Calendar className="h-3 w-3" />
+          <Calendar className="h-3 w-3 text-turf" />
           <span className="hidden sm:inline">
             {new Date(competition.date).toLocaleDateString("en-US", {
               weekday: "long",
@@ -38,11 +38,11 @@ export function CompetitionInfoBar({
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <MapPin className="h-3 w-3" />
+          <MapPin className="h-3 w-3 text-turf" />
           <span className="truncate">{courseName || "Loading..."}</span>
         </div>
         <div className="flex items-center gap-1">
-          <Users className="h-3 w-3" />
+          <Users className="h-3 w-3 text-turf" />
           <span>{totalParticipants} participants</span>
         </div>
       </div>

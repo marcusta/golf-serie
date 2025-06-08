@@ -47,24 +47,26 @@ export function FullScorecardModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
       <div
         className={cn(
-          "bg-white w-full max-h-[90vh] rounded-t-2xl transition-transform duration-300 ease-in-out",
+          "bg-scorecard w-full max-h-[90vh] rounded-t-2xl transition-transform duration-300 ease-in-out border-t border-soft-grey",
           "transform translate-y-0"
         )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        {/* Header with TapScore Styling */}
+        <div className="flex items-center justify-between p-4 border-b border-soft-grey">
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-rough hover:bg-opacity-30 rounded-xl transition-colors"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5 text-fairway" />
           </button>
-          <h2 className="text-lg font-semibold">Full Scorecard</h2>
+          <h2 className="text-lg font-semibold font-display text-fairway">
+            Full Scorecard
+          </h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-flag hover:bg-opacity-10 rounded-xl transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 text-flag" />
           </button>
         </div>
 
@@ -88,11 +90,11 @@ export function FullScorecardModal({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
+        {/* Footer with TapScore Button Styling */}
+        <div className="p-4 border-t border-soft-grey">
           <button
             onClick={() => onContinueEntry(currentHole)}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="w-full bg-turf text-scorecard py-3 px-4 rounded-xl font-medium hover:bg-fairway transition-colors font-primary"
           >
             Continue Entry on Hole {currentHole}
           </button>

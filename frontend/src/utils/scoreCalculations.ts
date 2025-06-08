@@ -98,9 +98,9 @@ export function formatToPar(toPar: number): string {
  * @returns CSS color class string
  */
 export function getToParColor(toPar: number): string {
-  if (toPar < 0) return "text-green-600";
-  if (toPar > 0) return "text-red-600";
-  return "text-gray-600";
+  if (toPar < 0) return "text-turf";
+  if (toPar > 0) return "text-flag";
+  return "text-charcoal";
 }
 
 /**
@@ -111,13 +111,13 @@ export function getToParColor(toPar: number): string {
 export function getPositionColor(position: number): string {
   switch (position) {
     case 1:
-      return "text-yellow-600 bg-yellow-50 border-yellow-200";
+      return "text-fairway bg-scorecard border-l-[#FFD700]";
     case 2:
-      return "text-gray-600 bg-gray-50 border-gray-200";
+      return "text-fairway bg-scorecard border-l-[#C0C0C0]";
     case 3:
-      return "text-amber-600 bg-amber-50 border-amber-200";
+      return "text-fairway bg-scorecard border-l-[#CD7F32]";
     default:
-      return "text-gray-900 bg-white border-gray-200";
+      return "text-charcoal bg-scorecard border-l-soft-grey";
   }
 }
 

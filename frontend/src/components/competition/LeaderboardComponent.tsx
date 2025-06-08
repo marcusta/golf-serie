@@ -33,21 +33,25 @@ export function LeaderboardComponent({
   const content = (
     <div className="space-y-3 md:space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+        <h2 className="text-lg md:text-xl font-semibold text-fairway font-display">
           Leaderboard
         </h2>
-        <div className="text-xs md:text-sm text-gray-500">Live scoring</div>
+        <div className="text-xs md:text-sm text-turf font-primary">
+          Live scoring
+        </div>
       </div>
 
       {leaderboardLoading ? (
-        <div className="p-4">Loading leaderboard...</div>
+        <div className="p-4 text-charcoal font-primary">
+          Loading leaderboard...
+        </div>
       ) : !leaderboard || leaderboard.length === 0 ? (
-        <div className="text-center py-6 md:py-8 text-gray-500">
+        <div className="text-center py-6 md:py-8 text-soft-grey font-primary">
           No scores reported yet.
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="divide-y divide-gray-200">
+        <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden shadow-sm">
+          <div className="divide-y divide-soft-grey">
             {[...leaderboard]
               .sort((a, b) => {
                 // First sort by whether they have started (holes played > 0)
@@ -65,21 +69,21 @@ export function LeaderboardComponent({
                   onClick={() => onParticipantClick(entry.participant.id)}
                   className={`w-full text-left px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
                     index + 1
-                  )} border-l-4 hover:bg-opacity-80 transition-colors cursor-pointer`}
+                  )} border-l-4 hover:bg-rough hover:bg-opacity-20 transition-colors cursor-pointer`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                      <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
-                        <span className="text-xs md:text-sm font-bold">
+                      <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-scorecard border-2 border-turf flex-shrink-0">
+                        <span className="text-xs md:text-sm font-bold text-fairway font-display">
                           {index + 1}
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
+                        <h4 className="text-sm md:text-lg font-medium text-fairway truncate font-display">
                           {entry.participant.team_name}{" "}
                           {entry.participant.position_name}
                         </h4>
-                        <p className="text-xs md:text-sm text-gray-600">
+                        <p className="text-xs md:text-sm text-turf font-primary">
                           Thru {entry.holesPlayed} holes
                         </p>
                       </div>
@@ -87,15 +91,19 @@ export function LeaderboardComponent({
                     <div className="text-right flex-shrink-0">
                       <div className="flex items-center gap-3 md:gap-6">
                         <div>
-                          <div className="text-xs text-gray-600">Score</div>
-                          <div className="text-lg md:text-xl font-bold text-gray-900">
+                          <div className="text-xs text-turf font-primary">
+                            Score
+                          </div>
+                          <div className="text-lg md:text-xl font-bold text-charcoal font-display">
                             {entry.totalShots}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600">To Par</div>
+                          <div className="text-xs text-turf font-primary">
+                            To Par
+                          </div>
                           <div
-                            className={`text-lg md:text-xl font-bold ${getToParColor(
+                            className={`text-lg md:text-xl font-bold font-display ${getToParColor(
                               entry.relativeToPar
                             )}`}
                           >
@@ -116,7 +124,7 @@ export function LeaderboardComponent({
   // For CompetitionRound.tsx - wrap in scrollable container
   if (isRoundView) {
     return (
-      <div className="h-full overflow-y-auto">
+      <div className="h-full overflow-y-auto bg-scorecard">
         <div className="p-4">{content}</div>
       </div>
     );

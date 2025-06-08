@@ -252,7 +252,7 @@ export function ScoreEntry({
   }, [isEditing]);
 
   return (
-    <div className="score-entry flex flex-col h-screen-mobile bg-gray-50 relative">
+    <div className="score-entry flex flex-col h-screen-mobile bg-scorecard relative">
       {/* Sync Status Indicator */}
       {syncStatus &&
         (syncStatus.pendingCount > 0 || syncStatus.hasConnectivityIssues) && (
@@ -260,8 +260,8 @@ export function ScoreEntry({
             className={cn(
               "px-3 py-2 text-center text-xs font-medium",
               syncStatus.hasConnectivityIssues
-                ? "bg-red-100 text-red-700 border-b border-red-200"
-                : "bg-yellow-100 text-yellow-700 border-b border-yellow-200"
+                ? "bg-flag text-scorecard border-b border-flag"
+                : "bg-coral text-scorecard border-b border-coral"
             )}
           >
             {syncStatus.hasConnectivityIssues ? (
@@ -275,14 +275,16 @@ export function ScoreEntry({
           </div>
         )}
 
-      {/* Compact Green Score Header */}
-      <div className="bg-green-700 text-white px-4 py-2 border-b border-green-700">
+      {/* Compact Green Score Header with TapScore Branding */}
+      <div className="bg-turf text-scorecard px-4 py-2 border-b border-turf">
         <div className="flex items-center justify-end gap-4 pr-6">
           {/* Previous Hole Column (if exists) */}
           {previousHoleData && (
             <div className="text-center w-[60px]">
-              <div className="text-2xl font-bold">{currentHole - 1}</div>
-              <div className="text-xs font-medium opacity-90">
+              <div className="text-2xl font-bold font-display">
+                {currentHole - 1}
+              </div>
+              <div className="text-xs font-medium opacity-90 font-primary">
                 Par {previousHoleData.par}
               </div>
             </div>
@@ -290,22 +292,22 @@ export function ScoreEntry({
 
           {/* Current Hole Column */}
           <div className="text-center w-[60px]">
-            <div className="text-2xl font-bold">{currentHole}</div>
-            <div className="text-xs font-medium opacity-90">
+            <div className="text-2xl font-bold font-display">{currentHole}</div>
+            <div className="text-xs font-medium opacity-90 font-primary">
               Par {currentHoleData?.par}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Confirmation Message */}
+      {/* Confirmation Message with TapScore Colors */}
       {showingConfirmation && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-30 animate-pulse">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-turf text-scorecard px-6 py-4 rounded-xl shadow-lg z-30 animate-pulse">
           <div className="text-center">
-            <div className="text-lg font-bold">
+            <div className="text-lg font-bold font-display">
               ✓ Hole {currentHole} Complete!
             </div>
-            <div className="text-sm opacity-90">
+            <div className="text-sm opacity-90 font-primary">
               Moving to hole {currentHole + 1}...
             </div>
           </div>
@@ -328,8 +330,10 @@ export function ScoreEntry({
               <div
                 key={player.participantId}
                 className={cn(
-                  "bg-white rounded-lg p-4 transition-all shadow-sm",
-                  isCurrentPlayer && "ring-2 ring-blue-500 bg-blue-50 shadow-md"
+                  "bg-scorecard rounded-xl p-4 transition-all shadow-sm border",
+                  isCurrentPlayer
+                    ? "ring-2 ring-coral bg-rough bg-opacity-20 shadow-md border-coral"
+                    : "border-soft-grey"
                 )}
                 style={{ minHeight: "70px" }}
               >
@@ -340,22 +344,22 @@ export function ScoreEntry({
                       <div>
                         <div
                           className={cn(
-                            "font-medium text-gray-900",
-                            isCurrentPlayer && "text-blue-900 font-semibold"
+                            "font-medium font-primary text-charcoal",
+                            isCurrentPlayer && "text-fairway font-semibold"
                           )}
                         >
                           {abbreviateName(player.participantName)}
                         </div>
                         {player.participantType && (
-                          <div className="text-xs text-gray-500 mt-0.5">
+                          <div className="text-xs text-soft-grey mt-0.5 font-primary">
                             {player.participantType}
                           </div>
                         )}
                       </div>
                       {player.isMultiPlayer && (
                         <div className="relative group">
-                          <Users className="w-3 h-3 text-blue-500" />
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                          <Users className="w-3 h-3 text-turf" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-fairway text-scorecard rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                             Multi-player format
                           </div>
                         </div>
@@ -365,10 +369,10 @@ export function ScoreEntry({
                       {hasCurrentScore && (
                         <div
                           className={cn(
-                            "text-xs",
+                            "text-xs font-primary",
                             syncStatus?.hasConnectivityIssues && hasCurrentScore
-                              ? "text-yellow-600"
-                              : "text-green-600"
+                              ? "text-coral"
+                              : "text-turf"
                           )}
                         >
                           {syncStatus?.hasConnectivityIssues && hasCurrentScore
@@ -378,10 +382,10 @@ export function ScoreEntry({
                       )}
                       <div
                         className={cn(
-                          "text-xs font-medium",
+                          "text-xs font-medium font-primary",
                           toPar !== null
                             ? getToParColor(toPar)
-                            : "text-gray-600"
+                            : "text-soft-grey"
                         )}
                       >
                         {toPar !== null ? formatToPar(toPar) : "-"}
@@ -394,7 +398,7 @@ export function ScoreEntry({
                     {/* Previous Hole Score */}
                     {previousHoleData && (
                       <div className="w-[60px] text-center">
-                        <div className="text-lg font-bold text-gray-600">
+                        <div className="text-lg font-bold text-charcoal font-display">
                           {previousScore !== null
                             ? formatScoreEntryDisplay(previousScore)
                             : "-"}
@@ -407,13 +411,13 @@ export function ScoreEntry({
                       <button
                         onClick={() => handleScoreFieldClick(index)}
                         className={cn(
-                          "w-12 h-12 rounded-lg text-center font-bold transition-all touch-manipulation",
+                          "w-12 h-12 rounded-xl text-center font-bold transition-all touch-manipulation font-display",
                           "border-2 text-lg flex items-center justify-center",
                           hasCurrentScore
-                            ? "bg-white text-gray-900 border-green-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
+                            ? "bg-scorecard text-charcoal border-turf"
+                            : "bg-rough bg-opacity-30 text-soft-grey border-soft-grey",
                           isCurrentPlayer &&
-                            "ring-2 ring-blue-400 ring-offset-1"
+                            "ring-2 ring-coral ring-offset-1 focus:bg-rough focus:bg-opacity-50"
                         )}
                       >
                         {formatScoreEntryDisplay(currentScore)}
@@ -425,13 +429,13 @@ export function ScoreEntry({
             );
           })}
 
-          {/* Full Scorecard Access Button */}
+          {/* Full Scorecard Access Button with TapScore Styling */}
           <button
             onClick={() => setFullScorecardVisible(true)}
-            className="w-full bg-gray-100 hover:bg-gray-200 rounded-lg p-4 flex items-center justify-center gap-2 transition-colors mt-4 touch-manipulation"
+            className="w-full bg-rough bg-opacity-30 hover:bg-rough hover:bg-opacity-50 rounded-xl p-4 flex items-center justify-center gap-2 transition-colors mt-4 touch-manipulation border border-soft-grey"
           >
-            <BarChart3 className="w-5 h-5 text-gray-600" />
-            <span className="font-medium text-gray-700">
+            <BarChart3 className="w-5 h-5 text-turf" />
+            <span className="font-medium text-fairway font-primary">
               View Full Scorecard
             </span>
           </button>
@@ -464,31 +468,31 @@ export function ScoreEntry({
         }}
       />
 
-      {/* Native Keyboard Modal */}
+      {/* Native Keyboard Modal with TapScore Styling */}
       {nativeKeyboardVisible && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h3 className="text-lg font-bold mb-4">
+          <div className="bg-scorecard rounded-xl p-6 w-full max-w-sm border border-soft-grey">
+            <h3 className="text-lg font-bold mb-4 font-display text-fairway">
               Enter Score (9 or higher)
             </h3>
             <input
               type="number"
               value={inputValue}
               onChange={handleInputChange}
-              className="w-full p-3 border rounded-lg mb-4 text-2xl text-center"
+              className="w-full p-3 border-2 border-soft-grey rounded-xl mb-4 text-2xl text-center font-display text-charcoal focus:border-turf focus:bg-rough focus:bg-opacity-20 transition-colors"
               placeholder="Enter score"
               autoFocus
             />
             <div className="flex space-x-2">
               <button
                 onClick={hideNativeKeyboard}
-                className="flex-1 p-3 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
+                className="flex-1 p-3 bg-rough bg-opacity-30 rounded-xl hover:bg-rough hover:bg-opacity-50 font-medium font-primary text-fairway transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleNativeKeyboardSubmit}
-                className="flex-1 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium"
+                className="flex-1 p-3 bg-turf text-scorecard rounded-xl hover:bg-fairway font-medium font-primary transition-colors"
               >
                 Submit
               </button>

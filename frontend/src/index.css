@@ -1,49 +1,83 @@
+/* Import Google Fonts for TapScore typography system */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap");
 @import "tailwindcss";
 
 @layer base {
   :root {
-    --background: #ffffff;
-    --foreground: #0f172a;
-    --card: #ffffff;
-    --card-foreground: #0f172a;
-    --popover: #ffffff;
-    --popover-foreground: #0f172a;
-    --primary: #16a34a;
-    --primary-foreground: #f8fafc;
-    --secondary: #f1f5f9;
-    --secondary-foreground: #0f172a;
-    --muted: #f1f5f9;
+    /* TapScore Brand Colors */
+    --fairway-green: #1b4332; /* Deep forest green - headers, navigation */
+    --turf-green: #2d6a4f; /* Medium green - buttons, highlights */
+    --light-rough: #95d5b2; /* Light sage - fills, hover states */
+    --sunset-coral: #ff9f1c; /* Orange - primary CTAs, active states */
+    --flag-red: #ef476f; /* Red - warnings, delete actions */
+    --sky-blue: #118ab2; /* Blue - notifications, info states */
+    --scorecard-white: #f8f9fa; /* Off-white - backgrounds, cards */
+    --charcoal-text: #1c1c1e; /* Dark gray - primary text */
+    --soft-grey: #ced4da; /* Light gray - borders, inactive */
+
+    /* Map TapScore colors to theme variables */
+    --background: var(--scorecard-white);
+    --foreground: var(--charcoal-text);
+    --card: var(--scorecard-white);
+    --card-foreground: var(--charcoal-text);
+    --popover: var(--scorecard-white);
+    --popover-foreground: var(--charcoal-text);
+    --primary: var(--turf-green);
+    --primary-foreground: var(--scorecard-white);
+    --secondary: var(--light-rough);
+    --secondary-foreground: var(--fairway-green);
+    --muted: var(--soft-grey);
     --muted-foreground: #64748b;
-    --accent: #f1f5f9;
-    --accent-foreground: #0f172a;
-    --destructive: #ef4444;
-    --destructive-foreground: #f8fafc;
-    --border: #e2e8f0;
-    --input: #e2e8f0;
-    --ring: #16a34a;
-    --radius: 0.5rem;
+    --accent: var(--sunset-coral);
+    --accent-foreground: var(--scorecard-white);
+    --destructive: var(--flag-red);
+    --destructive-foreground: var(--scorecard-white);
+    --border: var(--soft-grey);
+    --input: var(--soft-grey);
+    --ring: var(--turf-green);
+    --radius: 0.75rem;
+
+    /* Typography Variables */
+    --font-primary: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+      sans-serif;
+    --font-display: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont,
+      sans-serif;
+
+    /* Spacing Scale */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 3rem;
+
+    /* Border Radius Scale */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
   }
 
   .dark {
-    --background: #020617;
-    --foreground: #f8fafc;
-    --card: #020617;
-    --card-foreground: #f8fafc;
-    --popover: #020617;
-    --popover-foreground: #f8fafc;
-    --primary: #f8fafc;
-    --primary-foreground: #020617;
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-    --accent: #1e293b;
-    --accent-foreground: #f8fafc;
-    --destructive: #7f1d1d;
-    --destructive-foreground: #f8fafc;
-    --border: #1e293b;
-    --input: #1e293b;
-    --ring: #94a3b8;
+    --background: var(--fairway-green);
+    --foreground: var(--scorecard-white);
+    --card: var(--fairway-green);
+    --card-foreground: var(--scorecard-white);
+    --popover: var(--fairway-green);
+    --popover-foreground: var(--scorecard-white);
+    --primary: var(--scorecard-white);
+    --primary-foreground: var(--fairway-green);
+    --secondary: var(--turf-green);
+    --secondary-foreground: var(--scorecard-white);
+    --muted: var(--turf-green);
+    --muted-foreground: var(--light-rough);
+    --accent: var(--sunset-coral);
+    --accent-foreground: var(--scorecard-white);
+    --destructive: var(--flag-red);
+    --destructive-foreground: var(--scorecard-white);
+    --border: var(--turf-green);
+    --input: var(--turf-green);
+    --ring: var(--light-rough);
   }
 
   * {
@@ -53,8 +87,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-      Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    font-family: var(--font-primary);
     line-height: 1.5;
     font-weight: 400;
     font-synthesis: none;
@@ -68,6 +101,385 @@
 }
 
 @layer utilities {
+  /* TapScore Brand Color Utilities */
+  .bg-fairway {
+    background-color: var(--fairway-green);
+  }
+  .bg-turf {
+    background-color: var(--turf-green);
+  }
+  .bg-rough {
+    background-color: var(--light-rough);
+  }
+  .bg-coral {
+    background-color: var(--sunset-coral);
+  }
+  .bg-flag {
+    background-color: var(--flag-red);
+  }
+  .bg-sky {
+    background-color: var(--sky-blue);
+  }
+  .bg-scorecard {
+    background-color: var(--scorecard-white);
+  }
+  .bg-charcoal {
+    background-color: var(--charcoal-text);
+  }
+  .bg-soft-grey {
+    background-color: var(--soft-grey);
+  }
+
+  .text-fairway {
+    color: var(--fairway-green);
+  }
+  .text-turf {
+    color: var(--turf-green);
+  }
+  .text-rough {
+    color: var(--light-rough);
+  }
+  .text-coral {
+    color: var(--sunset-coral);
+  }
+  .text-flag {
+    color: var(--flag-red);
+  }
+  .text-sky {
+    color: var(--sky-blue);
+  }
+  .text-scorecard {
+    color: var(--scorecard-white);
+  }
+  .text-charcoal {
+    color: var(--charcoal-text);
+  }
+  .text-soft-grey {
+    color: var(--soft-grey);
+  }
+
+  .border-fairway {
+    border-color: var(--fairway-green);
+  }
+  .border-turf {
+    border-color: var(--turf-green);
+  }
+  .border-rough {
+    border-color: var(--light-rough);
+  }
+  .border-coral {
+    border-color: var(--sunset-coral);
+  }
+  .border-flag {
+    border-color: var(--flag-red);
+  }
+  .border-sky {
+    border-color: var(--sky-blue);
+  }
+  .border-scorecard {
+    border-color: var(--scorecard-white);
+  }
+  .border-charcoal {
+    border-color: var(--charcoal-text);
+  }
+  .border-soft-grey {
+    border-color: var(--soft-grey);
+  }
+
+  /* Typography System - Display Headings (DM Sans) */
+  .text-display-xl {
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  .text-display-lg {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .text-display-md {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    line-height: 1.3;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .text-display-sm {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1.4;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Body Text (Inter) */
+  .text-body-xl {
+    font-family: var(--font-primary);
+    font-size: 1.25rem;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+  .text-body-lg {
+    font-family: var(--font-primary);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+  .text-body-md {
+    font-family: var(--font-primary);
+    font-size: 1rem;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  .text-body-sm {
+    font-family: var(--font-primary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  .text-body-xs {
+    font-family: var(--font-primary);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    font-weight: 400;
+  }
+
+  /* UI Labels (Inter) */
+  .text-label-lg {
+    font-family: var(--font-primary);
+    font-size: 1rem;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  .text-label-md {
+    font-family: var(--font-primary);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  .text-label-sm {
+    font-family: var(--font-primary);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+
+  /* TapScore Semantic Status Colors */
+  .status-completed {
+    color: var(--turf-green);
+  }
+  .status-active {
+    color: var(--sunset-coral);
+  }
+  .status-pending {
+    color: var(--sky-blue);
+  }
+  .status-error {
+    color: var(--flag-red);
+  }
+  .status-warning {
+    color: var(--sunset-coral);
+  }
+  .status-success {
+    color: var(--turf-green);
+  }
+  .status-info {
+    color: var(--sky-blue);
+  }
+
+  /* Golf-specific component styles */
+  .score-card {
+    background: linear-gradient(
+      135deg,
+      var(--scorecard-white),
+      var(--light-rough)
+    );
+    border: 2px solid var(--turf-green);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    transition: all 0.2s ease;
+  }
+
+  .score-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(27, 67, 50, 0.12);
+  }
+
+  .score-number {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--fairway-green);
+  }
+
+  .leaderboard-item {
+    border-left: 4px solid var(--light-rough);
+    transition: all 0.2s ease;
+    padding: var(--space-md);
+    background: var(--scorecard-white);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-sm);
+  }
+
+  .leaderboard-item:nth-child(1) {
+    border-left-color: #ffd700;
+  } /* Gold */
+  .leaderboard-item:nth-child(2) {
+    border-left-color: #c0c0c0;
+  } /* Silver */
+  .leaderboard-item:nth-child(3) {
+    border-left-color: #cd7f32;
+  } /* Bronze */
+
+  .leaderboard-item:hover {
+    background: var(--light-rough);
+    transform: translateX(4px);
+  }
+
+  /* TapScore Button Styles */
+  .btn-primary {
+    background: var(--sunset-coral);
+    color: var(--scorecard-white);
+    border: 2px solid var(--sunset-coral);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-primary);
+    font-weight: 600;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .btn-primary:hover {
+    background: #e8890a;
+    border-color: #e8890a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 159, 28, 0.3);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--turf-green);
+    border: 2px solid var(--turf-green);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-primary);
+    font-weight: 600;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .btn-secondary:hover {
+    background: var(--light-rough);
+    color: var(--fairway-green);
+    transform: translateY(-1px);
+  }
+
+  .btn-danger {
+    background: var(--flag-red);
+    color: var(--scorecard-white);
+    border: 2px solid var(--flag-red);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-primary);
+    font-weight: 600;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .btn-danger:hover {
+    background: #dc2449;
+    border-color: #dc2449;
+    transform: translateY(-1px);
+  }
+
+  /* TapScore Card Styles */
+  .card {
+    background: var(--scorecard-white);
+    border: 1px solid var(--soft-grey);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 2px 8px rgba(27, 67, 50, 0.08);
+    padding: var(--space-lg);
+    transition: all 0.2s ease;
+  }
+
+  .card:hover {
+    box-shadow: 0 4px 16px rgba(27, 67, 50, 0.12);
+    transform: translateY(-2px);
+  }
+
+  .card-header {
+    border-bottom: 1px solid var(--soft-grey);
+    padding-bottom: var(--space-md);
+    margin-bottom: var(--space-lg);
+  }
+
+  /* Navigation Styles */
+  .nav-primary {
+    background: var(--fairway-green);
+    color: var(--scorecard-white);
+    padding: var(--space-md) 0;
+    border-bottom: 2px solid var(--turf-green);
+  }
+
+  .nav-link {
+    color: var(--scorecard-white);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .nav-link:hover,
+  .nav-link.active {
+    background: var(--turf-green);
+    color: var(--scorecard-white);
+  }
+
+  /* Form Elements */
+  .input {
+    border: 2px solid var(--soft-grey);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    font-family: var(--font-primary);
+    background: var(--scorecard-white);
+    transition: border-color 0.2s ease;
+    width: 100%;
+    font-size: 1rem;
+  }
+
+  .input:focus {
+    border-color: var(--turf-green);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+  }
+
+  .label {
+    font-family: var(--font-primary);
+    font-weight: 500;
+    color: var(--charcoal-text);
+    margin-bottom: var(--space-sm);
+    display: block;
+  }
+
+  /* Legacy color utilities for compatibility */
   .bg-background {
     background-color: var(--background);
   }

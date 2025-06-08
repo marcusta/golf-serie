@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { List, Trophy } from "lucide-react";
+import TapScoreLogo from "../../components/ui/TapScoreLogo";
 
 const playerNavLinks = [
   { to: "/player/competitions", label: "Competitions", icon: List },
@@ -21,45 +22,56 @@ export default function PlayerLayout() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        {/* Removed duplicate title, tagline, and Admin Panel button */}
+    <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough">
+      {/* TapScore Header */}
+      <div className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center h-16">
+            <TapScoreLogo size="md" variant="color" layout="horizontal" />
+          </div>
+        </div>
       </div>
 
-      {/* Player Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
-          {playerNavLinks.map((link) => {
-            const isActive =
-              location.pathname === link.to ||
-              (link.to === "/player/series" &&
-                location.pathname.startsWith("/player/series")) ||
-              (link.to === "/player/competitions" &&
-                location.pathname.startsWith("/player/competitions"));
-            const IconComponent = link.icon;
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                  ${
-                    isActive
-                      ? "border-green-500 text-green-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }
-                `}
-              >
-                <IconComponent className="h-4 w-4" />
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="space-y-6">
+          <div className="bg-scorecard rounded-xl p-6 shadow-[0_2px_8px_rgba(27,67,50,0.08)] border-2 border-soft-grey">
+            {/* Player Navigation */}
+            <div className="border-b-2 border-soft-grey">
+              <nav className="flex space-x-8">
+                {playerNavLinks.map((link) => {
+                  const isActive =
+                    location.pathname === link.to ||
+                    (link.to === "/player/series" &&
+                      location.pathname.startsWith("/player/series")) ||
+                    (link.to === "/player/competitions" &&
+                      location.pathname.startsWith("/player/competitions"));
+                  const IconComponent = link.icon;
+                  return (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className={`flex items-center gap-2 py-4 px-2 border-b-2 font-medium text-sm transition-all duration-200 font-['Inter']
+                        ${
+                          isActive
+                            ? "border-turf text-turf bg-gradient-to-b from-turf/10 to-turf/5"
+                            : "border-transparent text-charcoal hover:text-turf hover:border-rough hover:bg-rough/30"
+                        }
+                      `}
+                    >
+                      <IconComponent className="h-4 w-4" />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
 
-      {/* Player Content */}
-      <div className="min-h-[60vh]">
-        <Outlet />
+            {/* Player Content */}
+            <div className="mt-6 min-h-[60vh]">
+              <Outlet />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

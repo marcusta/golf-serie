@@ -81,24 +81,26 @@ export function CustomKeyboard({
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 transition-transform duration-300 ease-in-out z-50",
+        "fixed bottom-0 left-0 right-0 bg-scorecard border-t border-soft-grey transition-transform duration-300 ease-in-out z-50",
         visible ? "translate-y-0" : "translate-y-full",
         "shadow-lg rounded-t-xl"
       )}
     >
-      {/* Current Hole Strip */}
-      <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-center">
+      {/* Current Hole Strip with TapScore Branding */}
+      <div className="bg-turf text-scorecard px-4 py-2 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg font-bold">
+          <div className="text-lg font-bold font-display">
             Hole {currentHole} | Par {holePar}
           </div>
         </div>
       </div>
 
       {/* Header with dismiss button */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
+      <div className="flex items-center justify-between p-3 border-b border-soft-grey bg-rough bg-opacity-20">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-600">Enter Score</span>
+          <span className="text-sm font-medium text-fairway font-primary">
+            Enter Score
+          </span>
         </div>
         {onDismiss && (
           <button
@@ -106,15 +108,15 @@ export function CustomKeyboard({
               e.preventDefault();
               handleDismiss();
             }}
-            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors touch-manipulation focus:outline-none"
+            className="p-2 rounded-xl bg-rough bg-opacity-30 hover:bg-rough hover:bg-opacity-50 transition-colors touch-manipulation focus:outline-none"
             aria-label="Close keyboard"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5 text-fairway" />
           </button>
         )}
       </div>
 
-      {/* Keyboard buttons */}
+      {/* Keyboard buttons with TapScore styling */}
       <div className="p-2">
         {/* Row 1: 1, 2, 3 */}
         <div className="grid grid-cols-3 gap-1 mb-1">
@@ -125,10 +127,10 @@ export function CustomKeyboard({
                 e.preventDefault();
                 handleNumberPress(num);
               }}
-              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+              className="h-14 bg-turf hover:bg-fairway active:bg-fairway rounded-xl text-xl font-bold text-scorecard transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
             >
               <span>{num}</span>
-              <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
                 {getScoreLabel(num)}
               </span>
             </button>
@@ -144,10 +146,10 @@ export function CustomKeyboard({
                 e.preventDefault();
                 handleNumberPress(num);
               }}
-              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+              className="h-14 bg-turf hover:bg-fairway active:bg-fairway rounded-xl text-xl font-bold text-scorecard transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
             >
               <span>{num}</span>
-              <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
                 {getScoreLabel(num)}
               </span>
             </button>
@@ -163,10 +165,10 @@ export function CustomKeyboard({
                 e.preventDefault();
                 handleNumberPress(num);
               }}
-              className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+              className="h-14 bg-rough bg-opacity-40 hover:bg-rough hover:bg-opacity-60 active:bg-rough active:bg-opacity-80 rounded-xl text-xl font-bold text-fairway transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
             >
               <span>{num}</span>
-              <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
                 {getScoreLabel(num)}
               </span>
             </button>
@@ -176,10 +178,10 @@ export function CustomKeyboard({
               e.preventDefault();
               handleSpecialPress("more");
             }}
-            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+            className="h-14 bg-coral hover:bg-coral hover:opacity-90 active:bg-coral active:opacity-80 rounded-xl text-xl font-bold text-scorecard transition-all touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
           >
             <span>9+</span>
-            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
               {getScoreLabel(9)}
             </span>
           </button>
@@ -192,10 +194,10 @@ export function CustomKeyboard({
               e.preventDefault();
               handleSpecialPress("clear");
             }}
-            className="h-14 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-lg text-xl font-bold text-red-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+            className="h-14 bg-flag hover:bg-flag hover:opacity-90 active:bg-flag active:opacity-80 rounded-xl text-xl font-bold text-scorecard transition-all touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
           >
             <span>−</span>
-            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
               GAVE UP
             </span>
           </button>
@@ -204,10 +206,10 @@ export function CustomKeyboard({
               e.preventDefault();
               handleSpecialPress("unreported");
             }}
-            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+            className="h-14 bg-rough bg-opacity-40 hover:bg-rough hover:bg-opacity-60 active:bg-rough active:bg-opacity-80 rounded-xl text-xl font-bold text-fairway transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
           >
             <span>0</span>
-            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
               UNREPORTED
             </span>
           </button>

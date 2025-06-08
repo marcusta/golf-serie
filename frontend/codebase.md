@@ -159,6 +159,337 @@ src/
 Remember to maintain consistency with existing patterns, use the established API hooks, and follow the mobile-first responsive design principles throughout the codebase.
 ```
 
+# .cursor/rules/product-description.mdc
+
+```mdc
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Golf Tournament & Scoring Platform - Product Specification
+
+## 1. Executive Summary
+
+This document outlines the product specification for a comprehensive digital golf scoring platform that supports various tournament formats, series, tours, and adhoc games. The platform serves both competitive organized golf (team series, individual tours) and casual play, with real-time scoring, leaderboards, and statistics.
+
+### Core Value Proposition
+- Digital scoring for all golf formats (stroke play, stableford, match play, etc.)
+- Support for team series, individual tours, and standalone competitions
+- Real-time leaderboards and results
+- Mobile-first scoring interface
+- Comprehensive statistics and historical data
+
+### Target Users
+1. **Golf Clubs & Organizations** - Running official series and tours
+2. **Golf Groups & Friends** - Organizing casual series, tours, or one-off competitions
+3. **Individual Players** - Participating in events and tracking personal statistics
+
+## 2. User Types & Access Levels
+
+### 2.1 Registered Users
+- **Players**: Can join competitions, enter scores, view statistics
+- **Admins**: Can create/manage series, tours, competitions, and teams
+- **Player-Admins**: Have both player and admin capabilities
+- Authentication via email/password
+- Profile management with handicap, home club, etc.
+
+### 2.2 Temporary Token Users
+- Access specific competitions via unique token/code
+- Limited to scoring and viewing for that specific event
+- No account required
+- Token expires after competition ends
+- Ideal for guest players or one-time participants
+
+### 2.3 Anonymous Users
+- Browse public series, tours, and competitions
+- View leaderboards and results (read-only)
+- Can access events via direct link (for semi-private events)
+- Cannot enter scores or join competitions
+
+## 3. Application Structure
+
+### 3.1 Public Section (Player Interface)
+
+#### Landing Page (`/`)
+- **Available Series**: Card grid showing active team series with:
+  - Series name and logo
+  - Current standings summary
+  - Next upcoming competition
+  - Number of participating teams
+- **Available Tours**: Similar grid for individual tours
+- **Upcoming Competitions**: Timeline view of all competitions across series/tours
+- **Live Leaderboards**: Real-time top 5 from ongoing competitions
+- **Quick Actions**:
+  - "Create Adhoc Game" button
+  - "Join with Code" input field
+  - "My Competitions" (for logged-in users)
+
+#### Series View (`/series/{series-id}`)
+- **Header Section**:
+  - Series banner image
+  - Series name and description
+  - Sponsor logos (if applicable)
+- **Navigation Tabs**:
+  - Overview
+  - Standings
+  - Competitions
+  - Teams
+  - Statistics
+  - Info/Rules
+- **Content Area**: Dynamic based on selected tab
+
+#### Tour View (`/tours/{tour-id}`)
+- Similar structure to Series View but focused on individuals
+- Leaderboard shows players instead of teams
+- Statistics focus on individual performance
+
+#### Competition View (`/competitions/{competition-id}`)
+- **Pre-Competition**: Start list, course info, format rules
+- **During Competition**: Live scoring, real-time leaderboard
+- **Post-Competition**: Final results, statistics, downloadable scorecard
+
+#### Score Entry (`/competitions/{competition-id}/score-entry`)
+- Mobile-optimized interface
+- Hole-by-hole scoring with custom keyboard
+- Support for different scoring formats
+- Offline capability with sync when connection restored
+- Quick navigation between holes
+- Full scorecard view
+
+### 3.2 Admin Section (`/admin`)
+
+#### Admin Dashboard (`/admin`)
+- Overview statistics (active series/tours/competitions)
+- Recent activity feed
+- Quick action buttons
+- Upcoming events calendar
+
+#### Series Management (`/admin/series`)
+- Create/Edit/Delete series
+- Configure point systems
+- Manage participating teams
+- Set competition schedule
+- Upload branding assets
+
+#### Tour Management (`/admin/tours`)
+- Similar to series but for individual competitions
+- Player registration management
+- Tour-specific rules and formats
+
+#### Competition Management (`/admin/competitions`)
+- Create competitions with various formats
+- Assign to series/tour or standalone
+- Configure tee times and groups
+- Set participant types (e.g., "Single 1", "Single 2", "Better Ball")
+- Real-time monitoring during play
+
+#### Team Management (`/admin/teams`)
+- CRUD operations for teams
+- Assign players to teams
+- Team statistics and history
+
+#### Course Management (`/admin/courses`)
+- Add/edit golf courses
+- Configure hole pars and handicaps
+- Multiple tee configurations
+
+## 4. Core Features
+
+### 4.1 Competition Formats (Modular Design)
+
+#### Base Competition Module
+\`\`\`typescript
+interface CompetitionFormat {
+  id: string;
+  name: string;
+  scoreEntry: ScoreEntryComponent;
+  leaderboardCalculation: LeaderboardCalculator;
+  resultDisplay: ResultDisplayComponent;
+  rules: RulesConfiguration;
+}
+\`\`\`
+
+#### Supported Formats
+1. **Stroke Play**
+   - Gross and net scoring
+   - Individual or team aggregate
+   - Cut line support
+
+2. **Stableford**
+   - Point-based scoring
+   - Modified stableford variants
+   - Team stableford
+
+3. **Match Play**
+   - Bracket management
+   - Automatic advancement
+   - Consolation brackets
+
+4. **Better Ball**
+   - 2-person teams
+   - Best score per hole
+   - Gross and net variants
+
+5. **Scramble/Texas Scramble**
+   - Team format
+   - Shot selection interface
+   - Handicap allowances
+
+6. **Custom Formats**
+   - Plugin architecture for new formats
+   - Configuration without code changes
+
+### 4.2 Scoring System
+
+#### Mobile-First Score Entry
+- Large touch targets
+- Custom numeric keyboard
+- Quick score entry (1-9+ strokes)
+- Special states (DNF, DQ, NR)
+- Offline capability
+- Auto-save and sync
+
+#### Real-time Updates
+- WebSocket connections for live scoring
+- Optimistic UI updates
+- Conflict resolution
+- Battery-efficient sync intervals
+
+### 4.3 Team & Player Management
+
+#### Team Features
+- Team rosters with roles
+- Substitute players
+- Team handicaps
+- Historical performance
+
+#### Player Features
+- Player profiles
+- Handicap tracking
+- Performance statistics
+- Competition history
+
+### 4.4 Points & Standings
+
+#### Flexible Point Systems
+- Configurable point tables
+- Major/minor competition weighting
+- Dropped scores
+- Playoff scenarios
+
+#### Live Standings
+- Real-time calculation
+- Projected standings
+- Historical progression
+- Export capabilities
+
+## 5. Technical Architecture
+
+### 5.1 Frontend Stack
+- **Framework**: React 19 with TypeScript
+- **Routing**: TanStack Router (file-based)
+- **State Management**: TanStack Query for server state
+- **UI Components**: Radix UI + custom components
+- **Styling**: Tailwind CSS
+- **Build Tool**: Vite
+
+### 5.2 Key Design Principles
+- **Mobile-First**: All interfaces optimized for mobile devices
+- **Offline-First**: Score entry works without connection
+- **Real-time**: Live updates across all connected clients
+- **Modular**: Pluggable competition formats
+- **Accessible**: WCAG 2.1 AA compliance
+
+### 5.3 Data Flow
+\`\`\`
+User Action → Local State → Optimistic Update → API Call → 
+Server Processing → WebSocket Broadcast → UI Update
+\`\`\`
+
+## 6. Navigation Structure
+
+\`\`\`
+/
+├── series/
+│   ├── {series-id}/
+│   │   ├── standings/
+│   │   ├── competitions/
+│   │   ├── teams/
+│   │   ├── statistics/
+│   │   └── info/
+├── tours/
+│   ├── {tour-id}/
+│   │   ├── leaderboard/
+│   │   ├── competitions/
+│   │   ├── players/
+│   │   ├── statistics/
+│   │   └── info/
+├── competitions/
+│   ├── {competition-id}/
+│   │   ├── startlist/
+│   │   ├── leaderboard/
+│   │   ├── results/
+│   │   └── score-entry/
+├── create-adhoc-game/
+├── join-with-code/
+├── my-profile/
+├── my-statistics/
+└── admin/
+    ├── series/
+    ├── tours/
+    ├── competitions/
+    ├── teams/
+    ├── players/
+    ├── courses/
+    └── settings/
+\`\`\`
+
+## 7. Implementation Priorities
+
+### Phase 1: Core Functionality
+1. Complete scoring system for stroke play
+2. Basic series/tour creation
+3. Team management
+4. Real-time leaderboards
+
+### Phase 2: Extended Formats
+1. Stableford scoring
+2. Match play brackets
+3. Better ball formats
+4. Points system
+
+### Phase 3: Enhanced Features
+1. Comprehensive statistics
+2. Mobile apps (React Native)
+3. Advanced tournament formats
+4. Integration APIs
+
+### Phase 4: Premium Features
+1. Live streaming integration
+2. Sponsor management
+3. Advanced analytics
+4. White-label options
+
+## 8. Success Metrics
+
+- **Adoption**: Number of active series/tours
+- **Engagement**: Scores entered per competition
+- **Reliability**: Uptime and sync success rate
+- **Performance**: Score entry time < 2 seconds
+- **User Satisfaction**: NPS score > 50
+
+## 9. Future Considerations
+
+- **AI-powered insights**: Performance predictions, strategy suggestions
+- **Social features**: Comments, likes, sharing
+- **Betting integration**: (where legally permitted)
+- **Hardware integration**: GPS rangefinders, smart watches
+- **Virtual tournaments**: Cross-course competitions with handicapping
+
+This specification provides the foundation for building a comprehensive golf tournament platform that can scale from casual friend groups to official golf associations while maintaining ease of use and reliability.
+```
+
 # .gitignore
 
 ```
@@ -484,17 +815,24 @@ export default tseslint.config(
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-icons": "^1.3.2",
+    "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.5",
+    "@radix-ui/react-tabs": "^1.1.12",
+    "@tailwindcss/line-clamp": "^0.4.4",
     "@tailwindcss/vite": "^4.1.7",
     "@tanstack/react-query": "^5.77.2",
     "@tanstack/react-query-devtools": "^5.77.2",
     "@tanstack/react-router": "^1.120.11",
     "@tanstack/router-devtools": "^1.120.11",
+    "@uiw/react-md-editor": "^4.0.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {
@@ -971,7 +1309,7 @@ export default tseslint.config({
 # src/api/competitions.ts
 
 ```ts
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
 import type { TeeTimeParticipant } from "./tee-times";
 
@@ -980,6 +1318,7 @@ export interface Competition {
   name: string;
   date: string;
   course_id: number;
+  series_id?: number;
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -1034,6 +1373,99 @@ export function useCompetitionLeaderboard(competitionId: number) {
       return response.json();
     },
     enabled: competitionId > 0,
+  });
+}
+
+export interface CreateCompetitionDto {
+  name: string;
+  date: string;
+  course_id: number;
+  series_id?: number;
+}
+
+export interface UpdateCompetitionDto {
+  name?: string;
+  date?: string;
+  course_id?: number;
+  series_id?: number;
+}
+
+// Note: These mutation hooks will be added when needed for admin functionality
+// For now, competitions are read-only in the current implementation
+
+export function useCreateCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateCompetitionDto): Promise<Competition> => {
+      const response = await fetch(`${API_BASE_URL}/competitions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create competition");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["competitions"] });
+    },
+  });
+}
+
+export function useUpdateCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: UpdateCompetitionDto;
+    }): Promise<Competition> => {
+      const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update competition");
+      }
+
+      return response.json();
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["competitions"] });
+      queryClient.invalidateQueries({ queryKey: ["competition", id] });
+    },
+  });
+}
+
+export function useDeleteCompetition() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/competitions/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete competition");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["competitions"] });
+    },
   });
 }
 
@@ -1243,6 +1675,437 @@ export function useParticipant(id: number) {
 
 ```
 
+# src/api/series.ts
+
+```ts
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Competition } from "./competitions";
+import { API_BASE_URL } from "./config";
+import type { Team } from "./teams";
+
+export interface Series {
+  id: number;
+  name: string;
+  description?: string;
+  banner_image_url?: string;
+  is_public: boolean;
+  landing_document_id?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSeriesDto {
+  name: string;
+  description?: string;
+  banner_image_url?: string;
+  is_public?: boolean;
+}
+
+export interface UpdateSeriesDto {
+  name?: string;
+  description?: string;
+  banner_image_url?: string;
+  is_public?: boolean;
+  landing_document_id?: number;
+}
+
+export interface SeriesTeamStanding {
+  team_id: number;
+  team_name: string;
+  total_points: number;
+  competitions_played: number;
+  position: number;
+  competitions: {
+    competition_id: number;
+    competition_name: string;
+    competition_date: string;
+    points: number;
+    position: number;
+  }[];
+}
+
+export interface SeriesStandings {
+  series: Series;
+  team_standings: SeriesTeamStanding[];
+  total_competitions: number;
+}
+
+export interface SeriesDocument {
+  id: number;
+  series_id: number;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSeriesDocumentDto {
+  title: string;
+  content: string;
+}
+
+export interface UpdateSeriesDocumentDto {
+  title?: string;
+  content?: string;
+}
+
+export function useSeries() {
+  return useQuery<Series[]>({
+    queryKey: ["series"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/series`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+  });
+}
+
+export function usePublicSeries() {
+  return useQuery<Series[]>({
+    queryKey: ["series", "public"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/series/public`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+  });
+}
+
+export function useSingleSeries(id: number) {
+  return useQuery<Series>({
+    queryKey: ["series", id],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/series/${id}`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: id > 0,
+  });
+}
+
+export function useSeriesStandings(id: number) {
+  return useQuery<SeriesStandings>({
+    queryKey: ["series", id, "standings"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/series/${id}/standings`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: id > 0,
+  });
+}
+
+export function useSeriesCompetitions(id: number) {
+  return useQuery<Competition[]>({
+    queryKey: ["series", id, "competitions"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/series/${id}/competitions`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: id > 0,
+  });
+}
+
+export function useSeriesTeams(id: number) {
+  return useQuery<Team[]>({
+    queryKey: ["series", id, "teams"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/series/${id}/teams`);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: id > 0,
+  });
+}
+
+export function useCreateSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateSeriesDto) => {
+      const response = await fetch(`${API_BASE_URL}/series`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+    },
+  });
+}
+
+export function useUpdateSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: UpdateSeriesDto }) => {
+      const response = await fetch(`${API_BASE_URL}/series/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", id] });
+      queryClient.invalidateQueries({ queryKey: ["series", "public"] });
+    },
+  });
+}
+
+export function useDeleteSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`${API_BASE_URL}/series/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["series"] });
+      queryClient.invalidateQueries({ queryKey: ["series", "public"] });
+    },
+  });
+}
+
+export function useAvailableTeams(seriesId: number) {
+  return useQuery<Team[]>({
+    queryKey: ["series", seriesId, "available-teams"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/available-teams`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: seriesId > 0,
+  });
+}
+
+export function useAddTeamToSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      teamId,
+    }: {
+      seriesId: number;
+      teamId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/teams/${teamId}`,
+        {
+          method: "POST",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "available-teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "standings"],
+      });
+    },
+  });
+}
+
+export function useRemoveTeamFromSeries() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      teamId,
+    }: {
+      seriesId: number;
+      teamId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/teams/${teamId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "available-teams"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "standings"],
+      });
+    },
+  });
+}
+
+// Series documents functions
+export function useSeriesDocuments(seriesId: number) {
+  return useQuery<SeriesDocument[]>({
+    queryKey: ["series", seriesId, "documents"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: seriesId > 0,
+  });
+}
+
+export function useCreateSeriesDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      data,
+    }: {
+      seriesId: number;
+      data: CreateSeriesDocumentDto;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "documents"],
+      });
+    },
+  });
+}
+
+export function useUpdateSeriesDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      documentId,
+      data,
+    }: {
+      seriesId: number;
+      documentId: number;
+      data: UpdateSeriesDocumentDto;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents/${documentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "documents"],
+      });
+    },
+  });
+}
+
+export function useDeleteSeriesDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      documentId,
+    }: {
+      seriesId: number;
+      documentId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/documents/${documentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "documents"],
+      });
+    },
+  });
+}
+
+```
+
 # src/api/teams.ts
 
 ```ts
@@ -1286,13 +2149,13 @@ export function useCreateTeam() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (data: { name: string }) => {
       const response = await fetch(`${API_BASE_URL}/teams`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(data),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");
@@ -1309,13 +2172,19 @@ export function useUpdateTeam() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { name?: string };
+    }) => {
       const response = await fetch(`${API_BASE_URL}/teams/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(data),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");
@@ -1423,6 +2292,8 @@ export function useTeeTime(teeTimeId: number) {
 }
 
 export function useUpdateScore() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async ({
       participantId,
@@ -1448,10 +2319,14 @@ export function useUpdateScore() {
       }
       return response.json();
     },
-    // Removed automatic invalidation - sync is now managed manually to prevent server spam
-    // onSuccess: () => {
-    //   queryClient.invalidateQueries({ queryKey: ["teeTime"] });
-    // },
+    onSuccess: (data) => {
+      // Update the specific teeTime query cache with the fresh data
+      // This ensures the UI reflects the updated score immediately
+      const teeTimeId = data.tee_time_id;
+      if (teeTimeId) {
+        queryClient.invalidateQueries({ queryKey: ["teeTime", teeTimeId] });
+      }
+    },
   });
 }
 
@@ -1569,6 +2444,22 @@ export function useDeleteParticipant() {
       // Invalidate the tee times query to refetch the updated data
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
     },
+  });
+}
+
+export function useParticipant(participantId: number) {
+  return useQuery<TeeTimeParticipant>({
+    queryKey: ["participant", participantId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${participantId}`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: participantId > 0,
   });
 }
 
@@ -1699,6 +2590,646 @@ export default function App() {
 
 This is a file of the type: SVG Image
 
+# src/components/competition/CompetitionInfoBar.tsx
+
+```tsx
+import { Calendar, MapPin, Users } from "lucide-react";
+
+interface CompetitionInfoBarProps {
+  competition: { date: string };
+  courseName?: string;
+  totalParticipants: number;
+  variant?: "header" | "footer";
+}
+
+export function CompetitionInfoBar({
+  competition,
+  courseName,
+  totalParticipants,
+  variant = "footer",
+}: CompetitionInfoBarProps) {
+  const baseClass =
+    variant === "header"
+      ? "bg-gray-50 rounded-lg p-4 border border-gray-200"
+      : "bg-gray-50 border-t border-gray-200 px-4 py-2 flex-shrink-0";
+
+  return (
+    <div className={baseClass}>
+      <div className="flex items-center justify-center gap-4 md:gap-8 text-xs text-gray-600">
+        <div className="flex items-center gap-1">
+          <Calendar className="h-3 w-3" />
+          <span className="hidden sm:inline">
+            {new Date(competition.date).toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+          <span className="sm:hidden">
+            {new Date(competition.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <MapPin className="h-3 w-3" />
+          <span className="truncate">{courseName || "Loading..."}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Users className="h-3 w-3" />
+          <span>{totalParticipants} participants</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+```
+
+# src/components/competition/index.ts
+
+```ts
+export { CompetitionInfoBar } from "./CompetitionInfoBar";
+export { LeaderboardComponent } from "./LeaderboardComponent";
+export { ParticipantsListComponent } from "./ParticipantsListComponent";
+export { TeamResultComponent } from "./TeamResultComponent";
+
+```
+
+# src/components/competition/LeaderboardComponent.tsx
+
+```tsx
+import {
+  formatToPar,
+  getToParColor,
+  getPositionColor,
+} from "../../utils/scoreCalculations";
+
+interface LeaderboardEntry {
+  participant: {
+    id: number;
+    team_name: string;
+    position_name: string;
+    player_names?: string | null;
+  };
+  totalShots: number;
+  relativeToPar: number;
+  holesPlayed: number;
+}
+
+interface LeaderboardComponentProps {
+  leaderboard: LeaderboardEntry[] | undefined;
+  leaderboardLoading: boolean;
+  onParticipantClick: (participantId: number) => void;
+  // For CompetitionRound context
+  isRoundView?: boolean;
+}
+
+export function LeaderboardComponent({
+  leaderboard,
+  leaderboardLoading,
+  onParticipantClick,
+  isRoundView = false,
+}: LeaderboardComponentProps) {
+  const content = (
+    <div className="space-y-3 md:space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+          Leaderboard
+        </h2>
+        <div className="text-xs md:text-sm text-gray-500">Live scoring</div>
+      </div>
+
+      {leaderboardLoading ? (
+        <div className="p-4">Loading leaderboard...</div>
+      ) : !leaderboard || leaderboard.length === 0 ? (
+        <div className="text-center py-6 md:py-8 text-gray-500">
+          No scores reported yet.
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="divide-y divide-gray-200">
+            {[...leaderboard]
+              .sort((a, b) => {
+                // First sort by whether they have started (holes played > 0)
+                const aStarted = a.holesPlayed > 0;
+                const bStarted = b.holesPlayed > 0;
+                if (aStarted !== bStarted) {
+                  return aStarted ? -1 : 1;
+                }
+                // Then sort by relativeToPar
+                return a.relativeToPar - b.relativeToPar;
+              })
+              .map((entry, index) => (
+                <button
+                  key={entry.participant.id}
+                  onClick={() => onParticipantClick(entry.participant.id)}
+                  className={`w-full text-left px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
+                    index + 1
+                  )} border-l-4 hover:bg-opacity-80 transition-colors cursor-pointer`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                      <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
+                        <span className="text-xs md:text-sm font-bold">
+                          {index + 1}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
+                          {entry.participant.team_name}{" "}
+                          {entry.participant.position_name}
+                        </h4>
+                        <p className="text-xs md:text-sm text-gray-600">
+                          Thru {entry.holesPlayed} holes
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="flex items-center gap-3 md:gap-6">
+                        <div>
+                          <div className="text-xs text-gray-600">Score</div>
+                          <div className="text-lg md:text-xl font-bold text-gray-900">
+                            {entry.totalShots}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-600">To Par</div>
+                          <div
+                            className={`text-lg md:text-xl font-bold ${getToParColor(
+                              entry.relativeToPar
+                            )}`}
+                          >
+                            {formatToPar(entry.relativeToPar)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // For CompetitionRound.tsx - wrap in scrollable container
+  if (isRoundView) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="p-4">{content}</div>
+      </div>
+    );
+  }
+
+  // For CompetitionDetail.tsx - return content directly
+  return content;
+}
+
+```
+
+# src/components/competition/ParticipantsListComponent.tsx
+
+```tsx
+import { Link } from "@tanstack/react-router";
+import { Clock, Users } from "lucide-react";
+import {
+  formatParticipantTypeDisplay,
+  isMultiPlayerFormat,
+} from "../../utils/playerUtils";
+import type { TeeTimeParticipant } from "../../api/tee-times";
+
+interface TeeTime {
+  id: number;
+  teetime: string;
+  participants: TeeTimeParticipant[];
+  pars: number[];
+  course_name: string;
+}
+
+interface ParticipantsListComponentProps {
+  teeTimes: TeeTime[] | undefined;
+  teeTimesLoading: boolean;
+  competitionId: string;
+  // For CompetitionRound context
+  currentTeeTimeId?: string;
+  currentTeeTime?: TeeTime;
+  showCurrentGroup?: boolean;
+  totalParticipants?: number;
+}
+
+export function ParticipantsListComponent({
+  teeTimes,
+  teeTimesLoading,
+  competitionId,
+  currentTeeTimeId,
+  currentTeeTime,
+  showCurrentGroup = false,
+  totalParticipants = 0,
+}: ParticipantsListComponentProps) {
+  // For CompetitionDetail.tsx - simple start list view
+  if (!showCurrentGroup) {
+    return (
+      <div className="space-y-3 md:space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+            Tee Times
+          </h2>
+          <div className="text-xs md:text-sm text-gray-500">
+            {teeTimes?.length || 0} tee times
+          </div>
+        </div>
+
+        {teeTimesLoading ? (
+          <div className="p-4">Loading tee times...</div>
+        ) : !teeTimes || teeTimes.length === 0 ? (
+          <div className="text-center py-6 md:py-8 text-gray-500 text-sm">
+            No tee times scheduled for this competition yet.
+          </div>
+        ) : (
+          <div className="grid gap-3 md:gap-4">
+            {teeTimes.map((teeTime) => (
+              <Link
+                key={teeTime.id}
+                to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
+                className="block bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200"
+              >
+                <div className="p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-3 md:mb-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                      <span className="text-base md:text-lg font-semibold text-gray-900">
+                        {teeTime.teetime}
+                      </span>
+                    </div>
+                    <div className="text-xs md:text-sm text-gray-500">
+                      {teeTime.participants.length} players
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+                    {teeTime.participants.map((participant) => (
+                      <div
+                        key={participant.id}
+                        className="flex items-center justify-between p-2 md:p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-medium text-gray-900 text-sm md:text-base block truncate">
+                            {participant.team_name} {participant.position_name}
+                          </span>
+                          <div className="text-xs text-gray-500 truncate">
+                            {participant.player_names}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {teeTime.participants.length === 0 && (
+                    <div className="text-center py-3 md:py-4 text-gray-500 text-sm">
+                      No participants assigned to this tee time yet.
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // For CompetitionRound.tsx - participants view with current group context
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+            Round Participants
+          </h2>
+          <div className="text-xs md:text-sm text-gray-500">
+            {currentTeeTimeId ? "Current group" : `${totalParticipants} total`}
+          </div>
+        </div>
+
+        {/* Current Tee Time Group (if in score entry context) */}
+        {currentTeeTimeId && currentTeeTime && (
+          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm md:text-lg font-semibold text-blue-900">
+                Your Group - {currentTeeTime.teetime}
+              </h3>
+              <span className="text-xs md:text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                Active
+              </span>
+            </div>
+            <div className="space-y-2">
+              {currentTeeTime.participants.map(
+                (participant: TeeTimeParticipant) => (
+                  <div
+                    key={participant.id}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <h4 className="text-sm md:text-base font-medium text-gray-900">
+                        {participant.team_name}
+                      </h4>
+                      <p className="text-xs md:text-sm text-gray-600 mt-1">
+                        {formatParticipantTypeDisplay(
+                          participant.position_name
+                        )}
+                        {participant.player_names && (
+                          <span className="ml-2">
+                            • {participant.player_names}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {isMultiPlayerFormat(participant.position_name) && (
+                        <Users className="w-4 h-4 inline-block" />
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* All Other Tee Times */}
+        <div>
+          <h3 className="text-sm md:text-base font-medium text-gray-700 mb-3">
+            {currentTeeTimeId ? "Other Groups" : "All Groups"}
+          </h3>
+
+          {!teeTimes || teeTimes.length === 0 ? (
+            <div className="text-center py-6 md:py-8 text-gray-500">
+              No tee times scheduled for this competition.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {teeTimes
+                .filter(
+                  (t) =>
+                    !currentTeeTimeId || t.id !== parseInt(currentTeeTimeId)
+                )
+                .map((teeTimeGroup) => (
+                  <div
+                    key={teeTimeGroup.id}
+                    className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+                  >
+                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                      <h4 className="text-sm md:text-base font-semibold text-gray-900">
+                        {teeTimeGroup.teetime}
+                      </h4>
+                    </div>
+                    <div className="divide-y divide-gray-200">
+                      {teeTimeGroup.participants.map(
+                        (participant: TeeTimeParticipant) => (
+                          <div
+                            key={participant.id}
+                            className="px-4 py-2 flex items-center justify-between"
+                          >
+                            <div className="flex-1">
+                              <h5 className="text-xs md:text-sm font-medium text-gray-900">
+                                {participant.team_name}
+                              </h5>
+                              <p className="text-xs text-gray-600">
+                                {formatParticipantTypeDisplay(
+                                  participant.position_name
+                                )}
+                              </p>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {isMultiPlayerFormat(
+                                participant.position_name
+                              ) && <Users className="w-3 h-3 inline-block" />}
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+```
+
+# src/components/competition/TeamResultComponent.tsx
+
+```tsx
+import {
+  formatToPar,
+  getToParColor,
+  getPositionColor,
+} from "../../utils/scoreCalculations";
+
+interface TeamResultEntry {
+  teamName: string;
+  participants: Array<{
+    name: string;
+    position: string;
+    totalShots: number;
+    relativeToPar: number;
+  }>;
+  totalShots: number;
+  relativeToPar: number;
+  position: number;
+  points: number;
+}
+
+interface TeamResultComponentProps {
+  teamResults: TeamResultEntry[] | undefined;
+  leaderboardLoading: boolean;
+  // For CompetitionRound context
+  isRoundView?: boolean;
+}
+
+export function TeamResultComponent({
+  teamResults,
+  leaderboardLoading,
+  isRoundView = false,
+}: TeamResultComponentProps) {
+  const content = (
+    <div className="space-y-3 md:space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+          Team Results
+        </h2>
+        <div className="text-xs md:text-sm text-gray-500">Final standings</div>
+      </div>
+
+      {leaderboardLoading ? (
+        <div className="p-4">Loading team results...</div>
+      ) : !teamResults || teamResults.length === 0 ? (
+        <div className="text-center py-6 md:py-8 text-gray-500">
+          No team results available yet.
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="divide-y divide-gray-200">
+            {teamResults.map((team) => (
+              <div
+                key={team.teamName}
+                className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
+                  team.position
+                )} border-l-4`}
+              >
+                <div className="flex items-center justify-between mb-3 md:mb-4">
+                  <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                    <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
+                      <span className="text-xs md:text-sm font-bold">
+                        {team.position}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
+                        {team.teamName}
+                      </h4>
+                      <p className="text-xs md:text-sm text-gray-600">
+                        {team.participants.length} players
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="flex items-center gap-2 md:gap-6">
+                      <div>
+                        <div className="text-xs text-gray-600">Total</div>
+                        <div className="text-sm md:text-xl font-bold text-gray-900">
+                          {team.totalShots}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600">To Par</div>
+                        <div
+                          className={`text-sm md:text-xl font-bold ${getToParColor(
+                            team.relativeToPar
+                          )}`}
+                        >
+                          {formatToPar(team.relativeToPar)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600">Points</div>
+                        <div className="text-sm md:text-xl font-bold text-green-600">
+                          {team.points}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:gap-4 mt-2 md:mt-4">
+                  <div>
+                    <h5 className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">
+                      Player Scores
+                    </h5>
+                    <div className="space-y-1 md:space-y-2">
+                      {team.participants.map((participant) => (
+                        <div
+                          key={participant.name}
+                          className="flex items-center justify-between text-xs md:text-sm"
+                        >
+                          <span className="text-gray-600 truncate flex-1 mr-2">
+                            {participant.name} ({participant.position})
+                          </span>
+                          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                            <span
+                              className={getToParColor(
+                                participant.relativeToPar
+                              )}
+                            >
+                              {formatToPar(participant.relativeToPar)}
+                            </span>
+                            <span className="text-gray-900 font-medium">
+                              {participant.totalShots}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // For CompetitionRound.tsx - wrap in scrollable container
+  if (isRoundView) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="p-4">{content}</div>
+      </div>
+    );
+  }
+
+  // For CompetitionDetail.tsx - return content directly
+  return content;
+}
+
+```
+
+# src/components/MarkdownEditor.tsx
+
+```tsx
+import MDEditor from "@uiw/react-md-editor";
+import "@uiw/react-md-editor/markdown-editor.css";
+import { useEffect } from "react";
+
+interface MarkdownEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  height?: number;
+}
+
+export default function MarkdownEditor({
+  value,
+  onChange,
+  height = 400,
+}: MarkdownEditorProps) {
+  // Ensure body overflow is reset when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  return (
+    <div className="markdown-editor">
+      <MDEditor
+        value={value}
+        onChange={(val) => onChange(val || "")}
+        height={height}
+        preview="edit"
+        hideToolbar={false}
+        data-color-mode="light"
+        onFocus={() => {
+          // Ensure scrolling works when editor is focused
+          document.body.style.overflow = "";
+        }}
+        onBlur={() => {
+          // Reset overflow when editor loses focus
+          document.body.style.overflow = "";
+        }}
+      />
+    </div>
+  );
+}
+
+```
+
 # src/components/navigation/BottomTabNavigation.tsx
 
 ```tsx
@@ -1805,7 +3336,7 @@ export function BottomTabNavigation({
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { Menu, X, Trophy, TrendingUp } from "lucide-react";
+import { Menu, X, Trophy } from "lucide-react";
 
 interface HamburgerMenuProps {
   className?: string;
@@ -3301,19 +4832,48 @@ export default function ParticipantAssignmentDemo() {
 
 ```tsx
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
+
+interface PlayerScore {
+  participantId: string;
+  participantName: string;
+  participantType?: string;
+  isMultiPlayer?: boolean;
+  scores: number[];
+}
+
+interface TeeTimeGroup {
+  id: string;
+  players: PlayerScore[];
+}
+
+interface Course {
+  id: string;
+  name: string;
+  holes: {
+    number: number;
+    par: number;
+  }[];
+}
 
 interface CustomKeyboardProps {
   onNumberPress: (number: number) => void;
   onSpecialPress: (action: "more" | "clear" | "unreported") => void;
+  onDismiss?: () => void;
   visible: boolean;
   holePar: number;
+  currentHole?: number;
+  teeTimeGroup?: TeeTimeGroup;
+  course?: Course;
 }
 
 export function CustomKeyboard({
   onNumberPress,
   onSpecialPress,
+  onDismiss,
   visible,
   holePar,
+  currentHole,
 }: CustomKeyboardProps) {
   const handleNumberPress = (number: number) => {
     onNumberPress(number);
@@ -3321,6 +4881,12 @@ export function CustomKeyboard({
 
   const handleSpecialPress = (action: "more" | "clear" | "unreported") => {
     onSpecialPress(action);
+  };
+
+  const handleDismiss = () => {
+    if (onDismiss) {
+      onDismiss();
+    }
   };
 
   // Function to get scoring terminology based on score relative to par
@@ -3348,88 +4914,137 @@ export function CustomKeyboard({
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 transition-transform duration-300 ease-in-out",
+        "fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 transition-transform duration-300 ease-in-out z-50",
         visible ? "translate-y-0" : "translate-y-full",
-        "shadow-lg rounded-t-xl p-2"
+        "shadow-lg rounded-t-xl"
       )}
     >
-      {/* Row 1: 1, 2, 3 */}
-      <div className="grid grid-cols-3 gap-1 mb-1">
-        {[1, 2, 3].map((num) => (
-          <button
-            key={num}
-            onClick={() => handleNumberPress(num)}
-            className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
-          >
-            <span>{num}</span>
-            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
-              {getScoreLabel(num)}
-            </span>
-          </button>
-        ))}
+      {/* Current Hole Strip */}
+      <div className="bg-blue-600 text-white px-4 py-2 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-bold">
+            Hole {currentHole} | Par {holePar}
+          </div>
+        </div>
       </div>
 
-      {/* Row 2: 4, 5, 6 */}
-      <div className="grid grid-cols-3 gap-1 mb-1">
-        {[4, 5, 6].map((num) => (
+      {/* Header with dismiss button */}
+      <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-600">Enter Score</span>
+        </div>
+        {onDismiss && (
           <button
-            key={num}
-            onClick={() => handleNumberPress(num)}
-            className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleDismiss();
+            }}
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors touch-manipulation focus:outline-none"
+            aria-label="Close keyboard"
           >
-            <span>{num}</span>
-            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
-              {getScoreLabel(num)}
-            </span>
+            <X className="w-5 h-5 text-gray-600" />
           </button>
-        ))}
+        )}
       </div>
 
-      {/* Row 3: 7, 8, 9+ */}
-      <div className="grid grid-cols-3 gap-1 mb-1">
-        {[7, 8].map((num) => (
+      {/* Keyboard buttons */}
+      <div className="p-2">
+        {/* Row 1: 1, 2, 3 */}
+        <div className="grid grid-cols-3 gap-1 mb-1">
+          {[1, 2, 3].map((num) => (
+            <button
+              key={num}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleNumberPress(num);
+              }}
+              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+            >
+              <span>{num}</span>
+              <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+                {getScoreLabel(num)}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Row 2: 4, 5, 6 */}
+        <div className="grid grid-cols-3 gap-1 mb-1">
+          {[4, 5, 6].map((num) => (
+            <button
+              key={num}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleNumberPress(num);
+              }}
+              className="h-14 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded-lg text-xl font-bold text-blue-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+            >
+              <span>{num}</span>
+              <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+                {getScoreLabel(num)}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Row 3: 7, 8, 9+ */}
+        <div className="grid grid-cols-3 gap-1 mb-1">
+          {[7, 8].map((num) => (
+            <button
+              key={num}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleNumberPress(num);
+              }}
+              className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+            >
+              <span>{num}</span>
+              <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+                {getScoreLabel(num)}
+              </span>
+            </button>
+          ))}
           <button
-            key={num}
-            onClick={() => handleNumberPress(num)}
-            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSpecialPress("more");
+            }}
+            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
           >
-            <span>{num}</span>
+            <span>9+</span>
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
-              {getScoreLabel(num)}
+              {getScoreLabel(9)}
             </span>
           </button>
-        ))}
-        <button
-          onClick={() => handleSpecialPress("more")}
-          className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
-        >
-          <span>9+</span>
-          <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
-            {getScoreLabel(9)}
-          </span>
-        </button>
-      </div>
+        </div>
 
-      {/* Row 4: -, 0 */}
-      <div className="grid grid-cols-2 gap-1">
-        <button
-          onClick={() => handleSpecialPress("clear")}
-          className="h-14 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-lg text-xl font-bold text-red-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
-        >
-          <span>−</span>
-          <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
-            GAVE UP
-          </span>
-        </button>
-        <button
-          onClick={() => handleSpecialPress("unreported")}
-          className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center"
-        >
-          <span>0</span>
-          <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
-            UNREPORTED
-          </span>
-        </button>
+        {/* Row 4: -, 0 */}
+        <div className="grid grid-cols-2 gap-1">
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSpecialPress("clear");
+            }}
+            className="h-14 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded-lg text-xl font-bold text-red-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+          >
+            <span>−</span>
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              GAVE UP
+            </span>
+          </button>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSpecialPress("unreported");
+            }}
+            className="h-14 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xl font-bold text-gray-900 transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none"
+          >
+            <span>0</span>
+            <span className="text-xs font-semibold uppercase mt-0.5 leading-none">
+              UNREPORTED
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -3440,9 +5055,9 @@ export function CustomKeyboard({
 # src/components/score-entry/FullScorecardModal.tsx
 
 ```tsx
-import { useState } from "react";
 import { X, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Scorecard } from "@/components/scorecard/Scorecard";
 
 interface PlayerScore {
   participantId: string;
@@ -3483,68 +5098,7 @@ export function FullScorecardModal({
   onClose,
   onContinueEntry,
 }: FullScorecardModalProps) {
-  const [currentView, setCurrentView] = useState<"front" | "back">("front");
-
   if (!visible) return null;
-
-  const frontNine = course.holes.slice(0, 9);
-  const backNine = course.holes.slice(9, 18);
-  const displayHoles = currentView === "front" ? frontNine : backNine;
-
-  const calculateTotal = (
-    playerScores: number[],
-    holes: { number: number }[]
-  ) => {
-    return holes.reduce((total, hole) => {
-      const score = playerScores[hole.number - 1];
-      // Only count actual scores (positive numbers) in totals
-      return total + (score && score > 0 ? score : 0);
-    }, 0);
-  };
-
-  // Helper function to format score display
-  const formatScoreDisplay = (score: number): string => {
-    if (score === -1) return "−"; // Gave up
-    if (score === 0) return "NR"; // Not reported
-    return score.toString(); // Actual score
-  };
-
-  // Helper function to check if score should be counted in color coding
-  const isValidScore = (score: number): boolean => {
-    return score > 0;
-  };
-
-  const getPlayerTotals = (player: PlayerScore) => {
-    const frontTotal = calculateTotal(player.scores, frontNine);
-    const backTotal = calculateTotal(player.scores, backNine);
-    const totalScore = frontTotal + backTotal;
-
-    const frontPar = frontNine.reduce((sum, hole) => sum + hole.par, 0);
-    const backPar = backNine.reduce((sum, hole) => sum + hole.par, 0);
-    const totalPar = frontPar + backPar;
-
-    return {
-      frontTotal,
-      backTotal,
-      totalScore,
-      toPar: totalScore - totalPar,
-      frontToPar: frontTotal - frontPar,
-      backToPar: backTotal - backPar,
-    };
-  };
-
-  const formatToPar = (toPar: number) => {
-    if (toPar === 0) return "E";
-    return toPar > 0 ? `+${toPar}` : `${toPar}`;
-  };
-
-  const abbreviateName = (name: string) => {
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return `${parts[0]} ${parts[1].charAt(0)}.`;
-    }
-    return name.length > 12 ? `${name.substring(0, 12)}...` : name;
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
@@ -3571,191 +5125,23 @@ export function FullScorecardModal({
           </button>
         </div>
 
-        <div className="overflow-auto max-h-[calc(90vh-180px)]">
-          {/* Nine selector */}
-          <div className="flex bg-gray-50 m-4 rounded-lg p-1">
-            <button
-              onClick={() => setCurrentView("front")}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors",
-                currentView === "front"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              )}
-            >
-              Front 9
-            </button>
-            <button
-              onClick={() => setCurrentView("back")}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors",
-                currentView === "back"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              )}
-            >
-              Back 9
-            </button>
-          </div>
-
-          {/* Scorecard table */}
-          <div className="px-4">
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              {/* Header row */}
-              <div className="bg-gray-50 border-b border-gray-200">
-                <div className="grid grid-cols-11 gap-0 text-xs font-medium text-gray-700">
-                  <div className="p-2 border-r border-gray-200">Player</div>
-                  {displayHoles.map((hole) => (
-                    <div
-                      key={hole.number}
-                      className={cn(
-                        "p-2 text-center border-r border-gray-200",
-                        hole.number === currentHole &&
-                          "bg-blue-100 text-blue-900"
-                      )}
-                    >
-                      {hole.number}
-                    </div>
-                  ))}
-                  <div className="p-2 text-center">Total</div>
-                </div>
-              </div>
-
-              {/* Par row */}
-              <div className="border-b border-gray-200 bg-gray-25">
-                <div className="grid grid-cols-11 gap-0 text-xs font-medium">
-                  <div className="p-2 border-r border-gray-200 text-gray-600">
-                    Par
-                  </div>
-                  {displayHoles.map((hole) => (
-                    <div
-                      key={hole.number}
-                      className="p-2 text-center border-r border-gray-200 text-gray-600"
-                    >
-                      {hole.par}
-                    </div>
-                  ))}
-                  <div className="p-2 text-center text-gray-600">
-                    {displayHoles.reduce((sum, hole) => sum + hole.par, 0)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Player rows */}
-              {teeTimeGroup.players.map((player) => {
-                const totals = getPlayerTotals(player);
-                const displayTotal =
-                  currentView === "front"
-                    ? totals.frontTotal
-                    : totals.backTotal;
-                const displayToPar =
-                  currentView === "front"
-                    ? totals.frontToPar
-                    : totals.backToPar;
-
-                return (
-                  <div
-                    key={player.participantId}
-                    className="border-b border-gray-200 last:border-b-0"
-                  >
-                    <div className="grid grid-cols-11 gap-0 text-sm">
-                      <div className="p-2 border-r border-gray-200 font-medium text-gray-900 text-xs flex items-center gap-1">
-                        <span>{abbreviateName(player.participantName)}</span>
-                        {player.isMultiPlayer && (
-                          <span className="text-blue-500 text-[10px]">👥</span>
-                        )}
-                      </div>
-                      {displayHoles.map((hole) => {
-                        const score = player.scores[hole.number - 1] ?? 0;
-                        const par = hole.par;
-                        let scoreColor = "text-gray-900";
-
-                        if (isValidScore(score)) {
-                          if (score === 1)
-                            scoreColor = "text-purple-600 font-bold";
-                          // Hole in one
-                          else if (score! < par - 1)
-                            scoreColor = "text-purple-600 font-bold";
-                          // Eagle or better
-                          else if (score! === par - 1)
-                            scoreColor = "text-blue-600 font-bold"; // Birdie
-                          else if (score! === par)
-                            scoreColor = "text-gray-900"; // Par
-                          else if (score! === par + 1)
-                            scoreColor = "text-orange-600"; // Bogey
-                          else if (score! >= par + 2)
-                            scoreColor = "text-red-600"; // Double bogey or worse
-                        } else if (score === -1) {
-                          scoreColor = "text-red-500"; // Gave up
-                        } else if (score === 0) {
-                          scoreColor = "text-gray-400"; // Not reported
-                        }
-
-                        return (
-                          <div
-                            key={hole.number}
-                            className={cn(
-                              "p-2 text-center border-r border-gray-200",
-                              hole.number === currentHole && "bg-blue-50",
-                              scoreColor
-                            )}
-                          >
-                            {formatScoreDisplay(score)}
-                          </div>
-                        );
-                      })}
-                      <div className="p-2 text-center font-medium">
-                        <div>{displayTotal || "-"}</div>
-                        {displayTotal > 0 && (
-                          <div className="text-xs text-gray-500">
-                            {formatToPar(displayToPar)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Overall totals */}
-            <div className="mt-4 bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                Overall Totals
-              </h3>
-              <div className="space-y-2">
-                {teeTimeGroup.players.map((player) => {
-                  const totals = getPlayerTotals(player);
-                  return (
-                    <div
-                      key={player.participantId}
-                      className="flex justify-between items-center text-sm"
-                    >
-                      <span className="font-medium text-gray-900 flex items-center gap-1">
-                        <span>{abbreviateName(player.participantName)}</span>
-                        {player.isMultiPlayer && (
-                          <span className="text-blue-500 text-xs">👥</span>
-                        )}
-                      </span>
-                      <div className="flex items-center gap-4">
-                        <span className="text-gray-600">
-                          F: {totals.frontTotal || "-"} | B:{" "}
-                          {totals.backTotal || "-"}
-                        </span>
-                        <span className="font-bold text-gray-900">
-                          {totals.totalScore || "-"}
-                          {totals.totalScore > 0 && (
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({formatToPar(totals.toPar)})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        {/* Scrollable content area */}
+        <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
+          <div className="px-2 py-4 space-y-6">
+            {teeTimeGroup.players.map((player) => (
+              <Scorecard
+                key={player.participantId}
+                participant={{
+                  id: player.participantId,
+                  name: player.participantName,
+                  type: player.participantType,
+                  isMultiPlayer: player.isMultiPlayer,
+                  scores: player.scores,
+                }}
+                course={course}
+                currentHole={currentHole}
+              />
+            ))}
           </div>
         </div>
 
@@ -3792,6 +5178,12 @@ export { useNativeKeyboard } from "./useNativeKeyboard";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CustomKeyboard } from "./CustomKeyboard";
+import {
+  formatToPar,
+  getToParColor,
+  formatScoreEntryDisplay,
+  hasValidScore,
+} from "../../utils/scoreCalculations";
 import { FullScorecardModal } from "./FullScorecardModal";
 import { BarChart3, Users } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
@@ -3882,6 +5274,7 @@ export function ScoreEntry({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [fullScorecardVisible, setFullScorecardVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showingConfirmation, setShowingConfirmation] = useState(false);
 
   const {
     isVisible: nativeKeyboardVisible,
@@ -3904,52 +5297,56 @@ export function ScoreEntry({
 
   const currentPlayer = teeTimeGroup.players[currentPlayerIndex];
   const currentHoleData = course.holes.find((h) => h.number === currentHole);
+  const previousHoleData =
+    currentHole > 1
+      ? course.holes.find((h) => h.number === currentHole - 1)
+      : null;
 
   // Calculate player's current score relative to par
-  const calculatePlayerToPar = (player: PlayerScore): number => {
+  const calculatePlayerToPar = (player: PlayerScore): number | null => {
     let totalShots = 0;
     let totalPar = 0;
 
-    for (let i = 0; i < Math.min(currentHole, 18); i++) {
+    for (let i = 0; i < course.holes.length; i++) {
       const score = player.scores[i];
+
+      if (score === -1) {
+        // Player gave up on a hole – result is invalid
+        return null;
+      }
+
       if (score && score > 0) {
         totalShots += score;
         totalPar += course.holes[i].par;
       }
+      // if score is 0 or undefined/null, just skip
     }
 
-    return totalShots - totalPar;
-  };
-
-  // Format +/- to par display
-  const formatToPar = (toPar: number): string => {
-    if (toPar === 0) return "E";
-    return toPar > 0 ? `+${toPar}` : `${toPar}`;
-  };
-
-  // Get color for +/- to par
-  const getToParColor = (toPar: number): string => {
-    if (toPar < 0) return "text-green-600";
-    if (toPar > 0) return "text-red-600";
-    return "text-gray-600";
+    return totalPar === 0 ? null : totalShots - totalPar;
   };
 
   const moveToNextPlayer = () => {
     if (currentPlayerIndex < teeTimeGroup.players.length - 1) {
       setCurrentPlayerIndex(currentPlayerIndex + 1);
     } else {
-      // Last player on this hole
-      if (currentHole < 18) {
-        const nextHole = currentHole + 1;
-        if (onHoleChange) {
-          onHoleChange(nextHole);
+      // Last player on this hole - show confirmation briefly
+      setShowingConfirmation(true);
+
+      setTimeout(() => {
+        setShowingConfirmation(false);
+
+        if (currentHole < 18) {
+          const nextHole = currentHole + 1;
+          if (onHoleChange) {
+            onHoleChange(nextHole);
+          } else {
+            setInternalCurrentHole(nextHole);
+          }
+          setCurrentPlayerIndex(0);
         } else {
-          setInternalCurrentHole(nextHole);
+          onComplete();
         }
-        setCurrentPlayerIndex(0);
-      } else {
-        onComplete();
-      }
+      }, 800); // Show confirmation for shorter time
     }
   };
 
@@ -3983,24 +5380,39 @@ export function ScoreEntry({
     }
   };
 
+  const handleKeyboardDismiss = () => {
+    setKeyboardVisible(false);
+    setIsEditing(false);
+  };
+
   const abbreviateName = (name: string) => {
     const parts = name.split(" ");
     if (parts.length >= 2) {
-      return `${parts[0]} ${parts[1].charAt(0)}.`;
+      // For two-part names, use different strategies based on length
+      const firstName = parts[0];
+      const lastName = parts[1];
+
+      // If total length is reasonable, keep both
+      if (name.length <= 14) {
+        return name;
+      }
+
+      // If first name is short, use first name + last initial
+      if (firstName.length <= 8) {
+        return `${firstName} ${lastName.charAt(0)}.`;
+      }
+
+      // If first name is long, use first initial + last name
+      if (lastName.length <= 8) {
+        return `${firstName.charAt(0)}. ${lastName}`;
+      }
+
+      // Both names are long, use initials
+      return `${firstName.charAt(0)}. ${lastName.charAt(0)}.`;
     }
-    return name.length > 20 ? `${name.substring(0, 20)}...` : name;
-  };
 
-  // Helper function to format score display
-  const formatScoreDisplay = (score: number): string => {
-    if (score === -1) return "−"; // Gave up
-    if (score === 0) return "NR"; // Not reported
-    return score.toString(); // Actual score
-  };
-
-  // Helper function to check if a score has been entered
-  const hasValidScore = (score: number): boolean => {
-    return score > 0;
+    // Single name - truncate if too long
+    return name.length > 12 ? `${name.substring(0, 11)}...` : name;
   };
 
   // Close keyboard when clicking outside
@@ -4017,7 +5429,7 @@ export function ScoreEntry({
   }, [isEditing]);
 
   return (
-    <div className="score-entry flex flex-col h-screen-mobile bg-gray-50">
+    <div className="score-entry flex flex-col h-screen-mobile bg-gray-50 relative">
       {/* Sync Status Indicator */}
       {syncStatus &&
         (syncStatus.pendingCount > 0 || syncStatus.hasConnectivityIssues) && (
@@ -4040,89 +5452,152 @@ export function ScoreEntry({
           </div>
         )}
 
-      {/* Maximized Player Area - 60% of remaining space */}
+      {/* Compact Green Score Header */}
+      <div className="bg-green-700 text-white px-4 py-2 border-b border-green-700">
+        <div className="flex items-center justify-end gap-4 pr-6">
+          {/* Previous Hole Column (if exists) */}
+          {previousHoleData && (
+            <div className="text-center w-[60px]">
+              <div className="text-2xl font-bold">{currentHole - 1}</div>
+              <div className="text-xs font-medium opacity-90">
+                Par {previousHoleData.par}
+              </div>
+            </div>
+          )}
+
+          {/* Current Hole Column */}
+          <div className="text-center w-[60px]">
+            <div className="text-2xl font-bold">{currentHole}</div>
+            <div className="text-xs font-medium opacity-90">
+              Par {currentHoleData?.par}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Message */}
+      {showingConfirmation && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-30 animate-pulse">
+          <div className="text-center">
+            <div className="text-lg font-bold">
+              ✓ Hole {currentHole} Complete!
+            </div>
+            <div className="text-sm opacity-90">
+              Moving to hole {currentHole + 1}...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Player Area with Aligned Score Columns */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         <div className="p-3 space-y-2">
           {teeTimeGroup.players.map((player, index) => {
             const isCurrentPlayer = index === currentPlayerIndex;
-            const score = player.scores[currentHole - 1] ?? 0;
-            const hasScore = hasValidScore(score);
+            const currentScore = player.scores[currentHole - 1] ?? 0;
+            const previousScore = previousHoleData
+              ? player.scores[currentHole - 2] ?? 0
+              : null;
+            const hasCurrentScore = hasValidScore(currentScore);
             const toPar = calculatePlayerToPar(player);
 
             return (
               <div
                 key={player.participantId}
                 className={cn(
-                  "bg-white rounded-lg p-4 flex items-center justify-between transition-all shadow-sm",
+                  "bg-white rounded-lg p-4 transition-all shadow-sm",
                   isCurrentPlayer && "ring-2 ring-blue-500 bg-blue-50 shadow-md"
                 )}
                 style={{ minHeight: "70px" }}
               >
-                <div className="flex-1 pr-3">
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <div
-                        className={cn(
-                          "font-medium text-gray-900",
-                          isCurrentPlayer && "text-blue-900 font-semibold"
+                <div className="flex items-center justify-between">
+                  {/* Player Info */}
+                  <div className="flex-1 pr-3">
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <div
+                          className={cn(
+                            "font-medium text-gray-900",
+                            isCurrentPlayer && "text-blue-900 font-semibold"
+                          )}
+                        >
+                          {abbreviateName(player.participantName)}
+                        </div>
+                        {player.participantType && (
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {player.participantType}
+                          </div>
                         )}
-                      >
-                        {abbreviateName(player.participantName)}
                       </div>
-                      {player.participantType && (
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {player.participantType}
+                      {player.isMultiPlayer && (
+                        <div className="relative group">
+                          <Users className="w-3 h-3 text-blue-500" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                            Multi-player format
+                          </div>
                         </div>
                       )}
                     </div>
-                    {player.isMultiPlayer && (
-                      <div className="relative group">
-                        <Users className="w-3 h-3 text-blue-500" />
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                          Multi-player format
+                    <div className="flex items-center gap-4 mt-1">
+                      {hasCurrentScore && (
+                        <div
+                          className={cn(
+                            "text-xs",
+                            syncStatus?.hasConnectivityIssues && hasCurrentScore
+                              ? "text-yellow-600"
+                              : "text-green-600"
+                          )}
+                        >
+                          {syncStatus?.hasConnectivityIssues && hasCurrentScore
+                            ? "⚠️ Score saved locally"
+                            : "✓ "}
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          "text-xs font-medium",
+                          toPar !== null
+                            ? getToParColor(toPar)
+                            : "text-gray-600"
+                        )}
+                      >
+                        {toPar !== null ? formatToPar(toPar) : "-"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Score Columns - Aligned with Header */}
+                  <div className="flex items-center gap-0 pr-6 ml-2">
+                    {/* Previous Hole Score */}
+                    {previousHoleData && (
+                      <div className="w-[60px] text-center">
+                        <div className="text-lg font-bold text-gray-600">
+                          {previousScore !== null
+                            ? formatScoreEntryDisplay(previousScore)
+                            : "-"}
                         </div>
                       </div>
                     )}
-                  </div>
-                  <div className="flex items-center gap-4 mt-1">
-                    {hasScore && (
-                      <div
+
+                    {/* Current Hole Score */}
+                    <div className="w-[60px] text-center ml-2 left-4 relative">
+                      <button
+                        onClick={() => handleScoreFieldClick(index)}
                         className={cn(
-                          "text-xs",
-                          syncStatus?.hasConnectivityIssues && hasScore
-                            ? "text-yellow-600"
-                            : "text-green-600"
+                          "w-12 h-12 rounded-lg text-center font-bold transition-all touch-manipulation",
+                          "border-2 text-lg flex items-center justify-center",
+                          hasCurrentScore
+                            ? "bg-white text-gray-900 border-green-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                          isCurrentPlayer &&
+                            "ring-2 ring-blue-400 ring-offset-1"
                         )}
                       >
-                        {syncStatus?.hasConnectivityIssues && hasScore
-                          ? "⚠️ Score saved locally"
-                          : "✓ Score entered"}
-                      </div>
-                    )}
-                    <div
-                      className={cn(
-                        "text-xs font-medium",
-                        getToParColor(toPar)
-                      )}
-                    >
-                      {formatToPar(toPar)}
+                        {formatScoreEntryDisplay(currentScore)}
+                      </button>
                     </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => handleScoreFieldClick(index)}
-                  className={cn(
-                    "w-14 h-12 rounded-lg text-center font-bold transition-all touch-manipulation",
-                    "border-2 text-lg flex items-center justify-center",
-                    hasScore
-                      ? "bg-white text-gray-900 border-green-200"
-                      : "bg-gray-50 text-gray-400 border-gray-200",
-                    isCurrentPlayer && "ring-2 ring-blue-400 ring-offset-1"
-                  )}
-                >
-                  {formatScoreDisplay(score)}
-                </button>
               </div>
             );
           })}
@@ -4140,12 +5615,16 @@ export function ScoreEntry({
         </div>
       </div>
 
-      {/* Compact Custom Keyboard - 40% of remaining space */}
+      {/* Enhanced Custom Keyboard with Previous Hole Display */}
       <CustomKeyboard
         visible={keyboardVisible}
         onNumberPress={handleNumberPress}
         onSpecialPress={handleSpecialPress}
         holePar={currentHoleData?.par || 4}
+        currentHole={currentHole}
+        onDismiss={handleKeyboardDismiss}
+        teeTimeGroup={teeTimeGroup}
+        course={course}
       />
 
       {/* Full Scorecard Modal */}
@@ -4336,6 +5815,437 @@ export function useNativeKeyboard({
     handleSubmit,
     handleInputChange,
   };
+}
+
+```
+
+# src/components/scorecard/index.ts
+
+```ts
+export { ParticipantScorecard } from "./ParticipantScorecard";
+export type { CourseData, ParticipantData } from "./ParticipantScorecard";
+
+```
+
+# src/components/scorecard/ParticipantScorecard.tsx
+
+```tsx
+import { X } from "lucide-react";
+import { Scorecard } from "./Scorecard";
+
+export interface ParticipantData {
+  id: number;
+  team_name: string;
+  position_name: string;
+  player_names: string | null;
+  score: number[];
+  tee_time_id: number;
+}
+
+export interface CourseData {
+  id: string;
+  name: string;
+  holes: {
+    number: number;
+    par: number;
+  }[];
+}
+
+interface ParticipantScorecardProps {
+  visible: boolean;
+  participant: ParticipantData | null;
+  course: CourseData | null;
+  onClose: () => void;
+}
+
+export function ParticipantScorecard({
+  visible,
+  participant,
+  course,
+  onClose,
+}: ParticipantScorecardProps) {
+  if (!visible || !participant || !course) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              Team: {participant.team_name}
+            </h2>
+            <p className="text-sm text-blue-600 mt-1">
+              {participant.position_name}
+            </p>
+            {participant.player_names && (
+              <p className="text-sm text-gray-600 mt-1">
+                Players: {participant.player_names}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Scorecard */}
+        <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
+          <div className="px-2 py-4">
+            <Scorecard
+              participant={{
+                id: participant.id.toString(),
+                name: participant.team_name,
+                type: participant.position_name,
+                scores: participant.score,
+              }}
+              course={course}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="w-full bg-gray-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-700 transition-colors"
+          >
+            Close Scorecard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+```
+
+# src/components/scorecard/Scorecard.tsx
+
+```tsx
+import { cn } from "@/lib/utils";
+import {
+  formatToPar,
+  formatScoreDisplay,
+  isValidScore,
+  calculateHoleTotal,
+  calculatePlayedPar,
+} from "../../utils/scoreCalculations";
+
+interface ScorecardParticipant {
+  id: string;
+  name: string;
+  type?: string;
+  isMultiPlayer?: boolean;
+  scores: number[];
+}
+
+interface ScorecardCourse {
+  holes: {
+    number: number;
+    par: number;
+  }[];
+}
+
+interface ScorecardProps {
+  participant: ScorecardParticipant;
+  course: ScorecardCourse;
+  currentHole?: number;
+}
+
+export function Scorecard({
+  participant,
+  course,
+  currentHole,
+}: ScorecardProps) {
+  const frontNine = course.holes.slice(0, 9);
+  const backNine = course.holes.slice(9, 18);
+
+  const getPlayerTotals = () => {
+    // Check if player gave up on any hole - if so, invalidate entire round
+    const hasGaveUp = participant.scores.some((score) => score === -1);
+
+    if (hasGaveUp) {
+      return {
+        frontTotal: null,
+        backTotal: null,
+        totalScore: null,
+        toPar: null,
+        frontToPar: null,
+        backToPar: null,
+      };
+    }
+
+    const frontTotal = calculateHoleTotal(participant.scores, frontNine);
+    const backTotal = calculateHoleTotal(participant.scores, backNine);
+    const totalScore = frontTotal + backTotal;
+
+    // Calculate par only for played holes
+    const frontPlayedPar = calculatePlayedPar(participant.scores, frontNine);
+    const backPlayedPar = calculatePlayedPar(participant.scores, backNine);
+    const totalPlayedPar = frontPlayedPar + backPlayedPar;
+
+    return {
+      frontTotal,
+      backTotal,
+      totalScore,
+      toPar: totalScore > 0 ? totalScore - totalPlayedPar : 0,
+      frontToPar: frontTotal > 0 ? frontTotal - frontPlayedPar : 0,
+      backToPar: backTotal > 0 ? backTotal - backPlayedPar : 0,
+    };
+  };
+
+  const renderScoreDecoration = (score: number, par: number) => {
+    if (!isValidScore(score)) {
+      if (score === -1) return { color: "text-red-500", decoration: "" }; // Gave up
+      if (score === 0) return { color: "text-gray-400", decoration: "" }; // Not reported
+      return { color: "text-gray-900", decoration: "" };
+    }
+
+    if (score === 1) {
+      // Hole in one - special case (purple circle)
+      return {
+        color: "text-white font-bold",
+        decoration: "bg-purple-600 rounded-full border-2 border-purple-600",
+      };
+    } else if (score < par - 1) {
+      // Eagle or better - red double circle
+      return {
+        color: "text-red-600 font-bold",
+        decoration:
+          "border-2 border-red-600 rounded-full shadow-[0_0_0_2px_white,0_0_0_4px_red]",
+      };
+    } else if (score === par - 1) {
+      // Birdie - red circle
+      return {
+        color: "text-red-600 font-bold",
+        decoration: "border-2 border-red-600 rounded-full",
+      };
+    } else if (score === par) {
+      // Par - no decoration
+      return { color: "text-gray-900", decoration: "" };
+    } else if (score === par + 1) {
+      // Bogey - blue square
+      return {
+        color: "text-blue-600 font-bold",
+        decoration: "border-2 border-blue-600",
+      };
+    } else if (score >= par + 2) {
+      // Double bogey or worse - double blue square
+      return {
+        color: "text-blue-600 font-bold",
+        decoration:
+          "border-2 border-blue-600 shadow-[0_0_0_2px_white,0_0_0_4px_blue]",
+      };
+    }
+
+    return { color: "text-gray-900", decoration: "" };
+  };
+
+  const totals = getPlayerTotals();
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Player Name Header */}
+      <div className="bg-green-600 text-white px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-lg">{participant.name}</span>
+            {participant.isMultiPlayer && (
+              <span className="text-green-200 text-sm">👥</span>
+            )}
+          </div>
+          {participant.type && (
+            <span className="text-green-200 text-sm">{participant.type}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Front Nine */}
+      <div className="overflow-x-auto">
+        <div className="min-w-max">
+          {/* Front Nine Header */}
+          <div className="bg-green-500 text-white">
+            <div className="flex">
+              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium">
+                Hole
+              </div>
+              {frontNine.map((hole) => (
+                <div
+                  key={hole.number}
+                  className={cn(
+                    "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
+                    hole.number === currentHole && "bg-blue-500"
+                  )}
+                >
+                  {hole.number}
+                </div>
+              ))}
+              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-medium">
+                Out
+              </div>
+            </div>
+          </div>
+
+          {/* Front Nine Par */}
+          <div className="bg-gray-100 border-b border-gray-200">
+            <div className="flex">
+              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                Par
+              </div>
+              {frontNine.map((hole) => (
+                <div
+                  key={hole.number}
+                  className="w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium text-gray-700"
+                >
+                  {hole.par}
+                </div>
+              ))}
+              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-700">
+                {frontNine.reduce((sum, hole) => sum + hole.par, 0)}
+              </div>
+            </div>
+          </div>
+
+          {/* Front Nine Results */}
+          <div className="bg-white border-b border-gray-300">
+            <div className="flex">
+              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                Result
+              </div>
+              {frontNine.map((hole) => {
+                const score = participant.scores[hole.number - 1] ?? 0;
+                const scoreStyle = renderScoreDecoration(score, hole.par);
+
+                return (
+                  <div
+                    key={hole.number}
+                    className={cn(
+                      "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium flex items-center justify-center",
+                      hole.number === currentHole && "bg-blue-50"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-6 h-6 flex items-center justify-center",
+                        scoreStyle.color,
+                        scoreStyle.decoration
+                      )}
+                    >
+                      {formatScoreDisplay(score)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-900">
+                {totals.frontTotal ?? "-"}
+              </div>
+            </div>
+          </div>
+
+          {/* Back Nine Header */}
+          <div className="bg-green-500 text-white">
+            <div className="flex">
+              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium">
+                Hole
+              </div>
+              {backNine.map((hole) => (
+                <div
+                  key={hole.number}
+                  className={cn(
+                    "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium",
+                    hole.number === currentHole && "bg-blue-500"
+                  )}
+                >
+                  {hole.number}
+                </div>
+              ))}
+              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-medium">
+                In
+              </div>
+            </div>
+          </div>
+
+          {/* Back Nine Par */}
+          <div className="bg-gray-100 border-b border-gray-200">
+            <div className="flex">
+              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                Par
+              </div>
+              {backNine.map((hole) => (
+                <div
+                  key={hole.number}
+                  className="w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium text-gray-700"
+                >
+                  {hole.par}
+                </div>
+              ))}
+              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-700">
+                {backNine.reduce((sum, hole) => sum + hole.par, 0)}
+              </div>
+            </div>
+          </div>
+
+          {/* Back Nine Results */}
+          <div className="bg-white">
+            <div className="flex">
+              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-gray-700">
+                Result
+              </div>
+              {backNine.map((hole) => {
+                const score = participant.scores[hole.number - 1] ?? 0;
+                const scoreStyle = renderScoreDecoration(score, hole.par);
+
+                return (
+                  <div
+                    key={hole.number}
+                    className={cn(
+                      "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium flex items-center justify-center",
+                      hole.number === currentHole && "bg-blue-50"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-6 h-6 flex items-center justify-center",
+                        scoreStyle.color,
+                        scoreStyle.decoration
+                      )}
+                    >
+                      {formatScoreDisplay(score)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-gray-900">
+                {totals.backTotal ?? "-"}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Player Total Section */}
+      <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium text-gray-700">Total Score</span>
+          <div className="flex items-center gap-4">
+            <span className="text-gray-600 text-sm">
+              Total: {totals.totalScore ?? "-"}
+            </span>
+            <span className="text-lg font-bold text-gray-900">
+              To par:{" "}
+              {totals.totalScore && totals.toPar !== null
+                ? formatToPar(totals.toPar)
+                : "-"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 ```
@@ -4767,6 +6677,195 @@ export { Input };
 
 ```
 
+# src/components/ui/select.tsx
+
+```tsx
+import * as React from "react"
+import * as SelectPrimitive from "@radix-ui/react-select"
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+function Select({
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  return <SelectPrimitive.Root data-slot="select" {...props} />
+}
+
+function SelectGroup({
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Group>) {
+  return <SelectPrimitive.Group data-slot="select-group" {...props} />
+}
+
+function SelectValue({
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Value>) {
+  return <SelectPrimitive.Value data-slot="select-value" {...props} />
+}
+
+function SelectTrigger({
+  className,
+  size = "default",
+  children,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
+  size?: "sm" | "default"
+}) {
+  return (
+    <SelectPrimitive.Trigger
+      data-slot="select-trigger"
+      data-size={size}
+      className={cn(
+        "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        className
+      )}
+      {...props}
+    >
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <ChevronDownIcon className="size-4 opacity-50" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  )
+}
+
+function SelectContent({
+  className,
+  children,
+  position = "popper",
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Content
+        data-slot="select-content"
+        className={cn(
+          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
+          position === "popper" &&
+            "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+          className
+        )}
+        position={position}
+        {...props}
+      >
+        <SelectScrollUpButton />
+        <SelectPrimitive.Viewport
+          className={cn(
+            "p-1",
+            position === "popper" &&
+              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
+          )}
+        >
+          {children}
+        </SelectPrimitive.Viewport>
+        <SelectScrollDownButton />
+      </SelectPrimitive.Content>
+    </SelectPrimitive.Portal>
+  )
+}
+
+function SelectLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Label>) {
+  return (
+    <SelectPrimitive.Label
+      data-slot="select-label"
+      className={cn("text-muted-foreground px-2 py-1.5 text-xs", className)}
+      {...props}
+    />
+  )
+}
+
+function SelectItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+  return (
+    <SelectPrimitive.Item
+      data-slot="select-item"
+      className={cn(
+        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        className
+      )}
+      {...props}
+    >
+      <span className="absolute right-2 flex size-3.5 items-center justify-center">
+        <SelectPrimitive.ItemIndicator>
+          <CheckIcon className="size-4" />
+        </SelectPrimitive.ItemIndicator>
+      </span>
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    </SelectPrimitive.Item>
+  )
+}
+
+function SelectSeparator({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
+  return (
+    <SelectPrimitive.Separator
+      data-slot="select-separator"
+      className={cn("bg-border pointer-events-none -mx-1 my-1 h-px", className)}
+      {...props}
+    />
+  )
+}
+
+function SelectScrollUpButton({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.ScrollUpButton>) {
+  return (
+    <SelectPrimitive.ScrollUpButton
+      data-slot="select-scroll-up-button"
+      className={cn(
+        "flex cursor-default items-center justify-center py-1",
+        className
+      )}
+      {...props}
+    >
+      <ChevronUpIcon className="size-4" />
+    </SelectPrimitive.ScrollUpButton>
+  )
+}
+
+function SelectScrollDownButton({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.ScrollDownButton>) {
+  return (
+    <SelectPrimitive.ScrollDownButton
+      data-slot="select-scroll-down-button"
+      className={cn(
+        "flex cursor-default items-center justify-center py-1",
+        className
+      )}
+      {...props}
+    >
+      <ChevronDownIcon className="size-4" />
+    </SelectPrimitive.ScrollDownButton>
+  )
+}
+
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+}
+
+```
+
 # src/components/ui/skeleton.tsx
 
 ```tsx
@@ -4783,6 +6882,502 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 export { Skeleton }
+
+```
+
+# src/components/ui/switch.tsx
+
+```tsx
+import * as React from "react"
+import * as SwitchPrimitive from "@radix-ui/react-switch"
+
+import { cn } from "@/lib/utils"
+
+function Switch({
+  className,
+  ...props
+}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+  return (
+    <SwitchPrimitive.Root
+      data-slot="switch"
+      className={cn(
+        "peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-input focus-visible:border-ring focus-visible:ring-ring/50 dark:data-[state=unchecked]:bg-input/80 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      {...props}
+    >
+      <SwitchPrimitive.Thumb
+        data-slot="switch-thumb"
+        className={cn(
+          "bg-background dark:data-[state=unchecked]:bg-foreground dark:data-[state=checked]:bg-primary-foreground pointer-events-none block size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0"
+        )}
+      />
+    </SwitchPrimitive.Root>
+  )
+}
+
+export { Switch }
+
+```
+
+# src/components/ui/tabs.tsx
+
+```tsx
+import * as React from "react"
+import * as TabsPrimitive from "@radix-ui/react-tabs"
+
+import { cn } from "@/lib/utils"
+
+function Tabs({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  return (
+    <TabsPrimitive.Root
+      data-slot="tabs"
+      className={cn("flex flex-col gap-2", className)}
+      {...props}
+    />
+  )
+}
+
+function TabsList({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.List>) {
+  return (
+    <TabsPrimitive.List
+      data-slot="tabs-list"
+      className={cn(
+        "bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function TabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+  return (
+    <TabsPrimitive.Trigger
+      data-slot="tabs-trigger"
+      className={cn(
+        "data-[state=active]:bg-background dark:data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 text-foreground dark:text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function TabsContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Content>) {
+  return (
+    <TabsPrimitive.Content
+      data-slot="tabs-content"
+      className={cn("flex-1 outline-none", className)}
+      {...props}
+    />
+  )
+}
+
+export { Tabs, TabsList, TabsTrigger, TabsContent }
+
+```
+
+# src/components/ui/textarea.tsx
+
+```tsx
+import * as React from "react"
+
+import { cn } from "@/lib/utils"
+
+function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+  return (
+    <textarea
+      data-slot="textarea"
+      className={cn(
+        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+export { Textarea }
+
+```
+
+# src/hooks/useCompetitionData.ts
+
+```ts
+import { useCompetition, useCompetitionLeaderboard } from "../api/competitions";
+import { useCourse } from "../api/courses";
+import {
+  useParticipant,
+  useTeeTime,
+  useTeeTimesForCompetition,
+  useUpdateScore,
+} from "../api/tee-times";
+
+interface UseCompetitionDataProps {
+  competitionId?: string;
+  teeTimeId?: string;
+  selectedParticipantId?: number | null;
+}
+
+export function useCompetitionData({
+  competitionId,
+  teeTimeId,
+  selectedParticipantId,
+}: UseCompetitionDataProps) {
+  // Main competition data
+  const { data: competition, isLoading: competitionLoading } = useCompetition(
+    competitionId ? parseInt(competitionId) : 0
+  );
+
+  // Course data
+  const { data: course } = useCourse(competition?.course_id || 0);
+
+  // Tee times and leaderboard data
+  const { data: teeTimes, refetch: refetchTeeTimes } =
+    useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
+
+  const {
+    data: leaderboard,
+    isLoading: leaderboardLoading,
+    refetch: refetchLeaderboard,
+  } = useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+
+  // Tee time data for score entry
+  const { data: teeTime, refetch: refetchTeeTime } = useTeeTime(
+    teeTimeId ? parseInt(teeTimeId) : 0
+  );
+
+  // Selected participant data for scorecard
+  const { data: selectedParticipant } = useParticipant(
+    selectedParticipantId || 0
+  );
+
+  // Update score mutation
+  const updateScoreMutation = useUpdateScore();
+
+  return {
+    competition,
+    course,
+    teeTimes,
+    leaderboard,
+    teeTime,
+    selectedParticipant,
+    isLoading: competitionLoading,
+    leaderboardLoading,
+    refetchTeeTime,
+    refetchLeaderboard,
+    refetchTeeTimes,
+    updateScoreMutation,
+  };
+}
+
+```
+
+# src/hooks/useCompetitionSync.ts
+
+```ts
+import { useCallback, useEffect, useState } from "react";
+import { ScoreStorageManager } from "../utils/scoreStorage";
+import { SYNC_INTERVALS, SyncManager } from "../utils/syncManager";
+
+interface UseCompetitionSyncProps {
+  competitionId?: string;
+  teeTimeId?: string;
+  activeTab: string;
+  refetchTeeTime: () => Promise<unknown>;
+  refetchLeaderboard: () => Promise<unknown>;
+  refetchTeeTimes: () => Promise<unknown>;
+  updateScoreMutation: {
+    mutate: (
+      params: { participantId: number; hole: number; shots: number },
+      options?: {
+        onSuccess?: () => void;
+        onError?: (error: unknown) => void;
+      }
+    ) => void;
+    mutateAsync: (params: {
+      participantId: number;
+      hole: number;
+      shots: number;
+    }) => Promise<unknown>;
+  };
+  teeTime?: unknown;
+}
+
+export function useCompetitionSync({
+  competitionId,
+  teeTimeId,
+  activeTab,
+  refetchTeeTime,
+  refetchLeaderboard,
+  refetchTeeTimes,
+  updateScoreMutation,
+  teeTime,
+}: UseCompetitionSyncProps) {
+  const scoreManager = ScoreStorageManager.getInstance();
+  const [lastSyncTime, setLastSyncTime] = useState(Date.now());
+
+  // Initial sync when entering score entry view
+  useEffect(() => {
+    if (activeTab === "score" && teeTimeId && teeTime) {
+      SyncManager.handleInitialSync({
+        teeTimeId,
+        competitionId: competitionId || "",
+        activeTab,
+        lastSyncTime,
+        hasData: !!teeTime,
+        onSync: async () => {
+          await refetchTeeTime();
+          setLastSyncTime(Date.now());
+        },
+      });
+    }
+  }, [
+    activeTab,
+    teeTimeId,
+    teeTime,
+    refetchTeeTime,
+    competitionId,
+    lastSyncTime,
+  ]);
+
+  // Sync when returning to the browser tab (after being away)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      const synced = await SyncManager.handleVisibilityChangeSync({
+        teeTimeId,
+        competitionId: competitionId || "",
+        activeTab,
+        lastSyncTime,
+        isScoreEntry: activeTab === "score",
+        onSync: async () => {
+          await refetchTeeTime();
+          setLastSyncTime(Date.now());
+        },
+      });
+
+      if (synced) {
+        setLastSyncTime(Date.now());
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [activeTab, teeTimeId, lastSyncTime, refetchTeeTime, competitionId]);
+
+  // Periodic sync validation and retry logic for score entry
+  useEffect(() => {
+    if (!teeTimeId) return;
+
+    const syncInterval = setInterval(async () => {
+      try {
+        let shouldRefetch = false;
+
+        // Try to retry any pending scores
+        const retryableScores = scoreManager.getRetryableScores();
+
+        if (retryableScores.length > 0) {
+          console.log(`Retrying ${retryableScores.length} pending scores...`);
+          shouldRefetch = true;
+
+          for (const score of retryableScores) {
+            try {
+              await updateScoreMutation.mutateAsync({
+                participantId: score.participantId,
+                hole: score.hole,
+                shots: score.shots,
+              });
+
+              // Success - remove from pending
+              scoreManager.removePendingScore(score.participantId, score.hole);
+            } catch (error) {
+              // Mark as attempted
+              scoreManager.markAttempted(score.participantId, score.hole);
+              console.error(
+                `Retry failed for score ${score.participantId}-${score.hole}:`,
+                error
+              );
+            }
+          }
+        }
+
+        // Check if we should sync using SyncManager logic
+        if (
+          SyncManager.shouldRetryPendingScores(retryableScores, lastSyncTime)
+        ) {
+          if (
+            shouldRefetch ||
+            SyncManager.shouldSync(lastSyncTime, SYNC_INTERVALS.PERIODIC)
+          ) {
+            console.log("Syncing with server for latest scores...");
+            await refetchTeeTime();
+            setLastSyncTime(Date.now());
+          }
+        }
+      } catch (error) {
+        console.error("Sync validation failed:", error);
+      }
+    }, SYNC_INTERVALS.PERIODIC);
+
+    return () => clearInterval(syncInterval);
+  }, [
+    teeTimeId,
+    updateScoreMutation,
+    refetchTeeTime,
+    scoreManager,
+    lastSyncTime,
+  ]);
+
+  // Periodic sync for leaderboard and teams data
+  useEffect(() => {
+    if (!competitionId || !SyncManager.shouldRunPeriodicSync(activeTab)) return;
+
+    const syncInterval = setInterval(async () => {
+      await SyncManager.handlePeriodicViewSync(
+        activeTab,
+        async () => {
+          await refetchLeaderboard();
+        },
+        async () => {
+          await refetchTeeTimes();
+        }
+      );
+      setLastSyncTime(Date.now());
+    }, SYNC_INTERVALS.PERIODIC);
+
+    return () => clearInterval(syncInterval);
+  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+
+  // Fetch fresh data when first entering leaderboard or teams views
+  useEffect(() => {
+    if (
+      (activeTab === "leaderboard" || activeTab === "teams") &&
+      competitionId
+    ) {
+      SyncManager.handleInitialViewFetch(
+        activeTab as "leaderboard" | "teams",
+        competitionId,
+        async () => {
+          await refetchLeaderboard();
+        },
+        async () => {
+          await refetchTeeTimes();
+        }
+      );
+    }
+  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+
+  const syncStatus = SyncManager.createSyncStatus(scoreManager, lastSyncTime);
+
+  const handleScoreUpdate = useCallback(
+    (participantId: string, hole: number, score: number) => {
+      const participantIdNum = parseInt(participantId);
+
+      // Add to local storage immediately
+      scoreManager.addPendingScore(participantIdNum, hole, score);
+
+      updateScoreMutation.mutate(
+        {
+          participantId: participantIdNum,
+          hole,
+          shots: score,
+        },
+        {
+          onSuccess: () => {
+            // Remove from pending scores on success
+            scoreManager.removePendingScore(participantIdNum, hole);
+            setLastSyncTime(Date.now());
+
+            console.log(
+              "Score update successful, cache invalidated automatically"
+            );
+          },
+          onError: (error) => {
+            console.error("Score update failed:", error);
+            // Score is already in pending storage, will be retried
+          },
+        }
+      );
+    },
+    [updateScoreMutation, scoreManager]
+  );
+
+  // Handle tab changes with sync
+  const handleTabChangeSync = useCallback(
+    async (newTab: string) => {
+      await SyncManager.handleTabChangeSync({
+        newTab,
+        teeTimeId,
+        competitionId: competitionId || "",
+        activeTab: newTab,
+        lastSyncTime,
+        onSync: async () => {
+          await refetchTeeTime();
+          setLastSyncTime(Date.now());
+        },
+        onLeaderboardSync: async () => {
+          await refetchLeaderboard();
+          setLastSyncTime(Date.now());
+        },
+        onTeamsSync: async () => {
+          await refetchTeeTimes();
+        },
+      });
+    },
+    [
+      teeTimeId,
+      competitionId,
+      lastSyncTime,
+      refetchTeeTime,
+      refetchLeaderboard,
+      refetchTeeTimes,
+    ]
+  );
+
+  // Handle hole navigation with occasional sync
+  const handleHoleNavigationSync = useCallback(
+    async (newHole: number) => {
+      const synced = await SyncManager.handleHoleNavigationSync({
+        currentHole: newHole,
+        teeTimeId,
+        competitionId: competitionId || "",
+        activeTab,
+        lastSyncTime,
+        onSync: async () => {
+          await refetchTeeTime();
+          setLastSyncTime(Date.now());
+        },
+      });
+
+      if (synced) {
+        setLastSyncTime(Date.now());
+      }
+    },
+    [lastSyncTime, refetchTeeTime, teeTimeId, competitionId, activeTab]
+  );
+
+  return {
+    syncStatus,
+    handleScoreUpdate,
+    handleTabChangeSync,
+    handleHoleNavigationSync,
+    lastSyncTime,
+  };
+}
 
 ```
 
@@ -4910,10 +7505,7 @@ export { Skeleton }
   .ring-ring {
     --tw-ring-color: var(--ring);
   }
-}
 
-/* Mobile optimizations for golf score entry */
-@layer utilities {
   /* Prevent zoom on input focus for iOS Safari */
   input[type="number"] {
     font-size: 16px !important;
@@ -4956,6 +7548,439 @@ export { Skeleton }
   /* Optimize keyboard show/hide transitions */
   .keyboard-transition {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Hole transition animations */
+  .hole-transition {
+    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hole-slide-left {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  .hole-slide-right {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  .hole-fade-in {
+    animation: holeSlideIn 0.5s ease-out forwards;
+  }
+
+  .hole-bounce {
+    animation: holeBounce 0.6s ease-in-out;
+  }
+
+  /* Score confirmation animations */
+  .score-confirmation {
+    animation: scoreConfirmation 1s ease-in-out;
+  }
+
+  @keyframes holeSlideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes holeBounce {
+    0%,
+    20%,
+    53%,
+    80%,
+    100% {
+      transform: scale(1);
+    }
+    40%,
+    43% {
+      transform: scale(1.1);
+    }
+    70% {
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes scoreConfirmation {
+    0% {
+      opacity: 0;
+      transform: scale(0.8) translateY(20px);
+    }
+    20% {
+      opacity: 1;
+      transform: scale(1.1) translateY(0);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+}
+
+/* Custom prose styles for better markdown formatting */
+@layer components {
+  .prose {
+    color: var(--foreground);
+    max-width: none;
+    line-height: 1.7;
+    font-size: 1rem;
+  }
+
+  .prose h1 {
+    color: var(--foreground);
+    font-weight: 800;
+    font-size: 2.5rem;
+    margin-top: 0;
+    margin-bottom: 1.2em;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    background: linear-gradient(135deg, var(--primary), #22c55e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+  }
+
+  .prose h1::after {
+    content: "";
+    position: absolute;
+    bottom: -0.5rem;
+    left: 0;
+    width: 4rem;
+    height: 0.25rem;
+    background: linear-gradient(135deg, var(--primary), #22c55e);
+    border-radius: 0.125rem;
+  }
+
+  .prose h2 {
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 2rem;
+    margin-top: 1.75em;
+    margin-bottom: 1em;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+    position: relative;
+  }
+
+  .prose h2::before {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 3rem;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 1px;
+  }
+
+  .prose h3 {
+    color: #374151;
+    font-weight: 650;
+    font-size: 1.5rem;
+    margin-top: 2em;
+    margin-bottom: 0.75em;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    position: relative;
+    padding-left: 1rem;
+  }
+
+  .prose h3::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    width: 0.25rem;
+    height: 1.5rem;
+    background: linear-gradient(to bottom, var(--primary), #22c55e);
+    border-radius: 0.125rem;
+  }
+
+  .prose h4 {
+    color: #4b5563;
+    font-weight: 600;
+    font-size: 1.25rem;
+    margin-top: 1.8em;
+    margin-bottom: 0.6em;
+    line-height: 1.5;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.95rem;
+  }
+
+  .prose p {
+    margin-top: 1.5em;
+    margin-bottom: 1.5em;
+    text-align: justify;
+    text-justify: inter-word;
+  }
+
+  .prose p:first-of-type {
+    font-size: 1.125rem;
+    font-weight: 450;
+    color: #374151;
+    margin-bottom: 2em;
+    line-height: 1.6;
+  }
+
+  .prose strong {
+    color: var(--foreground);
+    font-weight: 650;
+    background: linear-gradient(
+      135deg,
+      rgba(34, 197, 94, 0.1),
+      rgba(34, 197, 94, 0.05)
+    );
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+  }
+
+  .prose em {
+    font-style: italic;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .prose a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+    padding-bottom: 0.05rem;
+  }
+
+  .prose a:hover {
+    color: #22c55e;
+    border-bottom-color: #22c55e;
+    background: rgba(34, 197, 94, 0.05);
+    padding: 0.125rem 0.25rem;
+    margin: -0.125rem -0.25rem;
+    border-radius: 0.25rem;
+  }
+
+  .prose ul {
+    margin-top: 1.5em;
+    margin-bottom: 1.5em;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .prose ul li {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+    position: relative;
+    padding-left: 2rem;
+    line-height: 1.6;
+  }
+
+  .prose ul li::before {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    top: 0.75rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    background: linear-gradient(135deg, var(--primary), #22c55e);
+    border-radius: 50%;
+    transform: translateY(-50%);
+  }
+
+  .prose ol {
+    margin-top: 1.5em;
+    margin-bottom: 1.5em;
+    padding-left: 0;
+    counter-reset: item;
+  }
+
+  .prose ol li {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+    position: relative;
+    padding-left: 2.5rem;
+    line-height: 1.6;
+    counter-increment: item;
+  }
+
+  .prose ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: linear-gradient(135deg, var(--primary), #22c55e);
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .prose blockquote {
+    font-weight: 500;
+    font-style: italic;
+    color: #6b7280;
+    border-left: 0;
+    quotes: "\201C""\201D""\2018""\2019";
+    margin-top: 2em;
+    margin-bottom: 2em;
+    padding: 1.5rem 2rem;
+    background: linear-gradient(
+      135deg,
+      rgba(34, 197, 94, 0.03),
+      rgba(34, 197, 94, 0.01)
+    );
+    border-radius: 0.75rem;
+    border-left: 4px solid var(--primary);
+    position: relative;
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+
+  .prose blockquote::before {
+    content: '"';
+    position: absolute;
+    top: -0.5rem;
+    left: 1rem;
+    font-size: 4rem;
+    color: var(--primary);
+    opacity: 0.3;
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+
+  .prose code:not(pre code) {
+    color: #be185d;
+    font-weight: 600;
+    font-size: 0.875em;
+    background: linear-gradient(
+      135deg,
+      rgba(236, 72, 153, 0.1),
+      rgba(236, 72, 153, 0.05)
+    );
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
+    border: 1px solid rgba(236, 72, 153, 0.2);
+  }
+
+  .prose pre {
+    color: #e5e7eb;
+    background: linear-gradient(135deg, #1f2937, #111827);
+    overflow-x: auto;
+    font-weight: 400;
+    font-size: 0.875em;
+    line-height: 1.7;
+    margin-top: 2em;
+    margin-bottom: 2em;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border: 1px solid #374151;
+    position: relative;
+  }
+
+  .prose pre::before {
+    content: "";
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    background: #ef4444;
+    border-radius: 50%;
+    box-shadow: 1.25rem 0 0 #f59e0b, 2.5rem 0 0 #22c55e;
+  }
+
+  .prose pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-weight: inherit;
+    color: inherit;
+    font-size: inherit;
+    font-family: inherit;
+    line-height: inherit;
+  }
+
+  .prose hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--primary),
+      transparent
+    );
+    margin: 3rem 0;
+    position: relative;
+  }
+
+  .prose hr::after {
+    content: "❋";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--background);
+    color: var(--primary);
+    padding: 0 1rem;
+    font-size: 1.25rem;
+  }
+
+  .prose table {
+    width: 100%;
+    table-layout: auto;
+    text-align: left;
+    margin-top: 2em;
+    margin-bottom: 2em;
+    font-size: 0.875em;
+    line-height: 1.7;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .prose thead {
+    background: linear-gradient(135deg, var(--primary), #22c55e);
+    color: white;
+  }
+
+  .prose thead th {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .prose tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .prose tbody tr:nth-child(even) {
+    background: rgba(34, 197, 94, 0.02);
+  }
+
+  .prose tbody tr:hover {
+    background: rgba(34, 197, 94, 0.05);
+  }
+
+  .prose tbody td {
+    padding: 0.75rem 1rem;
   }
 }
 
@@ -5011,6 +8036,8 @@ import { getBasePath } from "./api/config";
 
 // Import Admin views
 import AdminLayout from "./views/admin/AdminLayout";
+import AdminSeries from "./views/admin/Series";
+import AdminSeriesDetail from "./views/admin/SeriesDetail";
 import AdminTeams from "./views/admin/Teams";
 import AdminCourses from "./views/admin/Courses";
 import AdminCompetitions from "./views/admin/Competitions";
@@ -5020,6 +8047,8 @@ import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 import PlayerLayout from "./views/player/PlayerLayout";
 import PlayerStandings from "./views/player/Standings";
 import PlayerCompetitions from "./views/player/Competitions";
+import PlayerSeries from "./views/player/Series";
+import SeriesDetail from "./views/player/SeriesDetail";
 import CompetitionDetail from "./views/player/CompetitionDetail";
 import CompetitionRound from "./views/player/CompetitionRound";
 
@@ -5033,6 +8062,18 @@ const adminRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/admin",
   component: AdminLayout,
+});
+
+const adminSeriesRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/series",
+  component: AdminSeries,
+});
+
+const adminSeriesDetailRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/series/$serieId",
+  component: AdminSeriesDetail,
 });
 
 const adminTeamsRoute = new Route({
@@ -5078,6 +8119,18 @@ const playerCompetitionsRoute = new Route({
   component: PlayerCompetitions,
 });
 
+const playerSeriesRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series",
+  component: PlayerSeries,
+});
+
+const seriesDetailRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series/$serieId",
+  component: SeriesDetail,
+});
+
 const competitionDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId",
@@ -5100,6 +8153,8 @@ const indexRoute = new Route({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   adminRoute.addChildren([
+    adminSeriesRoute,
+    adminSeriesDetailRoute,
     adminTeamsRoute,
     adminCoursesRoute,
     adminCompetitionsRoute,
@@ -5108,6 +8163,8 @@ const routeTree = rootRoute.addChildren([
   playerRoute.addChildren([
     playerStandingsRoute,
     playerCompetitionsRoute,
+    playerSeriesRoute,
+    seriesDetailRoute,
     competitionDetailRoute,
     teeTimeDetailRoute,
   ]),
@@ -5119,6 +8176,36 @@ const router = createRouter({
 });
 
 export default router;
+
+```
+
+# src/utils/courseFormatting.ts
+
+```ts
+import type { Course } from "../api/courses";
+import type { TeeTime } from "../api/tee-times";
+
+export interface FormattedCourse {
+  id: string;
+  name: string;
+  holes: Array<{ number: number; par: number }>;
+}
+
+export function formatCourseFromTeeTime(
+  teeTime: TeeTime | null,
+  course?: Course | null
+): FormattedCourse | null {
+  if (!teeTime) return null;
+
+  return {
+    id: teeTime.id.toString(),
+    name: course ? course.name : `${teeTime.course_name} ${teeTime.teetime}`,
+    holes: teeTime.pars.map((par, index) => ({
+      number: index + 1,
+      par,
+    })),
+  };
+}
 
 ```
 
@@ -5186,6 +8273,62 @@ export const rememberCurrentHole = (teeTimeId: string, hole: number): void => {
 export const clearRememberedHole = (teeTimeId: string): void => {
   sessionStorage.removeItem(getSessionStorageKey(teeTimeId));
 };
+
+```
+
+# src/utils/participantFormatting.ts
+
+```ts
+import type { TeeTime, TeeTimeParticipant } from "../api/tee-times";
+import {
+  formatParticipantTypeDisplay,
+  isMultiPlayerFormat,
+} from "./playerUtils";
+
+export interface ScoreEntryPlayer {
+  participantId: string;
+  participantName: string;
+  participantType?: string;
+  isMultiPlayer?: boolean;
+  scores: number[];
+}
+
+export interface TeeTimeGroup {
+  id: string;
+  players: ScoreEntryPlayer[];
+}
+
+export function formatTeeTimeGroup(
+  teeTime: TeeTime | null
+): TeeTimeGroup | null {
+  if (!teeTime) return null;
+
+  return {
+    id: teeTime.id.toString(),
+    players: teeTime.participants.map((participant: TeeTimeParticipant) => ({
+      participantId: participant.id.toString(),
+      participantName: participant.team_name,
+      participantType: formatParticipantTypeDisplay(participant.position_name),
+      isMultiPlayer: isMultiPlayerFormat(participant.position_name),
+      scores: participant.score,
+    })),
+  };
+}
+
+export function formatParticipantForScorecard(
+  participant: TeeTimeParticipant | null
+) {
+  if (!participant) return null;
+
+  return {
+    id: participant.id,
+    team_name: participant.team_name,
+    position_name: participant.position_name,
+    player_names: participant.player_names,
+    score: participant.score,
+    tee_time_id: participant.tee_time_id,
+  };
+}
 
 ```
 
@@ -5294,6 +8437,275 @@ export function formatParticipantTypeDisplay(participantType: string): string {
  */
 export function isMultiPlayerFormat(participantType: string): boolean {
   return getPlayerCountForParticipantType(participantType) > 1;
+}
+
+```
+
+# src/utils/scoreCalculations.ts
+
+```ts
+// Types for score calculations
+export interface ParticipantScore {
+  participantId: number;
+  participant: {
+    id: number;
+    team_name: string;
+    position_name: string;
+    player_names?: string | null;
+  };
+  totalShots: number;
+  relativeToPar: number;
+  holesPlayed: number;
+}
+
+export interface TeamResult {
+  teamName: string;
+  participants: Array<{
+    name: string;
+    position: string;
+    totalShots: number;
+    relativeToPar: number;
+  }>;
+  totalShots: number;
+  relativeToPar: number;
+  position: number;
+  points: number;
+}
+
+export interface ScoreStatistics {
+  totalShots: number;
+  relativeToPar: number;
+  holesPlayed: number;
+  isValidRound: boolean;
+}
+
+/**
+ * Calculate participant score statistics from their score array
+ * @param scores Array of scores for each hole (0 = not reported, -1 = gave up, positive = actual score)
+ * @param coursePars Array of par values for each hole
+ * @returns Score statistics including total shots, relative to par, and holes played
+ */
+export function calculateParticipantScore(
+  scores: number[],
+  coursePars: number[]
+): ScoreStatistics {
+  // Check if player gave up on any hole - if so, invalidate entire round
+  const hasGaveUp = scores.some((score) => score === -1);
+
+  if (hasGaveUp) {
+    return {
+      totalShots: 0,
+      relativeToPar: 0,
+      holesPlayed: 0,
+      isValidRound: false,
+    };
+  }
+
+  let totalShots = 0;
+  let totalPlayedPar = 0;
+  let holesPlayed = 0;
+
+  for (let i = 0; i < Math.min(scores.length, coursePars.length); i++) {
+    const score = scores[i];
+    const par = coursePars[i];
+
+    // Only count holes that have been played (score > 0)
+    // Exclude gave up (-1) and not reported (0) holes
+    if (score && score > 0) {
+      totalShots += score;
+      totalPlayedPar += par;
+      holesPlayed++;
+    }
+  }
+
+  const relativeToPar = totalShots > 0 ? totalShots - totalPlayedPar : 0;
+
+  return {
+    totalShots,
+    relativeToPar,
+    holesPlayed,
+    isValidRound: true,
+  };
+}
+
+/**
+ * Format score relative to par for display
+ * @param toPar The score relative to par (positive = over par, negative = under par, 0 = even)
+ * @returns Formatted string (e.g., "E", "+2", "-1")
+ */
+export function formatToPar(toPar: number): string {
+  if (toPar === 0) return "E";
+  return toPar > 0 ? `+${toPar}` : `${toPar}`;
+}
+
+/**
+ * Get CSS color class based on score relative to par
+ * @param toPar The score relative to par
+ * @returns CSS color class string
+ */
+export function getToParColor(toPar: number): string {
+  if (toPar < 0) return "text-green-600";
+  if (toPar > 0) return "text-red-600";
+  return "text-gray-600";
+}
+
+/**
+ * Get position styling for leaderboard positions
+ * @param position The position/rank (1st, 2nd, 3rd, etc.)
+ * @returns CSS classes for position styling
+ */
+export function getPositionColor(position: number): string {
+  switch (position) {
+    case 1:
+      return "text-yellow-600 bg-yellow-50 border-yellow-200";
+    case 2:
+      return "text-gray-600 bg-gray-50 border-gray-200";
+    case 3:
+      return "text-amber-600 bg-amber-50 border-amber-200";
+    default:
+      return "text-gray-900 bg-white border-gray-200";
+  }
+}
+
+/**
+ * Calculate team results from individual participant scores
+ * @param leaderboard Array of participant scores
+ * @returns Array of team results with standings and points
+ */
+export function calculateTeamResults(
+  leaderboard: ParticipantScore[]
+): TeamResult[] {
+  // Group participants by team
+  const teamGroups = leaderboard.reduce((acc, entry) => {
+    const teamName = entry.participant.team_name;
+    if (!acc[teamName]) {
+      acc[teamName] = {
+        teamName,
+        participants: [],
+        totalShots: 0,
+        relativeToPar: 0,
+      };
+    }
+    acc[teamName].participants.push({
+      name: entry.participant.player_names || "",
+      position: entry.participant.position_name,
+      totalShots: entry.totalShots,
+      relativeToPar: entry.relativeToPar,
+    });
+    acc[teamName].totalShots += entry.totalShots;
+    acc[teamName].relativeToPar += entry.relativeToPar;
+    return acc;
+  }, {} as Record<string, { teamName: string; participants: Array<{ name: string; position: string; totalShots: number; relativeToPar: number }>; totalShots: number; relativeToPar: number }>);
+
+  // Sort teams by relativeToPar and assign points
+  return Object.values(teamGroups)
+    .sort((a, b) => a.relativeToPar - b.relativeToPar)
+    .map((team, index, array) => {
+      const position = index + 1;
+      let points = array.length - position + 1; // Base points (last place gets 1 point)
+
+      // Add extra points for top 3 positions
+      if (position === 1) points += 2; // First place gets 2 extra points
+      if (position === 2) points += 1; // Second place gets 1 extra point
+
+      return {
+        ...team,
+        position,
+        points,
+      };
+    });
+}
+
+/**
+ * Format score for display in scorecard
+ * @param score The raw score (-1 = gave up, 0 = not reported, positive = actual score)
+ * @returns Formatted score string
+ */
+export function formatScoreDisplay(score: number): string {
+  if (score === -1) return "-"; // Gave up
+  if (score === 0) return "0"; // Not reported
+  return score.toString(); // Actual score
+}
+
+/**
+ * Format score for display in score entry (slightly different from scorecard)
+ * @param score The raw score (-1 = gave up, 0 = not reported, positive = actual score)
+ * @returns Formatted score string
+ */
+export function formatScoreEntryDisplay(score: number | null): string {
+  if (score === -1 || score === null) return "-"; // Gave up
+  if (score === 0) return "NR"; // Not reported
+  return score.toString(); // Actual score
+}
+
+/**
+ * Calculate total number of participants across all tee times
+ * @param teeTimes Array of tee time objects with participants
+ * @returns Total participant count
+ */
+export function calculateTotalParticipants(
+  teeTimes: Array<{ participants: unknown[] }> | undefined
+): number {
+  return (
+    teeTimes?.reduce(
+      (total, teeTime) => total + teeTime.participants.length,
+      0
+    ) || 0
+  );
+}
+
+/**
+ * Check if a score is valid for color coding and calculations
+ * @param score The score to validate
+ * @returns True if score is valid (positive number)
+ */
+export function isValidScore(score: number): boolean {
+  return score > 0;
+}
+
+/**
+ * Check if a participant has a valid score entered for a hole
+ * @param score The score to check
+ * @returns True if score has been entered (not 0)
+ */
+export function hasValidScore(score: number): boolean {
+  return score !== 0;
+}
+
+/**
+ * Calculate total shots for a subset of holes
+ * @param playerScores Array of all player scores
+ * @param holes Array of hole objects with number property
+ * @returns Total shots for the specified holes
+ */
+export function calculateHoleTotal(
+  playerScores: number[],
+  holes: Array<{ number: number }>
+): number {
+  return holes.reduce((total, hole) => {
+    const score = playerScores[hole.number - 1];
+    // Only count actual scores (positive numbers) in totals
+    // Exclude gave up (-1) and not reported (0) holes
+    return total + (score && score > 0 ? score : 0);
+  }, 0);
+}
+
+/**
+ * Calculate par total for played holes only
+ * @param playerScores Array of all player scores
+ * @param holes Array of hole objects with number and par properties
+ * @returns Total par for holes that have been played
+ */
+export function calculatePlayedPar(
+  playerScores: number[],
+  holes: Array<{ number: number; par: number }>
+): number {
+  return holes.reduce((totalPar, hole) => {
+    const score = playerScores[hole.number - 1];
+    // Only count par for holes that have been played (score > 0)
+    // Exclude gave up (-1) and not reported (0) holes
+    return totalPar + (score && score > 0 ? hole.par : 0);
+  }, 0);
 }
 
 ```
@@ -5424,13 +8836,299 @@ export class ScoreStorageManager {
 
 ```
 
+# src/utils/syncManager.ts
+
+```ts
+// src/utils/syncManager.ts
+
+// Sync intervals configuration
+export const SYNC_INTERVALS = {
+  TAB_CHANGE: 15000, // 15 seconds
+  VISIBILITY_CHANGE: 60000, // 1 minute
+  PERIODIC: 30000, // 30 seconds
+  HOLE_NAVIGATION: 20000, // 20 seconds
+  INITIAL_FETCH: 10000, // 10 seconds
+} as const;
+
+// Sync configuration interfaces
+export interface SyncConfig {
+  teeTimeId?: string;
+  competitionId?: string;
+  activeTab: string;
+  lastSyncTime: number;
+  onSync: () => void | Promise<void>;
+}
+
+export interface InitialSyncConfig extends SyncConfig {
+  hasData?: boolean;
+}
+
+export interface TabSyncConfig extends SyncConfig {
+  newTab: string;
+  onLeaderboardSync?: () => void | Promise<void>;
+  onTeamsSync?: () => void | Promise<void>;
+}
+
+export interface VisibilitySyncConfig extends SyncConfig {
+  isScoreEntry: boolean;
+}
+
+export interface HoleSyncConfig extends SyncConfig {
+  currentHole: number;
+}
+
+export interface SyncStatus {
+  pendingCount: number;
+  lastSyncTime: number;
+  isOnline: boolean;
+  hasConnectivityIssues: boolean;
+}
+
+export class SyncManager {
+  /**
+   * Determine if a sync is needed based on time threshold
+   */
+  static shouldSync(lastSyncTime: number, threshold: number): boolean {
+    const timeSinceLastSync = Date.now() - lastSyncTime;
+    return timeSinceLastSync > threshold;
+  }
+
+  /**
+   * Generate session storage key for sync tracking
+   */
+  static getSessionKey(type: string, id: string): string {
+    return `golf-sync-${type}-${id}`;
+  }
+
+  /**
+   * Check if initial sync is needed for a session
+   */
+  static needsInitialSync(sessionKey: string): boolean {
+    const lastSyncedThisSession = sessionStorage.getItem(sessionKey);
+    return !lastSyncedThisSession;
+  }
+
+  /**
+   * Mark sync as completed in session storage
+   */
+  static markSyncCompleted(sessionKey: string): void {
+    sessionStorage.setItem(sessionKey, Date.now().toString());
+  }
+
+  /**
+   * Handle initial sync when entering a view
+   */
+  static async handleInitialSync(config: InitialSyncConfig): Promise<boolean> {
+    if (!config.teeTimeId || !config.hasData) return false;
+
+    const sessionKey = this.getSessionKey("initial", config.teeTimeId);
+
+    if (this.needsInitialSync(sessionKey)) {
+      console.log("Initial sync for score entry session...");
+      await config.onSync();
+      this.markSyncCompleted(sessionKey);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Handle sync on tab changes
+   */
+  static async handleTabChangeSync(config: TabSyncConfig): Promise<void> {
+    const { newTab, teeTimeId, lastSyncTime } = config;
+
+    // Sync when switching to score tab
+    if (newTab === "score" && teeTimeId) {
+      if (this.shouldSync(lastSyncTime, SYNC_INTERVALS.TAB_CHANGE)) {
+        console.log("Syncing on tab change to score entry...");
+        await config.onSync();
+      }
+    }
+
+    // Sync when switching to leaderboard or teams
+    if (newTab === "leaderboard" || newTab === "teams") {
+      console.log(`Syncing data for ${newTab} view...`);
+
+      if (config.onLeaderboardSync) {
+        await config.onLeaderboardSync();
+      }
+
+      if (newTab === "teams" && config.onTeamsSync) {
+        await config.onTeamsSync();
+      }
+    }
+  }
+
+  /**
+   * Handle sync when browser tab becomes visible
+   */
+  static async handleVisibilityChangeSync(
+    config: VisibilitySyncConfig
+  ): Promise<boolean> {
+    if (document.hidden || !config.isScoreEntry || !config.teeTimeId) {
+      return false;
+    }
+
+    if (
+      this.shouldSync(config.lastSyncTime, SYNC_INTERVALS.VISIBILITY_CHANGE)
+    ) {
+      console.log("Syncing after returning to tab...");
+      await config.onSync();
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if sync is needed when navigating holes (every 3 holes)
+   */
+  static shouldSyncOnHoleChange(hole: number, lastSyncTime: number): boolean {
+    const shouldSyncOnHole = hole % 3 === 1; // Sync on holes 1, 4, 7, 10, 13, 16
+    return (
+      shouldSyncOnHole &&
+      this.shouldSync(lastSyncTime, SYNC_INTERVALS.HOLE_NAVIGATION)
+    );
+  }
+
+  /**
+   * Handle sync on hole navigation
+   */
+  static async handleHoleNavigationSync(
+    config: HoleSyncConfig
+  ): Promise<boolean> {
+    if (!config.teeTimeId) return false;
+
+    if (this.shouldSyncOnHoleChange(config.currentHole, config.lastSyncTime)) {
+      console.log(
+        `Syncing on hole navigation to hole ${config.currentHole}...`
+      );
+      await config.onSync();
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if initial data fetch is needed for leaderboard/teams views
+   */
+  static needsInitialFetch(viewType: string, competitionId: string): boolean {
+    const lastFetchKey = `lastFetch-${viewType}-${competitionId}`;
+    const lastFetch = sessionStorage.getItem(lastFetchKey);
+    const timeSinceLastFetch = lastFetch
+      ? Date.now() - parseInt(lastFetch)
+      : Infinity;
+
+    return timeSinceLastFetch > SYNC_INTERVALS.INITIAL_FETCH;
+  }
+
+  /**
+   * Mark initial fetch as completed
+   */
+  static markInitialFetchCompleted(
+    viewType: string,
+    competitionId: string
+  ): void {
+    const lastFetchKey = `lastFetch-${viewType}-${competitionId}`;
+    sessionStorage.setItem(lastFetchKey, Date.now().toString());
+  }
+
+  /**
+   * Handle initial fetch for leaderboard/teams views
+   */
+  static async handleInitialViewFetch(
+    viewType: "leaderboard" | "teams",
+    competitionId: string,
+    onLeaderboardSync: () => void | Promise<void>,
+    onTeamsSync?: () => void | Promise<void>
+  ): Promise<boolean> {
+    if (this.needsInitialFetch(viewType, competitionId)) {
+      console.log(`Initial fetch for ${viewType} view...`);
+
+      await onLeaderboardSync();
+
+      if (viewType === "teams" && onTeamsSync) {
+        await onTeamsSync();
+      }
+
+      this.markInitialFetchCompleted(viewType, competitionId);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Create sync status object
+   */
+  static createSyncStatus(
+    scoreManager: { getPendingCount: () => number },
+    lastSyncTime: number
+  ): SyncStatus {
+    const pendingCount = scoreManager.getPendingCount();
+
+    return {
+      pendingCount,
+      lastSyncTime,
+      isOnline: navigator.onLine,
+      hasConnectivityIssues:
+        pendingCount > 0 && Date.now() - lastSyncTime > SYNC_INTERVALS.PERIODIC,
+    };
+  }
+
+  /**
+   * Determine if periodic sync should run based on active tab
+   */
+  static shouldRunPeriodicSync(activeTab: string): boolean {
+    return activeTab === "leaderboard" || activeTab === "teams";
+  }
+
+  /**
+   * Handle periodic sync for leaderboard and teams
+   */
+  static async handlePeriodicViewSync(
+    activeTab: string,
+    onLeaderboardSync: () => void | Promise<void>,
+    onTeamsSync?: () => void | Promise<void>
+  ): Promise<void> {
+    if (!this.shouldRunPeriodicSync(activeTab)) return;
+
+    console.log(`Periodic sync for ${activeTab} view...`);
+
+    await onLeaderboardSync();
+
+    if (activeTab === "teams" && onTeamsSync) {
+      await onTeamsSync();
+    }
+  }
+
+  /**
+   * Check if retryable sync should run (for pending scores)
+   */
+  static shouldRetryPendingScores(
+    retryableScores: unknown[],
+    lastSyncTime: number
+  ): boolean {
+    return (
+      retryableScores.length > 0 ||
+      this.shouldSync(lastSyncTime, SYNC_INTERVALS.PERIODIC)
+    );
+  }
+}
+
+```
+
 # src/views/admin/AdminLayout.tsx
 
 ```tsx
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Users, Map, Trophy, Settings } from "lucide-react";
+import { Users, Map, Trophy, Settings, Award } from "lucide-react";
 
 const adminNavLinks = [
+  { to: "/admin/series", label: "Series", icon: Award },
   { to: "/admin/teams", label: "Teams", icon: Users },
   { to: "/admin/courses", label: "Courses", icon: Map },
   { to: "/admin/competitions", label: "Competitions", icon: Trophy },
@@ -5448,7 +9146,7 @@ export default function AdminLayout() {
             Admin Panel
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage teams, courses, and competitions
+            Manage series, teams, courses, and competitions
           </p>
         </div>
         <Link
@@ -5499,15 +9197,45 @@ export default function AdminLayout() {
 
 ```tsx
 import { useState } from "react";
-import { useCompetitions, type Competition } from "../../api/competitions";
+import {
+  useCompetitions,
+  useCreateCompetition,
+  useUpdateCompetition,
+  useDeleteCompetition,
+  type Competition,
+} from "../../api/competitions";
 import { useCourses } from "../../api/courses";
-import { Plus, Edit, Trash2, MapPin, Clock } from "lucide-react";
-import { Link } from "@tanstack/react-router";
-import { API_BASE_URL } from "../../api/config";
+import { useSeries, useSeriesCompetitions } from "../../api/series";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  MapPin,
+  Clock,
+  Award,
+  ArrowLeft,
+} from "lucide-react";
+import { Link, useSearch } from "@tanstack/react-router";
 
 export default function AdminCompetitions() {
-  const { data: competitions, isLoading, error } = useCompetitions();
+  // Get series filter from URL search params
+  const search = useSearch({ from: "/admin/competitions" }) as {
+    series?: string;
+  };
+  const seriesFilter = search.series ? parseInt(search.series) : null;
+
+  const { data: allCompetitions, isLoading, error } = useCompetitions();
+  const { data: seriesCompetitions } = useSeriesCompetitions(seriesFilter || 0);
   const { data: courses } = useCourses();
+  const { data: series } = useSeries();
+  const createCompetition = useCreateCompetition();
+  const updateCompetition = useUpdateCompetition();
+  const deleteCompetition = useDeleteCompetition();
+
+  // Use series-specific competitions if filtering, otherwise all competitions
+  const competitions = seriesFilter ? seriesCompetitions : allCompetitions;
+  const filteredSeries = series?.find((s) => s.id === seriesFilter);
+
   const [showForm, setShowForm] = useState(false);
   const [editingCompetition, setEditingCompetition] =
     useState<Competition | null>(null);
@@ -5515,6 +9243,7 @@ export default function AdminCompetitions() {
     name: "",
     date: "",
     course_id: "",
+    series_id: seriesFilter?.toString() || "",
   });
 
   if (isLoading) return <div>Loading competitions...</div>;
@@ -5526,44 +9255,56 @@ export default function AdminCompetitions() {
       name: competition.name,
       date: competition.date,
       course_id: competition.course_id.toString(),
+      series_id: competition.series_id?.toString() || "",
     });
     setShowForm(true);
   };
 
   const handleDelete = (competitionId: number) => {
     if (confirm("Are you sure you want to delete this competition?")) {
-      // TODO: Implement delete functionality
-      console.log("Delete competition:", competitionId);
+      deleteCompetition.mutate(competitionId, {
+        onError: (error) => {
+          console.error("Error deleting competition:", error);
+          alert("Failed to delete competition. Please try again.");
+        },
+      });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/competitions`, {
-        method: editingCompetition ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...formData,
-          course_id: parseInt(formData.course_id),
-          ...(editingCompetition && { id: editingCompetition.id }),
-        }),
-      });
+    const competitionData = {
+      name: formData.name,
+      date: formData.date,
+      course_id: parseInt(formData.course_id),
+      series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
+    };
 
-      if (!response.ok) {
-        throw new Error("Failed to save competition");
-      }
-
+    const onSuccess = () => {
       // Reset form and close
-      setFormData({ name: "", date: "", course_id: "" });
+      setFormData({
+        name: "",
+        date: "",
+        course_id: "",
+        series_id: seriesFilter?.toString() || "",
+      });
       setShowForm(false);
       setEditingCompetition(null);
-    } catch (error) {
+    };
+
+    const onError = (error: Error) => {
       console.error("Error saving competition:", error);
       alert("Failed to save competition. Please try again.");
+    };
+
+    if (editingCompetition) {
+      updateCompetition.mutate(
+        { id: editingCompetition.id, data: competitionData },
+        { onSuccess, onError }
+      );
+    } else {
+      createCompetition.mutate(competitionData, { onSuccess, onError });
     }
   };
 
@@ -5582,15 +9323,37 @@ export default function AdminCompetitions() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Competitions</h2>
+          {seriesFilter && filteredSeries ? (
+            <div className="flex items-center gap-3 mb-2">
+              <Link
+                to="/admin/series"
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Series
+              </Link>
+            </div>
+          ) : null}
+          <h2 className="text-2xl font-bold text-gray-900">
+            {seriesFilter && filteredSeries
+              ? `${filteredSeries.name} - Competitions`
+              : "Competitions"}
+          </h2>
           <p className="text-gray-600">
-            Manage golf competitions and tournaments
+            {seriesFilter && filteredSeries
+              ? `Competitions in the ${filteredSeries.name} series`
+              : "Manage golf competitions and tournaments"}
           </p>
         </div>
         <button
           onClick={() => {
             setEditingCompetition(null);
-            setFormData({ name: "", date: "", course_id: "" });
+            setFormData({
+              name: "",
+              date: "",
+              course_id: "",
+              series_id: seriesFilter?.toString() || "",
+            });
             setShowForm(true);
           }}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -5655,19 +9418,49 @@ export default function AdminCompetitions() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Series (Optional)
+              </label>
+              <select
+                name="series_id"
+                value={formData.series_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">No series (standalone competition)</option>
+                {series?.map((seriesItem) => (
+                  <option key={seriesItem.id} value={seriesItem.id}>
+                    {seriesItem.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-end gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                disabled={
+                  createCompetition.isPending || updateCompetition.isPending
+                }
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingCompetition ? "Update" : "Create"}
+                {createCompetition.isPending || updateCompetition.isPending
+                  ? "Saving..."
+                  : editingCompetition
+                  ? "Update"
+                  : "Create"}
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setShowForm(false);
                   setEditingCompetition(null);
-                  setFormData({ name: "", date: "", course_id: "" });
+                  setFormData({
+                    name: "",
+                    date: "",
+                    course_id: "",
+                    series_id: seriesFilter?.toString() || "",
+                  });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >
@@ -5681,53 +9474,83 @@ export default function AdminCompetitions() {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">
-            All Competitions
+            {seriesFilter && filteredSeries
+              ? `${filteredSeries.name} Competitions`
+              : "All Competitions"}
           </h3>
+          {competitions && (
+            <p className="text-sm text-gray-500 mt-1">
+              {competitions.length} competition
+              {competitions.length !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
         <div className="divide-y divide-gray-200">
-          {competitions?.map((competition) => {
-            const course = getCourse(competition.course_id);
-            return (
-              <div key={competition.id} className="px-6 py-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h4 className="text-lg font-medium text-gray-900">
-                      {competition.name}
-                    </h4>
-                    <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {course?.name || "Unknown Course"}
+          {competitions && competitions.length === 0 ? (
+            <div className="px-6 py-8 text-center text-gray-500">
+              {seriesFilter && filteredSeries ? (
+                <p>
+                  No competitions found in the {filteredSeries.name} series.
+                </p>
+              ) : (
+                <p>No competitions found.</p>
+              )}
+            </div>
+          ) : (
+            competitions?.map((competition) => {
+              const course = getCourse(competition.course_id);
+              return (
+                <div
+                  key={competition.id}
+                  className="px-6 py-4 hover:bg-gray-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-medium text-gray-900">
+                        {competition.name}
+                      </h4>
+                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {course?.name || "Unknown Course"}
+                        </div>
+                        {competition.series_id && (
+                          <div className="flex items-center gap-1 text-blue-600">
+                            <Award className="h-4 w-4" />
+                            {series?.find((s) => s.id === competition.series_id)
+                              ?.name || `Series #${competition.series_id}`}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      to={`/admin/competitions/${competition.id}/tee-times`}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Manage tee times"
-                    >
-                      <Clock className="h-4 w-4" />
-                    </Link>
-                    <button
-                      onClick={() => handleEdit(competition)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit competition"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(competition.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete competition"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/admin/competitions/${competition.id}/tee-times`}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Manage tee times"
+                      >
+                        <Clock className="h-4 w-4" />
+                      </Link>
+                      <button
+                        onClick={() => handleEdit(competition)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit competition"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(competition.id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete competition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </div>
@@ -5743,6 +9566,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useCompetition } from "../../api/competitions";
 import { useTeams } from "../../api/teams";
+import { useSeriesTeams } from "../../api/series";
 import {
   useTeeTimesForCompetition,
   useCreateTeeTime,
@@ -5762,9 +9586,15 @@ export default function AdminCompetitionTeeTimes() {
   const { data: competition, isLoading: competitionLoading } = useCompetition(
     competitionId ? parseInt(competitionId) : 0
   );
-  const { data: teams } = useTeams();
+  const { data: allTeams } = useTeams();
+  const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
   const { data: teeTimes, refetch: refetchTeeTimes } =
     useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
+
+  // Use series teams if competition belongs to a series, otherwise use all teams
+  // This ensures that when administering a competition that belongs to a series,
+  // only teams that are part of that series are shown for participation
+  const teams = competition?.series_id ? seriesTeams : allTeams;
 
   const [participantTypes, setParticipantTypes] = useState<ParticipantType[]>(
     []
@@ -5970,6 +9800,11 @@ export default function AdminCompetitionTeeTimes() {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Select Participating Teams
+          {competition?.series_id && (
+            <span className="ml-2 text-sm font-normal text-blue-600">
+              (from series)
+            </span>
+          )}
           {hasAnalyzedExistingData && selectedTeams.length > 0 && (
             <span className="ml-2 text-sm font-normal text-green-600">
               (auto-selected from existing)
@@ -5995,7 +9830,9 @@ export default function AdminCompetitionTeeTimes() {
 
         {teams?.length === 0 && (
           <div className="text-center py-4 text-gray-500">
-            No teams available. Please add teams first.
+            {competition?.series_id
+              ? "No teams available in this series. Please add teams to the series first."
+              : "No teams available. Please add teams first."}
           </div>
         )}
       </div>
@@ -6563,6 +10400,1427 @@ function CourseCard({
 
 ```
 
+# src/views/admin/Series.tsx
+
+```tsx
+import { useState } from "react";
+import {
+  useSeries,
+  useCreateSeries,
+  useUpdateSeries,
+  useDeleteSeries,
+  useSeriesTeams,
+  useAvailableTeams,
+  useAddTeamToSeries,
+  useRemoveTeamFromSeries,
+  type Series,
+} from "@/api/series";
+import { type Team } from "@/api/teams";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Trophy,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff,
+  Image,
+  Users,
+  Calendar,
+  Settings,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Link } from "@tanstack/react-router";
+
+function SeriesSkeleton() {
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-[200px]" />
+          <Skeleton className="h-5 w-[80px] rounded-full" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-4 w-full mb-2" />
+        <Skeleton className="h-4 w-[150px]" />
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AdminSeries() {
+  const { data: series, isLoading, error } = useSeries();
+  const createSeries = useCreateSeries();
+  const updateSeries = useUpdateSeries();
+  const deleteSeries = useDeleteSeries();
+  const addTeamToSeries = useAddTeamToSeries();
+  const removeTeamFromSeries = useRemoveTeamFromSeries();
+
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingSeries, setEditingSeries] = useState<Series | null>(null);
+  const [showTeamDialog, setShowTeamDialog] = useState(false);
+  const [managingTeamsForSeries, setManagingTeamsForSeries] =
+    useState<Series | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    banner_image_url: "",
+    is_public: true,
+  });
+
+  // Team management queries
+  const { data: seriesTeams } = useSeriesTeams(managingTeamsForSeries?.id || 0);
+  const { data: availableTeams } = useAvailableTeams(
+    managingTeamsForSeries?.id || 0
+  );
+
+  const handleCreate = () => {
+    setEditingSeries(null);
+    setFormData({
+      name: "",
+      description: "",
+      banner_image_url: "",
+      is_public: true,
+    });
+    setShowDialog(true);
+  };
+
+  const handleEdit = (series: Series) => {
+    setEditingSeries(series);
+    setFormData({
+      name: series.name,
+      description: series.description || "",
+      banner_image_url: series.banner_image_url || "",
+      is_public: series.is_public,
+    });
+    setShowDialog(true);
+  };
+
+  const handleDelete = async (series: Series) => {
+    if (
+      window.confirm(`Are you sure you want to delete series "${series.name}"?`)
+    ) {
+      try {
+        await deleteSeries.mutateAsync(series.id);
+      } catch (error) {
+        console.error("Failed to delete series:", error);
+        alert("Failed to delete series. Please try again.");
+      }
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      const data = {
+        name: formData.name,
+        description: formData.description || undefined,
+        banner_image_url: formData.banner_image_url || undefined,
+        is_public: formData.is_public,
+      };
+
+      if (editingSeries) {
+        await updateSeries.mutateAsync({ id: editingSeries.id, data });
+      } else {
+        await createSeries.mutateAsync(data);
+      }
+      setShowDialog(false);
+    } catch (error) {
+      console.error("Failed to save series:", error);
+      alert("Failed to save series. Please try again.");
+    }
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleManageTeams = (series: Series) => {
+    setManagingTeamsForSeries(series);
+    setShowTeamDialog(true);
+  };
+
+  const handleAddTeam = async (teamId: number) => {
+    if (!managingTeamsForSeries) return;
+    try {
+      await addTeamToSeries.mutateAsync({
+        seriesId: managingTeamsForSeries.id,
+        teamId,
+      });
+    } catch (error) {
+      console.error("Failed to add team to series:", error);
+      alert("Failed to add team to series. Please try again.");
+    }
+  };
+
+  const handleRemoveTeam = async (teamId: number) => {
+    if (!managingTeamsForSeries) return;
+    try {
+      await removeTeamFromSeries.mutateAsync({
+        seriesId: managingTeamsForSeries.id,
+        teamId,
+      });
+    } catch (error) {
+      console.error("Failed to remove team from series:", error);
+      alert("Failed to remove team from series. Please try again.");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Trophy className="h-8 w-8 text-blue-600" />
+              <h2 className="text-3xl font-bold text-gray-900">Series</h2>
+            </div>
+            <div className="flex items-center gap-4">
+              <Badge variant="secondary" className="text-sm">
+                Loading...
+              </Badge>
+              <Button
+                onClick={handleCreate}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Series
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <SeriesSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {editingSeries ? "Edit Series" : "Create New Series"}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">
+                  Series Name
+                </label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Enter series name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="description" className="text-sm font-medium">
+                  Description
+                </label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Enter series description (optional)"
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="banner_image_url"
+                  className="text-sm font-medium"
+                >
+                  Banner Image URL
+                </label>
+                <Input
+                  id="banner_image_url"
+                  name="banner_image_url"
+                  type="url"
+                  value={formData.banner_image_url}
+                  onChange={handleInputChange}
+                  placeholder="https://example.com/banner.jpg (optional)"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="is_public"
+                  checked={formData.is_public}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, is_public: checked }))
+                  }
+                />
+                <label htmlFor="is_public" className="text-sm font-medium">
+                  Public series (visible to players)
+                </label>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {editingSeries ? "Update" : "Create"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Trophy className="h-8 w-8 text-blue-600" />
+              <h2 className="text-3xl font-bold text-gray-900">Series</h2>
+            </div>
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={handleCreate}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Series
+              </Button>
+            </div>
+          </div>
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2 text-red-700">
+                <Trophy className="h-5 w-5" />
+                <p className="font-medium">Error loading series</p>
+              </div>
+              <p className="text-red-600 text-sm mt-2">
+                Please try refreshing the page or contact support if the problem
+                persists. You can still create new series using the button
+                above.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {editingSeries ? "Edit Series" : "Create New Series"}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">
+                  Series Name
+                </label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Enter series name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="description" className="text-sm font-medium">
+                  Description
+                </label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Enter series description (optional)"
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="banner_image_url"
+                  className="text-sm font-medium"
+                >
+                  Banner Image URL
+                </label>
+                <Input
+                  id="banner_image_url"
+                  name="banner_image_url"
+                  type="url"
+                  value={formData.banner_image_url}
+                  onChange={handleInputChange}
+                  placeholder="https://example.com/banner.jpg (optional)"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="is_public"
+                  checked={formData.is_public}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, is_public: checked }))
+                  }
+                />
+                <label htmlFor="is_public" className="text-sm font-medium">
+                  Public series (visible to players)
+                </label>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {editingSeries ? "Update" : "Create"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Trophy className="h-8 w-8 text-blue-600" />
+            <h2 className="text-3xl font-bold text-gray-900">Series</h2>
+          </div>
+          <div className="flex items-center gap-4">
+            <Badge variant="secondary" className="text-sm">
+              {series?.length || 0} {series?.length === 1 ? "series" : "series"}
+            </Badge>
+            <Button onClick={handleCreate} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Series
+            </Button>
+          </div>
+        </div>
+
+        {!series || series.length === 0 ? (
+          <Card className="border-dashed border-2 border-gray-300">
+            <CardContent className="p-12 text-center">
+              <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No series yet
+              </h3>
+              <p className="text-gray-600">
+                Create series to organize multiple competitions into
+                tournaments.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {series.map((seriesItem) => (
+              <Card
+                key={seriesItem.id}
+                className="hover:shadow-lg transition-shadow duration-200"
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+                        <Trophy className="h-5 w-5 text-blue-600" />
+                        {seriesItem.name}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          #{seriesItem.id}
+                        </Badge>
+                        <Badge
+                          variant={
+                            seriesItem.is_public ? "default" : "secondary"
+                          }
+                          className="text-xs flex items-center gap-1"
+                        >
+                          {seriesItem.is_public ? (
+                            <Eye className="h-3 w-3" />
+                          ) : (
+                            <EyeOff className="h-3 w-3" />
+                          )}
+                          {seriesItem.is_public ? "Public" : "Private"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(seriesItem)}
+                        className="h-8 w-8"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(seriesItem)}
+                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {seriesItem.description && (
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                      {seriesItem.description}
+                    </p>
+                  )}
+                  {seriesItem.banner_image_url && (
+                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                      <Image className="h-4 w-4" />
+                      <span>Has banner image</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <Link
+                        to={`/admin/series/${seriesItem.id}`}
+                        className="flex items-center gap-1 hover:text-blue-600"
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span>Admin</span>
+                      </Link>
+                      <button
+                        onClick={() => handleManageTeams(seriesItem)}
+                        className="flex items-center gap-1 hover:text-blue-600"
+                      >
+                        <Users className="h-4 w-4" />
+                        <span>Manage Teams</span>
+                      </button>
+                      <Link
+                        to={`/admin/competitions?series=${seriesItem.id}`}
+                        className="flex items-center gap-1 hover:text-blue-600"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        <span>Competitions</span>
+                      </Link>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingSeries ? "Edit Series" : "Create New Series"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium">
+                Series Name
+              </label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Enter series name"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium">
+                Description
+              </label>
+              <Textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Enter series description (optional)"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="banner_image_url" className="text-sm font-medium">
+                Banner Image URL
+              </label>
+              <Input
+                id="banner_image_url"
+                name="banner_image_url"
+                type="url"
+                value={formData.banner_image_url}
+                onChange={handleInputChange}
+                placeholder="https://example.com/banner.jpg (optional)"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="is_public"
+                checked={formData.is_public}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, is_public: checked }))
+                }
+              />
+              <label htmlFor="is_public" className="text-sm font-medium">
+                Public series (visible to players)
+              </label>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">
+                {editingSeries ? "Update" : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTeamDialog} onOpenChange={setShowTeamDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Teams - {managingTeamsForSeries?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* Current Teams */}
+            <div>
+              <h3 className="text-lg font-medium mb-3">Teams in Series</h3>
+              {seriesTeams && seriesTeams.length > 0 ? (
+                <div className="space-y-2">
+                  {seriesTeams.map((team: Team) => (
+                    <div
+                      key={team.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-blue-600" />
+                        <span className="font-medium">{team.name}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveTeam(team.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  No teams in this series yet.
+                </p>
+              )}
+            </div>
+
+            {/* Available Teams */}
+            <div>
+              <h3 className="text-lg font-medium mb-3">Available Teams</h3>
+              {availableTeams && availableTeams.length > 0 ? (
+                <div className="space-y-2">
+                  {availableTeams.map((team: Team) => (
+                    <div
+                      key={team.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-gray-600" />
+                        <span className="font-medium">{team.name}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleAddTeam(team.id)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Add to Series
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">
+                  All teams are already in this series.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowTeamDialog(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+```
+
+# src/views/admin/SeriesDetail.tsx
+
+```tsx
+import { useState, useEffect } from "react";
+import { Link, useParams } from "@tanstack/react-router";
+import {
+  useSingleSeries,
+  useUpdateSeries,
+  useSeriesTeams,
+  useAvailableTeams,
+  useAddTeamToSeries,
+  useRemoveTeamFromSeries,
+  useSeriesDocuments,
+  useCreateSeriesDocument,
+  useUpdateSeriesDocument,
+  useDeleteSeriesDocument,
+  type SeriesDocument,
+} from "@/api/series";
+import { type Team } from "@/api/teams";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ArrowLeft,
+  Edit,
+  Save,
+  Plus,
+  Trash2,
+  Users,
+  FileText,
+  Settings,
+  X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+export default function AdminSeriesDetail() {
+  const { serieId } = useParams({ from: "/admin/series/$serieId" });
+  const seriesId = parseInt(serieId);
+
+  // API hooks
+  const { data: series, isLoading: seriesLoading } = useSingleSeries(seriesId);
+  const updateSeries = useUpdateSeries();
+  const { data: seriesTeams } = useSeriesTeams(seriesId);
+  const { data: availableTeams } = useAvailableTeams(seriesId);
+  const addTeamToSeries = useAddTeamToSeries();
+  const removeTeamFromSeries = useRemoveTeamFromSeries();
+  const { data: documents } = useSeriesDocuments(seriesId);
+  const createDocument = useCreateSeriesDocument();
+  const updateDocument = useUpdateSeriesDocument();
+  const deleteDocument = useDeleteSeriesDocument();
+
+  // Local state
+  const [activeTab, setActiveTab] = useState<
+    "settings" | "teams" | "documents"
+  >("settings");
+  const [isEditingBasic, setIsEditingBasic] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    banner_image_url: "",
+    is_public: true,
+    landing_document_id: undefined as number | undefined,
+  });
+
+  // Document management state
+  const [showDocumentDialog, setShowDocumentDialog] = useState(false);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<SeriesDocument | null>(
+    null
+  );
+  const [documentForm, setDocumentForm] = useState({
+    title: "",
+    content: "",
+  });
+
+  // Initialize form data when series loads
+  useEffect(() => {
+    if (series) {
+      setFormData({
+        name: series.name,
+        banner_image_url: series.banner_image_url || "",
+        is_public: series.is_public,
+        landing_document_id: series.landing_document_id,
+      });
+    }
+  }, [series]);
+
+  // Fix scrolling issue when document dialog closes
+  useEffect(() => {
+    if (!showDocumentDialog) {
+      // Reset body overflow when dialog closes
+      document.body.style.overflow = "";
+    }
+  }, [showDocumentDialog]);
+
+  // Cleanup body overflow on component unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  const handleBasicInfoSave = async () => {
+    if (!series) return;
+    try {
+      await updateSeries.mutateAsync({
+        id: series.id,
+        data: {
+          name: formData.name,
+          banner_image_url: formData.banner_image_url || undefined,
+          is_public: formData.is_public,
+          landing_document_id: formData.landing_document_id,
+        },
+      });
+      setIsEditingBasic(false);
+    } catch (error) {
+      console.error("Failed to update series:", error);
+      alert("Failed to update series. Please try again.");
+    }
+  };
+
+  const handleAddTeam = async (teamId: number) => {
+    try {
+      await addTeamToSeries.mutateAsync({
+        seriesId,
+        teamId,
+      });
+    } catch (error) {
+      console.error("Failed to add team to series:", error);
+      alert("Failed to add team to series. Please try again.");
+    }
+  };
+
+  const handleRemoveTeam = async (teamId: number) => {
+    try {
+      await removeTeamFromSeries.mutateAsync({
+        seriesId,
+        teamId,
+      });
+    } catch (error) {
+      console.error("Failed to remove team from series:", error);
+      alert("Failed to remove team from series. Please try again.");
+    }
+  };
+
+  const handleCreateDocument = () => {
+    setEditingDocument(null);
+    setDocumentForm({ title: "", content: "" });
+    setShowDocumentDialog(true);
+  };
+
+  const handleEditDocument = (document: SeriesDocument) => {
+    setEditingDocument(document);
+    setDocumentForm({ title: document.title, content: document.content });
+    setShowDocumentDialog(true);
+  };
+
+  const handleSaveDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingDocument) {
+        await updateDocument.mutateAsync({
+          seriesId,
+          documentId: editingDocument.id,
+          data: documentForm,
+        });
+      } else {
+        await createDocument.mutateAsync({
+          seriesId,
+          data: documentForm,
+        });
+      }
+      setShowDocumentDialog(false);
+    } catch (error) {
+      console.error("Failed to save document:", error);
+      alert("Failed to save document. Please try again.");
+    }
+  };
+
+  const handleDeleteDocument = async (document: SeriesDocument) => {
+    if (!series) return;
+
+    const isLandingPage = series.landing_document_id === document.id;
+    const confirmMessage = isLandingPage
+      ? `Are you sure you want to delete "${document.title}"? This is currently set as the landing page and will be unset.`
+      : `Are you sure you want to delete "${document.title}"?`;
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        // If deleting the landing page document, unset it first
+        if (isLandingPage) {
+          await updateSeries.mutateAsync({
+            id: series.id,
+            data: {
+              landing_document_id: undefined,
+            },
+          });
+          setFormData((prev) => ({
+            ...prev,
+            landing_document_id: undefined,
+          }));
+        }
+
+        await deleteDocument.mutateAsync({
+          seriesId,
+          documentId: document.id,
+        });
+      } catch (error) {
+        console.error("Failed to delete document:", error);
+        alert("Failed to delete document. Please try again.");
+      }
+    }
+  };
+
+  if (seriesLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-[300px]" />
+        <Skeleton className="h-[400px] w-full" />
+      </div>
+    );
+  }
+
+  if (!series) {
+    return <div>Series not found</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            to="/admin/series"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Series
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{series.name}</h1>
+            <p className="text-gray-600">Series #{series.id}</p>
+          </div>
+        </div>
+        <Badge variant={series.is_public ? "default" : "secondary"}>
+          {series.is_public ? "Public" : "Private"}
+        </Badge>
+      </div>
+
+      {/* Main content */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) =>
+          setActiveTab(value as "settings" | "teams" | "documents")
+        }
+      >
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </TabsTrigger>
+          <TabsTrigger value="teams" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Teams
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Documents
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="settings" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Basic Information</CardTitle>
+                {isEditingBasic ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditingBasic(false);
+                        setFormData({
+                          name: series.name,
+                          banner_image_url: series.banner_image_url || "",
+                          is_public: series.is_public,
+                          landing_document_id: series.landing_document_id,
+                        });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleBasicInfoSave}>
+                      <Save className="h-4 w-4" />
+                      Save
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingBasic(true)}
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">
+                  Series Name
+                </label>
+                {isEditingBasic ? (
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Enter series name"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-900">{series.name}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="banner_image_url"
+                  className="text-sm font-medium"
+                >
+                  Banner Image URL
+                </label>
+                {isEditingBasic ? (
+                  <Input
+                    id="banner_image_url"
+                    type="url"
+                    value={formData.banner_image_url}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        banner_image_url: e.target.value,
+                      }))
+                    }
+                    placeholder="https://example.com/banner.jpg"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-900">
+                    {series.banner_image_url || "No banner image set"}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="is_public"
+                  checked={
+                    isEditingBasic ? formData.is_public : series.is_public
+                  }
+                  onCheckedChange={
+                    isEditingBasic
+                      ? (checked) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            is_public: checked,
+                          }))
+                      : undefined
+                  }
+                  disabled={!isEditingBasic}
+                />
+                <label htmlFor="is_public" className="text-sm font-medium">
+                  Public series (visible to players)
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="teams" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Teams in Series</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {seriesTeams && seriesTeams.length > 0 ? (
+                  <div className="space-y-2">
+                    {seriesTeams.map((team: Team) => (
+                      <div
+                        key={team.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium">{team.name}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRemoveTeam(team.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">
+                    No teams in this series yet.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Teams</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {availableTeams && availableTeams.length > 0 ? (
+                  <div className="space-y-2">
+                    {availableTeams.map((team: Team) => (
+                      <div
+                        key={team.id}
+                        className="flex items-center justify-between p-3 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-gray-600" />
+                          <span className="font-medium">{team.name}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddTeam(team.id)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          Add to Series
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">
+                    All teams are already in this series.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-6">
+          {/* Landing Page Settings Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Landing Page Settings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label
+                  htmlFor="landing-document"
+                  className="text-sm font-medium"
+                >
+                  Landing Page Document
+                </label>
+                <select
+                  id="landing-document"
+                  value={formData.landing_document_id || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      landing_document_id: value ? parseInt(value) : undefined,
+                    }));
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">None (use series description)</option>
+                  {documents?.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Select which document players will see as the main content for
+                  this series.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBasicInfoSave}
+                  disabled={updateSeries.isPending}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Landing Page Settings
+                </Button>
+                {formData.landing_document_id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPreviewDialog(true)}
+                  >
+                    Preview
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Series Documents</h3>
+            <Button onClick={handleCreateDocument}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Document
+            </Button>
+          </div>
+
+          <div className="grid gap-4">
+            {documents && documents.length > 0 ? (
+              documents.map((document) => (
+                <Card key={document.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">
+                          {document.title}
+                        </CardTitle>
+                        {series?.landing_document_id === document.id && (
+                          <Badge
+                            variant="default"
+                            className="bg-blue-100 text-blue-800 hover:bg-blue-100"
+                          >
+                            Landing Page
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditDocument(document)}
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteDocument(document)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-gray max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {document.content}
+                      </ReactMarkdown>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No documents created yet.</p>
+                  <Button
+                    variant="outline"
+                    onClick={handleCreateDocument}
+                    className="mt-4"
+                  >
+                    Create your first document
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Document Dialog */}
+      <Dialog open={showDocumentDialog} onOpenChange={setShowDocumentDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingDocument ? "Edit Document" : "Create Document"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveDocument} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="document-title" className="text-sm font-medium">
+                Document Title
+              </label>
+              <Input
+                id="document-title"
+                value={documentForm.title}
+                onChange={(e) =>
+                  setDocumentForm((prev) => ({
+                    ...prev,
+                    title: e.target.value,
+                  }))
+                }
+                placeholder="Enter document title"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="document-content" className="text-sm font-medium">
+                Content (Markdown)
+              </label>
+              <MarkdownEditor
+                value={documentForm.content}
+                onChange={(content) =>
+                  setDocumentForm((prev) => ({ ...prev, content }))
+                }
+                height={300}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDocumentDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">
+                {editingDocument ? "Update" : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Landing Page Preview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              This is how players will see the landing page for this series:
+            </p>
+
+            {(() => {
+              const selectedDoc = documents?.find(
+                (doc) => doc.id === formData.landing_document_id
+              );
+
+              if (!selectedDoc) {
+                return (
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <p className="text-gray-500">
+                      No document selected for preview.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="border rounded-lg overflow-hidden">
+                  {/* Preview header */}
+                  <div className="bg-gray-50 border-b px-4 py-2">
+                    <h3 className="font-medium text-gray-900">
+                      {selectedDoc.title}
+                    </h3>
+                  </div>
+
+                  {/* Preview content */}
+                  <div className="p-6">
+                    <div className="prose prose-gray max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {selectedDoc.content}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPreviewDialog(false)}
+            >
+              Close Preview
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+```
+
 # src/views/admin/Teams.tsx
 
 ```tsx
@@ -6697,9 +11955,12 @@ export default function Teams() {
     e.preventDefault();
     try {
       if (editingTeam) {
-        await updateTeam.mutateAsync({ id: editingTeam.id, name: teamName });
+        await updateTeam.mutateAsync({
+          id: editingTeam.id,
+          data: { name: teamName },
+        });
       } else {
-        await createTeam.mutateAsync(teamName);
+        await createTeam.mutateAsync({ name: teamName });
       }
       setShowDialog(false);
     } catch (error) {
@@ -6832,11 +12093,11 @@ export default function Teams() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="teamName" className="text-sm font-medium">
+              <label htmlFor="name" className="text-sm font-medium">
                 Team Name
               </label>
               <Input
-                id="teamName"
+                id="name"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 placeholder="Enter team name"
@@ -6862,364 +12123,6 @@ export default function Teams() {
 
 ```
 
-# src/views/Competitions.tsx
-
-```tsx
-import { useCompetitions } from "../api/competitions";
-
-export default function Competitions() {
-  const { data: competitions, isLoading, error } = useCompetitions();
-
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading competitions</div>;
-
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Competitions</h2>
-      <ul>
-        {competitions?.map((competition) => (
-          <li key={competition.id} className="mb-2">
-            {competition.name} -{" "}
-            {new Date(competition.date).toLocaleDateString()}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-```
-
-# src/views/Courses.tsx
-
-```tsx
-import { useCourses } from "../api/courses";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Map, Target, TrendingUp } from "lucide-react";
-
-function CourseSkeleton() {
-  return (
-    <Card className="mb-4">
-      <CardHeader>
-        <Skeleton className="h-6 w-[200px]" />
-        <Skeleton className="h-4 w-[150px]" />
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <Skeleton className="h-4 w-full" />
-          <div className="flex gap-2">
-            <Skeleton className="h-6 w-16" />
-            <Skeleton className="h-6 w-16" />
-            <Skeleton className="h-6 w-16" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function Courses() {
-  const { data: courses, isLoading, error } = useCourses();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2 mb-6">
-          <Map className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Courses</h2>
-        </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          {[...Array(4)].map((_, i) => (
-            <CourseSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="border-red-200 bg-red-50">
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-700">
-            <Map className="h-5 w-5" />
-            <p className="font-medium">Error loading courses</p>
-          </div>
-          <p className="text-red-600 text-sm mt-2">
-            Please try refreshing the page or contact support if the problem
-            persists.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!courses || courses.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2 mb-6">
-          <Map className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Courses</h2>
-        </div>
-        <Card className="border-dashed border-2 border-gray-300">
-          <CardContent className="p-12 text-center">
-            <Map className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No courses available
-            </h3>
-            <p className="text-gray-600">
-              Add some golf courses to get started with your scorecard.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Map className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Courses</h2>
-        </div>
-        <Badge variant="secondary" className="text-sm">
-          {courses.length} {courses.length === 1 ? "course" : "courses"}
-        </Badge>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {courses.map((course) => (
-          <Card
-            key={course.id}
-            className="hover:shadow-lg transition-shadow duration-200 border-l-4 border-l-green-500"
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-xl text-gray-900 flex items-center gap-2">
-                <Target className="h-5 w-5 text-green-600" />
-                {course.name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-xs text-green-600 font-medium uppercase tracking-wide">
-                    Front 9
-                  </p>
-                  <p className="text-lg font-bold text-green-700">
-                    Par {course.pars.out}
-                  </p>
-                </div>
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">
-                    Back 9
-                  </p>
-                  <p className="text-lg font-bold text-blue-700">
-                    Par {course.pars.in}
-                  </p>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <p className="text-xs text-purple-600 font-medium uppercase tracking-wide">
-                    Total
-                  </p>
-                  <p className="text-lg font-bold text-purple-700">
-                    Par {course.pars.total}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <TrendingUp className="h-4 w-4" />
-                    <span>{course.pars.holes.length} holes</span>
-                  </div>
-                  <span className="text-xs">Course #{course.id}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-```
-
-# src/views/Participants.tsx
-
-```tsx
-import { useParticipants } from "../api/participants";
-import { Users, Trophy, Clock, Hash } from "lucide-react";
-
-function getPlayerInitials(playerNames?: string) {
-  if (!playerNames) return "U";
-  return playerNames
-    .split(" ")
-    .map((name) => name[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function getAvatarColor(index: number) {
-  const colors = [
-    "bg-blue-500",
-    "bg-green-500",
-    "bg-purple-500",
-    "bg-orange-500",
-    "bg-pink-500",
-    "bg-teal-500",
-    "bg-indigo-500",
-    "bg-red-500",
-  ];
-  return colors[index % colors.length];
-}
-
-export default function Participants() {
-  const { data: participants, isLoading, error } = useParticipants();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2 mb-6">
-          <Users className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Participants</h2>
-        </div>
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
-            >
-              <div className="flex items-center space-x-4">
-                <div className="h-12 w-12 bg-gray-200 rounded-full animate-pulse"></div>
-                <div className="space-y-2 flex-1">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-[250px]"></div>
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-[200px]"></div>
-                </div>
-                <div className="h-6 bg-gray-200 rounded-full animate-pulse w-[80px]"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <div className="flex items-center space-x-2 text-red-700">
-          <Trophy className="h-5 w-5" />
-          <p className="font-medium">Error loading participants</p>
-        </div>
-        <p className="text-red-600 text-sm mt-2">
-          Please try refreshing the page or contact support if the problem
-          persists.
-        </p>
-      </div>
-    );
-  }
-
-  if (!participants || participants.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2 mb-6">
-          <Users className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Participants</h2>
-        </div>
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No participants yet
-          </h3>
-          <p className="text-gray-600">
-            When participants join the competition, they'll appear here.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Users className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Participants</h2>
-        </div>
-        <span className="bg-gray-100 text-gray-800 text-sm px-3 py-1 rounded-full">
-          {participants.length}{" "}
-          {participants.length === 1 ? "participant" : "participants"}
-        </span>
-      </div>
-
-      <div className="grid gap-4">
-        {participants.map((participant, index) => (
-          <div
-            key={participant.id}
-            className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 border-l-4 border-l-green-500"
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4 flex-1">
-                  <div
-                    className={`h-12 w-12 ${getAvatarColor(
-                      index
-                    )} text-white rounded-full flex items-center justify-center font-semibold`}
-                  >
-                    {getPlayerInitials(participant.player_names)}
-                  </div>
-
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {participant.player_names || "Unnamed Player"}
-                    </h3>
-                    <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <Hash className="h-4 w-4" />
-                        <span>Team {participant.team_id}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4" />
-                        <span>Tee Time {participant.tee_time_id}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Trophy className="h-4 w-4" />
-                        <span>Order: {participant.tee_order}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end space-y-2">
-                  <span className="bg-gray-100 text-gray-800 text-sm px-3 py-1 rounded-full border">
-                    {participant.position_name}
-                  </span>
-                  {participant.score && participant.score.length > 0 && (
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">Current Score</p>
-                      <p className="text-lg font-bold text-green-600">
-                        {participant.score.reduce((a, b) => a + b, 0)}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-```
-
 # src/views/player/CompetitionDetail.tsx
 
 ```tsx
@@ -7230,7 +12133,7 @@ import {
   useCompetitionLeaderboard,
 } from "../../api/competitions";
 import { useCourse } from "../../api/courses";
-import { useTeeTimesForCompetition } from "../../api/tee-times";
+import { useTeeTimesForCompetition, useParticipant } from "../../api/tee-times";
 import {
   Calendar,
   MapPin,
@@ -7242,6 +12145,17 @@ import {
   Edit3,
 } from "lucide-react";
 import { HamburgerMenu } from "../../components/navigation";
+import { ParticipantScorecard } from "../../components/scorecard";
+import type { ParticipantData, CourseData } from "../../components/scorecard";
+import {
+  ParticipantsListComponent,
+  LeaderboardComponent,
+  TeamResultComponent,
+} from "../../components/competition";
+import {
+  calculateTeamResults,
+  calculateTotalParticipants,
+} from "../../utils/scoreCalculations";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -7262,14 +12176,65 @@ export default function CompetitionDetail() {
 
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
 
+  // Scorecard modal state
+  const [selectedParticipantId, setSelectedParticipantId] = useState<
+    number | null
+  >(null);
+
   const { data: competition, isLoading: competitionLoading } = useCompetition(
     competitionId ? parseInt(competitionId) : 0
   );
   const { data: course } = useCourse(competition?.course_id || 0);
-  const { data: teeTimes, isLoading: teeTimesLoading } =
-    useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
-  const { data: leaderboard, isLoading: leaderboardLoading } =
-    useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+  const {
+    data: teeTimes,
+    isLoading: teeTimesLoading,
+    refetch: refetchTeeTimes,
+  } = useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
+  const {
+    data: leaderboard,
+    isLoading: leaderboardLoading,
+    refetch: refetchLeaderboard,
+  } = useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+
+  // Fetch selected participant data for scorecard
+  const { data: selectedParticipant } = useParticipant(
+    selectedParticipantId || 0
+  );
+
+  // Handle opening participant scorecard
+  const handleParticipantClick = (participantId: number) => {
+    setSelectedParticipantId(participantId);
+  };
+
+  // Handle closing participant scorecard
+  const handleCloseScorecardModal = () => {
+    setSelectedParticipantId(null);
+  };
+
+  // Create course data format for scorecard component
+  const scorecardCourseData: CourseData | null =
+    teeTimes && teeTimes.length > 0 && course
+      ? {
+          id: course.id.toString(),
+          name: course.name,
+          holes: teeTimes[0].pars.map((par: number, index: number) => ({
+            number: index + 1,
+            par,
+          })),
+        }
+      : null;
+
+  // Convert selected participant to scorecard format
+  const scorecardParticipantData: ParticipantData | null = selectedParticipant
+    ? {
+        id: selectedParticipant.id,
+        team_name: selectedParticipant.team_name,
+        position_name: selectedParticipant.position_name,
+        player_names: selectedParticipant.player_names,
+        score: selectedParticipant.score,
+        tee_time_id: selectedParticipant.tee_time_id,
+      }
+    : null;
 
   // ... existing useEffect for hash changes ...
   useEffect(() => {
@@ -7284,79 +12249,61 @@ export default function CompetitionDetail() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
+  // Fetch fresh data when first entering leaderboard or team results views
+  useEffect(() => {
+    if (activeTab === "leaderboard" || activeTab === "teamresult") {
+      // Check if we haven't fetched data for this view recently
+      const lastFetchKey = `lastFetch-${activeTab}-${competitionId}`;
+      const lastFetch = sessionStorage.getItem(lastFetchKey);
+      const timeSinceLastFetch = lastFetch
+        ? Date.now() - parseInt(lastFetch)
+        : Infinity;
+
+      if (timeSinceLastFetch > 10000) {
+        // Only if it's been more than 10 seconds
+        console.log(`Initial fetch for ${activeTab} view...`);
+        refetchLeaderboard();
+        if (activeTab === "teamresult") {
+          refetchTeeTimes(); // Team results also need tee times data
+        }
+        sessionStorage.setItem(lastFetchKey, Date.now().toString());
+      }
+    }
+  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+
+  // Periodic sync for leaderboard and team results data
+  useEffect(() => {
+    if (!competitionId) return;
+
+    // Only run periodic sync when viewing leaderboard or team results
+    if (activeTab !== "leaderboard" && activeTab !== "teamresult") return;
+
+    const syncInterval = setInterval(() => {
+      console.log(`Periodic sync for ${activeTab} view...`);
+      refetchLeaderboard();
+      if (activeTab === "teamresult") {
+        refetchTeeTimes(); // Team results data comes from teeTimes
+      }
+    }, 30000); // Sync every 30 seconds
+
+    return () => clearInterval(syncInterval);
+  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+
   if (competitionLoading)
     return <div className="p-4">Loading competition...</div>;
   if (!competition) return <div className="p-4">Competition not found</div>;
 
-  const getPositionColor = (position: number) => {
-    switch (position) {
-      case 1:
-        return "text-yellow-600 bg-yellow-50 border-yellow-200";
-      case 2:
-        return "text-gray-600 bg-gray-50 border-gray-200";
-      case 3:
-        return "text-amber-600 bg-amber-50 border-amber-200";
-      default:
-        return "text-gray-900 bg-white border-gray-200";
-    }
-  };
-
-  const getToParColor = (toPar: number) => {
-    if (toPar < 0) return "text-green-600";
-    if (toPar > 0) return "text-red-600";
-    return "text-gray-600";
-  };
-
-  const formatToPar = (toPar: number) => {
-    if (toPar === 0) return "E";
-    return toPar > 0 ? `+${toPar}` : `${toPar}`;
-  };
-
-  const totalParticipants =
-    teeTimes?.reduce(
-      (total, teeTime) => total + teeTime.participants.length,
-      0
-    ) || 0;
+  const totalParticipants = calculateTotalParticipants(teeTimes);
 
   // Calculate team results
-  const teamResults = leaderboard?.reduce((acc, entry) => {
-    const teamName = entry.participant.team_name;
-    if (!acc[teamName]) {
-      acc[teamName] = {
-        teamName,
-        participants: [],
-        totalShots: 0,
-        relativeToPar: 0,
-      };
-    }
-    acc[teamName].participants.push({
-      name: entry.participant.player_names || "",
-      position: entry.participant.position_name,
-      totalShots: entry.totalShots,
-      relativeToPar: entry.relativeToPar,
-    });
-    acc[teamName].totalShots += entry.totalShots;
-    acc[teamName].relativeToPar += entry.relativeToPar;
-    return acc;
-  }, {} as Record<string, { teamName: string; participants: Array<{ name: string; position: string; totalShots: number; relativeToPar: number }>; totalShots: number; relativeToPar: number }>);
-
-  // Sort teams by relativeToPar and assign points
-  const sortedTeamResults = Object.values(teamResults || {})
-    .sort((a, b) => a.relativeToPar - b.relativeToPar)
-    .map((team, index, array) => {
-      const position = index + 1;
-      let points = array.length - position + 1; // Base points (last place gets 1 point)
-
-      // Add extra points for top 3 positions
-      if (position === 1) points += 2; // First place gets 2 extra points
-      if (position === 2) points += 1; // Second place gets 1 extra point
-
-      return {
-        ...team,
-        position,
-        points,
-      };
-    });
+  const sortedTeamResults = leaderboard
+    ? calculateTeamResults(
+        leaderboard.map((entry) => ({
+          ...entry,
+          participantId: entry.participant.id,
+        }))
+      )
+    : [];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -7445,6 +12392,9 @@ export default function CompetitionDetail() {
               onClick={() => {
                 setActiveTab("leaderboard");
                 window.location.hash = "leaderboard";
+                // Immediately fetch fresh data when switching to leaderboard
+                console.log("Syncing data for leaderboard view...");
+                refetchLeaderboard();
               }}
               className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
                 ${
@@ -7461,6 +12411,10 @@ export default function CompetitionDetail() {
               onClick={() => {
                 setActiveTab("teamresult");
                 window.location.hash = "teamresult";
+                // Immediately fetch fresh data when switching to team results
+                console.log("Syncing data for team results view...");
+                refetchLeaderboard();
+                refetchTeeTimes();
               }}
               className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors
                 ${
@@ -7478,276 +12432,36 @@ export default function CompetitionDetail() {
 
         {/* Tab Content */}
         {activeTab === "startlist" && (
-          <div className="space-y-3 md:space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                Tee Times
-              </h2>
-              <div className="text-xs md:text-sm text-gray-500">
-                {teeTimes?.length || 0} tee times
-              </div>
-            </div>
-
-            {teeTimesLoading ? (
-              <div className="p-4">Loading tee times...</div>
-            ) : !teeTimes || teeTimes.length === 0 ? (
-              <div className="text-center py-6 md:py-8 text-gray-500 text-sm">
-                No tee times scheduled for this competition yet.
-              </div>
-            ) : (
-              <div className="grid gap-3 md:gap-4">
-                {teeTimes.map((teeTime) => (
-                  <Link
-                    key={teeTime.id}
-                    to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
-                    className="block bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200"
-                  >
-                    <div className="p-4 md:p-6">
-                      <div className="flex items-center justify-between mb-3 md:mb-4">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
-                          <span className="text-base md:text-lg font-semibold text-gray-900">
-                            {teeTime.teetime}
-                          </span>
-                        </div>
-                        <div className="text-xs md:text-sm text-gray-500">
-                          {teeTime.participants.length} players
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
-                        {teeTime.participants.map((participant) => (
-                          <div
-                            key={participant.id}
-                            className="flex items-center justify-between p-2 md:p-3 bg-gray-50 rounded-lg"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <span className="font-medium text-gray-900 text-sm md:text-base block truncate">
-                                {participant.team_name}{" "}
-                                {participant.position_name}
-                              </span>
-                              <div className="text-xs text-gray-500 truncate">
-                                {participant.player_names}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {teeTime.participants.length === 0 && (
-                        <div className="text-center py-3 md:py-4 text-gray-500 text-sm">
-                          No participants assigned to this tee time yet.
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          <ParticipantsListComponent
+            teeTimes={teeTimes}
+            teeTimesLoading={teeTimesLoading}
+            competitionId={competitionId}
+          />
         )}
 
         {activeTab === "leaderboard" && (
-          <div className="space-y-3 md:space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                Leaderboard
-              </h2>
-              <div className="text-xs md:text-sm text-gray-500">
-                Live scoring
-              </div>
-            </div>
-
-            {leaderboardLoading ? (
-              <div className="p-4">Loading leaderboard...</div>
-            ) : !leaderboard || leaderboard.length === 0 ? (
-              <div className="text-center py-6 md:py-8 text-gray-500">
-                No scores reported yet.
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="divide-y divide-gray-200">
-                  {[...leaderboard]
-                    .sort((a, b) => {
-                      // First sort by whether they have started (holes played > 0)
-                      const aStarted = a.holesPlayed > 0;
-                      const bStarted = b.holesPlayed > 0;
-                      if (aStarted !== bStarted) {
-                        return aStarted ? -1 : 1;
-                      }
-                      // Then sort by relativeToPar
-                      return a.relativeToPar - b.relativeToPar;
-                    })
-                    .map((entry, index) => (
-                      <div
-                        key={entry.participant.id}
-                        className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
-                          index + 1
-                        )} border-l-4`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                            <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
-                              <span className="text-xs md:text-sm font-bold">
-                                {index + 1}
-                              </span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
-                                {entry.participant.team_name}{" "}
-                                {entry.participant.position_name}
-                              </h4>
-                              <p className="text-xs md:text-sm text-gray-600">
-                                Thru {entry.holesPlayed} holes
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="flex items-center gap-3 md:gap-6">
-                              <div>
-                                <div className="text-xs text-gray-600">
-                                  Score
-                                </div>
-                                <div className="text-lg md:text-xl font-bold text-gray-900">
-                                  {entry.totalShots}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-600">
-                                  To Par
-                                </div>
-                                <div
-                                  className={`text-lg md:text-xl font-bold ${getToParColor(
-                                    entry.relativeToPar
-                                  )}`}
-                                >
-                                  {formatToPar(entry.relativeToPar)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <LeaderboardComponent
+            leaderboard={leaderboard}
+            leaderboardLoading={leaderboardLoading}
+            onParticipantClick={handleParticipantClick}
+          />
         )}
 
         {activeTab === "teamresult" && (
-          <div className="space-y-3 md:space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                Team Results
-              </h2>
-              <div className="text-xs md:text-sm text-gray-500">
-                Final standings
-              </div>
-            </div>
-
-            {leaderboardLoading ? (
-              <div className="p-4">Loading team results...</div>
-            ) : !sortedTeamResults || sortedTeamResults.length === 0 ? (
-              <div className="text-center py-6 md:py-8 text-gray-500">
-                No team results available yet.
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="divide-y divide-gray-200">
-                  {sortedTeamResults.map((team) => (
-                    <div
-                      key={team.teamName}
-                      className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
-                        team.position
-                      )} border-l-4`}
-                    >
-                      <div className="flex items-center justify-between mb-3 md:mb-4">
-                        <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                          <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
-                            <span className="text-xs md:text-sm font-bold">
-                              {team.position}
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
-                              {team.teamName}
-                            </h4>
-                            <p className="text-xs md:text-sm text-gray-600">
-                              {team.participants.length} players
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="flex items-center gap-2 md:gap-6">
-                            <div>
-                              <div className="text-xs text-gray-600">Total</div>
-                              <div className="text-sm md:text-xl font-bold text-gray-900">
-                                {team.totalShots}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-600">
-                                To Par
-                              </div>
-                              <div
-                                className={`text-sm md:text-xl font-bold ${getToParColor(
-                                  team.relativeToPar
-                                )}`}
-                              >
-                                {formatToPar(team.relativeToPar)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-600">
-                                Points
-                              </div>
-                              <div className="text-sm md:text-xl font-bold text-green-600">
-                                {team.points}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 md:gap-4 mt-2 md:mt-4">
-                        <div>
-                          <h5 className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">
-                            Player Scores
-                          </h5>
-                          <div className="space-y-1 md:space-y-2">
-                            {team.participants.map((participant) => (
-                              <div
-                                key={participant.name}
-                                className="flex items-center justify-between text-xs md:text-sm"
-                              >
-                                <span className="text-gray-600 truncate flex-1 mr-2">
-                                  {participant.name} ({participant.position})
-                                </span>
-                                <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-                                  <span
-                                    className={getToParColor(
-                                      participant.relativeToPar
-                                    )}
-                                  >
-                                    {formatToPar(participant.relativeToPar)}
-                                  </span>
-                                  <span className="text-gray-900 font-medium">
-                                    {participant.totalShots}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <TeamResultComponent
+            teamResults={sortedTeamResults}
+            leaderboardLoading={leaderboardLoading}
+          />
         )}
       </div>
+
+      {/* Participant Scorecard Modal */}
+      <ParticipantScorecard
+        visible={selectedParticipantId !== null}
+        participant={scorecardParticipantData}
+        course={scorecardCourseData}
+        onClose={handleCloseScorecardModal}
+      />
     </div>
   );
 }
@@ -7757,35 +12471,41 @@ export default function CompetitionDetail() {
 # src/views/player/CompetitionRound.tsx
 
 ```tsx
+// src/views/player/CompetitionRound.tsx
+
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
-import {
-  useCompetition,
-  useCompetitionLeaderboard,
-} from "../../api/competitions";
-import { useCourse } from "../../api/courses";
-import {
-  useTeeTimesForCompetition,
-  useTeeTime,
-  useUpdateScore,
-  type TeeTimeParticipant,
-} from "../../api/tee-times";
-import { Calendar, MapPin, Users, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { ScoreEntry } from "../../components/score-entry";
 import {
   BottomTabNavigation,
   HoleNavigation,
   HamburgerMenu,
 } from "../../components/navigation";
+import { ParticipantScorecard } from "../../components/scorecard";
+import type { ParticipantData, CourseData } from "../../components/scorecard";
 import {
-  formatParticipantTypeDisplay,
-  isMultiPlayerFormat,
-} from "../../utils/playerUtils";
-import { ScoreStorageManager } from "../../utils/scoreStorage";
+  ParticipantsListComponent,
+  LeaderboardComponent,
+  TeamResultComponent,
+  CompetitionInfoBar,
+} from "../../components/competition";
+import {
+  calculateTeamResults,
+  calculateTotalParticipants,
+} from "../../utils/scoreCalculations";
 import {
   getInitialHole,
   rememberCurrentHole,
 } from "../../utils/holeNavigation";
+import { useCompetitionData } from "../../hooks/useCompetitionData";
+import { useCompetitionSync } from "../../hooks/useCompetitionSync";
+import {
+  formatTeeTimeGroup,
+  formatParticipantForScorecard,
+} from "../../utils/participantFormatting";
+import { formatCourseFromTeeTime } from "../../utils/courseFormatting";
+import type { TeeTime } from "@/api/tee-times";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -7804,34 +12524,49 @@ export default function CompetitionRound() {
 
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
 
-  // Data fetching
-  const { data: competition, isLoading: competitionLoading } = useCompetition(
-    competitionId ? parseInt(competitionId) : 0
-  );
-  const { data: course } = useCourse(competition?.course_id || 0);
-  const { data: teeTimes } = useTeeTimesForCompetition(
-    competitionId ? parseInt(competitionId) : 0
-  );
-  const { data: leaderboard, isLoading: leaderboardLoading } =
-    useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+  // Scorecard modal state
+  const [selectedParticipantId, setSelectedParticipantId] = useState<
+    number | null
+  >(null);
 
-  // Tee time data for score entry
-  const { data: teeTime, refetch: refetchTeeTime } = useTeeTime(
-    teeTimeId ? parseInt(teeTimeId) : 0
-  );
-  const updateScoreMutation = useUpdateScore();
+  // Smart hole navigation - initialize with default
+  const [currentHole, setCurrentHole] = useState(1);
 
-  // Smart hole navigation - initialize after tee time data is loaded
-  const [currentHole, setCurrentHole] = useState(() =>
-    getInitialHole(teeTimeId, teeTime?.participants)
-  );
+  // Custom hooks for data and sync management
+  const {
+    competition,
+    course,
+    teeTimes,
+    leaderboard,
+    teeTime,
+    selectedParticipant,
+    isLoading: competitionLoading,
+    leaderboardLoading,
+    refetchTeeTime,
+    refetchLeaderboard,
+    refetchTeeTimes,
+    updateScoreMutation,
+  } = useCompetitionData({
+    competitionId,
+    teeTimeId,
+    selectedParticipantId,
+  });
 
-  // Score sync tracking using ScoreStorageManager
-  const scoreManager = ScoreStorageManager.getInstance();
-  const [pendingScoresCount, setPendingScoresCount] = useState(
-    scoreManager.getPendingCount()
-  );
-  const [lastSyncTime, setLastSyncTime] = useState(Date.now());
+  const {
+    syncStatus,
+    handleScoreUpdate,
+    handleTabChangeSync,
+    handleHoleNavigationSync,
+  } = useCompetitionSync({
+    competitionId,
+    teeTimeId,
+    activeTab,
+    refetchTeeTime,
+    refetchLeaderboard,
+    refetchTeeTimes,
+    updateScoreMutation,
+    teeTime,
+  });
 
   // Update currentHole when teeTime data first loads
   useEffect(() => {
@@ -7847,230 +12582,18 @@ export default function CompetitionRound() {
     }
   }, [teeTimeId, currentHole]);
 
-  // Initial sync when entering score entry view
-  useEffect(() => {
-    if (activeTab === "score" && teeTimeId && teeTime) {
-      const sessionKey = `golf-sync-${teeTimeId}`;
-      const lastSyncedThisSession = sessionStorage.getItem(sessionKey);
+  // Format data using utility functions
+  const teeTimeGroup = formatTeeTimeGroup(teeTime);
+  const courseData = formatCourseFromTeeTime(teeTime, course);
+  const scorecardParticipantData: ParticipantData | null =
+    formatParticipantForScorecard(selectedParticipant || null);
 
-      if (!lastSyncedThisSession) {
-        console.log("Initial sync for score entry session...");
-        refetchTeeTime();
-        setLastSyncTime(Date.now());
-        sessionStorage.setItem(sessionKey, Date.now().toString());
-      }
-    }
-  }, [activeTab, teeTimeId, teeTime, refetchTeeTime]);
-
-  // Sync when returning to the browser tab (after being away)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && activeTab === "score" && teeTimeId) {
-        const timeSinceLastSync = Date.now() - lastSyncTime;
-        if (timeSinceLastSync > 60000) {
-          // Only if it's been more than 1 minute
-          console.log("Syncing after returning to tab...");
-          refetchTeeTime();
-          setLastSyncTime(Date.now());
-        }
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [activeTab, teeTimeId, lastSyncTime, refetchTeeTime]);
-
-  // Periodic sync validation and retry logic
-  useEffect(() => {
-    if (!teeTimeId) return;
-
-    const syncInterval = setInterval(async () => {
-      try {
-        let shouldRefetch = false;
-
-        // Try to retry any pending scores
-        const retryableScores = scoreManager.getRetryableScores();
-
-        if (retryableScores.length > 0) {
-          console.log(`Retrying ${retryableScores.length} pending scores...`);
-          shouldRefetch = true;
-
-          for (const score of retryableScores) {
-            try {
-              await updateScoreMutation.mutateAsync({
-                participantId: score.participantId,
-                hole: score.hole,
-                shots: score.shots,
-              });
-
-              // Success - remove from pending
-              scoreManager.removePendingScore(score.participantId, score.hole);
-            } catch (error) {
-              // Mark as attempted
-              scoreManager.markAttempted(score.participantId, score.hole);
-              console.error(
-                `Retry failed for score ${score.participantId}-${score.hole}:`,
-                error
-              );
-            }
-          }
-        }
-
-        // Only refetch if we have pending scores, or if it's been more than 30 seconds since last sync
-        // This allows us to get updates from other players without spamming
-        const timeSinceLastSync = Date.now() - lastSyncTime;
-        if (shouldRefetch || timeSinceLastSync > 30000) {
-          console.log("Syncing with server for latest scores...");
-          await refetchTeeTime();
-          setLastSyncTime(Date.now());
-        }
-
-        // Update pending count regardless
-        setPendingScoresCount(scoreManager.getPendingCount());
-      } catch (error) {
-        console.error("Sync validation failed:", error);
-      }
-    }, 30000); // Check every 30 seconds instead of 10
-
-    return () => clearInterval(syncInterval);
-  }, [
-    teeTimeId,
-    updateScoreMutation,
-    refetchTeeTime,
-    scoreManager,
-    lastSyncTime,
-  ]);
-
-  // Handle tab changes and URL updates
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-
-    // Sync when switching to score tab to get latest data
-    if (tab === "score" && teeTimeId) {
-      const timeSinceLastSync = Date.now() - lastSyncTime;
-      if (timeSinceLastSync > 15000) {
-        // Only if it's been more than 15 seconds
-        console.log("Syncing on tab change to score entry...");
-        refetchTeeTime();
-        setLastSyncTime(Date.now());
-      }
-    }
-  };
-
-  // Enhanced score entry functions with resilience
-  const handleScoreUpdate = useCallback(
-    (participantId: string, hole: number, score: number) => {
-      const participantIdNum = parseInt(participantId);
-
-      // Add to local storage immediately
-      scoreManager.addPendingScore(participantIdNum, hole, score);
-      setPendingScoresCount(scoreManager.getPendingCount());
-
-      updateScoreMutation.mutate(
-        {
-          participantId: participantIdNum,
-          hole,
-          shots: score,
-        },
-        {
-          onSuccess: () => {
-            // Remove from pending scores on success
-            scoreManager.removePendingScore(participantIdNum, hole);
-            setPendingScoresCount(scoreManager.getPendingCount());
-            setLastSyncTime(Date.now());
-
-            // Only refetch if this was a retry or if it's been a while since last update
-            // This ensures we see our own score immediately without excessive server calls
-            const timeSinceLastSync = Date.now() - lastSyncTime;
-            if (timeSinceLastSync > 10000) {
-              console.log("Syncing after successful score update...");
-              refetchTeeTime();
-            }
-          },
-          onError: (error) => {
-            console.error("Score update failed:", error);
-            // Score is already in pending storage, will be retried
-          },
-        }
-      );
-    },
-    [updateScoreMutation, scoreManager, lastSyncTime, refetchTeeTime]
-  );
-
-  const handleComplete = () => {
-    console.log("Score entry completed!");
-  };
-
-  // Handle hole navigation with occasional sync
-  const handleHoleChange = useCallback(
-    (newHole: number) => {
-      setCurrentHole(newHole);
-
-      // Sync every few holes to get updates from other players
-      // This balances staying current with not overloading the server
-      const shouldSync = newHole % 3 === 1; // Sync on holes 1, 4, 7, 10, 13, 16
-      if (shouldSync && teeTimeId) {
-        const timeSinceLastSync = Date.now() - lastSyncTime;
-        if (timeSinceLastSync > 20000) {
-          // Only if it's been more than 20 seconds
-          console.log(`Syncing on hole navigation to hole ${newHole}...`);
-          refetchTeeTime();
-          setLastSyncTime(Date.now());
-        }
-      }
-    },
-    [lastSyncTime, refetchTeeTime, teeTimeId]
-  );
-
-  // Helper functions from CompetitionDetail
-  const getPositionColor = (position: number) => {
-    switch (position) {
-      case 1:
-        return "text-yellow-600 bg-yellow-50 border-yellow-200";
-      case 2:
-        return "text-gray-600 bg-gray-50 border-gray-200";
-      case 3:
-        return "text-amber-600 bg-amber-50 border-amber-200";
-      default:
-        return "text-gray-900 bg-white border-gray-200";
-    }
-  };
-
-  const getToParColor = (toPar: number) => {
-    if (toPar < 0) return "text-green-600";
-    if (toPar > 0) return "text-red-600";
-    return "text-gray-600";
-  };
-
-  const formatToPar = (toPar: number) => {
-    if (toPar === 0) return "E";
-    return toPar > 0 ? `+${toPar}` : `${toPar}`;
-  };
-
-  // Prepare data for score entry
-  const teeTimeGroup = teeTime
-    ? {
-        id: teeTime.id.toString(),
-        players: teeTime.participants.map(
-          (participant: TeeTimeParticipant) => ({
-            participantId: participant.id.toString(),
-            participantName: participant.team_name,
-            participantType: formatParticipantTypeDisplay(
-              participant.position_name
-            ),
-            isMultiPlayer: isMultiPlayerFormat(participant.position_name),
-            scores: participant.score,
-          })
-        ),
-      }
-    : null;
-
-  const courseData =
+  // Create course data format for scorecard component
+  const scorecardCourseData: CourseData | null =
     teeTime && course
       ? {
-          id: teeTime.id.toString(),
-          name: `${teeTime.course_name} ${teeTime.teetime}`,
+          id: course.id.toString(),
+          name: course.name,
           holes: teeTime.pars.map((par: number, index: number) => ({
             number: index + 1,
             par,
@@ -8078,60 +12601,119 @@ export default function CompetitionRound() {
         }
       : null;
 
+  // Handle tab changes and URL updates
+  const handleTabChange = async (tab: TabType) => {
+    setActiveTab(tab);
+    await handleTabChangeSync(tab);
+  };
+
+  // Handle opening participant scorecard
+  const handleParticipantClick = (participantId: number) => {
+    setSelectedParticipantId(participantId);
+  };
+
+  // Handle closing participant scorecard
+  const handleCloseScorecardModal = () => {
+    setSelectedParticipantId(null);
+  };
+
+  const handleComplete = () => {
+    console.log("Score entry completed!");
+  };
+
+  // Handle hole navigation with sync
+  const handleHoleChange = useCallback(
+    async (newHole: number) => {
+      setCurrentHole(newHole);
+      await handleHoleNavigationSync(newHole);
+    },
+    [handleHoleNavigationSync]
+  );
+
+  // Calculate team results and participant counts
+  const sortedTeamResults = leaderboard
+    ? calculateTeamResults(
+        leaderboard.map((entry) => ({
+          ...entry,
+          participantId: entry.participant.id,
+        }))
+      )
+    : [];
+
+  const totalParticipants = calculateTotalParticipants(teeTimes);
+
   const currentHoleData = courseData?.holes.find(
     (h: { number: number; par: number }) => h.number === currentHole
   );
 
-  // Calculate sync status for display
-  const syncStatus = {
-    pendingCount: pendingScoresCount,
-    lastSyncTime,
-    isOnline: navigator.onLine,
-    hasConnectivityIssues:
-      pendingScoresCount > 0 && Date.now() - lastSyncTime > 30000, // 30 seconds
-  };
-
-  // Calculate team results (same logic as CompetitionDetail)
-  const teamResults = leaderboard?.reduce((acc, entry) => {
-    const teamName = entry.participant.team_name;
-    if (!acc[teamName]) {
-      acc[teamName] = {
-        teamName,
-        participants: [],
-        totalShots: 0,
-        relativeToPar: 0,
-      };
-    }
-    acc[teamName].participants.push({
-      name: entry.participant.player_names || "",
-      position: entry.participant.position_name,
-      totalShots: entry.totalShots,
-      relativeToPar: entry.relativeToPar,
-    });
-    acc[teamName].totalShots += entry.totalShots;
-    acc[teamName].relativeToPar += entry.relativeToPar;
-    return acc;
-  }, {} as Record<string, { teamName: string; participants: Array<{ name: string; position: string; totalShots: number; relativeToPar: number }>; totalShots: number; relativeToPar: number }>);
-
-  const sortedTeamResults = Object.values(teamResults || {})
-    .sort((a, b) => a.relativeToPar - b.relativeToPar)
-    .map((team, index, array) => {
-      const position = index + 1;
-      let points = array.length - position + 1;
-      if (position === 1) points += 2;
-      if (position === 2) points += 1;
-      return { ...team, position, points };
-    });
-
-  const totalParticipants =
-    teeTimes?.reduce(
-      (total, teeTime) => total + teeTime.participants.length,
-      0
-    ) || 0;
-
   if (competitionLoading)
     return <div className="p-4">Loading competition...</div>;
   if (!competition) return <div className="p-4">Competition not found</div>;
+
+  // Render main content based on active tab
+  const renderContent = () => {
+    switch (activeTab) {
+      case "score":
+        if (!teeTimeGroup || !courseData) {
+          return (
+            <InvalidTeeTimes
+              teeTimes={teeTimes || []}
+              competitionId={competitionId || ""}
+            />
+          );
+        }
+        return (
+          <div className="h-full flex flex-col">
+            <div className="flex-1 overflow-hidden">
+              <ScoreEntry
+                teeTimeGroup={teeTimeGroup}
+                course={courseData}
+                onScoreUpdate={handleScoreUpdate}
+                onComplete={handleComplete}
+                currentHole={currentHole}
+                onHoleChange={handleHoleChange}
+                syncStatus={syncStatus}
+              />
+            </div>
+          </div>
+        );
+
+      case "leaderboard":
+        return (
+          <LeaderboardComponent
+            leaderboard={leaderboard}
+            leaderboardLoading={leaderboardLoading}
+            onParticipantClick={handleParticipantClick}
+            isRoundView={true}
+          />
+        );
+
+      case "teams":
+        return (
+          <TeamResultComponent
+            teamResults={sortedTeamResults}
+            leaderboardLoading={leaderboardLoading}
+            isRoundView={true}
+          />
+        );
+
+      case "participants":
+        return (
+          <ParticipantsListComponent
+            teeTimes={teeTimes}
+            teeTimesLoading={false}
+            competitionId={competitionId || ""}
+            currentTeeTimeId={teeTimeId}
+            currentTeeTime={teeTime}
+            showCurrentGroup={true}
+            totalParticipants={totalParticipants}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="h-screen flex flex-col">
@@ -8160,395 +12742,7 @@ export default function CompetitionRound() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
-        {activeTab === "score" ? (
-          teeTimeGroup && courseData ? (
-            <div className="h-full flex flex-col">
-              <div className="flex-1 overflow-hidden">
-                <ScoreEntry
-                  teeTimeGroup={teeTimeGroup}
-                  course={courseData}
-                  onScoreUpdate={handleScoreUpdate}
-                  onComplete={handleComplete}
-                  currentHole={currentHole}
-                  onHoleChange={handleHoleChange}
-                  syncStatus={syncStatus}
-                />
-              </div>
-            </div>
-          ) : (
-            // Show tee time selection when no tee time is selected
-            <div className="h-full overflow-y-auto">
-              <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                    Select Tee Time for Score Entry
-                  </h2>
-                </div>
-
-                {!teeTimes || teeTimes.length === 0 ? (
-                  <div className="text-center py-6 md:py-8 text-gray-500">
-                    No tee times available for this competition.
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="divide-y divide-gray-200">
-                      {teeTimes.map((teeTime) => (
-                        <button
-                          key={teeTime.id}
-                          onClick={() =>
-                            navigate({
-                              to: `/player/competitions/${competitionId}/tee-times/${teeTime.id}`,
-                              replace: true,
-                            })
-                          }
-                          className="w-full px-4 md:px-6 py-3 md:py-4 text-left hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h4 className="text-sm md:text-lg font-medium text-gray-900">
-                                {teeTime.teetime}
-                              </h4>
-                              <p className="text-xs md:text-sm text-gray-600 mt-1">
-                                {teeTime.participants
-                                  .map((p) => p.team_name)
-                                  .join(", ")}
-                              </p>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {teeTime.participants.length} player
-                              {teeTime.participants.length !== 1 ? "s" : ""}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        ) : activeTab === "leaderboard" ? (
-          <div className="h-full overflow-y-auto">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                  Leaderboard
-                </h2>
-                <div className="text-xs md:text-sm text-gray-500">
-                  Live scoring
-                </div>
-              </div>
-
-              {leaderboardLoading ? (
-                <div className="p-4">Loading leaderboard...</div>
-              ) : !leaderboard || leaderboard.length === 0 ? (
-                <div className="text-center py-6 md:py-8 text-gray-500">
-                  No scores reported yet.
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="divide-y divide-gray-200">
-                    {[...leaderboard]
-                      .sort((a, b) => {
-                        const aStarted = a.holesPlayed > 0;
-                        const bStarted = b.holesPlayed > 0;
-                        if (aStarted !== bStarted) {
-                          return aStarted ? -1 : 1;
-                        }
-                        return a.relativeToPar - b.relativeToPar;
-                      })
-                      .map((entry, index) => (
-                        <div
-                          key={entry.participant.id}
-                          className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
-                            index + 1
-                          )} border-l-4`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                              <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
-                                <span className="text-xs md:text-sm font-bold">
-                                  {index + 1}
-                                </span>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
-                                  {entry.participant.team_name}{" "}
-                                  {entry.participant.position_name}
-                                </h4>
-                                <p className="text-xs md:text-sm text-gray-600">
-                                  Thru {entry.holesPlayed} holes
-                                </p>
-                              </div>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="flex items-center gap-3 md:gap-6">
-                                <div>
-                                  <div className="text-xs text-gray-600">
-                                    Score
-                                  </div>
-                                  <div className="text-lg md:text-xl font-bold text-gray-900">
-                                    {entry.totalShots}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-gray-600">
-                                    To Par
-                                  </div>
-                                  <div
-                                    className={`text-lg md:text-xl font-bold ${getToParColor(
-                                      entry.relativeToPar
-                                    )}`}
-                                  >
-                                    {formatToPar(entry.relativeToPar)}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : activeTab === "teams" ? (
-          // Team Results Tab
-          <div className="h-full overflow-y-auto">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                  Team Results
-                </h2>
-                <div className="text-xs md:text-sm text-gray-500">
-                  Final standings
-                </div>
-              </div>
-
-              {leaderboardLoading ? (
-                <div className="p-4">Loading team results...</div>
-              ) : !sortedTeamResults || sortedTeamResults.length === 0 ? (
-                <div className="text-center py-6 md:py-8 text-gray-500">
-                  No team results available yet.
-                </div>
-              ) : (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="divide-y divide-gray-200">
-                    {sortedTeamResults.map((team) => (
-                      <div
-                        key={team.teamName}
-                        className={`px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
-                          team.position
-                        )} border-l-4`}
-                      >
-                        <div className="flex items-center justify-between mb-3 md:mb-4">
-                          <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                            <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-white border-2 flex-shrink-0">
-                              <span className="text-xs md:text-sm font-bold">
-                                {team.position}
-                              </span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h4 className="text-sm md:text-lg font-medium text-gray-900 truncate">
-                                {team.teamName}
-                              </h4>
-                              <p className="text-xs md:text-sm text-gray-600">
-                                {team.participants.length} players
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="flex items-center gap-2 md:gap-6">
-                              <div>
-                                <div className="text-xs text-gray-600">
-                                  Total
-                                </div>
-                                <div className="text-sm md:text-xl font-bold text-gray-900">
-                                  {team.totalShots}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-600">
-                                  To Par
-                                </div>
-                                <div
-                                  className={`text-sm md:text-xl font-bold ${getToParColor(
-                                    team.relativeToPar
-                                  )}`}
-                                >
-                                  {formatToPar(team.relativeToPar)}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-600">
-                                  Points
-                                </div>
-                                <div className="text-sm md:text-xl font-bold text-green-600">
-                                  {team.points}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2 md:gap-4 mt-2 md:mt-4">
-                          <div>
-                            <h5 className="text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">
-                              Player Scores
-                            </h5>
-                            <div className="space-y-1 md:space-y-2">
-                              {team.participants.map((participant) => (
-                                <div
-                                  key={participant.name}
-                                  className="flex items-center justify-between text-xs md:text-sm"
-                                >
-                                  <span className="text-gray-600 truncate flex-1 mr-2">
-                                    {participant.name} ({participant.position})
-                                  </span>
-                                  <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-                                    <span
-                                      className={getToParColor(
-                                        participant.relativeToPar
-                                      )}
-                                    >
-                                      {formatToPar(participant.relativeToPar)}
-                                    </span>
-                                    <span className="text-gray-900 font-medium">
-                                      {participant.totalShots}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          // Participants Tab - Current Round Context
-          <div className="h-full overflow-y-auto">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-                  Round Participants
-                </h2>
-                <div className="text-xs md:text-sm text-gray-500">
-                  {teeTimeId ? "Current group" : `${totalParticipants} total`}
-                </div>
-              </div>
-
-              {/* Current Tee Time Group (if in score entry context) */}
-              {teeTimeId && teeTime && (
-                <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm md:text-lg font-semibold text-blue-900">
-                      Your Group - {teeTime.teetime}
-                    </h3>
-                    <span className="text-xs md:text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                      Active
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {teeTime.participants.map(
-                      (participant: TeeTimeParticipant) => (
-                        <div
-                          key={participant.id}
-                          className="flex items-center justify-between p-3 bg-white rounded-lg"
-                        >
-                          <div className="flex-1">
-                            <h4 className="text-sm md:text-base font-medium text-gray-900">
-                              {participant.team_name}
-                            </h4>
-                            <p className="text-xs md:text-sm text-gray-600 mt-1">
-                              {formatParticipantTypeDisplay(
-                                participant.position_name
-                              )}
-                              {participant.player_names && (
-                                <span className="ml-2">
-                                  • {participant.player_names}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {isMultiPlayerFormat(participant.position_name) && (
-                              <Users className="w-4 h-4 inline-block" />
-                            )}
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* All Other Tee Times */}
-              <div>
-                <h3 className="text-sm md:text-base font-medium text-gray-700 mb-3">
-                  {teeTimeId ? "Other Groups" : "All Groups"}
-                </h3>
-
-                {!teeTimes || teeTimes.length === 0 ? (
-                  <div className="text-center py-6 md:py-8 text-gray-500">
-                    No tee times scheduled for this competition.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {teeTimes
-                      .filter((t) => !teeTimeId || t.id !== parseInt(teeTimeId))
-                      .map((teeTimeGroup) => (
-                        <div
-                          key={teeTimeGroup.id}
-                          className="bg-white rounded-lg border border-gray-200 overflow-hidden"
-                        >
-                          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                            <h4 className="text-sm md:text-base font-semibold text-gray-900">
-                              {teeTimeGroup.teetime}
-                            </h4>
-                          </div>
-                          <div className="divide-y divide-gray-200">
-                            {teeTimeGroup.participants.map(
-                              (participant: TeeTimeParticipant) => (
-                                <div
-                                  key={participant.id}
-                                  className="px-4 py-2 flex items-center justify-between"
-                                >
-                                  <div className="flex-1">
-                                    <h5 className="text-xs md:text-sm font-medium text-gray-900">
-                                      {participant.team_name}
-                                    </h5>
-                                    <p className="text-xs text-gray-600">
-                                      {formatParticipantTypeDisplay(
-                                        participant.position_name
-                                      )}
-                                    </p>
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {isMultiPlayerFormat(
-                                      participant.position_name
-                                    ) && (
-                                      <Users className="w-3 h-3 inline-block" />
-                                    )}
-                                  </div>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      <div className="flex-1 overflow-hidden">{renderContent()}</div>
 
       {/* Hole Navigation - only show during score entry */}
       {activeTab === "score" && currentHoleData && (
@@ -8571,33 +12765,80 @@ export default function CompetitionRound() {
       />
 
       {/* Competition Info Footer - Always visible and sticky */}
-      <div className="bg-gray-50 border-t border-gray-200 px-4 py-2 flex-shrink-0">
-        <div className="flex items-center justify-center gap-4 md:gap-8 text-xs text-gray-600">
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            <span className="hidden sm:inline">
-              {new Date(competition.date).toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
-            </span>
-            <span className="sm:hidden">
-              {new Date(competition.date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            <span className="truncate">{course?.name || "Loading..."}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            <span>{totalParticipants} participants</span>
-          </div>
+      <CompetitionInfoBar
+        competition={competition}
+        courseName={course?.name}
+        totalParticipants={totalParticipants}
+        variant="footer"
+      />
+
+      {/* Participant Scorecard Modal */}
+      <ParticipantScorecard
+        visible={selectedParticipantId !== null}
+        participant={scorecardParticipantData}
+        course={scorecardCourseData}
+        onClose={handleCloseScorecardModal}
+      />
+    </div>
+  );
+}
+
+function InvalidTeeTimes({
+  teeTimes,
+  competitionId,
+}: {
+  teeTimes: TeeTime[];
+  competitionId: string;
+}) {
+  const navigate = useNavigate();
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
+            Select Tee Time for Score Entry
+          </h2>
         </div>
+
+        {!teeTimes || teeTimes.length === 0 ? (
+          <div className="text-center py-6 md:py-8 text-gray-500">
+            No tee times available for this competition.
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="divide-y divide-gray-200">
+              {teeTimes.map((teeTime) => (
+                <button
+                  key={teeTime.id}
+                  onClick={() =>
+                    navigate({
+                      to: `/player/competitions/${competitionId}/tee-times/${teeTime.id}`,
+                      replace: true,
+                    })
+                  }
+                  className="w-full px-4 md:px-6 py-3 md:py-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-sm md:text-lg font-medium text-gray-900">
+                        {teeTime.teetime}
+                      </h4>
+                      <p className="text-xs md:text-sm text-gray-600 mt-1">
+                        {teeTime.participants
+                          .map((p) => p.team_name)
+                          .join(", ")}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {teeTime.participants.length} player
+                      {teeTime.participants.length !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -8757,22 +12998,24 @@ export default function PlayerCompetitions() {
 
 ```tsx
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { List } from "lucide-react";
+import { List, Trophy } from "lucide-react";
 
 const playerNavLinks = [
   { to: "/player/competitions", label: "Competitions", icon: List },
+  { to: "/player/series", label: "Series", icon: Trophy },
 ];
 
 export default function PlayerLayout() {
   const { location } = useRouterState();
 
-  // Hide navigation for competition rounds (they have their own navigation)
-  const isCompetitionRound =
-    location.pathname.includes("/competitions/") &&
-    (location.pathname.includes("/tee-times/") ||
-      location.pathname.match(/\/competitions\/\d+$/));
+  // Hide navigation for detailed views (they have their own navigation)
+  const isDetailView =
+    (location.pathname.includes("/competitions/") &&
+      (location.pathname.includes("/tee-times/") ||
+        location.pathname.match(/\/competitions\/\d+$/))) ||
+    location.pathname.match(/\/series\/\d+$/);
 
-  if (isCompetitionRound) {
+  if (isDetailView) {
     return <Outlet />;
   }
 
@@ -8786,7 +13029,12 @@ export default function PlayerLayout() {
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
           {playerNavLinks.map((link) => {
-            const isActive = location.pathname === link.to;
+            const isActive =
+              location.pathname === link.to ||
+              (link.to === "/player/series" &&
+                location.pathname.startsWith("/player/series")) ||
+              (link.to === "/player/competitions" &&
+                location.pathname.startsWith("/player/competitions"));
             const IconComponent = link.icon;
             return (
               <Link
@@ -8811,6 +13059,576 @@ export default function PlayerLayout() {
       {/* Player Content */}
       <div className="min-h-[60vh]">
         <Outlet />
+      </div>
+    </div>
+  );
+}
+
+```
+
+# src/views/player/Series.tsx
+
+```tsx
+import { Link } from "@tanstack/react-router";
+import { usePublicSeries } from "../../api/series";
+import { ChevronRight, Trophy } from "lucide-react";
+
+export default function PlayerSeries() {
+  const { data: series, isLoading, error } = usePublicSeries();
+
+  if (isLoading) return <div>Loading series...</div>;
+  if (error) return <div>Error loading series</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Series</h2>
+          <p className="text-gray-600">Browse and follow golf series</p>
+        </div>
+        <div className="text-sm text-gray-500">
+          {series?.length || 0} series available
+        </div>
+      </div>
+
+      <div className="grid gap-4">
+        {series?.map((serie) => {
+          return (
+            <Link
+              key={serie.id}
+              to={`/player/series/${serie.id}`}
+              className="block bg-white rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Trophy className="h-6 w-6 text-green-600" />
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        {serie.name}
+                      </h3>
+                    </div>
+
+                    {serie.description && (
+                      <p className="text-sm text-gray-600 mb-3 max-h-10 overflow-hidden">
+                        {serie.description.length > 100
+                          ? serie.description.substring(0, 100) + "..."
+                          : serie.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <span>Series #{serie.id}</span>
+                      <span>
+                        Created{" "}
+                        {new Date(serie.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center">
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {(!series || series.length === 0) && (
+        <div className="text-center py-12">
+          <div className="text-gray-400 mb-4">
+            <Trophy className="h-12 w-12 mx-auto" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No series available
+          </h3>
+          <p className="text-gray-600">
+            Check back later for upcoming golf series.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+```
+
+# src/views/player/SeriesDetail.tsx
+
+```tsx
+import { useState } from "react";
+import { Link, useParams } from "@tanstack/react-router";
+import {
+  useSingleSeries,
+  useSeriesStandings,
+  useSeriesCompetitions,
+  useSeriesDocuments,
+  type SeriesDocument,
+} from "@/api/series";
+import {
+  ArrowLeft,
+  Calendar,
+  Trophy,
+  Users,
+  ChevronRight,
+  FileText,
+  Home,
+  ArrowLeft as ArrowLeftIcon,
+} from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+export default function SeriesDetail() {
+  const { serieId } = useParams({ from: "/player/series/$serieId" });
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "documents" | "standings" | "competitions"
+  >("overview");
+  const [selectedDocument, setSelectedDocument] =
+    useState<SeriesDocument | null>(null);
+
+  const seriesId = parseInt(serieId);
+  const { data: series, isLoading: seriesLoading } = useSingleSeries(seriesId);
+  const { data: standings, isLoading: standingsLoading } =
+    useSeriesStandings(seriesId);
+  const { data: competitions, isLoading: competitionsLoading } =
+    useSeriesCompetitions(seriesId);
+  const { data: documents, isLoading: documentsLoading } =
+    useSeriesDocuments(seriesId);
+
+  if (seriesLoading) return <div>Loading series...</div>;
+  if (!series) return <div>Series not found</div>;
+
+  // Find the landing document
+  const landingDocument = series.landing_document_id
+    ? documents?.find((doc) => doc.id === series.landing_document_id)
+    : null;
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: Home },
+    { id: "documents", label: "Documents", icon: FileText },
+    { id: "standings", label: "Team Standings", icon: Trophy },
+    { id: "competitions", label: "Competitions", icon: Calendar },
+  ] as const;
+
+  const handleDocumentSelect = (document: SeriesDocument) => {
+    setSelectedDocument(document);
+  };
+
+  const handleBackToDocuments = () => {
+    setSelectedDocument(null);
+  };
+
+  const renderOverviewTab = () => {
+    if (landingDocument) {
+      // Show landing document
+      return (
+        <div className="space-y-4">
+          <div className="prose prose-gray max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {landingDocument.content}
+            </ReactMarkdown>
+          </div>
+        </div>
+      );
+    } else {
+      // Show series description + quick navigation cards
+      return (
+        <div className="space-y-6">
+          {series.description && (
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                About this Series
+              </h2>
+              <div className="prose prose-gray max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {series.description}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
+
+          {/* Quick navigation cards */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Quick Access
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {documents && documents.length > 0 && (
+                <Card
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => setActiveTab("documents")}
+                >
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      Documents
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600">
+                      View {documents.length} document
+                      {documents.length !== 1 ? "s" : ""} for this series
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => setActiveTab("standings")}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Trophy className="h-5 w-5 text-yellow-600" />
+                    Standings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">
+                    View current team standings and positions
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => setActiveTab("competitions")}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Calendar className="h-5 w-5 text-green-600" />
+                    Competitions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">
+                    Browse upcoming and past competitions
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  };
+
+  const renderDocumentsTab = () => {
+    if (selectedDocument) {
+      // Show individual document
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 mb-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackToDocuments}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeftIcon className="h-4 w-4" />
+              Back to Documents
+            </Button>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {selectedDocument.title}
+            </h3>
+          </div>
+
+          <div className="prose prose-gray max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {selectedDocument.content}
+            </ReactMarkdown>
+          </div>
+        </div>
+      );
+    }
+
+    // Show documents list
+    if (documentsLoading) {
+      return <div>Loading documents...</div>;
+    }
+
+    if (!documents || documents.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No documents available
+          </h3>
+          <p className="text-gray-600">
+            Documents for this series will appear here when they're added.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Series Documents
+        </h3>
+
+        <div className="grid gap-4">
+          {documents.map((document) => (
+            <Card
+              key={document.id}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => handleDocumentSelect(document)}
+            >
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{document.title}</CardTitle>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-gray-600 line-clamp-3">
+                  {document.content.substring(0, 150)}
+                  {document.content.length > 150 ? "..." : ""}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderStandingsTab = () => {
+    if (standingsLoading) {
+      return <div>Loading standings...</div>;
+    }
+
+    if (!standings?.team_standings.length) {
+      return (
+        <div className="text-center py-8">
+          <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No team standings yet
+          </h3>
+          <p className="text-gray-600">
+            Standings will appear after competitions are completed.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Team Standings
+          </h3>
+          <span className="text-sm text-gray-500">
+            {standings.total_competitions} competitions
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 text-sm font-medium text-gray-500">
+                  Position
+                </th>
+                <th className="text-left py-2 text-sm font-medium text-gray-500">
+                  Team
+                </th>
+                <th className="text-right py-2 text-sm font-medium text-gray-500">
+                  Points
+                </th>
+                <th className="text-right py-2 text-sm font-medium text-gray-500">
+                  Competitions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.team_standings.map((standing) => (
+                <tr key={standing.team_id} className="border-b border-gray-100">
+                  <td className="py-3 text-sm font-medium text-gray-900">
+                    #{standing.position}
+                  </td>
+                  <td className="py-3 text-sm text-gray-900">
+                    {standing.team_name}
+                  </td>
+                  <td className="py-3 text-sm text-gray-900 text-right">
+                    {standing.total_points}
+                  </td>
+                  <td className="py-3 text-sm text-gray-500 text-right">
+                    {standing.competitions_played}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCompetitionsTab = () => {
+    if (competitionsLoading) {
+      return <div>Loading competitions...</div>;
+    }
+
+    if (!competitions?.length) {
+      return (
+        <div className="text-center py-8">
+          <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No competitions yet
+          </h3>
+          <p className="text-gray-600">
+            Competitions will be added to this series soon.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Competitions
+        </h3>
+
+        <div className="grid gap-4">
+          {competitions.map((competition) => {
+            const competitionDate = new Date(competition.date);
+            const today = new Date();
+            const isPast = competitionDate < today;
+
+            return (
+              <Link
+                key={competition.id}
+                to={`/player/competitions/${competition.id}`}
+                className="block bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200"
+              >
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-lg font-medium text-gray-900">
+                          {competition.name}
+                        </h4>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            isPast
+                              ? "text-gray-600 bg-gray-100"
+                              : "text-green-600 bg-green-100"
+                          }`}
+                        >
+                          {isPast ? "Completed" : "Upcoming"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-6 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {competitionDate.toLocaleDateString("en-US", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          {competition.participant_count} participants
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with back button */}
+      <div className="flex items-center gap-4">
+        <Link
+          to="/player/series"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Series
+        </Link>
+      </div>
+
+      {/* Hero banner */}
+      {series.banner_image_url && (
+        <div
+          className="relative h-48 rounded-lg overflow-hidden"
+          style={{
+            backgroundImage: `url(${series.banner_image_url})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          {/* inline RGBA overlay */}
+          <div
+            className="absolute inset-0 z-10"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
+          />
+          <div className="absolute bottom-0 left-0 w-full p-6 z-20">
+            <h1 className="text-3xl font-bold text-white">{series.name}</h1>
+          </div>
+        </div>
+      )}
+
+      {/* Series name (if no banner) */}
+      {!series.banner_image_url && (
+        <h1 className="text-3xl font-bold text-gray-900">{series.name}</h1>
+      )}
+
+      {/* Tabs */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8 px-6 overflow-x-auto">
+            {tabs.map((tab) => {
+              const IconComponent = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setSelectedDocument(null); // Reset document view when changing tabs
+                  }}
+                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap
+                    ${
+                      isActive
+                        ? "border-green-500 text-green-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }
+                  `}
+                >
+                  <IconComponent className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="p-6">
+          {activeTab === "overview" && renderOverviewTab()}
+          {activeTab === "documents" && renderDocumentsTab()}
+          {activeTab === "standings" && renderStandingsTab()}
+          {activeTab === "competitions" && renderCompetitionsTab()}
+        </div>
       </div>
     </div>
   );
@@ -9143,221 +13961,6 @@ export default function TeeTimeDetail() {
         onScoreUpdate={handleScoreUpdate}
         onComplete={handleComplete}
       />
-    </div>
-  );
-}
-
-```
-
-# src/views/Teams.tsx
-
-```tsx
-import { useTeams } from "../api/teams";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Shield, Calendar } from "lucide-react";
-
-function TeamSkeleton() {
-  return (
-    <Card className="mb-4">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-[180px]" />
-          <Skeleton className="h-5 w-[60px] rounded-full" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-4 w-[120px]" />
-      </CardContent>
-    </Card>
-  );
-}
-
-function getTeamColor(index: number) {
-  const colors = [
-    {
-      bg: "bg-blue-50",
-      border: "border-l-blue-500",
-      text: "text-blue-700",
-      icon: "text-blue-600",
-    },
-    {
-      bg: "bg-green-50",
-      border: "border-l-green-500",
-      text: "text-green-700",
-      icon: "text-green-600",
-    },
-    {
-      bg: "bg-purple-50",
-      border: "border-l-purple-500",
-      text: "text-purple-700",
-      icon: "text-purple-600",
-    },
-    {
-      bg: "bg-orange-50",
-      border: "border-l-orange-500",
-      text: "text-orange-700",
-      icon: "text-orange-600",
-    },
-    {
-      bg: "bg-pink-50",
-      border: "border-l-pink-500",
-      text: "text-pink-700",
-      icon: "text-pink-600",
-    },
-    {
-      bg: "bg-teal-50",
-      border: "border-l-teal-500",
-      text: "text-teal-700",
-      icon: "text-teal-600",
-    },
-    {
-      bg: "bg-indigo-50",
-      border: "border-l-indigo-500",
-      text: "text-indigo-700",
-      icon: "text-indigo-600",
-    },
-    {
-      bg: "bg-red-50",
-      border: "border-l-red-500",
-      text: "text-red-700",
-      icon: "text-red-600",
-    },
-  ];
-  return colors[index % colors.length];
-}
-
-export default function Teams() {
-  const { data: teams, isLoading, error } = useTeams();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2 mb-6">
-          <Users className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Teams</h2>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <TeamSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card className="border-red-200 bg-red-50">
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-700">
-            <Users className="h-5 w-5" />
-            <p className="font-medium">Error loading teams</p>
-          </div>
-          <p className="text-red-600 text-sm mt-2">
-            Please try refreshing the page or contact support if the problem
-            persists.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!teams || teams.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2 mb-6">
-          <Users className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Teams</h2>
-        </div>
-        <Card className="border-dashed border-2 border-gray-300">
-          <CardContent className="p-12 text-center">
-            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No teams yet
-            </h3>
-            <p className="text-gray-600">
-              Create teams to organize your golf competition participants.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Users className="h-8 w-8 text-green-600" />
-          <h2 className="text-3xl font-bold text-gray-900">Teams</h2>
-        </div>
-        <Badge variant="secondary" className="text-sm">
-          {teams.length} {teams.length === 1 ? "team" : "teams"}
-        </Badge>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {teams.map((team, index) => {
-          const colors = getTeamColor(index);
-          return (
-            <Card
-              key={team.id}
-              className={`hover:shadow-lg transition-shadow duration-200 border-l-4 ${colors.border} ${colors.bg}`}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle
-                    className={`text-lg ${colors.text} flex items-center gap-2`}
-                  >
-                    <Shield className={`h-5 w-5 ${colors.icon}`} />
-                    {team.name}
-                  </CardTitle>
-                  <Badge variant="outline" className="text-xs">
-                    #{team.id}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    Created {new Date(team.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-```
-
-# src/views/TeeTimes.tsx
-
-```tsx
-import { useTeeTimes } from "../api/tee-times";
-
-export default function TeeTimes() {
-  const { data: teeTimes, isLoading, error } = useTeeTimes();
-
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading tee-times</div>;
-
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">Tee Times</h2>
-      <ul>
-        {teeTimes?.map((teeTime) => (
-          <li key={teeTime.id} className="mb-2">
-            {new Date(teeTime.teetime).toLocaleString()}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
