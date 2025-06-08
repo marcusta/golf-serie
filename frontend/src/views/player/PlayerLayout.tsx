@@ -10,8 +10,10 @@ const playerNavLinks = [
 export default function PlayerLayout() {
   const { location } = useRouterState();
 
-  // Hide navigation for detailed views (they have their own navigation)
+  // Hide navigation for detailed views and landing page (they have their own navigation)
   const isDetailView =
+    location.pathname === "/player" ||
+    location.pathname === "/player/" || // Landing page
     (location.pathname.includes("/competitions/") &&
       (location.pathname.includes("/tee-times/") ||
         location.pathname.match(/\/competitions\/\d+$/))) ||

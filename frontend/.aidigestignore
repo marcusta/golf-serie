@@ -8,7 +8,6 @@ src/api
 src/hooks
 src/utils
 *.md
-src/components/competition
 src/components/score-entry
 src/components/scorecard
 src/components/ui
