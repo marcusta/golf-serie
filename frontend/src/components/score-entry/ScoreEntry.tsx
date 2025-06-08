@@ -320,109 +320,48 @@ export function ScoreEntry({
           {teeTimeGroup.players.map((player, index) => {
             const isCurrentPlayer = index === currentPlayerIndex;
             const currentScore = player.scores[currentHole - 1] ?? 0;
-            const previousScore = previousHoleData
-              ? player.scores[currentHole - 2] ?? 0
-              : null;
-            const hasCurrentScore = hasValidScore(currentScore);
             const toPar = calculatePlayerToPar(player);
 
             return (
               <div
                 key={player.participantId}
                 className={cn(
-                  "bg-scorecard rounded-xl p-4 transition-all shadow-sm border",
+                  "bg-scorecard rounded-lg p-4 shadow-sm border transition-all duration-200",
                   isCurrentPlayer
-                    ? "ring-2 ring-coral bg-rough bg-opacity-20 shadow-md border-coral"
+                    ? "border-coral/20 shadow-md ring-2 ring-coral/10"
                     : "border-soft-grey"
                 )}
-                style={{ minHeight: "70px" }}
               >
                 <div className="flex items-center justify-between">
-                  {/* Player Info */}
-                  <div className="flex-1 pr-3">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <div
-                          className={cn(
-                            "font-medium font-primary text-charcoal",
-                            isCurrentPlayer && "text-fairway font-semibold"
-                          )}
-                        >
-                          {abbreviateName(player.participantName)}
-                        </div>
-                        {player.participantType && (
-                          <div className="text-xs text-soft-grey mt-0.5 font-primary">
-                            {player.participantType}
-                          </div>
-                        )}
-                      </div>
-                      {player.isMultiPlayer && (
-                        <div className="relative group">
-                          <Users className="w-3 h-3 text-turf" />
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-fairway text-scorecard rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                            Multi-player format
-                          </div>
-                        </div>
+                  <div className="flex-1">
+                    <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                      {abbreviateName(player.participantName)}
+                    </h3>
+                    {player.participantType && (
+                      <p className="text-label-sm text-turf mb-1 font-primary">
+                        {player.participantType}
+                      </p>
+                    )}
+                    <span
+                      className={cn(
+                        "text-label-sm font-medium font-primary",
+                        toPar !== null ? getToParColor(toPar) : "text-soft-grey"
                       )}
-                    </div>
-                    <div className="flex items-center gap-4 mt-1">
-                      {hasCurrentScore && (
-                        <div
-                          className={cn(
-                            "text-xs font-primary",
-                            syncStatus?.hasConnectivityIssues && hasCurrentScore
-                              ? "text-coral"
-                              : "text-turf"
-                          )}
-                        >
-                          {syncStatus?.hasConnectivityIssues && hasCurrentScore
-                            ? "⚠️ Score saved locally"
-                            : "✓ "}
-                        </div>
-                      )}
-                      <div
-                        className={cn(
-                          "text-xs font-medium font-primary",
-                          toPar !== null
-                            ? getToParColor(toPar)
-                            : "text-soft-grey"
-                        )}
-                      >
-                        {toPar !== null ? formatToPar(toPar) : "-"}
-                      </div>
-                    </div>
+                    >
+                      {toPar !== null ? formatToPar(toPar) : "E"}
+                    </span>
                   </div>
 
-                  {/* Score Columns - Aligned with Header */}
-                  <div className="flex items-center gap-0 pr-6 ml-2">
-                    {/* Previous Hole Score */}
-                    {previousHoleData && (
-                      <div className="w-[60px] text-center">
-                        <div className="text-lg font-bold text-charcoal font-display">
-                          {previousScore !== null
-                            ? formatScoreEntryDisplay(previousScore)
-                            : "-"}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Current Hole Score */}
-                    <div className="w-[60px] text-center ml-2 left-4 relative">
-                      <button
-                        onClick={() => handleScoreFieldClick(index)}
-                        className={cn(
-                          "w-12 h-12 rounded-xl text-center font-bold transition-all touch-manipulation font-display",
-                          "border-2 text-lg flex items-center justify-center",
-                          hasCurrentScore
-                            ? "bg-scorecard text-charcoal border-turf"
-                            : "bg-rough bg-opacity-30 text-soft-grey border-soft-grey",
-                          isCurrentPlayer &&
-                            "ring-2 ring-coral ring-offset-1 focus:bg-rough focus:bg-opacity-50"
-                        )}
-                      >
-                        {formatScoreEntryDisplay(currentScore)}
-                      </button>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-display-md font-bold text-charcoal font-display">
+                      {formatScoreEntryDisplay(currentScore)}
                     </div>
+                    <button
+                      onClick={() => handleScoreFieldClick(index)}
+                      className="w-12 h-12 rounded-full border-2 border-soft-grey bg-rough/10 flex items-center justify-center text-label-sm font-medium text-turf hover:bg-rough/20 transition-colors touch-manipulation"
+                    >
+                      NR
+                    </button>
                   </div>
                 </div>
               </div>
