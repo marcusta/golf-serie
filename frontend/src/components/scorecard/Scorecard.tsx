@@ -120,12 +120,12 @@ export function Scorecard({
   const totals = getPlayerTotals();
 
   return (
-    <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden shadow-sm">
-      {/* Player Name Header with TapScore Styling */}
-      <div className="bg-turf text-scorecard px-4 py-3">
+    <div className="bg-scorecard overflow-hidden">
+      {/* Player Name Header */}
+      <div className="bg-turf text-scorecard px-2 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-lg font-display">
+            <span className="font-semibold text-base font-display">
               {participant.name}
             </span>
             {participant.isMultiPlayer && (
@@ -140,180 +140,189 @@ export function Scorecard({
         </div>
       </div>
 
-      {/* Front Nine */}
-      <div className="overflow-x-auto">
-        <div className="min-w-max">
-          {/* Front Nine Header with TapScore Styling */}
-          <div className="bg-fairway text-scorecard">
-            <div className="flex">
-              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium font-primary">
-                Hole
+      {/* Front Nine Section */}
+      <div className="border-b border-soft-grey">
+        {/* Front Nine Section Header */}
+        <div className="bg-turf text-scorecard px-2 py-1">
+          <span className="text-sm font-medium font-primary">FRONT NINE</span>
+        </div>
+        {/* Front Nine Header */}
+        <div className="bg-rough bg-opacity-30">
+          <div className="flex">
+            <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+              Hole
+            </div>
+            {frontNine.map((hole) => (
+              <div
+                key={hole.number}
+                className={cn(
+                  "min-w-6 px-0.5 py-1 text-center text-xs font-medium text-fairway border-r border-soft-grey flex-1 font-primary",
+                  hole.number === currentHole && "bg-coral"
+                )}
+              >
+                {hole.number}
               </div>
-              {frontNine.map((hole) => (
+            ))}
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough bg-opacity-50 font-primary">
+              OUT
+            </div>
+          </div>
+        </div>
+
+        {/* Front Nine Par */}
+        <div className="bg-rough bg-opacity-20">
+          <div className="flex">
+            <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+              Par
+            </div>
+            {frontNine.map((hole) => (
+              <div
+                key={hole.number}
+                className="min-w-6 px-0.5 py-1 text-center text-xs font-medium text-fairway border-r border-soft-grey flex-1 font-primary"
+              >
+                {hole.par}
+              </div>
+            ))}
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-fairway bg-rough bg-opacity-40 font-display">
+              {frontNine.reduce((sum, hole) => sum + hole.par, 0)}
+            </div>
+          </div>
+        </div>
+
+        {/* Front Nine Results */}
+        <div className="bg-scorecard border-b border-soft-grey">
+          <div className="flex">
+            <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+              Score
+            </div>
+            {frontNine.map((hole) => {
+              const score = participant.scores[hole.number - 1] ?? 0;
+              const scoreStyle = renderScoreDecoration(score, hole.par);
+
+              return (
                 <div
                   key={hole.number}
                   className={cn(
-                    "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium font-primary",
-                    hole.number === currentHole && "bg-coral"
+                    "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                    hole.number === currentHole && "bg-coral bg-opacity-20"
                   )}
                 >
-                  {hole.number}
-                </div>
-              ))}
-              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-medium font-primary">
-                Out
-              </div>
-            </div>
-          </div>
-
-          {/* Front Nine Par */}
-          <div className="bg-rough bg-opacity-30 border-b border-soft-grey">
-            <div className="flex">
-              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-fairway font-primary">
-                Par
-              </div>
-              {frontNine.map((hole) => (
-                <div
-                  key={hole.number}
-                  className="w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium text-fairway font-primary"
-                >
-                  {hole.par}
-                </div>
-              ))}
-              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-fairway font-display">
-                {frontNine.reduce((sum, hole) => sum + hole.par, 0)}
-              </div>
-            </div>
-          </div>
-
-          {/* Front Nine Results */}
-          <div className="bg-scorecard border-b border-soft-grey">
-            <div className="flex">
-              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-fairway font-primary">
-                Result
-              </div>
-              {frontNine.map((hole) => {
-                const score = participant.scores[hole.number - 1] ?? 0;
-                const scoreStyle = renderScoreDecoration(score, hole.par);
-
-                return (
                   <div
-                    key={hole.number}
                     className={cn(
-                      "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium flex items-center justify-center",
-                      hole.number === currentHole && "bg-coral bg-opacity-20"
+                      "w-5 h-5 flex items-center justify-center text-xs font-display",
+                      scoreStyle.color,
+                      scoreStyle.decoration
                     )}
                   >
-                    <div
-                      className={cn(
-                        "w-6 h-6 flex items-center justify-center font-display",
-                        scoreStyle.color,
-                        scoreStyle.decoration
-                      )}
-                    >
-                      {formatScoreDisplay(score)}
-                    </div>
+                    {formatScoreDisplay(score)}
                   </div>
-                );
-              })}
-              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-charcoal font-display">
-                {totals.frontTotal ?? "-"}
-              </div>
-            </div>
-          </div>
-
-          {/* Back Nine Header with TapScore Styling */}
-          <div className="bg-fairway text-scorecard">
-            <div className="flex">
-              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium font-primary">
-                Hole
-              </div>
-              {backNine.map((hole) => (
-                <div
-                  key={hole.number}
-                  className={cn(
-                    "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium font-primary",
-                    hole.number === currentHole && "bg-coral"
-                  )}
-                >
-                  {hole.number}
                 </div>
-              ))}
-              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-medium font-primary">
-                In
-              </div>
-            </div>
-          </div>
-
-          {/* Back Nine Par */}
-          <div className="bg-rough bg-opacity-30 border-b border-soft-grey">
-            <div className="flex">
-              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-fairway font-primary">
-                Par
-              </div>
-              {backNine.map((hole) => (
-                <div
-                  key={hole.number}
-                  className="w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium text-fairway font-primary"
-                >
-                  {hole.par}
-                </div>
-              ))}
-              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-fairway font-display">
-                {backNine.reduce((sum, hole) => sum + hole.par, 0)}
-              </div>
-            </div>
-          </div>
-
-          {/* Back Nine Results */}
-          <div className="bg-scorecard">
-            <div className="flex">
-              <div className="w-12 min-w-[48px] px-1 py-2 text-xs font-medium text-fairway font-primary">
-                Result
-              </div>
-              {backNine.map((hole) => {
-                const score = participant.scores[hole.number - 1] ?? 0;
-                const scoreStyle = renderScoreDecoration(score, hole.par);
-
-                return (
-                  <div
-                    key={hole.number}
-                    className={cn(
-                      "w-8 min-w-[32px] px-1 py-2 text-center text-xs font-medium flex items-center justify-center",
-                      hole.number === currentHole && "bg-coral bg-opacity-20"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "w-6 h-6 flex items-center justify-center font-display",
-                        scoreStyle.color,
-                        scoreStyle.decoration
-                      )}
-                    >
-                      {formatScoreDisplay(score)}
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="w-10 min-w-[40px] px-1 py-2 text-center text-xs font-bold text-charcoal font-display">
-                {totals.backTotal ?? "-"}
-              </div>
+              );
+            })}
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough bg-opacity-40 font-display">
+              {totals.frontTotal ?? "-"}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Player Total Section with TapScore Styling */}
-      <div className="bg-rough bg-opacity-20 px-4 py-3 border-t border-soft-grey">
+      {/* Back Nine Section */}
+      <div className="border-b border-soft-grey">
+        {/* Back Nine Section Header */}
+        <div className="bg-turf text-scorecard px-2 py-1">
+          <span className="text-sm font-medium font-primary">BACK NINE</span>
+        </div>
+        {/* Back Nine Header */}
+        <div className="bg-rough bg-opacity-30">
+          <div className="flex">
+            <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+              Hole
+            </div>
+            {backNine.map((hole) => (
+              <div
+                key={hole.number}
+                className={cn(
+                  "min-w-6 px-0.5 py-1 text-center text-xs font-medium text-fairway border-r border-soft-grey flex-1 font-primary",
+                  hole.number === currentHole && "bg-coral"
+                )}
+              >
+                {hole.number}
+              </div>
+            ))}
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough bg-opacity-50 font-primary">
+              IN
+            </div>
+          </div>
+        </div>
+
+        {/* Back Nine Par */}
+        <div className="bg-rough bg-opacity-20">
+          <div className="flex">
+            <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+              Par
+            </div>
+            {backNine.map((hole) => (
+              <div
+                key={hole.number}
+                className="min-w-6 px-0.5 py-1 text-center text-xs font-medium text-fairway border-r border-soft-grey flex-1 font-primary"
+              >
+                {hole.par}
+              </div>
+            ))}
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-fairway bg-rough bg-opacity-40 font-display">
+              {backNine.reduce((sum, hole) => sum + hole.par, 0)}
+            </div>
+          </div>
+        </div>
+
+        {/* Back Nine Results */}
+        <div className="bg-scorecard">
+          <div className="flex">
+            <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+              Score
+            </div>
+            {backNine.map((hole) => {
+              const score = participant.scores[hole.number - 1] ?? 0;
+              const scoreStyle = renderScoreDecoration(score, hole.par);
+
+              return (
+                <div
+                  key={hole.number}
+                  className={cn(
+                    "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                    hole.number === currentHole && "bg-coral bg-opacity-20"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-5 h-5 flex items-center justify-center text-xs font-display",
+                      scoreStyle.color,
+                      scoreStyle.decoration
+                    )}
+                  >
+                    {formatScoreDisplay(score)}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough bg-opacity-40 font-display">
+              {totals.backTotal ?? "-"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Totals Section */}
+      <div className="bg-rough bg-opacity-20 px-2 py-2">
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium text-fairway font-primary">
             Total Score
           </span>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <span className="text-turf text-sm font-primary">
               Total: {totals.totalScore ?? "-"}
             </span>
-            <span className="text-lg font-bold text-charcoal font-display">
+            <span className="text-base font-bold text-charcoal font-display">
               To par:{" "}
               {totals.totalScore && totals.toPar !== null
                 ? formatToPar(totals.toPar)
