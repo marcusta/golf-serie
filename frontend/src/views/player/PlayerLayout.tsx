@@ -15,7 +15,7 @@ export default function PlayerLayout() {
     (location.pathname.includes("/competitions/") &&
       (location.pathname.includes("/tee-times/") ||
         location.pathname.match(/\/competitions\/\d+$/))) ||
-    location.pathname.match(/\/series\/\d+$/);
+    location.pathname.match(/\/series\/\d+/); // This includes all series detail routes
 
   if (isDetailView) {
     return <Outlet />;

@@ -22,6 +22,10 @@ import PlayerStandings from "./views/player/Standings";
 import PlayerCompetitions from "./views/player/Competitions";
 import PlayerSeries from "./views/player/Series";
 import SeriesDetail from "./views/player/SeriesDetail";
+import SeriesDocuments from "./views/player/SeriesDocuments";
+import SeriesDocumentDetail from "./views/player/SeriesDocumentDetail";
+import SeriesStandings from "./views/player/SeriesStandings";
+import SeriesCompetitions from "./views/player/SeriesCompetitions";
 import CompetitionDetail from "./views/player/CompetitionDetail";
 import CompetitionRound from "./views/player/CompetitionRound";
 
@@ -104,6 +108,31 @@ const seriesDetailRoute = new Route({
   component: SeriesDetail,
 });
 
+// New Series Detail sub-routes
+const seriesDocumentsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series/$serieId/documents",
+  component: SeriesDocuments,
+});
+
+const seriesDocumentDetailRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series/$serieId/documents/$documentId",
+  component: SeriesDocumentDetail,
+});
+
+const seriesStandingsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series/$serieId/standings",
+  component: SeriesStandings,
+});
+
+const seriesCompetitionsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/series/$serieId/competitions",
+  component: SeriesCompetitions,
+});
+
 const competitionDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId",
@@ -138,6 +167,10 @@ const routeTree = rootRoute.addChildren([
     playerCompetitionsRoute,
     playerSeriesRoute,
     seriesDetailRoute,
+    seriesDocumentsRoute,
+    seriesDocumentDetailRoute,
+    seriesStandingsRoute,
+    seriesCompetitionsRoute,
     competitionDetailRoute,
     teeTimeDetailRoute,
   ]),

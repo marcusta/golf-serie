@@ -1,0 +1,17 @@
+node_modules
+dist
+src/views/admin
+src/views/player/CompetitionRound.tsx
+src/views/player/CompetitionDetail.tsx
+src/views/player/TeeTimeDetail.tsx
+src/api
+src/hooks
+src/utils
+*.md
+src/components/competition
+src/components/score-entry
+src/components/scorecard
+src/components/ui
+src/components/ParticipantAssignment.tsx
+src/components/ParticipantAssignmentDemo.tsx
+src/assets

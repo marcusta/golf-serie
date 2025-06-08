@@ -3,7 +3,7 @@ description:
 globs: 
 alwaysApply: false
 ---
-# TapScore Series Detail - Mobile-First Redesign Proposal
+# TapScore Series Detail - Mobile-First Redesign Proposal (Revised)
 
 ## 🎯 Current Issues Identified
 
@@ -22,101 +22,157 @@ alwaysApply: false
 
 ## 🎨 Proposed Mobile-First Redesign
 
-### Header Structure
+### Navigation Architecture
+```
+Series Overview (Landing Page)
+├── /player/series/{id}                        [Clean overview page]
+├── /player/series/{id}/documents              [Full documents browser]
+│   └── /player/series/{id}/documents/{docId}      [Document reader]
+├── /player/series/{id}/standings              [Dedicated standings page]
+├── /player/series/{id}/competitions           [Series competitions list]
+│   └── /player/competitions/{competitionId}       [Existing detail page]
+└── /player/series/{id}/teams                  [Team information page]
+```
+
+### Overview Page Structure
 ```
 ┌─────────────────────────────────────┐
 │ [←] TapScore Logo          [≡]      │ ← Fairway Green (#1B4332)
 ├─────────────────────────────────────┤
 │                                     │
 │   📸 Hero Banner (if available)     │ ← Optional banner with overlay
-│   📍 Östgöta H40 2025              │ ← White text on image
+│   📍 Östgöta H40 2025              │ ← White text on image/gradient
 │                                     │
 ├─────────────────────────────────────┤
-│ 📅 Season Info | 🏆 Teams | 📊 Stats│ ← Light Rough (#95D5B2) info bar
+│ 📅 12 Events | 🏆 8 Teams | 📊 Active │ ← Light Rough (#95D5B2) info bar
+├─────────────────────────────────────┤
+│                                     │
+│ 📄 PRIMARY CONTENT AREA             │ ← Landing document OR welcome
+│    (Landing Document or Welcome)    │   message with series info
+│                                     │
+├─────────────────────────────────────┤
+│ QUICK ACCESS CARDS (2x2 Grid)       │
+│ [📋 Documents] [🏆 Standings]       │ ← Navigate to dedicated pages
+│ [📅 Competitions] [🎯 Latest]       │   Full-screen experience
+├─────────────────────────────────────┤
+│ 📈 RECENT ACTIVITY                  │ ← Timeline of recent results
+│    • Latest competition results     │   and standings changes
+│    • Recent standings changes       │
 └─────────────────────────────────────┘
 ```
 
-### Navigation Strategy
-**Replace horizontal scrolling tabs with:**
-1. **Primary Content Area**: Overview/Landing document (default)
-2. **Bottom Sheet Navigation**: Slide-up panels for secondary content
-3. **Quick Action Buttons**: Strategic placement for key actions
-
-### Content Layout Priority
+### Dedicated Pages Layout
 ```
+Documents Page (/series/{id}/documents)
 ┌─────────────────────────────────────┐
-│ 1. HERO SECTION                     │
-│   - Series name + banner            │
-│   - Key stats in info bar           │
+│ [←] Östgöta H40 2025       [🔍]     │ ← Header with search
 ├─────────────────────────────────────┤
-│ 2. PRIMARY CONTENT                  │
-│   - Landing document OR             │
-│   - Welcome message + quick cards   │
+│ 📄 Rules & Information             │
+│ 📄 Course Guide                    │ ← Document list with previews
+│ 📄 Tournament Format               │   Tap to open full document
+│ 📄 Contact Information             │
+└─────────────────────────────────────┘
+
+Document Detail (/series/{id}/documents/{docId})
+┌─────────────────────────────────────┐
+│ [←] Documents          [⟨] [⟩] [↗]  │ ← Back + sibling nav + share
 ├─────────────────────────────────────┤
-│ 3. QUICK ACCESS CARDS               │
-│   [📋 Latest Results] [📅 Next Event]│
-│   [🏆 Standings] [📄 Documents]     │
+│ # Document Title                    │
+│                                     │ ← Full markdown content
+│ Document content with proper        │   with reading optimization
+│ typography and TapScore styling...  │
+└─────────────────────────────────────┘
+
+Standings Page (/series/{id}/standings)
+┌─────────────────────────────────────┐
+│ [←] Östgöta H40 2025       [↗] [⋯]  │ ← Back + share + export
 ├─────────────────────────────────────┤
-│ 4. RECENT ACTIVITY                  │
-│   - Latest competition results      │
-│   - Recent standings changes        │
+│ 🥇 Team Leader: 125 pts             │ ← Top 3 summary cards
+│ 🥈 Runner-up: 118 pts               │
+│ 🥉 Third: 112 pts                   │
+├─────────────────────────────────────┤
+│ POS | TEAM        | PTS | EVENTS    │ ← Full responsive table
+│  1  | Team A      | 125 |   8       │   with sorting capabilities
+│  2  | Team B      | 118 |   8       │
+│  3  | Team C      | 112 |   7       │
 └─────────────────────────────────────┘
 ```
-
-### Navigation Patterns
-- **Primary Tab**: Overview (always visible)
-- **Secondary Access**: Bottom sheet or dedicated pages
-- **Deep Links**: Direct access to standings, competitions, documents
 
 ---
 
 ## 📱 Detailed Component Specifications
 
-### 1. Header Component
+### 1. Overview Page Header
 ```css
-.series-header {
+.series-overview-header {
   background: linear-gradient(180deg, var(--fairway-green), var(--turf-green));
   color: var(--scorecard-white);
   padding: 1rem;
 }
 
+.hero-section {
+  position: relative;
+  border-radius: 1rem;
+  margin: 1rem 0;
+}
+
 .hero-banner {
   height: 200px;
-  border-radius: 1rem;
   background-size: cover;
-  position: relative;
+  background-position: center;
+  border-radius: 1rem;
 }
 
 .hero-overlay {
-  background: linear-gradient(to bottom, transparent, rgba(27, 67, 50, 0.7));
+  background: linear-gradient(to bottom, transparent 40%, rgba(27, 67, 50, 0.8));
   position: absolute;
   inset: 0;
   border-radius: 1rem;
+  display: flex;
+  align-items: flex-end;
+  padding: 1.5rem;
 }
 
 .series-title {
   font-family: 'DM Sans', sans-serif;
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  color: var(--scorecard-white);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  margin: 0;
+}
+
+.hero-fallback {
+  background: linear-gradient(135deg, var(--turf-green), var(--fairway-green));
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
 }
 ```
 
 ### 2. Info Bar Component
 ```css
-.info-bar {
+.series-info-bar {
   background: var(--light-rough);
   border-radius: 1rem;
   padding: 1rem;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
-  margin-top: 1rem;
+  margin: 1rem 0;
 }
 
 .info-item {
   text-align: center;
-  color: var(--charcoal-text);
+  padding: 0.5rem;
+}
+
+.info-icon {
+  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+  color: var(--turf-green);
 }
 
 .info-value {
@@ -124,40 +180,71 @@ alwaysApply: false
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--fairway-green);
+  line-height: 1.2;
 }
 
 .info-label {
   font-family: 'Inter', sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
+  color: var(--charcoal-text);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-top: 0.25rem;
 }
 ```
 
-### 3. Quick Access Cards
+### 3. Quick Access Cards Grid
 ```css
+.quick-access-section {
+  margin: 2rem 0;
+}
+
+.section-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--charcoal-text);
+  margin-bottom: 1rem;
+}
+
 .quick-access-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
-  margin: 1.5rem 0;
+}
+
+@media (min-width: 768px) {
+  .quick-access-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .quick-card {
   background: var(--scorecard-white);
   border: 1px solid var(--soft-grey);
   border-radius: 1rem;
-  padding: 1.5rem;
+  padding: 1.5rem 1rem;
   text-align: center;
+  text-decoration: none;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(27, 67, 50, 0.05);
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .quick-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(27, 67, 50, 0.1);
   border-color: var(--turf-green);
+}
+
+.quick-card:active {
+  transform: translateY(0);
 }
 
 .quick-card-icon {
@@ -170,101 +257,369 @@ alwaysApply: false
   align-items: center;
   justify-content: center;
   color: var(--turf-green);
+  font-size: 1.25rem;
 }
 
 .quick-card-title {
   font-family: 'DM Sans', sans-serif;
   font-weight: 600;
   color: var(--charcoal-text);
+  font-size: 0.9rem;
   margin-bottom: 0.5rem;
 }
 
 .quick-card-subtitle {
   font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  color: var(--soft-grey);
+  line-height: 1.3;
+}
+
+.quick-card-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--sunset-coral);
+  color: var(--scorecard-white);
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+}
+```
+
+### 4. Recent Activity Feed
+```css
+.recent-activity {
+  margin-top: 2rem;
+}
+
+.activity-list {
+  background: var(--scorecard-white);
+  border: 1px solid var(--soft-grey);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.activity-item {
+  padding: 1rem;
+  border-bottom: 1px solid var(--soft-grey);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: background-color 0.2s ease;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-item:hover {
+  background: var(--light-rough);
+}
+
+.activity-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--light-rough);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--turf-green);
+  flex-shrink: 0;
+}
+
+.activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  color: var(--charcoal-text);
   font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.activity-meta {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
   color: var(--soft-grey);
 }
 ```
 
-### 4. Bottom Sheet Navigation
+### 5. Dedicated Page Headers
 ```css
-.bottom-sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--scorecard-white);
-  border-radius: 1rem 1rem 0 0;
-  transform: translateY(100%);
-  transition: transform 0.3s ease;
-  z-index: 50;
+.page-header {
+  background: var(--fairway-green);
+  color: var(--scorecard-white);
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.bottom-sheet.open {
-  transform: translateY(0);
+.page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  flex: 1;
 }
 
-.bottom-sheet-handle {
-  width: 3rem;
-  height: 0.25rem;
-  background: var(--soft-grey);
-  border-radius: 0.125rem;
-  margin: 1rem auto;
+.back-button {
+  background: none;
+  border: none;
+  color: var(--scorecard-white);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
 }
 
-.bottom-sheet-content {
-  padding: 0 1.5rem 2rem;
-  max-height: 70vh;
-  overflow-y: auto;
+.back-button:hover {
+  background: var(--turf-green);
+}
+
+.page-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--scorecard-white);
+  margin: 0;
+  truncate;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-action-button {
+  background: var(--turf-green);
+  border: none;
+  color: var(--scorecard-white);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.header-action-button:hover {
+  background: var(--light-rough);
+  color: var(--charcoal-text);
 }
 ```
 
 ---
 
-## 🔄 Implementation Approach
+## 🎯 Page-Specific Design Patterns
 
-### Phase 1: Header Redesign
-- Remove current complex banner system
-- Implement clean header with TapScore branding
-- Add hero banner with proper overlay
-- Create responsive info bar with key metrics
+### Documents Page Features
+- **Search Bar**: Filter documents by title and content
+- **Document Cards**: Preview first few lines with metadata
+- **Categories**: Group documents by type (rules, guides, info)
+- **Empty State**: Helpful message when no documents exist
+- **Loading States**: Skeleton cards during data fetch
 
-### Phase 2: Content Restructure
-- Replace scrolling tabs with single overview page
-- Implement quick access card grid
-- Add recent activity section
-- Create proper content hierarchy
+### Document Detail Features  
+- **Reading Optimization**: Proper line spacing and font sizing
+- **Navigation**: Previous/Next document arrows
+- **Progress Indicator**: Reading progress for long documents
+- **Share Functionality**: Deep link sharing with proper URL
+- **Print Support**: Optimized print styles
 
-### Phase 3: Navigation Enhancement
-- Implement bottom sheet for secondary navigation
-- Add direct routing to detailed views
-- Create smooth transitions between sections
-- Ensure deep linking works properly
+### Standings Page Features
+- **Summary Cards**: Top 3 teams highlighted prominently
+- **Responsive Table**: Cards on mobile, table on desktop
+- **Sorting**: Tap column headers to sort by different metrics
+- **Historical View**: Toggle to see progression over time
+- **Export Options**: PDF and CSV download
 
-### Phase 4: Mobile Optimization
-- Test touch targets and interactions
-- Optimize for one-handed use
-- Ensure proper scroll behavior
-- Add haptic feedback where appropriate
+### Competitions Page Features
+- **Status Filtering**: All, Upcoming, Active, Completed
+- **Date Sorting**: Chronological order with clear grouping
+- **Quick Actions**: Join, View Results, Share buttons
+- **Status Indicators**: Color-coded badges for competition status
+- **Calendar Integration**: Option to add events to calendar
 
 ---
 
-## 🎯 Success Metrics
+## 📱 Mobile-First Responsive Behavior
 
-### User Experience
-- ✅ No horizontal scrolling required
-- ✅ All content accessible within 2 taps
-- ✅ Consistent with Competition Detail patterns
-- ✅ Fast loading and smooth animations
+### Breakpoint Strategy
+```css
+/* Mobile First (default) */
+.container { 
+  padding: 1rem; 
+  max-width: 100%;
+}
 
-### Technical Requirements
-- ✅ Responsive design (mobile-first)
-- ✅ Accessibility compliance
-- ✅ Performance optimization
-- ✅ Consistent with TapScore design system
+.quick-access-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
 
-### Visual Consistency
-- ✅ Matches TapScore brand colors
-- ✅ Uses proper typography hierarchy
-- ✅ Consistent with other app sections
-- ✅ Professional golf tournament aesthetic
+/* Tablet (768px+) */
+@media (min-width: 768px) {
+  .container { 
+    padding: 1.5rem; 
+    max-width: 768px;
+    margin: 0 auto;
+  }
+  
+  .quick-access-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+  
+  .series-title {
+    font-size: 3rem;
+  }
+}
+
+/* Desktop (1024px+) */
+@media (min-width: 1024px) {
+  .container { 
+    padding: 2rem;
+    max-width: 1024px;
+  }
+  
+  .hero-section {
+    height: 300px;
+  }
+  
+  .info-bar {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+```
+
+### Touch Optimization
+- **Minimum Touch Targets**: 44px for all interactive elements
+- **Hover States**: Subtle transform and shadow changes
+- **Active States**: Brief scale feedback on touch
+- **Gesture Support**: Swipe navigation where appropriate
+- **Haptic Feedback**: For supported devices and actions
+
+---
+
+## 🎯 Implementation Benefits
+
+### User Experience Advantages
+- ✅ **No Horizontal Scrolling**: Clean mobile navigation
+- ✅ **Proper URL Structure**: Bookmarkable and shareable links
+- ✅ **Full-Screen Content**: Dedicated space for complex features
+- ✅ **Intuitive Navigation**: Follows mobile app conventions
+- ✅ **Sibling Navigation**: Easy movement between related content
+
+### Technical Advantages
+- ✅ **Route-Based Code Splitting**: Better performance
+- ✅ **SEO Friendly**: Proper page structure and URLs
+- ✅ **Maintainable**: Clear separation of concerns
+- ✅ **Scalable**: Easy to add new sections and features
+- ✅ **Consistent**: Matches existing app architecture
+
+### Development Advantages  
+- ✅ **Clear Architecture**: Each major feature gets dedicated space
+- ✅ **Reusable Patterns**: Consistent header and navigation patterns
+- ✅ **Easy Testing**: Isolated page components
+- ✅ **Future-Proof**: Easy to extend with new features
+- ✅ **Design System Aligned**: Uses TapScore colors and typography
+
+---
+
+## 🔧 Implementation Guidelines
+
+### CSS Custom Properties Setup
+```css
+:root {
+  /* TapScore Color Palette */
+  --fairway-green: #1B4332;
+  --turf-green: #2D6A4F;
+  --light-rough: #95D5B2;
+  --sunset-coral: #FF9F1C;
+  --flag-red: #EF476F;
+  --sky-blue: #118AB2;
+  --scorecard-white: #F8F9FA;
+  --charcoal-text: #1C1C1E;
+  --soft-grey: #CED4DA;
+  
+  /* Typography */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* Spacing Scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(27, 67, 50, 0.05);
+  --shadow-md: 0 4px 16px rgba(27, 67, 50, 0.1);
+  --shadow-lg: 0 8px 32px rgba(27, 67, 50, 0.15);
+}
+```
+
+### Component Architecture
+```typescript
+// Overview page structure
+interface SeriesOverviewProps {
+  series: Series;
+  documents: SeriesDocument[];
+  standings: SeriesStandings;
+  competitions: Competition[];
+}
+
+// Dedicated page structure  
+interface SeriesPageProps {
+  seriesId: string;
+  onBack: () => void;
+}
+
+// Quick access card structure
+interface QuickAccessCard {
+  title: string;
+  subtitle: string;
+  icon: string;
+  route: string;
+  badge?: string;
+}
+```
+
+---
+
+## ✅ Success Criteria
+
+After implementing this redesign, the Series Detail should achieve:
+
+### Mobile Experience
+- ✅ **Zero horizontal scrolling** on any screen size
+- ✅ **Touch-optimized navigation** with proper target sizes
+- ✅ **Intuitive information hierarchy** with clear content prioritization
+- ✅ **Fast loading** with proper progressive enhancement
+
+### Navigation Quality
+- ✅ **Consistent with Competition Detail** navigation patterns
+- ✅ **Proper URL structure** for sharing and bookmarking
+- ✅ **Breadcrumb navigation** for complex content hierarchies
+- ✅ **Browser back/forward support** that works as expected
+
+### Visual Design  
+- ✅ **TapScore brand consistency** throughout all pages
+- ✅ **Professional golf aesthetic** appropriate for tournaments
+- ✅ **Accessible design** meeting WCAG guidelines
+- ✅ **Smooth animations** that enhance rather than distract
+
+### Functionality
+- ✅ **All existing features preserved** with improved access
+- ✅ **Enhanced content browsing** with search and filtering
+- ✅ **Better data presentation** with full-screen tables and views
+- ✅ **Improved sharing capabilities** with deep linking support
