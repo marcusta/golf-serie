@@ -56,51 +56,61 @@ export function ParticipantsListComponent({
             No tee times scheduled for this competition yet.
           </div>
         ) : (
-          <div className="grid gap-3 md:gap-4">
+          <div className="space-y-3">
             {teeTimes.map((teeTime) => (
-              <Link
+              <div
                 key={teeTime.id}
-                to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
-                className="block bg-scorecard rounded-xl border border-soft-grey hover:border-turf hover:shadow-md transition-all duration-200"
+                className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden"
               >
-                <div className="p-4 md:p-6">
-                  <div className="flex items-center justify-between mb-3 md:mb-4">
-                    <div className="flex items-center gap-2">
+                <div className="bg-rough bg-opacity-30 px-4 py-3 border-b border-soft-grey">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-base md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
                       <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />
-                      <span className="text-base md:text-lg font-semibold text-fairway font-display">
-                        {teeTime.teetime}
-                      </span>
-                    </div>
+                      {teeTime.teetime}
+                    </h4>
                     <div className="text-xs md:text-sm text-turf font-primary">
                       {teeTime.participants.length} players
                     </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+                {teeTime.participants.length === 0 ? (
+                  <div className="text-center py-4 text-soft-grey text-sm font-primary">
+                    No participants assigned to this tee time yet.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-soft-grey">
                     {teeTime.participants.map((participant) => (
-                      <div
+                      <Link
                         key={participant.id}
-                        className="flex items-center justify-between p-2 md:p-3 bg-rough bg-opacity-30 rounded-xl border border-soft-grey"
+                        to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
+                        className="px-4 py-3 flex items-center justify-between hover:bg-rough hover:bg-opacity-20 transition-colors"
                       >
-                        <div className="min-w-0 flex-1">
-                          <span className="font-medium text-fairway text-sm md:text-base block truncate font-primary">
-                            {participant.team_name} {participant.position_name}
-                          </span>
-                          <div className="text-xs text-turf truncate font-primary">
-                            {participant.player_names}
-                          </div>
+                        <div className="flex-1">
+                          <h5 className="text-sm md:text-base font-medium text-fairway font-primary">
+                            {participant.team_name}
+                          </h5>
+                          <p className="text-xs md:text-sm text-turf font-primary">
+                            {formatParticipantTypeDisplay(
+                              participant.position_name
+                            )}
+                            {participant.player_names && (
+                              <span className="ml-2">
+                                • {participant.player_names}
+                              </span>
+                            )}
+                          </p>
                         </div>
-                      </div>
+                        <div className="text-xs text-turf">
+                          {isMultiPlayerFormat(participant.position_name) && (
+                            <Users className="w-4 h-4 inline-block" />
+                          )}
+                        </div>
+                      </Link>
                     ))}
                   </div>
-
-                  {teeTime.participants.length === 0 && (
-                    <div className="text-center py-3 md:py-4 text-soft-grey text-sm font-primary">
-                      No participants assigned to this tee time yet.
-                    </div>
-                  )}
-                </div>
-              </Link>
+                )}
+              </div>
             ))}
           </div>
         )}

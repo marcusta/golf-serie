@@ -28,6 +28,7 @@ import {
   calculateTeamResults,
   calculateTotalParticipants,
 } from "../../utils/scoreCalculations";
+import TapScoreLogo from "../../components/ui/TapScoreLogo";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -188,34 +189,44 @@ export default function CompetitionDetail() {
 
   return (
     <div className="min-h-screen flex flex-col bg-scorecard">
-      <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6">
-        {/* Header with TapScore Styling */}
-        <div className="flex items-center gap-3 md:gap-4">
-          <Link
-            to="/player/competitions"
-            className="p-2 hover:bg-rough hover:bg-opacity-30 rounded-xl transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-fairway" />
-          </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl md:text-3xl font-bold text-fairway truncate font-display">
-              {competition.name}
-            </h1>
+      {/* Dark Green TapScore Header */}
+      <div className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <Link
+                to="/player/competitions"
+                className="p-2 hover:bg-turf hover:bg-opacity-30 rounded-xl transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-scorecard" />
+              </Link>
+              <TapScoreLogo size="md" variant="color" layout="horizontal" />
+            </div>
+
+            <div className="flex items-center gap-4">
+              {/* Back to Score Entry button */}
+              {fromTeeTime && (
+                <Link
+                  to={`/player/competitions/${competitionId}/tee-times/${fromTeeTime}`}
+                  className="flex items-center gap-2 px-3 py-2 bg-coral text-scorecard rounded-xl hover:bg-[#E8890A] hover:-translate-y-0.5 transition-all duration-200 text-sm font-medium font-primary border border-coral"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Back to</span>
+                  <span>Score</span>
+                </Link>
+              )}
+              <HamburgerMenu />
+            </div>
           </div>
+        </div>
+      </div>
 
-          {/* Back to Score Entry button with TapScore styling */}
-          {fromTeeTime && (
-            <Link
-              to={`/player/competitions/${competitionId}/tee-times/${fromTeeTime}`}
-              className="flex items-center gap-2 px-3 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors text-sm font-medium font-primary"
-            >
-              <Edit3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Back to</span>
-              <span>Score</span>
-            </Link>
-          )}
-
-          <HamburgerMenu />
+      <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6">
+        {/* Competition Title */}
+        <div className="text-center">
+          <h1 className="text-2xl md:text-3xl font-bold text-fairway font-display">
+            {competition.name}
+          </h1>
         </div>
 
         {/* Competition Info Header with TapScore Styling */}

@@ -33,6 +33,7 @@ import {
 } from "../../utils/participantFormatting";
 import { formatCourseFromTeeTime } from "../../utils/courseFormatting";
 import type { TeeTime } from "@/api/tee-times";
+import TapScoreLogo from "../../components/ui/TapScoreLogo";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -244,28 +245,36 @@ export default function CompetitionRound() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() =>
-              navigate({
-                to: `/player/competitions/${competitionId}`,
-                replace: true,
-              })
-            }
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Back to Competition"
-          >
-            <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">
-              {competition.name}
-            </h1>
+      {/* Dark Green TapScore Header */}
+      <div className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() =>
+                  navigate({
+                    to: `/player/competitions/${competitionId}`,
+                    replace: true,
+                  })
+                }
+                className="p-2 hover:bg-turf hover:bg-opacity-30 rounded-xl transition-colors"
+                title="Back to Competition"
+              >
+                <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-scorecard" />
+              </button>
+              <TapScoreLogo size="md" variant="color" layout="horizontal" />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="text-center">
+                <h1 className="text-lg md:text-xl font-bold text-scorecard truncate font-display">
+                  {competition.name}
+                </h1>
+              </div>
+              <HamburgerMenu />
+            </div>
           </div>
         </div>
-        <HamburgerMenu />
       </div>
 
       {/* Main Content Area */}
