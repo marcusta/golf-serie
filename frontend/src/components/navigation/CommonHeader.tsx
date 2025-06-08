@@ -46,7 +46,7 @@ export function CommonHeader({
             <>
               <div className="w-px h-6 bg-scorecard/30" />
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-semibold font-display truncate">
+                <h1 className="text-body-lg font-semibold text-scorecard font-display truncate">
                   {title}
                 </h1>
               </div>

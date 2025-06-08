@@ -5,10 +5,9 @@ import {
   formatToPar,
   getToParColor,
   formatScoreEntryDisplay,
-  hasValidScore,
 } from "../../utils/scoreCalculations";
 import { FullScorecardModal } from "./FullScorecardModal";
-import { BarChart3, Users } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
 
 interface PlayerScore {
@@ -120,10 +119,6 @@ export function ScoreEntry({
 
   const currentPlayer = teeTimeGroup.players[currentPlayerIndex];
   const currentHoleData = course.holes.find((h) => h.number === currentHole);
-  const previousHoleData =
-    currentHole > 1
-      ? course.holes.find((h) => h.number === currentHole - 1)
-      : null;
 
   // Calculate player's current score relative to par
   const calculatePlayerToPar = (player: PlayerScore): number | null => {
@@ -275,25 +270,33 @@ export function ScoreEntry({
           </div>
         )}
 
-      {/* Compact Green Score Header with TapScore Branding */}
-      <div className="bg-turf text-scorecard px-4 py-2 border-b border-turf">
-        <div className="flex items-center justify-end gap-4 pr-6">
-          {/* Previous Hole Column (if exists) */}
-          {previousHoleData && (
-            <div className="text-center w-[60px]">
-              <div className="text-2xl font-bold font-display">
-                {currentHole - 1}
-              </div>
-              <div className="text-xs font-medium opacity-90 font-primary">
-                Par {previousHoleData.par}
-              </div>
+      {/* Header with Hole Info */}
+      <div className="bg-fairway text-scorecard px-4 py-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-scorecard rounded-full flex items-center justify-center">
+              <div className="w-3 h-3 bg-fairway rounded-full"></div>
             </div>
-          )}
+            <span className="text-body-lg font-semibold font-primary">
+              TapScore
+            </span>
+          </div>
+          <h1 className="text-display-sm font-bold font-display">Bräviken</h1>
+        </div>
 
-          {/* Current Hole Column */}
-          <div className="text-center w-[60px]">
-            <div className="text-2xl font-bold font-display">{currentHole}</div>
-            <div className="text-xs font-medium opacity-90 font-primary">
+        {/* Hole Info */}
+        <div className="mt-6 flex justify-center space-x-12">
+          <div className="text-center">
+            <div className="text-display-md font-bold font-display">1</div>
+            <div className="text-label-sm text-scorecard/80 font-primary">
+              Par 5
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-display-md font-bold font-display">
+              {currentHole}
+            </div>
+            <div className="text-label-sm text-scorecard/80 font-primary">
               Par {currentHoleData?.par}
             </div>
           </div>
@@ -368,15 +371,13 @@ export function ScoreEntry({
             );
           })}
 
-          {/* Full Scorecard Access Button with TapScore Styling */}
+          {/* View Full Scorecard Button */}
           <button
             onClick={() => setFullScorecardVisible(true)}
-            className="w-full bg-rough bg-opacity-30 hover:bg-rough hover:bg-opacity-50 rounded-xl p-4 flex items-center justify-center gap-2 transition-colors mt-4 touch-manipulation border border-soft-grey"
+            className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-lg transition-colors mt-6 flex items-center justify-center space-x-2 font-primary"
           >
-            <BarChart3 className="w-5 h-5 text-turf" />
-            <span className="font-medium text-fairway font-primary">
-              View Full Scorecard
-            </span>
+            <BarChart3 size={20} />
+            <span>View Full Scorecard</span>
           </button>
         </div>
       </div>

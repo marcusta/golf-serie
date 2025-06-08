@@ -1,8 +1,4 @@
-import {
-  formatToPar,
-  getToParColor,
-  getPositionColor,
-} from "../../utils/scoreCalculations";
+import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
 
 interface LeaderboardEntry {
   participant: {
@@ -50,72 +46,60 @@ export function LeaderboardComponent({
           No scores reported yet.
         </div>
       ) : (
-        <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden shadow-sm">
-          <div className="divide-y divide-soft-grey">
-            {[...leaderboard]
-              .sort((a, b) => {
-                // First sort by whether they have started (holes played > 0)
-                const aStarted = a.holesPlayed > 0;
-                const bStarted = b.holesPlayed > 0;
-                if (aStarted !== bStarted) {
-                  return aStarted ? -1 : 1;
-                }
-                // Then sort by relativeToPar
-                return a.relativeToPar - b.relativeToPar;
-              })
-              .map((entry, index) => (
+        <div className="space-y-3">
+          {[...leaderboard]
+            .sort((a, b) => {
+              // First sort by whether they have started (holes played > 0)
+              const aStarted = a.holesPlayed > 0;
+              const bStarted = b.holesPlayed > 0;
+              if (aStarted !== bStarted) {
+                return aStarted ? -1 : 1;
+              }
+              // Then sort by relativeToPar
+              return a.relativeToPar - b.relativeToPar;
+            })
+            .map((entry, index) => {
+              const isActive = index === 0; // Highlight leader
+              return (
                 <button
                   key={entry.participant.id}
                   onClick={() => onParticipantClick(entry.participant.id)}
-                  className={`w-full text-left px-4 md:px-6 py-3 md:py-4 ${getPositionColor(
-                    index + 1
-                  )} border-l-4 hover:bg-rough hover:bg-opacity-20 transition-colors cursor-pointer`}
+                  className={`w-full text-left bg-scorecard rounded-lg p-4 shadow-sm border transition-all duration-200 hover:shadow-md hover:border-turf cursor-pointer ${
+                    isActive
+                      ? "border-coral/20 shadow-md ring-2 ring-coral/10"
+                      : "border-soft-grey"
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                      <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full bg-scorecard border-2 border-turf flex-shrink-0">
-                        <span className="text-xs md:text-sm font-bold text-fairway font-display">
-                          {index + 1}
-                        </span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm md:text-lg font-medium text-fairway truncate font-display">
-                          {entry.participant.team_name}{" "}
-                          {entry.participant.position_name}
-                        </h4>
-                        <p className="text-xs md:text-sm text-turf font-primary">
-                          Thru {entry.holesPlayed} holes
-                        </p>
-                      </div>
+                    <div className="flex-1">
+                      <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                        {entry.participant.team_name}{" "}
+                        {entry.participant.position_name}
+                      </h3>
+                      <p className="text-label-sm text-turf mb-1 font-primary">
+                        Thru {entry.holesPlayed} holes
+                      </p>
+                      <span
+                        className={`text-label-sm font-medium font-primary ${getToParColor(
+                          entry.relativeToPar
+                        )}`}
+                      >
+                        {formatToPar(entry.relativeToPar)}
+                      </span>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="flex items-center gap-3 md:gap-6">
-                        <div>
-                          <div className="text-xs text-turf font-primary">
-                            Score
-                          </div>
-                          <div className="text-lg md:text-xl font-bold text-charcoal font-display">
-                            {entry.totalShots}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-turf font-primary">
-                            To Par
-                          </div>
-                          <div
-                            className={`text-lg md:text-xl font-bold font-display ${getToParColor(
-                              entry.relativeToPar
-                            )}`}
-                          >
-                            {formatToPar(entry.relativeToPar)}
-                          </div>
-                        </div>
+
+                    <div className="flex items-center space-x-4">
+                      <div className="text-display-md font-bold text-charcoal font-display">
+                        {entry.totalShots}
+                      </div>
+                      <div className="w-12 h-12 rounded-full border-2 border-soft-grey bg-rough/10 flex items-center justify-center text-label-sm font-medium text-turf">
+                        NR
                       </div>
                     </div>
                   </div>
                 </button>
-              ))}
-          </div>
+              );
+            })}
         </div>
       )}
     </div>
