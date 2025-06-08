@@ -14,8 +14,8 @@ import {
   Award,
   Search,
   Eye,
-  ArrowLeft,
 } from "lucide-react";
+import { CommonHeader } from "../../components/navigation/CommonHeader";
 
 type FilterStatus = "all" | "upcoming" | "live" | "completed";
 
@@ -267,25 +267,7 @@ export default function PlayerCompetitions() {
 
   return (
     <div className="min-h-screen bg-scorecard">
-      {/* Header */}
-      <header className="bg-fairway text-scorecard shadow-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-4 h-16">
-            <button
-              onClick={() => window.history.back()}
-              className="p-2 hover:bg-turf rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-coral rounded-full flex items-center justify-center">
-                <span>⛳</span>
-              </div>
-              <h1 className="text-lg font-semibold font-display">TapScore</h1>
-            </div>
-          </div>
-        </div>
-      </header>
+      <CommonHeader />
 
       {/* Page Title & Filters */}
       <div className="bg-scorecard border-b shadow-sm">

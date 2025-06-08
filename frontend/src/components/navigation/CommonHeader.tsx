@@ -1,7 +1,6 @@
 import React from "react";
 import { ArrowLeft } from "lucide-react";
 import TapScoreLogo from "../ui/TapScoreLogo";
-import { useNavigate } from "@tanstack/react-router";
 
 interface CommonHeaderProps {
   title?: string;
@@ -18,8 +17,6 @@ export function CommonHeader({
   children,
   className = "",
 }: CommonHeaderProps) {
-  const navigate = useNavigate();
-
   const handleBackClick = () => {
     if (onBackClick) {
       onBackClick();

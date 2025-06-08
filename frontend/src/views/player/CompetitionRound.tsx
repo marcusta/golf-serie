@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
 import { ScoreEntry } from "../../components/score-entry";
 import {
   BottomTabNavigation,
@@ -33,7 +32,7 @@ import {
 } from "../../utils/participantFormatting";
 import { formatCourseFromTeeTime } from "../../utils/courseFormatting";
 import type { TeeTime } from "@/api/tee-times";
-import TapScoreLogo from "../../components/ui/TapScoreLogo";
+import { CommonHeader } from "../../components/navigation/CommonHeader";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -245,37 +244,17 @@ export default function CompetitionRound() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Dark Green TapScore Header */}
-      <div className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() =>
-                  navigate({
-                    to: `/player/competitions/${competitionId}`,
-                    replace: true,
-                  })
-                }
-                className="p-2 hover:bg-turf hover:bg-opacity-30 rounded-xl transition-colors"
-                title="Back to Competition"
-              >
-                <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-scorecard" />
-              </button>
-              <TapScoreLogo size="md" variant="color" layout="horizontal" />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="text-center">
-                <h1 className="text-lg md:text-xl font-bold text-scorecard truncate font-display">
-                  {competition.name}
-                </h1>
-              </div>
-              <HamburgerMenu />
-            </div>
-          </div>
-        </div>
-      </div>
+      <CommonHeader
+        title={competition.name}
+        onBackClick={() =>
+          navigate({
+            to: `/player/competitions/${competitionId}`,
+            replace: true,
+          })
+        }
+      >
+        <HamburgerMenu />
+      </CommonHeader>
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">{renderContent()}</div>

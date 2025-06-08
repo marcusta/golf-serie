@@ -12,7 +12,6 @@ import {
   Users,
   Clock,
   Trophy,
-  ArrowLeft,
   Medal,
   Edit3,
 } from "lucide-react";
@@ -28,7 +27,7 @@ import {
   calculateTeamResults,
   calculateTotalParticipants,
 } from "../../utils/scoreCalculations";
-import TapScoreLogo from "../../components/ui/TapScoreLogo";
+import { CommonHeader } from "../../components/navigation/CommonHeader";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -85,29 +84,9 @@ export default function CompetitionDetail() {
   };
 
   // Clean navigation with proper browser history back
-  const handleBackNavigation = useCallback((e: React.MouseEvent) => {
-    // Prevent any potential event bubbling
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Capture the target element before async operations
-    const target = e.currentTarget;
-
-    // Ensure we only go back once by using a flag
-    if (!target.hasAttribute("data-navigating")) {
-      target.setAttribute("data-navigating", "true");
-
-      // Use browser's native history back for reliable single-step navigation
-      window.history.back();
-
-      // Clear the flag after a brief delay
-      setTimeout(() => {
-        // Check if element still exists before removing attribute
-        if (target && target.removeAttribute) {
-          target.removeAttribute("data-navigating");
-        }
-      }, 500);
-    }
+  const handleBackNavigation = useCallback(() => {
+    // Use browser's native history back for reliable single-step navigation
+    window.history.back();
   }, []);
 
   // Create course data format for scorecard component
@@ -215,38 +194,22 @@ export default function CompetitionDetail() {
 
   return (
     <div className="min-h-screen flex flex-col bg-scorecard">
-      {/* Dark Green TapScore Header */}
-      <div className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleBackNavigation}
-                className="p-2 hover:bg-turf hover:bg-opacity-30 rounded-xl transition-colors"
-                title="Go Back"
-              >
-                <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-scorecard" />
-              </button>
-              <TapScoreLogo size="md" variant="color" layout="horizontal" />
-            </div>
-
-            <div className="flex items-center gap-4">
-              {/* Back to Score Entry button */}
-              {fromTeeTime && (
-                <Link
-                  to={`/player/competitions/${competitionId}/tee-times/${fromTeeTime}`}
-                  className="flex items-center gap-2 px-3 py-2 bg-coral text-scorecard rounded-xl hover:bg-[#E8890A] hover:-translate-y-0.5 transition-all duration-200 text-sm font-medium font-primary border border-coral"
-                >
-                  <Edit3 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Back to</span>
-                  <span>Score</span>
-                </Link>
-              )}
-              <HamburgerMenu />
-            </div>
-          </div>
+      <CommonHeader onBackClick={handleBackNavigation}>
+        <div className="flex items-center gap-4">
+          {/* Back to Score Entry button */}
+          {fromTeeTime && (
+            <Link
+              to={`/player/competitions/${competitionId}/tee-times/${fromTeeTime}`}
+              className="flex items-center gap-2 px-3 py-2 bg-coral text-scorecard rounded-xl hover:bg-[#E8890A] hover:-translate-y-0.5 transition-all duration-200 text-sm font-medium font-primary border border-coral"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Back to</span>
+              <span>Score</span>
+            </Link>
+          )}
+          <HamburgerMenu />
         </div>
-      </div>
+      </CommonHeader>
 
       <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6">
         {/* Competition Title */}

@@ -9,7 +9,6 @@ import {
 import {
   Trophy,
   Users,
-  ArrowLeft,
   Crown,
   AlertTriangle,
   Star,
@@ -17,7 +16,7 @@ import {
   ChevronRight,
   Mail,
 } from "lucide-react";
-import TapScoreLogo from "../../components/ui/TapScoreLogo";
+import { CommonHeader } from "../../components/navigation/CommonHeader";
 
 // Types for enhanced series data
 interface SeriesStats {
@@ -139,17 +138,7 @@ export default function PlayerSeries() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-scorecard">
-        {/* Header */}
-        <header className="bg-fairway text-scorecard shadow-lg">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-4 h-16">
-              <button className="p-2 hover:bg-turf rounded-lg transition-colors">
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <TapScoreLogo size="md" variant="color" layout="horizontal" />
-            </div>
-          </div>
-        </header>
+        <CommonHeader />
 
         {/* Hero Skeleton */}
         <div
@@ -208,19 +197,7 @@ export default function PlayerSeries() {
   if (error) {
     return (
       <div className="min-h-screen bg-scorecard">
-        <header className="bg-fairway text-scorecard shadow-lg">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-4 h-16">
-              <button
-                onClick={() => window.history.back()}
-                className="p-2 hover:bg-turf rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <TapScoreLogo size="md" variant="color" layout="horizontal" />
-            </div>
-          </div>
-        </header>
+        <CommonHeader />
 
         <main className="container mx-auto px-4 py-12">
           <div className="text-center">
@@ -245,17 +222,7 @@ export default function PlayerSeries() {
 
   return (
     <div className="min-h-screen bg-scorecard">
-      {/* Header */}
-      <header className="bg-fairway text-scorecard shadow-lg">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-4 h-16">
-            <button className="p-2 hover:bg-turf rounded-lg transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <TapScoreLogo size="md" variant="color" layout="horizontal" />
-          </div>
-        </div>
-      </header>
+      <CommonHeader />
 
       {/* Hero Section */}
       <div

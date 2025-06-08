@@ -2,7 +2,6 @@ import { Link, useParams } from "@tanstack/react-router";
 import { useSingleSeries, useSeriesCompetitions } from "@/api/series";
 import { useCourses } from "@/api/courses";
 import {
-  ArrowLeft,
   Calendar,
   Users,
   ChevronRight,
@@ -13,7 +12,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import TapScoreLogo from "@/components/ui/TapScoreLogo";
+import { CommonHeader } from "@/components/navigation/CommonHeader";
 
 type FilterStatus = "all" | "upcoming" | "active" | "completed";
 
@@ -34,12 +33,10 @@ function ErrorState({
   title,
   message,
   onRetry,
-  serieId,
 }: {
   title: string;
   message: string;
   onRetry?: () => void;
-  serieId: string;
 }) {
   return (
     <div className="min-h-screen bg-scorecard flex items-center justify-center">
@@ -61,14 +58,13 @@ function ErrorState({
               Try Again
             </Button>
           )}
-          <Link
-            to="/player/series/$serieId"
-            params={{ serieId }}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf rounded-lg transition-colors"
+          <Button
+            variant="outline"
+            onClick={() => window.history.back()}
+            className="border-soft-grey text-charcoal hover:bg-rough/20"
           >
-            <ArrowLeft className="h-4 w-4" />
             Back to Series
-          </Link>
+          </Button>
         </div>
       </div>
     </div>
@@ -139,7 +135,6 @@ export default function SeriesCompetitions() {
       <ErrorState
         title="Series Not Found"
         message="The series you're looking for doesn't exist or may have been removed."
-        serieId={serieId}
       />
     );
   }
@@ -150,7 +145,6 @@ export default function SeriesCompetitions() {
         title="Error Loading Competitions"
         message="Unable to load competitions. Please try again."
         onRetry={() => refetchCompetitions()}
-        serieId={serieId}
       />
     );
   }
@@ -160,7 +154,6 @@ export default function SeriesCompetitions() {
       <ErrorState
         title="Series Unavailable"
         message="This series is currently unavailable. Please try again later."
-        serieId={serieId}
       />
     );
   }
@@ -168,27 +161,7 @@ export default function SeriesCompetitions() {
   if (!competitions || competitions.length === 0) {
     return (
       <div className="min-h-screen bg-scorecard">
-        {/* Main Header with Navigation */}
-        <header className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-4 h-16">
-              <Link
-                to="/player/series/$serieId"
-                params={{ serieId }}
-                className="p-2 hover:bg-turf rounded-lg transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <TapScoreLogo size="sm" variant="color" layout="horizontal" />
-              <div className="w-px h-6 bg-scorecard/30" />
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-semibold font-display truncate">
-                  {series.name}
-                </h1>
-              </div>
-            </div>
-          </div>
-        </header>
+        <CommonHeader title={series.name} />
 
         {/* Sub-header with Page Title */}
         <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -213,14 +186,12 @@ export default function SeriesCompetitions() {
             <p className="text-body-lg text-charcoal/70 mb-8">
               Competitions will be added to this series soon.
             </p>
-            <Link
-              to="/player/series/$serieId"
-              params={{ serieId }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-turf hover:bg-fairway text-scorecard rounded-xl transition-colors font-medium"
+            <Button
+              onClick={() => window.history.back()}
+              className="bg-turf hover:bg-fairway text-scorecard"
             >
-              <ArrowLeft className="h-4 w-4" />
               Back to Series Overview
-            </Link>
+            </Button>
           </div>
         </main>
       </div>
@@ -229,27 +200,7 @@ export default function SeriesCompetitions() {
 
   return (
     <div className="min-h-screen bg-scorecard">
-      {/* Main Header with Navigation */}
-      <header className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-4 h-16">
-            <Link
-              to="/player/series/$serieId"
-              params={{ serieId }}
-              className="p-2 hover:bg-turf rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <TapScoreLogo size="sm" variant="color" layout="horizontal" />
-            <div className="w-px h-6 bg-scorecard/30" />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold font-display truncate">
-                {series.name}
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
+      <CommonHeader title={series.name} />
 
       {/* Sub-header with Page Title and Filter */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">

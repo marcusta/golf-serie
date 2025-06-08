@@ -7,7 +7,6 @@ import {
   useSeriesDocuments,
 } from "@/api/series";
 import {
-  ArrowLeft,
   Calendar,
   Trophy,
   FileText,
@@ -19,7 +18,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
-import TapScoreLogo from "@/components/ui/TapScoreLogo";
+import { CommonHeader } from "@/components/navigation/CommonHeader";
 import RecentActivity from "@/components/series/recent-activity";
 
 // Loading skeleton components
@@ -92,7 +91,6 @@ function ErrorState({
               onClick={() => window.history.back()}
               className="border-soft-grey text-charcoal hover:bg-rough/20"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
           )}
@@ -133,17 +131,8 @@ export default function SeriesDetail() {
     : null;
 
   // Clean navigation with proper browser history back
-  const handleBackNavigation = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!e.currentTarget.hasAttribute("data-navigating")) {
-      e.currentTarget.setAttribute("data-navigating", "true");
-      window.history.back();
-      setTimeout(() => {
-        e.currentTarget.removeAttribute("data-navigating");
-      }, 500);
-    }
+  const handleBackNavigation = useCallback(() => {
+    window.history.back();
   }, []);
 
   // Enhanced error handling
@@ -289,24 +278,7 @@ export default function SeriesDetail() {
 
   return (
     <div className="min-h-screen bg-scorecard">
-      {/* TapScore Header Navigation */}
-      <header className="sticky top-0 z-50 bg-fairway border-b-2 border-turf shadow-lg shadow-fairway/20">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={handleBackNavigation}
-                className="flex items-center gap-2 text-scorecard hover:text-rough transition-colors p-2 -ml-2 rounded-lg hover:bg-turf/20 active:bg-turf/30"
-                aria-label="Go back"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span className="text-label-md font-medium">Back</span>
-              </button>
-              <TapScoreLogo size="md" variant="color" layout="horizontal" />
-            </div>
-          </div>
-        </div>
-      </header>
+      <CommonHeader onBackClick={handleBackNavigation} />
 
       {/* Hero Section */}
       <section className="relative">
