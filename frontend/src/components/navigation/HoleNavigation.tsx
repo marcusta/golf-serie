@@ -25,7 +25,7 @@ export function HoleNavigation({
   return (
     <div
       className={cn(
-        "bg-coral text-charcoal px-4 py-4",
+        "bg-coral text-charcoal px-4 py-2",
         "shadow-lg border-t border-coral/20",
         className
       )}
@@ -54,7 +54,7 @@ export function HoleNavigation({
 
           <div className="text-center">
             <span className="text-label-sm font-medium text-charcoal">
-              Hole
+              Holes
             </span>
             <div className="text-display-sm font-bold text-charcoal font-display">
               {currentHole}

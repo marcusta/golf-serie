@@ -16,7 +16,7 @@ export function CompetitionInfoBar({
   const baseClass =
     variant === "header"
       ? "bg-rough/30 rounded-xl p-4 border border-soft-grey"
-      : "bg-rough/30 border-t border-soft-grey px-4 py-3 flex-shrink-0";
+      : "bg-rough/30 border-t border-soft-grey px-4 py-2 flex-shrink-0";
 
   return (
     <div className={baseClass}>

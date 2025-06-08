@@ -270,39 +270,6 @@ export function ScoreEntry({
           </div>
         )}
 
-      {/* Header with Hole Info */}
-      <div className="bg-fairway text-scorecard px-4 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-scorecard rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-fairway rounded-full"></div>
-            </div>
-            <span className="text-body-lg font-semibold font-primary">
-              TapScore
-            </span>
-          </div>
-          <h1 className="text-display-sm font-bold font-display">Bräviken</h1>
-        </div>
-
-        {/* Hole Info */}
-        <div className="mt-6 flex justify-center space-x-12">
-          <div className="text-center">
-            <div className="text-display-md font-bold font-display">1</div>
-            <div className="text-label-sm text-scorecard/80 font-primary">
-              Par 5
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-display-md font-bold font-display">
-              {currentHole}
-            </div>
-            <div className="text-label-sm text-scorecard/80 font-primary">
-              Par {currentHoleData?.par}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Confirmation Message with TapScore Colors */}
       {showingConfirmation && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-turf text-scorecard px-6 py-4 rounded-xl shadow-lg z-30 animate-pulse">
@@ -319,10 +286,48 @@ export function ScoreEntry({
 
       {/* Player Area with Aligned Score Columns */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
+        {/* Hole Header - full width bar */}
+        <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">{/* Empty space for alignment */}</div>
+
+            <div className="flex items-center space-x-4 relative left-[50px]">
+              {/* Previous hole (only when on hole 2+) */}
+              {currentHole > 1 && (
+                <div className="text-center w-12">
+                  <div className="text-lg font-bold text-fairway font-display">
+                    {currentHole - 1}
+                  </div>
+                  <div className="text-xs text-fairway/70 font-primary">
+                    Par{" "}
+                    {course.holes.find((h) => h.number === currentHole - 1)
+                      ?.par || 4}
+                  </div>
+                </div>
+              )}
+
+              {/* Current hole (always shown, rightmost) */}
+              <div className="text-center w-12">
+                <div className="text-lg font-bold text-fairway font-display">
+                  {currentHole}
+                </div>
+                <div className="text-xs text-fairway/70 font-primary">
+                  Par {currentHoleData?.par || 4}
+                </div>
+              </div>
+
+              {/* NR button placeholder for alignment */}
+              <div className="w-12 h-6 opacity-0">NR</div>
+            </div>
+          </div>
+        </div>
+
         <div className="p-3 space-y-2">
           {teeTimeGroup.players.map((player, index) => {
             const isCurrentPlayer = index === currentPlayerIndex;
             const currentScore = player.scores[currentHole - 1] ?? 0;
+            const previousScore =
+              currentHole > 1 ? player.scores[currentHole - 2] ?? 0 : null;
             const toPar = calculatePlayerToPar(player);
 
             return (
@@ -356,14 +361,23 @@ export function ScoreEntry({
                   </div>
 
                   <div className="flex items-center space-x-4">
-                    <div className="text-display-md font-bold text-charcoal font-display">
-                      {formatScoreEntryDisplay(currentScore)}
-                    </div>
+                    {/* Previous hole score (only when on hole 2+) */}
+                    {currentHole > 1 && (
+                      <div className="text-center w-12">
+                        <div className="text-lg font-bold text-fairway font-display">
+                          {formatScoreEntryDisplay(previousScore || 0)}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Current hole score - ALWAYS in a circle */}
                     <button
                       onClick={() => handleScoreFieldClick(index)}
                       className="w-12 h-12 rounded-full border-2 border-soft-grey bg-rough/10 flex items-center justify-center text-label-sm font-medium text-turf hover:bg-rough/20 transition-colors touch-manipulation"
                     >
-                      NR
+                      <span className="text-lg font-bold text-fairway font-display">
+                        {currentScore > 0 ? currentScore : "NR"}
+                      </span>
                     </button>
                   </div>
                 </div>
