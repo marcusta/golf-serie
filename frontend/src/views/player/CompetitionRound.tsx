@@ -38,7 +38,6 @@ type TabType = "score" | "leaderboard" | "teams" | "participants";
 
 export default function CompetitionRound() {
   const { competitionId, teeTimeId } = useParams({ strict: false });
-  const navigate = useNavigate();
 
   // Determine initial tab based on URL and params
   const getInitialTab = (): TabType => {
@@ -244,15 +243,7 @@ export default function CompetitionRound() {
 
   return (
     <div className="h-screen flex flex-col">
-      <CommonHeader
-        title={competition.name}
-        onBackClick={() =>
-          navigate({
-            to: `/player/competitions/${competitionId}`,
-            replace: true,
-          })
-        }
-      >
+      <CommonHeader title={competition.name}>
         <HamburgerMenu />
       </CommonHeader>
 

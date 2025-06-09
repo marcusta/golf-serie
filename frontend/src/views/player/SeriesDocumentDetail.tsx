@@ -148,7 +148,6 @@ export default function SeriesDocumentDetail() {
       <ErrorState
         title="Document Not Found"
         message="The document you're looking for doesn't exist or may have been removed."
-        serieId={serieId}
       />
     );
   }
