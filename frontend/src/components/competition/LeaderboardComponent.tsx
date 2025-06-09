@@ -26,6 +26,52 @@ export function LeaderboardComponent({
   onParticipantClick,
   isRoundView = false,
 }: LeaderboardComponentProps) {
+  // Shared sorting logic for both mobile and desktop views
+  const sortedLeaderboard = leaderboard
+    ? [...leaderboard].sort((a, b) => {
+        // First sort by whether they have started (holes played > 0)
+        const aStarted = a.holesPlayed > 0;
+        const bStarted = b.holesPlayed > 0;
+        if (aStarted !== bStarted) {
+          return aStarted ? -1 : 1;
+        }
+        // Then sort by relativeToPar
+        return a.relativeToPar - b.relativeToPar;
+      })
+    : [];
+
+  // Helper function to get position styling
+  const getPositionStyling = (index: number, holesPlayed: number) => {
+    if (holesPlayed === 0) {
+      return "border-gray-300 text-gray-500";
+    }
+    switch (index) {
+      case 0:
+        return "border-yellow-400 text-yellow-400"; // Gold
+      case 1:
+        return "border-gray-400 text-gray-400"; // Silver
+      case 2:
+        return "border-orange-400 text-orange-400"; // Bronze
+      default:
+        return "border-gray-300 text-gray-500";
+    }
+  };
+
+  // Helper function to get row background for table
+  const getRowBackground = (index: number, holesPlayed: number) => {
+    if (holesPlayed === 0) return "bg-scorecard hover:bg-gray-50";
+    switch (index) {
+      case 0:
+        return "bg-yellow-50 hover:bg-yellow-100"; // Gold
+      case 1:
+        return "bg-gray-50 hover:bg-gray-100"; // Silver
+      case 2:
+        return "bg-orange-50 hover:bg-orange-100"; // Bronze
+      default:
+        return "bg-scorecard hover:bg-gray-50";
+    }
+  };
+
   const content = (
     <div className="space-y-3 md:space-y-4">
       <div className="flex items-center justify-between">
@@ -46,19 +92,10 @@ export function LeaderboardComponent({
           No scores reported yet.
         </div>
       ) : (
-        <div className="space-y-3">
-          {[...leaderboard]
-            .sort((a, b) => {
-              // First sort by whether they have started (holes played > 0)
-              const aStarted = a.holesPlayed > 0;
-              const bStarted = b.holesPlayed > 0;
-              if (aStarted !== bStarted) {
-                return aStarted ? -1 : 1;
-              }
-              // Then sort by relativeToPar
-              return a.relativeToPar - b.relativeToPar;
-            })
-            .map((entry, index) => {
+        <>
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-3">
+            {sortedLeaderboard.map((entry, index) => {
               const isActive = index === 0; // Highlight leader
               return (
                 <button
@@ -74,17 +111,10 @@ export function LeaderboardComponent({
                     <div className="flex items-center flex-1">
                       {/* Position Circle */}
                       <div
-                        className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg font-bold mr-3 ${
-                          entry.holesPlayed === 0
-                            ? "border-gray-300 text-gray-500"
-                            : index === 0
-                            ? "border-yellow-400 text-yellow-400"
-                            : index === 1
-                            ? "border-gray-400 text-gray-400"
-                            : index === 2
-                            ? "border-orange-400 text-orange-400"
-                            : "border-gray-300 text-gray-500"
-                        }`}
+                        className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg font-bold mr-3 ${getPositionStyling(
+                          index,
+                          entry.holesPlayed
+                        )}`}
                       >
                         {entry.holesPlayed === 0 ? "-" : index + 1}
                       </div>
@@ -128,7 +158,102 @@ export function LeaderboardComponent({
                 </button>
               );
             })}
-        </div>
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <div className="bg-scorecard rounded-lg border border-soft-grey overflow-hidden shadow-sm">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-soft-grey">
+                  <tr>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-charcoal font-display">
+                      Pos
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-charcoal font-display">
+                      Player/Team
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
+                      Thru
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
+                      Total
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
+                      To Par
+                    </th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedLeaderboard.map((entry, index) => (
+                    <tr
+                      key={entry.participant.id}
+                      className={`border-b border-soft-grey last:border-b-0 transition-colors duration-200 ${getRowBackground(
+                        index,
+                        entry.holesPlayed
+                      )}`}
+                    >
+                      <td className="py-4 px-4">
+                        <div
+                          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${getPositionStyling(
+                            index,
+                            entry.holesPlayed
+                          )}`}
+                        >
+                          {entry.holesPlayed === 0 ? "-" : index + 1}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div>
+                          <div className="text-body-md font-semibold text-charcoal font-display">
+                            {entry.participant.team_name}{" "}
+                            {entry.participant.position_name}
+                          </div>
+                          <div className="text-label-sm text-turf font-primary">
+                            Thru {entry.holesPlayed} holes
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="text-body-md font-medium text-charcoal font-primary">
+                          {entry.holesPlayed}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="text-xl font-bold text-charcoal font-display">
+                          {entry.holesPlayed === 0 ? "-" : entry.totalShots}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span
+                          className={`text-xl font-bold font-display ${
+                            entry.holesPlayed === 0
+                              ? "text-gray-500"
+                              : getToParColor(entry.relativeToPar)
+                          }`}
+                        >
+                          {entry.holesPlayed === 0
+                            ? "-"
+                            : formatToPar(entry.relativeToPar)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <button
+                          onClick={() =>
+                            onParticipantClick(entry.participant.id)
+                          }
+                          className="bg-turf text-scorecard px-3 py-2 rounded-md text-sm font-medium hover:bg-fairway transition-colors duration-200 font-primary"
+                        >
+                          View Card
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
