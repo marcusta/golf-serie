@@ -23,11 +23,13 @@ import {
   LeaderboardComponent,
   TeamResultComponent,
 } from "../../components/competition";
+import { calculateTotalParticipants } from "../../utils/scoreCalculations";
 import {
-  calculateTeamResults,
-  calculateTotalParticipants,
-} from "../../utils/scoreCalculations";
+  processTeamResults,
+  convertLeaderboardToTeamInput,
+} from "../../utils/pointCalculation";
 import { CommonHeader } from "../../components/navigation/CommonHeader";
+import { useSeriesTeams } from "../../api/series";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -57,6 +59,7 @@ export default function CompetitionDetail() {
     competitionId ? parseInt(competitionId) : 0
   );
   const { data: course } = useCourse(competition?.course_id || 0);
+  const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
   const {
     data: teeTimes,
     isLoading: teeTimesLoading,
@@ -182,13 +185,16 @@ export default function CompetitionDetail() {
 
   const totalParticipants = calculateTotalParticipants(teeTimes);
 
-  // Calculate team results
+  // Calculate team results using new encapsulated ranking logic
   const sortedTeamResults = leaderboard
-    ? calculateTeamResults(
-        leaderboard.map((entry) => ({
-          ...entry,
-          participantId: entry.participant.id,
-        }))
+    ? processTeamResults(
+        convertLeaderboardToTeamInput(
+          leaderboard.map((entry) => ({
+            ...entry,
+            participantId: entry.participant.id,
+          }))
+        ),
+        seriesTeams?.length // Pass total teams in series
       )
     : [];
 

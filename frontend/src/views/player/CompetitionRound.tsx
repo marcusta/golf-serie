@@ -16,10 +16,11 @@ import {
   TeamResultComponent,
   CompetitionInfoBar,
 } from "../../components/competition";
+import { calculateTotalParticipants } from "../../utils/scoreCalculations";
 import {
-  calculateTeamResults,
-  calculateTotalParticipants,
-} from "../../utils/scoreCalculations";
+  processTeamResults,
+  convertLeaderboardToTeamInput,
+} from "../../utils/pointCalculation";
 import {
   getInitialHole,
   rememberCurrentHole,
@@ -33,6 +34,7 @@ import {
 import { formatCourseFromTeeTime } from "../../utils/courseFormatting";
 import type { TeeTime } from "@/api/tee-times";
 import { CommonHeader } from "../../components/navigation/CommonHeader";
+import { useSeriesTeams } from "../../api/series";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -93,6 +95,8 @@ export default function CompetitionRound() {
     updateScoreMutation,
     teeTime,
   });
+
+  const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
 
   // Update currentHole when teeTime data first loads
   useEffect(() => {
@@ -156,13 +160,16 @@ export default function CompetitionRound() {
     [handleHoleNavigationSync]
   );
 
-  // Calculate team results and participant counts
+  // Calculate team results using new encapsulated ranking logic
   const sortedTeamResults = leaderboard
-    ? calculateTeamResults(
-        leaderboard.map((entry) => ({
-          ...entry,
-          participantId: entry.participant.id,
-        }))
+    ? processTeamResults(
+        convertLeaderboardToTeamInput(
+          leaderboard.map((entry) => ({
+            ...entry,
+            participantId: entry.participant.id,
+          }))
+        ),
+        seriesTeams?.length
       )
     : [];
 
