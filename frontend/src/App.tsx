@@ -12,8 +12,8 @@ export default function App() {
 
   // Check if we're in a layout that already has its own header
   const hasOwnHeader =
-    location.pathname.startsWith("/admin") ||
-    location.pathname.startsWith("/player");
+    location.pathname.includes("/admin") ||
+    location.pathname.includes("/player");
 
   if (isCompetitionRound || hasOwnHeader) {
     // Full-screen layout for competition rounds or layouts with their own headers
