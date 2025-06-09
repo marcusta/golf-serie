@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useCompetitions } from "../../api/competitions";
 import { usePublicSeries } from "../../api/series";
 import { useCourses } from "../../api/courses";
+import tapscoreLargeUrl from "/tapscore_horizontal_large_transparent.png?url";
 import {
   Calendar,
   Trophy,
@@ -306,7 +307,7 @@ export default function PlayerLanding() {
               <div className="mb-8">
                 <div className="flex items-center justify-center">
                   <img
-                    src="/tapscore_horizontal_large_transparent.png"
+                    src={tapscoreLargeUrl}
                     alt="TapScore Logo"
                     className="w-72 md:w-96 lg:w-[500px] h-auto"
                   />
