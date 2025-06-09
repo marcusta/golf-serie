@@ -60,14 +60,14 @@ interface AssignmentDialogProps {
 // Add fetch utility for updating order
 async function updateTeeTimeParticipantOrder(
   teeTimeId: number,
-  order: { participant_id: number; tee_order: number }[]
+  participantIds: number[]
 ) {
   const res = await fetch(
     `${API_BASE_URL}/tee-times/${teeTimeId}/participants/order`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(order),
+      body: JSON.stringify({ participantIds }),
     }
   );
   if (!res.ok) throw new Error("Failed to update participant order");
@@ -396,15 +396,9 @@ function TeeTimesPanel({
     setDragOverTeeTime(null);
     setHoveredDropIndex(null);
 
-    // Prepare order payload
-    const orderPayload = ids.map((participantId, i) => ({
-      participant_id: participantId,
-      tee_order: i + 1,
-    }));
-
     setIsSavingOrder((prev) => ({ ...prev, [teeTime.id]: true }));
     try {
-      await updateTeeTimeParticipantOrder(teeTime.id, orderPayload);
+      await updateTeeTimeParticipantOrder(teeTime.id, ids);
       // Invalidate cache to update tee time lists elsewhere
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
     } catch (error) {
@@ -431,14 +425,9 @@ function TeeTimesPanel({
       [ids[i], ids[j]] = [ids[j], ids[i]];
     }
     setLocalOrders((prev) => ({ ...prev, [teeTime.id]: ids }));
-    // Prepare order payload
-    const orderPayload = ids.map((participantId, i) => ({
-      participant_id: participantId,
-      tee_order: i + 1,
-    }));
     setIsSavingOrder((prev) => ({ ...prev, [teeTime.id]: true }));
     try {
-      await updateTeeTimeParticipantOrder(teeTime.id, orderPayload);
+      await updateTeeTimeParticipantOrder(teeTime.id, ids);
       // Invalidate cache to update tee time lists elsewhere
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
     } catch (error) {
