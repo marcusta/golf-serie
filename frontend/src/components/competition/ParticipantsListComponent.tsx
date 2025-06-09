@@ -88,18 +88,18 @@ export function ParticipantsListComponent({
                       >
                         <div className="flex-1">
                           <h5 className="text-sm md:text-base font-medium text-fairway font-primary">
-                            {participant.team_name}
+                            {participant.player_names
+                              ? `${participant.player_names}, ${
+                                  participant.team_name
+                                } ${formatParticipantTypeDisplay(
+                                  participant.position_name
+                                )}`
+                              : `${
+                                  participant.team_name
+                                } ${formatParticipantTypeDisplay(
+                                  participant.position_name
+                                )}`}
                           </h5>
-                          <p className="text-xs md:text-sm text-turf font-primary">
-                            {formatParticipantTypeDisplay(
-                              participant.position_name
-                            )}
-                            {participant.player_names && (
-                              <span className="ml-2">
-                                • {participant.player_names}
-                              </span>
-                            )}
-                          </p>
                         </div>
                         <div className="text-xs text-turf">
                           {isMultiPlayerFormat(participant.position_name) && (
@@ -151,18 +151,18 @@ export function ParticipantsListComponent({
                   >
                     <div className="flex-1">
                       <h4 className="text-sm md:text-base font-medium text-fairway font-primary">
-                        {participant.team_name}
+                        {participant.player_names
+                          ? `${participant.player_names}, ${
+                              participant.team_name
+                            } ${formatParticipantTypeDisplay(
+                              participant.position_name
+                            )}`
+                          : `${
+                              participant.team_name
+                            } ${formatParticipantTypeDisplay(
+                              participant.position_name
+                            )}`}
                       </h4>
-                      <p className="text-xs md:text-sm text-turf mt-1 font-primary">
-                        {formatParticipantTypeDisplay(
-                          participant.position_name
-                        )}
-                        {participant.player_names && (
-                          <span className="ml-2">
-                            • {participant.player_names}
-                          </span>
-                        )}
-                      </p>
                     </div>
                     <div className="text-xs text-turf">
                       {isMultiPlayerFormat(participant.position_name) && (
@@ -212,13 +212,18 @@ export function ParticipantsListComponent({
                           >
                             <div className="flex-1">
                               <h5 className="text-xs md:text-sm font-medium text-fairway font-primary">
-                                {participant.team_name}
+                                {participant.player_names
+                                  ? `${participant.player_names}, ${
+                                      participant.team_name
+                                    } ${formatParticipantTypeDisplay(
+                                      participant.position_name
+                                    )}`
+                                  : `${
+                                      participant.team_name
+                                    } ${formatParticipantTypeDisplay(
+                                      participant.position_name
+                                    )}`}
                               </h5>
-                              <p className="text-xs text-turf font-primary">
-                                {formatParticipantTypeDisplay(
-                                  participant.position_name
-                                )}
-                              </p>
                             </div>
                             <div className="text-xs text-turf">
                               {isMultiPlayerFormat(
