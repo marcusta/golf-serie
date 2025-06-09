@@ -242,16 +242,9 @@ export function TeamResultComponent({
                                   : "text-soft-grey"
                               }`}
                             >
-                              {participant.name || "Unknown Player"}
-                            </span>
-                            <span
-                              className={`text-xs ml-2 ${
-                                participant.totalShots > 0
-                                  ? "text-turf"
-                                  : "text-soft-grey"
-                              }`}
-                            >
-                              ({participant.position})
+                              {participant.name
+                                ? `${participant.name} (${participant.position})`
+                                : participant.position}
                             </span>
                           </div>
                         </div>

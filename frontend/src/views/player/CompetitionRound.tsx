@@ -33,8 +33,10 @@ import {
 } from "../../utils/participantFormatting";
 import { formatCourseFromTeeTime } from "../../utils/courseFormatting";
 import type { TeeTime } from "@/api/tee-times";
+import { useUpdateParticipant } from "../../api/participants";
 import { CommonHeader } from "../../components/navigation/CommonHeader";
 import { useSeriesTeams } from "../../api/series";
+import { EditPlayerNameModal } from "../../components/competition/EditPlayerNameModal";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
@@ -56,6 +58,13 @@ export default function CompetitionRound() {
   const [selectedParticipantId, setSelectedParticipantId] = useState<
     number | null
   >(null);
+
+  // Player name editing modal state
+  const [editingParticipant, setEditingParticipant] = useState<{
+    id: string;
+    currentName: string | null;
+    positionName: string;
+  } | null>(null);
 
   // Smart hole navigation - initialize with default
   const [currentHole, setCurrentHole] = useState(1);
@@ -97,6 +106,9 @@ export default function CompetitionRound() {
   });
 
   const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
+
+  // API mutation for updating participant
+  const updateParticipantMutation = useUpdateParticipant();
 
   // Update currentHole when teeTime data first loads
   useEffect(() => {
@@ -149,6 +161,44 @@ export default function CompetitionRound() {
 
   const handleComplete = () => {
     console.log("Score entry completed!");
+  };
+
+  // Handle opening player name editing modal
+  const handlePlayerNameClick = (
+    participantId: string,
+    currentName: string | null,
+    positionName: string
+  ) => {
+    setEditingParticipant({
+      id: participantId,
+      currentName,
+      positionName,
+    });
+  };
+
+  // Handle closing player name editing modal
+  const handleCloseNameModal = () => {
+    setEditingParticipant(null);
+  };
+
+  // Handle saving player name
+  const handleSaveName = (participantId: string, newName: string) => {
+    updateParticipantMutation.mutate(
+      {
+        id: parseInt(participantId),
+        data: { player_names: newName },
+      },
+      {
+        onSuccess: () => {
+          // Close modal on success
+          setEditingParticipant(null);
+        },
+        onError: (error) => {
+          console.error("Failed to update participant name:", error);
+          // Here you can add a user-facing error message, e.g., using a toast notification
+        },
+      }
+    );
   };
 
   // Handle hole navigation with sync
@@ -206,6 +256,7 @@ export default function CompetitionRound() {
                 currentHole={currentHole}
                 onHoleChange={handleHoleChange}
                 syncStatus={syncStatus}
+                onPlayerNameClick={handlePlayerNameClick}
               />
             </div>
           </div>
@@ -291,6 +342,14 @@ export default function CompetitionRound() {
         participant={scorecardParticipantData}
         course={scorecardCourseData}
         onClose={handleCloseScorecardModal}
+      />
+
+      {/* Player Name Editing Modal */}
+      <EditPlayerNameModal
+        isOpen={editingParticipant !== null}
+        onClose={handleCloseNameModal}
+        onSave={handleSaveName}
+        participant={editingParticipant}
       />
     </div>
   );

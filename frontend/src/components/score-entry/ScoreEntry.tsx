@@ -7,7 +7,7 @@ import {
   formatScoreEntryDisplay,
 } from "../../utils/scoreCalculations";
 import { FullScorecardModal } from "./FullScorecardModal";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Pencil } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
 
 interface PlayerScore {
@@ -16,6 +16,7 @@ interface PlayerScore {
   participantType?: string;
   isMultiPlayer?: boolean;
   scores: number[];
+  playerNames?: string | null;
 }
 
 interface TeeTimeGroup {
@@ -45,6 +46,11 @@ interface ScoreEntryProps {
     isOnline: boolean;
     hasConnectivityIssues: boolean;
   };
+  onPlayerNameClick?: (
+    participantId: string,
+    currentName: string | null,
+    positionName: string
+  ) => void;
 }
 
 export function ScoreEntry({
@@ -55,6 +61,7 @@ export function ScoreEntry({
   currentHole: externalCurrentHole,
   onHoleChange,
   syncStatus,
+  onPlayerNameClick,
 }: ScoreEntryProps) {
   // Helper function to find the latest incomplete hole
   const findLatestIncompleteHole = (): number => {
@@ -203,6 +210,16 @@ export function ScoreEntry({
     setIsEditing(false);
   };
 
+  const handlePlayerNameClick = (player: PlayerScore) => {
+    if (onPlayerNameClick) {
+      onPlayerNameClick(
+        player.participantId,
+        player.playerNames || null,
+        player.participantType || ""
+      );
+    }
+  };
+
   const abbreviateName = (name: string) => {
     const parts = name.split(" ");
     if (parts.length >= 2) {
@@ -342,14 +359,35 @@ export function ScoreEntry({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                      {abbreviateName(player.participantName)}
-                    </h3>
-                    {player.participantType && (
-                      <p className="text-label-sm text-turf mb-1 font-primary">
-                        {player.participantType}
-                      </p>
-                    )}
+                    {/* Tappable name/position area */}
+                    <button
+                      onClick={() => handlePlayerNameClick(player)}
+                      className="text-left w-full hover:bg-rough/10 rounded-md p-1 -m-1 transition-colors"
+                    >
+                      {player.playerNames ? (
+                        // Player has a name - show player name prominently, team name + position below
+                        <>
+                          <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                            {abbreviateName(player.playerNames)}
+                          </h3>
+                          <p className="text-label-sm text-turf font-primary">
+                            {player.participantName} {player.participantType}
+                          </p>
+                        </>
+                      ) : (
+                        // No player name - show team name + position prominently, add player prompt below
+                        <>
+                          <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                            {player.participantName} {player.participantType}
+                          </h3>
+                          <div className="flex items-center gap-1 text-label-sm text-soft-grey font-primary">
+                            <Pencil className="w-3 h-3" />
+                            <span>+ Add player name</span>
+                          </div>
+                        </>
+                      )}
+                    </button>
+
                     <span
                       className={cn(
                         "text-label-sm font-medium font-primary",

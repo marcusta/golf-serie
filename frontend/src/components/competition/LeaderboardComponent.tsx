@@ -121,13 +121,32 @@ export function LeaderboardComponent({
 
                       {/* Player Info */}
                       <div>
-                        <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                          {entry.participant.team_name}{" "}
-                          {entry.participant.position_name}
-                        </h3>
-                        <p className="text-label-sm text-turf font-primary">
-                          Thru {entry.holesPlayed} holes
-                        </p>
+                        {entry.participant.player_names ? (
+                          // Player has a name - show player name prominently
+                          <>
+                            <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                              {entry.participant.player_names}
+                            </h3>
+                            <p className="text-label-sm text-turf font-primary">
+                              {entry.participant.team_name}{" "}
+                              {entry.participant.position_name}
+                            </p>
+                            <p className="text-label-sm text-turf font-primary">
+                              Thru {entry.holesPlayed} holes
+                            </p>
+                          </>
+                        ) : (
+                          // No player name - show team name + position
+                          <>
+                            <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                              {entry.participant.team_name}{" "}
+                              {entry.participant.position_name}
+                            </h3>
+                            <p className="text-label-sm text-turf font-primary">
+                              Thru {entry.holesPlayed} holes
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -205,13 +224,32 @@ export function LeaderboardComponent({
                       </td>
                       <td className="py-4 px-4">
                         <div>
-                          <div className="text-body-md font-semibold text-charcoal font-display">
-                            {entry.participant.team_name}{" "}
-                            {entry.participant.position_name}
-                          </div>
-                          <div className="text-label-sm text-turf font-primary">
-                            Thru {entry.holesPlayed} holes
-                          </div>
+                          {entry.participant.player_names ? (
+                            // Player has a name - show player name prominently
+                            <>
+                              <div className="text-body-md font-semibold text-charcoal font-display">
+                                {entry.participant.player_names}
+                              </div>
+                              <div className="text-label-sm text-turf font-primary">
+                                {entry.participant.team_name}{" "}
+                                {entry.participant.position_name}
+                              </div>
+                              <div className="text-label-sm text-turf font-primary">
+                                Thru {entry.holesPlayed} holes
+                              </div>
+                            </>
+                          ) : (
+                            // No player name - show team name + position
+                            <>
+                              <div className="text-body-md font-semibold text-charcoal font-display">
+                                {entry.participant.team_name}{" "}
+                                {entry.participant.position_name}
+                              </div>
+                              <div className="text-label-sm text-turf font-primary">
+                                Thru {entry.holesPlayed} holes
+                              </div>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-4 text-center">

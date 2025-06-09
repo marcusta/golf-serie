@@ -10,6 +10,7 @@ export interface ScoreEntryPlayer {
   participantType?: string;
   isMultiPlayer?: boolean;
   scores: number[];
+  playerNames?: string | null;
 }
 
 export interface TeeTimeGroup {
@@ -30,6 +31,7 @@ export function formatTeeTimeGroup(
       participantType: formatParticipantTypeDisplay(participant.position_name),
       isMultiPlayer: isMultiPlayerFormat(participant.position_name),
       scores: participant.score,
+      playerNames: participant.player_names,
     })),
   };
 }
