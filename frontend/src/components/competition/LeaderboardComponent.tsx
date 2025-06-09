@@ -70,30 +70,58 @@ export function LeaderboardComponent({
                       : "border-soft-grey"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                        {entry.participant.team_name}{" "}
-                        {entry.participant.position_name}
-                      </h3>
-                      <p className="text-label-sm text-turf mb-1 font-primary">
-                        Thru {entry.holesPlayed} holes
-                      </p>
-                      <span
-                        className={`text-label-sm font-medium font-primary ${getToParColor(
-                          entry.relativeToPar
-                        )}`}
+                  <div className="flex items-center">
+                    <div className="flex items-center flex-1">
+                      {/* Position Circle */}
+                      <div
+                        className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg font-bold mr-3 ${
+                          entry.holesPlayed === 0
+                            ? "border-gray-300 text-gray-500"
+                            : index === 0
+                            ? "border-yellow-400 text-yellow-400"
+                            : index === 1
+                            ? "border-gray-400 text-gray-400"
+                            : index === 2
+                            ? "border-orange-400 text-orange-400"
+                            : "border-gray-300 text-gray-500"
+                        }`}
                       >
-                        {formatToPar(entry.relativeToPar)}
-                      </span>
+                        {entry.holesPlayed === 0 ? "-" : index + 1}
+                      </div>
+
+                      {/* Player Info */}
+                      <div>
+                        <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                          {entry.participant.team_name}{" "}
+                          {entry.participant.position_name}
+                        </h3>
+                        <p className="text-label-sm text-turf font-primary">
+                          Thru {entry.holesPlayed} holes
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex items-center space-x-4">
-                      <div className="text-display-md font-bold text-charcoal font-display">
-                        {entry.totalShots}
+                    {/* Score Section */}
+                    <div className="flex items-center space-x-6 text-right ml-auto">
+                      <div>
+                        <div className="text-xs text-gray-500">Total</div>
+                        <div className="text-2xl font-bold text-gray-800">
+                          {entry.holesPlayed === 0 ? "-" : entry.totalShots}
+                        </div>
                       </div>
-                      <div className="w-12 h-12 rounded-full border-2 border-soft-grey bg-rough/10 flex items-center justify-center text-label-sm font-medium text-turf">
-                        NR
+                      <div>
+                        <div className="text-xs text-gray-500">To Par</div>
+                        <div
+                          className={`text-2xl font-bold ${
+                            entry.holesPlayed === 0
+                              ? "text-gray-500"
+                              : getToParColor(entry.relativeToPar)
+                          }`}
+                        >
+                          {entry.holesPlayed === 0
+                            ? "-"
+                            : formatToPar(entry.relativeToPar)}
+                        </div>
                       </div>
                     </div>
                   </div>
