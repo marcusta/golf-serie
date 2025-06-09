@@ -1,7 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useSingleSeries, useSeriesDocuments } from "@/api/series";
 import {
-  ArrowLeft,
   AlertCircle,
   RefreshCw,
   Share,
@@ -9,7 +8,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import TapScoreLogo from "@/components/ui/TapScoreLogo";
+import { CommonHeader } from "@/components/navigation/CommonHeader";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -33,12 +32,10 @@ function ErrorState({
   title,
   message,
   onRetry,
-  serieId,
 }: {
   title: string;
   message: string;
   onRetry?: () => void;
-  serieId: string;
 }) {
   return (
     <div className="min-h-screen bg-scorecard flex items-center justify-center">
@@ -60,14 +57,12 @@ function ErrorState({
               Try Again
             </Button>
           )}
-          <Link
-            to="/player/series/$serieId/documents"
-            params={{ serieId }}
+          <Button
+            onClick={() => window.history.back()}
             className="inline-flex items-center gap-2 px-4 py-2 border border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf rounded-lg transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
             Back to Documents
-          </Link>
+          </Button>
         </div>
       </div>
     </div>
@@ -125,7 +120,6 @@ export default function SeriesDocumentDetail() {
       <ErrorState
         title="Series Not Found"
         message="The series you're looking for doesn't exist or may have been removed."
-        serieId={serieId}
       />
     );
   }
@@ -136,7 +130,6 @@ export default function SeriesDocumentDetail() {
         title="Error Loading Document"
         message="Unable to load the document. Please try again."
         onRetry={() => refetchDocuments()}
-        serieId={serieId}
       />
     );
   }
@@ -146,7 +139,6 @@ export default function SeriesDocumentDetail() {
       <ErrorState
         title="Series Unavailable"
         message="This series is currently unavailable. Please try again later."
-        serieId={serieId}
       />
     );
   }
@@ -163,27 +155,7 @@ export default function SeriesDocumentDetail() {
 
   return (
     <div className="min-h-screen bg-scorecard">
-      {/* Main Header with Navigation */}
-      <header className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)] sticky top-0 z-10">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-4 h-16">
-            <Link
-              to="/player/series/$serieId/documents"
-              params={{ serieId }}
-              className="p-2 hover:bg-turf rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <TapScoreLogo size="sm" variant="color" layout="horizontal" />
-            <div className="w-px h-6 bg-scorecard/30" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm opacity-80 truncate">
-                {series.name} • Documents
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <CommonHeader title={currentDocument.title} />
 
       {/* Sub-header with Document Title and Actions */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm sticky top-16 z-9">

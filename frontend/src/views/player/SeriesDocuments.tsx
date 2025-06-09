@@ -1,7 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { useSingleSeries, useSeriesDocuments } from "@/api/series";
 import {
-  ArrowLeft,
   FileText,
   ChevronRight,
   AlertCircle,
@@ -10,7 +9,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import TapScoreLogo from "@/components/ui/TapScoreLogo";
+import { CommonHeader } from "@/components/navigation/CommonHeader";
 
 function LoadingSkeleton() {
   return (
@@ -54,14 +53,12 @@ function ErrorState({
               Try Again
             </Button>
           )}
-          <Link
-            to="/player/series/$serieId"
-            params={{ serieId: window.location.pathname.split("/")[3] }}
+          <Button
+            onClick={() => window.history.back()}
             className="inline-flex items-center gap-2 px-4 py-2 border border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf rounded-lg transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
             Back to Series
-          </Link>
+          </Button>
         </div>
       </div>
     </div>
@@ -125,27 +122,7 @@ export default function SeriesDocuments() {
 
   return (
     <div className="min-h-screen bg-scorecard">
-      {/* Main Header with Navigation */}
-      <header className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-4 h-16">
-            <Link
-              to="/player/series/$serieId"
-              params={{ serieId }}
-              className="p-2 hover:bg-turf rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <TapScoreLogo size="sm" variant="color" layout="horizontal" />
-            <div className="w-px h-6 bg-scorecard/30" />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold font-display truncate">
-                {series.name}
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
+      <CommonHeader title="Documents" />
 
       {/* Sub-header with Page Title and Search */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -192,14 +169,12 @@ export default function SeriesDocuments() {
             <p className="text-body-lg text-charcoal/70 mb-8">
               Documents will be added to this series soon.
             </p>
-            <Link
-              to="/player/series/$serieId"
-              params={{ serieId }}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-turf hover:bg-fairway text-scorecard rounded-xl transition-colors font-medium"
+            <Button
+              onClick={() => window.history.back()}
+              className="bg-turf hover:bg-fairway text-scorecard"
             >
-              <ArrowLeft className="h-4 w-4" />
               Back to Series Overview
-            </Link>
+            </Button>
           </div>
         ) : filteredDocuments?.length === 0 ? (
           <div className="text-center py-12">

@@ -1,7 +1,6 @@
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { useSingleSeries, useSeriesStandings } from "@/api/series";
 import {
-  ArrowLeft,
   Trophy,
   AlertCircle,
   RefreshCw,
@@ -10,7 +9,7 @@ import {
   Medal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import TapScoreLogo from "@/components/ui/TapScoreLogo";
+import { CommonHeader } from "@/components/navigation/CommonHeader";
 
 function LoadingSkeleton() {
   return (
@@ -38,12 +37,10 @@ function ErrorState({
   title,
   message,
   onRetry,
-  serieId,
 }: {
   title: string;
   message: string;
   onRetry?: () => void;
-  serieId: string;
 }) {
   return (
     <div className="min-h-screen bg-scorecard flex items-center justify-center">
@@ -65,14 +62,12 @@ function ErrorState({
               Try Again
             </Button>
           )}
-          <Link
-            to="/player/series/$serieId"
-            params={{ serieId }}
+          <Button
+            onClick={() => window.history.back()}
             className="inline-flex items-center gap-2 px-4 py-2 border border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf rounded-lg transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
             Back to Series
-          </Link>
+          </Button>
         </div>
       </div>
     </div>
@@ -142,7 +137,6 @@ export default function SeriesStandings() {
       <ErrorState
         title="Series Not Found"
         message="The series you're looking for doesn't exist or may have been removed."
-        serieId={serieId}
       />
     );
   }
@@ -153,7 +147,6 @@ export default function SeriesStandings() {
         title="Error Loading Standings"
         message="Unable to load team standings. Please try again."
         onRetry={() => refetchStandings()}
-        serieId={serieId}
       />
     );
   }
@@ -163,7 +156,6 @@ export default function SeriesStandings() {
       <ErrorState
         title="Series Unavailable"
         message="This series is currently unavailable. Please try again later."
-        serieId={serieId}
       />
     );
   }
@@ -171,27 +163,7 @@ export default function SeriesStandings() {
   if (!standings?.team_standings?.length) {
     return (
       <div className="min-h-screen bg-scorecard">
-        {/* Main Header with Navigation */}
-        <header className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-4 h-16">
-              <Link
-                to="/player/series/$serieId"
-                params={{ serieId }}
-                className="p-2 hover:bg-turf rounded-lg transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <TapScoreLogo size="sm" variant="color" layout="horizontal" />
-              <div className="w-px h-6 bg-scorecard/30" />
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-semibold font-display truncate">
-                  {series.name}
-                </h1>
-              </div>
-            </div>
-          </div>
-        </header>
+        <CommonHeader title="Team Standings" />
 
         {/* Sub-header with Page Title */}
         <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -201,7 +173,7 @@ export default function SeriesStandings() {
                 Team Standings
               </h2>
               <p className="text-sm text-charcoal/70 font-primary mt-1">
-                Track team performance and rankings
+                {series.name}
               </p>
             </div>
           </div>
@@ -216,14 +188,12 @@ export default function SeriesStandings() {
             <p className="text-body-lg text-charcoal/70 mb-8">
               Team standings will appear here once competitions begin.
             </p>
-            <Link
-              to="/player/series/$serieId"
-              params={{ serieId }}
+            <Button
+              onClick={() => window.history.back()}
               className="inline-flex items-center gap-2 px-6 py-3 bg-turf hover:bg-fairway text-scorecard rounded-xl transition-colors font-medium"
             >
-              <ArrowLeft className="h-4 w-4" />
               Back to Series Overview
-            </Link>
+            </Button>
           </div>
         </main>
       </div>
@@ -234,29 +204,9 @@ export default function SeriesStandings() {
 
   return (
     <div className="min-h-screen bg-scorecard">
-      {/* Main Header with Navigation */}
-      <header className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center gap-4 h-16">
-            <Link
-              to="/player/series/$serieId"
-              params={{ serieId }}
-              className="p-2 hover:bg-turf rounded-lg transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <TapScoreLogo size="sm" variant="color" layout="horizontal" />
-            <div className="w-px h-6 bg-scorecard/30" />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-semibold font-display truncate">
-                {series.name}
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
+      <CommonHeader title="Team Standings" />
 
-      {/* Sub-header with Page Title and Actions */}
+      {/* Sub-header with export functionality */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between py-4">
@@ -265,24 +215,28 @@ export default function SeriesStandings() {
                 Team Standings
               </h2>
               <p className="text-sm text-charcoal/70 font-primary mt-1">
-                Track team performance and rankings
+                {series.name}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <Button
                 onClick={handleShare}
-                className="p-2 hover:bg-rough rounded-lg transition-colors text-charcoal"
-                title="Share standings"
+                variant="outline"
+                size="sm"
+                className="text-charcoal border-soft-grey hover:bg-rough/20"
               >
-                <Share className="h-5 w-5" />
-              </button>
-              <button
+                <Share className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Share</span>
+              </Button>
+              <Button
                 onClick={handleExport}
-                className="p-2 hover:bg-rough rounded-lg transition-colors text-charcoal"
-                title="Export to CSV"
+                variant="outline"
+                size="sm"
+                className="text-charcoal border-soft-grey hover:bg-rough/20"
               >
-                <Download className="h-5 w-5" />
-              </button>
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Export</span>
+              </Button>
             </div>
           </div>
         </div>
