@@ -82,15 +82,17 @@ export function processTeamResults(
 
   // Step A: Advanced Sorting with Custom Tie-Breaking
   const sortedTeams = [...teams].sort((teamA, teamB) => {
-    // Filter Unscored: Teams with no results (totalShots = 0) go to bottom
-    const teamAHasResults =
-      teamA.totalShots > 0 && teamA.participants.some((p) => p.totalShots > 0);
-    const teamBHasResults =
-      teamB.totalShots > 0 && teamB.participants.some((p) => p.totalShots > 0);
+    // A team has valid results ONLY if all its participants have a valid round (no -1 scores)
+    const teamAHasValidResults = !teamA.participants.some(
+      (p) => p.totalShots === -1
+    );
+    const teamBHasValidResults = !teamB.participants.some(
+      (p) => p.totalShots === -1
+    );
 
-    if (!teamAHasResults && !teamBHasResults) return 0; // Both have no results, maintain order
-    if (!teamAHasResults) return 1; // Team A has no results, goes to bottom
-    if (!teamBHasResults) return -1; // Team B has no results, goes to bottom
+    if (!teamAHasValidResults && !teamBHasValidResults) return 0;
+    if (!teamAHasValidResults) return 1; // Team A has invalid results, goes to bottom
+    if (!teamBHasValidResults) return -1; // Team B has invalid results, goes to bottom
 
     // Primary Sort: Compare main team scores (relativeToPar) in ascending order (lower is better)
     if (teamA.relativeToPar !== teamB.relativeToPar) {
@@ -104,7 +106,8 @@ export function processTeamResults(
   // Step B: Point Calculation using new logic
   const teamsWithResults = sortedTeams.filter(
     (team) =>
-      team.totalShots > 0 && team.participants.some((p) => p.totalShots > 0)
+      !team.participants.some((p) => p.totalShots === -1) &&
+      team.participants.some((p) => p.totalShots > 0)
   );
 
   // Use total series teams if provided, otherwise fall back to teams with results
@@ -112,7 +115,8 @@ export function processTeamResults(
 
   return sortedTeams.map((team, index) => {
     const hasResults =
-      team.totalShots > 0 && team.participants.some((p) => p.totalShots > 0);
+      !team.participants.some((p) => p.totalShots === -1) &&
+      team.participants.some((p) => p.totalShots > 0);
     const position = index + 1;
 
     let rankingPoints = 0;

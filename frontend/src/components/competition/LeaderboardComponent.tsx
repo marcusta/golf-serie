@@ -1,16 +1,5 @@
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
-
-interface LeaderboardEntry {
-  participant: {
-    id: number;
-    team_name: string;
-    position_name: string;
-    player_names?: string | null;
-  };
-  totalShots: number;
-  relativeToPar: number;
-  holesPlayed: number;
-}
+import type { LeaderboardEntry } from "../../api/competitions";
 
 interface LeaderboardComponentProps {
   leaderboard: LeaderboardEntry[] | undefined;
@@ -96,6 +85,7 @@ export function LeaderboardComponent({
           {/* Mobile Card View */}
           <div className="md:hidden space-y-3">
             {sortedLeaderboard.map((entry, index) => {
+              const isRoundInvalid = entry.participant.score.includes(-1);
               const isActive = index === 0; // Highlight leader
               return (
                 <button
@@ -155,19 +145,21 @@ export function LeaderboardComponent({
                       <div>
                         <div className="text-xs text-gray-500">Total</div>
                         <div className="text-2xl font-bold text-gray-800">
-                          {entry.holesPlayed === 0 ? "-" : entry.totalShots}
+                          {entry.holesPlayed === 0 || isRoundInvalid
+                            ? "-"
+                            : entry.totalShots}
                         </div>
                       </div>
                       <div>
                         <div className="text-xs text-gray-500">To Par</div>
                         <div
                           className={`text-2xl font-bold ${
-                            entry.holesPlayed === 0
+                            entry.holesPlayed === 0 || isRoundInvalid
                               ? "text-gray-500"
                               : getToParColor(entry.relativeToPar)
                           }`}
                         >
-                          {entry.holesPlayed === 0
+                          {entry.holesPlayed === 0 || isRoundInvalid
                             ? "-"
                             : formatToPar(entry.relativeToPar)}
                         </div>
@@ -204,89 +196,94 @@ export function LeaderboardComponent({
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedLeaderboard.map((entry, index) => (
-                    <tr
-                      key={entry.participant.id}
-                      className={`border-b border-soft-grey last:border-b-0 transition-colors duration-200 ${getRowBackground(
-                        index,
-                        entry.holesPlayed
-                      )}`}
-                    >
-                      <td className="py-4 px-4">
-                        <div
-                          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${getPositionStyling(
-                            index,
-                            entry.holesPlayed
-                          )}`}
-                        >
-                          {entry.holesPlayed === 0 ? "-" : index + 1}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div>
-                          {entry.participant.player_names ? (
-                            // Player has a name - show player name prominently
-                            <>
-                              <div className="text-body-md font-semibold text-charcoal font-display">
-                                {entry.participant.player_names}
-                              </div>
-                              <div className="text-label-sm text-turf font-primary">
-                                {entry.participant.team_name}{" "}
-                                {entry.participant.position_name}
-                              </div>
-                              <div className="text-label-sm text-turf font-primary">
-                                Thru {entry.holesPlayed} holes
-                              </div>
-                            </>
-                          ) : (
-                            // No player name - show team name + position
-                            <>
-                              <div className="text-body-md font-semibold text-charcoal font-display">
-                                {entry.participant.team_name}{" "}
-                                {entry.participant.position_name}
-                              </div>
-                              <div className="text-label-sm text-turf font-primary">
-                                Thru {entry.holesPlayed} holes
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className="text-body-md font-medium text-charcoal font-primary">
-                          {entry.holesPlayed}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className="text-xl font-bold text-charcoal font-display">
-                          {entry.holesPlayed === 0 ? "-" : entry.totalShots}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`text-xl font-bold font-display ${
-                            entry.holesPlayed === 0
-                              ? "text-gray-500"
-                              : getToParColor(entry.relativeToPar)
-                          }`}
-                        >
-                          {entry.holesPlayed === 0
-                            ? "-"
-                            : formatToPar(entry.relativeToPar)}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <button
-                          onClick={() =>
-                            onParticipantClick(entry.participant.id)
-                          }
-                          className="bg-turf text-scorecard px-3 py-2 rounded-md text-sm font-medium hover:bg-fairway transition-colors duration-200 font-primary"
-                        >
-                          View Card
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedLeaderboard.map((entry, index) => {
+                    const isRoundInvalid = entry.participant.score.includes(-1);
+                    return (
+                      <tr
+                        key={entry.participant.id}
+                        className={`border-b border-soft-grey last:border-b-0 transition-colors duration-200 ${getRowBackground(
+                          index,
+                          entry.holesPlayed
+                        )}`}
+                      >
+                        <td className="py-4 px-4">
+                          <div
+                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${getPositionStyling(
+                              index,
+                              entry.holesPlayed
+                            )}`}
+                          >
+                            {entry.holesPlayed === 0 ? "-" : index + 1}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div>
+                            {entry.participant.player_names ? (
+                              // Player has a name - show player name prominently
+                              <>
+                                <div className="text-body-md font-semibold text-charcoal font-display">
+                                  {entry.participant.player_names}
+                                </div>
+                                <div className="text-label-sm text-turf font-primary">
+                                  {entry.participant.team_name}{" "}
+                                  {entry.participant.position_name}
+                                </div>
+                                <div className="text-label-sm text-turf font-primary">
+                                  Thru {entry.holesPlayed} holes
+                                </div>
+                              </>
+                            ) : (
+                              // No player name - show team name + position
+                              <>
+                                <div className="text-body-md font-semibold text-charcoal font-display">
+                                  {entry.participant.team_name}{" "}
+                                  {entry.participant.position_name}
+                                </div>
+                                <div className="text-label-sm text-turf font-primary">
+                                  Thru {entry.holesPlayed} holes
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="text-body-md font-medium text-charcoal font-primary">
+                            {entry.holesPlayed}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="text-xl font-bold text-charcoal font-display">
+                            {entry.holesPlayed === 0 || isRoundInvalid
+                              ? "-"
+                              : entry.totalShots}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span
+                            className={`text-xl font-bold font-display ${
+                              entry.holesPlayed === 0 || isRoundInvalid
+                                ? "text-gray-500"
+                                : getToParColor(entry.relativeToPar)
+                            }`}
+                          >
+                            {entry.holesPlayed === 0 || isRoundInvalid
+                              ? "-"
+                              : formatToPar(entry.relativeToPar)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <button
+                            onClick={() =>
+                              onParticipantClick(entry.participant.id)
+                            }
+                            className="bg-turf text-scorecard px-3 py-2 rounded-md text-sm font-medium hover:bg-fairway transition-colors duration-200 font-primary"
+                          >
+                            View Card
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

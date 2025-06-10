@@ -394,7 +394,7 @@ export function ScoreEntry({
                         toPar !== null ? getToParColor(toPar) : "text-soft-grey"
                       )}
                     >
-                      {toPar !== null ? formatToPar(toPar) : "E"}
+                      {toPar !== null ? formatToPar(toPar) : "-"}
                     </span>
                   </div>
 
