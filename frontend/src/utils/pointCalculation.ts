@@ -25,6 +25,7 @@ export interface ParticipantScore {
     team_name: string;
     position_name: string;
     player_names?: string | null;
+    score: number[]; // Raw scorecard array
   };
   totalShots: number;
   relativeToPar: number;
@@ -50,18 +51,55 @@ export function convertLeaderboardToTeamInput(
         relativeToPar: 0,
       };
     }
+
+    // Check if this participant has invalid score (-1 in score array)
+    // This overrides the backend's calculated totalShots and relativeToPar
+    const hasInvalidScore = entry.participant.score.includes(-1);
+
     acc[teamName].participants.push({
       name: entry.participant.player_names || "",
       position: entry.participant.position_name,
-      totalShots: entry.totalShots,
-      relativeToPar: entry.relativeToPar,
+      totalShots: hasInvalidScore ? -1 : entry.totalShots,
+      relativeToPar: hasInvalidScore ? 0 : entry.relativeToPar,
     });
-    acc[teamName].totalShots += entry.totalShots;
-    acc[teamName].relativeToPar += entry.relativeToPar;
     return acc;
   }, {} as Record<string, TeamResultInput>);
 
-  return Object.values(teamGroups);
+  // Calculate team totals after all participants are added
+  return Object.values(teamGroups).map((team) => {
+    // Check if any participant has an invalid round (-1)
+    const hasInvalidParticipant = team.participants.some(
+      (p) => p.totalShots === -1
+    );
+
+    if (hasInvalidParticipant) {
+      // If any participant has -1, the team score is invalid
+      return {
+        ...team,
+        totalShots: -1, // Mark team as invalid
+        relativeToPar: 0, // Don't calculate relative to par for invalid teams
+      };
+    } else {
+      // Only calculate totals for valid participants (exclude those with 0 or -1)
+      const validParticipants = team.participants.filter(
+        (p) => p.totalShots > 0
+      );
+      const totalShots = validParticipants.reduce(
+        (sum, p) => sum + p.totalShots,
+        0
+      );
+      const relativeToPar = validParticipants.reduce(
+        (sum, p) => sum + p.relativeToPar,
+        0
+      );
+
+      return {
+        ...team,
+        totalShots,
+        relativeToPar,
+      };
+    }
+  });
 }
 
 /**
@@ -82,28 +120,51 @@ export function processTeamResults(
 
   // Step A: Advanced Sorting with Custom Tie-Breaking
   const sortedTeams = [...teams].sort((teamA, teamB) => {
-    // A team has valid results ONLY if all its participants have a valid round (no -1 scores)
-    const teamAHasValidResults = !teamA.participants.some(
+    // Determine team status for 3-tier sorting
+    const teamAHasInvalidScores = teamA.participants.some(
       (p) => p.totalShots === -1
     );
-    const teamBHasValidResults = !teamB.participants.some(
+    const teamAHasAnyScores = teamA.participants.some((p) => p.totalShots > 0);
+    const teamBHasInvalidScores = teamB.participants.some(
       (p) => p.totalShots === -1
     );
+    const teamBHasAnyScores = teamB.participants.some((p) => p.totalShots > 0);
 
-    if (!teamAHasValidResults && !teamBHasValidResults) return 0;
-    if (!teamAHasValidResults) return 1; // Team A has invalid results, goes to bottom
-    if (!teamBHasValidResults) return -1; // Team B has invalid results, goes to bottom
+    // Category 1: Valid teams (no -1 scores, has scores)
+    const teamAIsValid = !teamAHasInvalidScores && teamAHasAnyScores;
+    const teamBIsValid = !teamBHasInvalidScores && teamBHasAnyScores;
 
-    // Primary Sort: Compare main team scores (relativeToPar) in ascending order (lower is better)
-    if (teamA.relativeToPar !== teamB.relativeToPar) {
-      return teamA.relativeToPar - teamB.relativeToPar;
+    // Category 2: Invalid teams (has -1 scores but still has some scores)
+    const teamAIsInvalid = teamAHasInvalidScores && teamAHasAnyScores;
+    const teamBIsInvalid = teamBHasInvalidScores && teamBHasAnyScores;
+
+    // Category 3: No results teams (no scores at all)
+    const teamANoResults = !teamAHasAnyScores;
+    const teamBNoResults = !teamBHasAnyScores;
+
+    // Sort by category priority: Valid first, then invalid, then no results
+    if (teamAIsValid && !teamBIsValid) return -1;
+    if (!teamAIsValid && teamBIsValid) return 1;
+
+    if (teamAIsInvalid && teamBNoResults) return -1;
+    if (teamANoResults && teamBIsInvalid) return 1;
+
+    // Within valid teams: sort by performance
+    if (teamAIsValid && teamBIsValid) {
+      // Primary Sort: Compare main team scores (relativeToPar) in ascending order (lower is better)
+      if (teamA.relativeToPar !== teamB.relativeToPar) {
+        return teamA.relativeToPar - teamB.relativeToPar;
+      }
+      // Custom Tie-Breaker: Countback logic using individual player scores
+      return performCountbackTieBreaker(teamA, teamB);
     }
 
-    // Custom Tie-Breaker: Countback logic using individual player scores
-    return performCountbackTieBreaker(teamA, teamB);
+    // Within invalid teams or no results teams: maintain original order
+    return 0;
   });
 
   // Step B: Point Calculation using new logic
+  // Only teams with valid scores get ranking points
   const teamsWithResults = sortedTeams.filter(
     (team) =>
       !team.participants.some((p) => p.totalShots === -1) &&
@@ -114,9 +175,12 @@ export function processTeamResults(
   const totalTeamsInSeries = totalSeriesTeams || teamsWithResults.length;
 
   return sortedTeams.map((team, index) => {
-    const hasResults =
-      !team.participants.some((p) => p.totalShots === -1) &&
-      team.participants.some((p) => p.totalShots > 0);
+    // Determine team status
+    const hasInvalidScores = team.participants.some((p) => p.totalShots === -1);
+    const hasAnyScores = team.participants.some((p) => p.totalShots > 0);
+
+    // Only teams with valid scores (no -1, has scores) get ranking points
+    const hasResults = !hasInvalidScores && hasAnyScores;
     const position = index + 1;
 
     let rankingPoints = 0;

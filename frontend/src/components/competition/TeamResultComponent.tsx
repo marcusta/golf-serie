@@ -160,7 +160,16 @@ export function TeamResultComponent({
 
                   {/* Right side - Team totals and Points */}
                   <div className="text-right flex flex-col items-end gap-2">
-                    {hasValidResults ? (
+                    {team.totalShots === -1 ? (
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg font-medium text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded-lg">
+                          -
+                        </span>
+                        <span className="text-2xl font-bold text-soft-grey font-display">
+                          -
+                        </span>
+                      </div>
+                    ) : hasValidResults ? (
                       <div className="flex items-center gap-3">
                         <span
                           className={`text-lg font-bold font-display px-3 py-1 rounded-lg ${getToParColor(
@@ -188,7 +197,7 @@ export function TeamResultComponent({
                     )}
 
                     {/* Points Display */}
-                    {hasValidResults && (
+                    {hasValidResults && team.totalShots !== -1 && (
                       <div>
                         <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
                           Points
@@ -219,7 +228,7 @@ export function TeamResultComponent({
                       <div
                         key={participant.name || idx}
                         className={`flex items-center justify-between py-1.5 px-3 rounded-lg transition-colors ${
-                          participant.totalShots > 0
+                          participant.totalShots !== 0
                             ? "bg-rough/10 hover:bg-rough/20"
                             : "bg-soft-grey/5"
                         }`}
@@ -227,7 +236,7 @@ export function TeamResultComponent({
                         <div className="flex items-center gap-3 flex-1">
                           <div
                             className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                              participant.totalShots > 0
+                              participant.totalShots !== 0
                                 ? "bg-turf/20 text-turf"
                                 : "bg-soft-grey/20 text-soft-grey"
                             }`}
@@ -237,7 +246,7 @@ export function TeamResultComponent({
                           <div>
                             <span
                               className={`font-medium font-primary text-sm ${
-                                participant.totalShots > 0
+                                participant.totalShots !== 0
                                   ? "text-charcoal"
                                   : "text-soft-grey"
                               }`}
@@ -250,7 +259,11 @@ export function TeamResultComponent({
                         </div>
 
                         <div className="flex items-center gap-3">
-                          {participant.totalShots > 0 ? (
+                          {participant.totalShots === -1 ? (
+                            <span className="text-sm text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded">
+                              Gave up
+                            </span>
+                          ) : participant.totalShots > 0 ? (
                             <>
                               <span
                                 className={`text-sm font-semibold px-2 py-1 rounded ${getToParColor(

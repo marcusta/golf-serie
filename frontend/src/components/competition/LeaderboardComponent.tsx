@@ -18,14 +18,49 @@ export function LeaderboardComponent({
   // Shared sorting logic for both mobile and desktop views
   const sortedLeaderboard = leaderboard
     ? [...leaderboard].sort((a, b) => {
-        // First sort by whether they have started (holes played > 0)
+        // Check if rounds are invalid (contain -1 scores)
+        const aHasInvalidRound = a.participant.score.includes(-1);
+        const bHasInvalidRound = b.participant.score.includes(-1);
+
+        // Check if players have started (holes played > 0)
         const aStarted = a.holesPlayed > 0;
         const bStarted = b.holesPlayed > 0;
-        if (aStarted !== bStarted) {
-          return aStarted ? -1 : 1;
+
+        // Category 1: Valid scores (started, no -1 scores)
+        const aHasValidScore = aStarted && !aHasInvalidRound;
+        const bHasValidScore = bStarted && !bHasInvalidRound;
+
+        // Category 2: Invalid scores (started, has -1 scores)
+        const aHasInvalidScore = aStarted && aHasInvalidRound;
+        const bHasInvalidScore = bStarted && bHasInvalidRound;
+
+        // Category 3: Not started (0 holes played)
+        const aNotStarted = !aStarted;
+        const bNotStarted = !bStarted;
+
+        // Sort by category priority: Valid scores first, then invalid scores, then not started
+        if (aHasValidScore && !bHasValidScore) return -1;
+        if (!aHasValidScore && bHasValidScore) return 1;
+
+        if (aHasInvalidScore && bNotStarted) return -1;
+        if (aNotStarted && bHasInvalidScore) return 1;
+
+        // Within valid scores category: sort by relativeToPar (best score first)
+        if (aHasValidScore && bHasValidScore) {
+          return a.relativeToPar - b.relativeToPar;
         }
-        // Then sort by relativeToPar
-        return a.relativeToPar - b.relativeToPar;
+
+        // Within invalid scores category: maintain original order
+        if (aHasInvalidScore && bHasInvalidScore) {
+          return 0;
+        }
+
+        // Within not started category: maintain original order
+        if (aNotStarted && bNotStarted) {
+          return 0;
+        }
+
+        return 0;
       })
     : [];
 
