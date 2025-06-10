@@ -272,8 +272,6 @@ export function ScoreEntry({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isEditing]);
 
-  console.log("!!!!!!! ##### ScoreEntry isReadyToFinalize", isReadyToFinalize);
-  console.log("!!!!!!! ##### ScoreEntry isLocked", isLocked);
   return (
     <div className="score-entry flex flex-col h-screen-mobile bg-scorecard relative">
       {/* Sync Status Indicator */}

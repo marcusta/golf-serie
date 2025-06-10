@@ -18,8 +18,8 @@ import {
   formatParticipantForScorecard,
 } from "../../utils/participantFormatting";
 import {
-  getInitialHole,
   rememberCurrentHole,
+  getSessionStorageKey,
 } from "../../utils/holeNavigation";
 import { ScoreEntry } from "../../components/score-entry";
 import {
@@ -78,8 +78,22 @@ export default function CompetitionRound() {
     positionName: string;
   } | null>(null);
 
-  // Smart hole navigation - initialize with default
-  const [currentHole, setCurrentHole] = useState(1);
+  // Smart hole navigation - initialize with lazy initializer to preserve hole across refreshes
+  const [currentHole, setCurrentHole] = useState(() => {
+    // Check session storage first for remembered hole position
+    if (teeTimeId) {
+      const sessionKey = getSessionStorageKey(teeTimeId);
+      const rememberedHole = sessionStorage.getItem(sessionKey);
+      if (rememberedHole) {
+        const hole = parseInt(rememberedHole, 10);
+        if (hole >= 1 && hole <= 18) {
+          return hole;
+        }
+      }
+    }
+    // Default to hole 1 if no remembered position
+    return 1;
+  });
 
   // Custom hooks for data and sync management
   const {
@@ -128,13 +142,6 @@ export default function CompetitionRound() {
   const [isFullScorecardModalOpen, setIsFullScorecardModalOpen] =
     useState(false);
 
-  // Update currentHole when teeTime data first loads
-  useEffect(() => {
-    if (teeTime?.participants && teeTimeId) {
-      setCurrentHole(getInitialHole(teeTimeId, teeTime.participants));
-    }
-  }, [teeTime?.participants, teeTimeId]);
-
   // Remember current hole in session storage
   useEffect(() => {
     if (teeTimeId && currentHole) {
@@ -144,30 +151,19 @@ export default function CompetitionRound() {
 
   // Check if round is complete when teeTime data changes
   useEffect(() => {
-    console.log("useEffect to check setIsReadyToFinalize");
     if (teeTime?.participants && teeTime.participants.length > 0) {
       // Ensure each participant has a valid score array before checking completion
       const participantsWithScores = teeTime.participants.filter(
         (p: ParticipantWithScore) => Array.isArray(p.score)
       );
 
-      console.log("Debug: Checking round completion");
-      console.log("Participants count:", teeTime.participants.length);
-      console.log(
-        "Participants with valid scores:",
-        participantsWithScores.length
-      );
-
       if (participantsWithScores.length === teeTime.participants.length) {
         const roundComplete = isRoundComplete(teeTime.participants);
-        console.log("Round complete result:", roundComplete);
         setIsReadyToFinalize(roundComplete);
       } else {
-        console.log("Not all participants have valid score arrays");
         setIsReadyToFinalize(false);
       }
     } else {
-      console.log("No participants found");
       setIsReadyToFinalize(false);
     }
   }, [teeTime]);
