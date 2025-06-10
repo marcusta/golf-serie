@@ -43,6 +43,15 @@ This document outlines the product specification for a comprehensive digital gol
 - Can access events via direct link (for semi-private events)
 - Cannot enter scores or join competitions
 
+## Score display rules
+Scoring display has the following rules
+
+- -1 in score array means player gave up and should generally show as a dash "-"
+- 0 means there is nothing reported yet and should show as a 0 (not NR)
+- Any number above 0 is an actual score and should be shown as the number and number should be used in calculations
+
+If there is ever a -1 then you don't really have a score for that hole, for the 9 holes where it appears and for the 18 holes so if there is a -1 then we should show "-" in leaderboards, team results etc
+
 ## 3. Application Structure
 
 ### 3.1 Public Section (Player Interface)
