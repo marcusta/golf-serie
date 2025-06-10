@@ -194,5 +194,55 @@ export function createParticipantsApi(participantService: ParticipantService) {
         );
       }
     },
+
+    async lock(req: Request, id: number): Promise<Response> {
+      try {
+        const participant = await participantService.lock(id);
+        return new Response(JSON.stringify(participant), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message === "Participant not found" ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async unlock(req: Request, id: number): Promise<Response> {
+      try {
+        const participant = await participantService.unlock(id);
+        return new Response(JSON.stringify(participant), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message === "Participant not found" ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
   };
 }

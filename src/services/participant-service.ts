@@ -50,6 +50,7 @@ export class ParticipantService {
 
     return {
       ...participant,
+      is_locked: Boolean(participant.is_locked),
       score: JSON.parse(participant.score as unknown as string),
     };
   }
@@ -59,6 +60,7 @@ export class ParticipantService {
     const participants = stmt.all() as Participant[];
     return participants.map((p) => ({
       ...p,
+      is_locked: Boolean(p.is_locked),
       score: JSON.parse(p.score as unknown as string),
     }));
   }
@@ -79,6 +81,7 @@ export class ParticipantService {
 
     return {
       ...participant,
+      is_locked: Boolean(participant.is_locked),
       score,
     };
   }
@@ -160,6 +163,7 @@ export class ParticipantService {
     const updated = stmt.get(...values) as Participant;
     return {
       ...updated,
+      is_locked: Boolean(updated.is_locked),
       score: JSON.parse(updated.score as unknown as string),
     };
   }
@@ -185,6 +189,7 @@ export class ParticipantService {
     const participants = stmt.all(competitionId) as Participant[];
     return participants.map((p) => ({
       ...p,
+      is_locked: Boolean(p.is_locked),
       score: JSON.parse(p.score as unknown as string),
     }));
   }
@@ -197,6 +202,11 @@ export class ParticipantService {
     const participant = await this.findById(id);
     if (!participant) {
       throw new Error("Participant not found");
+    }
+
+    // Check if scorecard is locked
+    if (participant.is_locked) {
+      throw new Error("Scorecard is locked and cannot be modified.");
     }
 
     // Get the course to validate hole number
@@ -264,5 +274,47 @@ export class ParticipantService {
 
     const stmt = this.db.prepare("DELETE FROM participants WHERE id = ?");
     stmt.run(id);
+  }
+
+  async lock(id: number): Promise<Participant> {
+    const participant = await this.findById(id);
+    if (!participant) {
+      throw new Error("Participant not found");
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE participants 
+      SET is_locked = 1, locked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      RETURNING *
+    `);
+
+    const updated = stmt.get(id) as Participant;
+    return {
+      ...updated,
+      is_locked: Boolean(updated.is_locked),
+      score: JSON.parse(updated.score as unknown as string),
+    };
+  }
+
+  async unlock(id: number): Promise<Participant> {
+    const participant = await this.findById(id);
+    if (!participant) {
+      throw new Error("Participant not found");
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE participants 
+      SET is_locked = 0, locked_at = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      RETURNING *
+    `);
+
+    const updated = stmt.get(id) as Participant;
+    return {
+      ...updated,
+      is_locked: Boolean(updated.is_locked),
+      score: JSON.parse(updated.score as unknown as string),
+    };
   }
 }

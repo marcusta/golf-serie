@@ -477,4 +477,184 @@ describe("Participant API", () => {
       expect(participants).toEqual([]);
     });
   });
+
+  describe("POST /api/participants/:id/lock", () => {
+    test("should lock a participant scorecard", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/lock`,
+        "POST"
+      );
+      expect(response.status).toBe(200);
+
+      const participant = await expectJsonResponse(response);
+      expect(participant.is_locked).toBe(true);
+      expect(participant.locked_at).toBeDefined();
+      expect(typeof participant.locked_at).toBe("string");
+    });
+
+    test("should return 404 for non-existent participant", async () => {
+      const response = await makeRequest("/api/participants/999/lock", "POST");
+      expectErrorResponse(response, 404);
+    });
+  });
+
+  describe("POST /api/participants/:id/unlock", () => {
+    test("should unlock a participant scorecard", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      // First lock the participant
+      await makeRequest(`/api/participants/${created.id}/lock`, "POST");
+
+      // Then unlock it
+      const response = await makeRequest(
+        `/api/participants/${created.id}/unlock`,
+        "POST"
+      );
+      expect(response.status).toBe(200);
+
+      const participant = await expectJsonResponse(response);
+      expect(participant.is_locked).toBe(false);
+      expect(participant.locked_at).toBeNull();
+    });
+
+    test("should return 404 for non-existent participant", async () => {
+      const response = await makeRequest(
+        "/api/participants/999/unlock",
+        "POST"
+      );
+      expectErrorResponse(response, 404);
+    });
+  });
+
+  describe("PUT /api/participants/:id/score (with lock)", () => {
+    test("should prevent score updates when participant is locked", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      // Lock the participant
+      await makeRequest(`/api/participants/${created.id}/lock`, "POST");
+
+      // Try to update score - should fail
+      const scoreData = {
+        hole: 1,
+        shots: 4,
+      };
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/score`,
+        "PUT",
+        scoreData
+      );
+      expectErrorResponse(response, 400);
+
+      const errorResponse = await response.json();
+      expect(errorResponse.error).toBe(
+        "Scorecard is locked and cannot be modified."
+      );
+    });
+
+    test("should allow score updates when participant is unlocked", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      // Lock the participant
+      await makeRequest(`/api/participants/${created.id}/lock`, "POST");
+
+      // Unlock the participant
+      await makeRequest(`/api/participants/${created.id}/unlock`, "POST");
+
+      // Now score update should work
+      const scoreData = {
+        hole: 1,
+        shots: 4,
+      };
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/score`,
+        "PUT",
+        scoreData
+      );
+      expect(response.status).toBe(200);
+
+      const updated = await expectJsonResponse(response);
+      expect(updated.score[0]).toBe(4);
+    });
+  });
+
+  describe("Participant fields validation", () => {
+    test("should include lock status in participant responses", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      expect(createResponse.status).toBe(201);
+
+      const participant = await expectJsonResponse(createResponse);
+      expect(participant.is_locked).toBe(false);
+      expect(participant.locked_at).toBeNull();
+      expect(participant.hasOwnProperty("is_locked")).toBe(true);
+      expect(participant.hasOwnProperty("locked_at")).toBe(true);
+    });
+
+    test("should include lock status when getting by ID", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      const response = await makeRequest(`/api/participants/${created.id}`);
+      const participant = await expectJsonResponse(response);
+      expect(participant.is_locked).toBe(false);
+      expect(participant.locked_at).toBeNull();
+    });
+
+    test("should include lock status in list responses", async () => {
+      await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+
+      const response = await makeRequest("/api/participants");
+      const participants = await expectJsonResponse(response);
+      expect(participants).toHaveLength(1);
+      expect(participants[0].is_locked).toBe(false);
+      expect(participants[0].locked_at).toBeNull();
+    });
+  });
 });

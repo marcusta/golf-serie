@@ -191,6 +191,16 @@ export function createApp(db: Database): Hono {
     return await participantsApi.updateScore(c.req.raw, id);
   });
 
+  app.post("/api/participants/:id/lock", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await participantsApi.lock(c.req.raw, id);
+  });
+
+  app.post("/api/participants/:id/unlock", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await participantsApi.unlock(c.req.raw, id);
+  });
+
   // Series routes
   app.post("/api/series", async (c) => {
     return await seriesApi.create(c.req.raw);
