@@ -333,8 +333,8 @@ export function ScoreEntry({
                 </div>
               </div>
 
-              {/* NR button placeholder for alignment */}
-              <div className="w-12 h-6 opacity-0">NR</div>
+              {/* Placeholder for alignment */}
+              <div className="w-12 h-6 opacity-0"></div>
             </div>
           </div>
         </div>
@@ -414,7 +414,11 @@ export function ScoreEntry({
                       className="w-12 h-12 rounded-full border-2 border-soft-grey bg-rough/10 flex items-center justify-center text-label-sm font-medium text-turf hover:bg-rough/20 transition-colors touch-manipulation"
                     >
                       <span className="text-lg font-bold text-fairway font-display">
-                        {currentScore > 0 ? currentScore : "NR"}
+                        {currentScore > 0
+                          ? currentScore
+                          : currentScore === -1
+                          ? "−"
+                          : "0"}
                       </span>
                     </button>
                   </div>
@@ -444,6 +448,10 @@ export function ScoreEntry({
         onDismiss={handleKeyboardDismiss}
         teeTimeGroup={teeTimeGroup}
         course={course}
+        playerName={
+          currentPlayer?.playerNames ||
+          `${currentPlayer?.participantName} ${currentPlayer?.participantType}`
+        }
       />
 
       {/* Full Scorecard Modal */}

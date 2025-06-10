@@ -32,6 +32,7 @@ interface CustomKeyboardProps {
   currentHole?: number;
   teeTimeGroup?: TeeTimeGroup;
   course?: Course;
+  playerName?: string;
 }
 
 export function CustomKeyboard({
@@ -41,6 +42,7 @@ export function CustomKeyboard({
   visible,
   holePar,
   currentHole,
+  playerName,
 }: CustomKeyboardProps) {
   const handleNumberPress = (number: number) => {
     onNumberPress(number);
@@ -99,7 +101,7 @@ export function CustomKeyboard({
       <div className="flex items-center justify-between p-3 border-b border-soft-grey bg-rough bg-opacity-20">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-fairway font-primary">
-            Enter Score
+            {playerName || "Enter Score"}
           </span>
         </div>
         {onDismiss && (
@@ -178,7 +180,7 @@ export function CustomKeyboard({
               e.preventDefault();
               handleSpecialPress("more");
             }}
-            className="h-14 bg-coral hover:bg-coral hover:opacity-90 active:bg-coral active:opacity-80 rounded-xl text-xl font-bold text-scorecard transition-all touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
+            className="h-14 bg-transparent border-2 border-soft-grey text-charcoal hover:bg-rough/30 rounded-xl text-xl font-bold transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
           >
             <span>9+</span>
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
@@ -194,7 +196,7 @@ export function CustomKeyboard({
               e.preventDefault();
               handleSpecialPress("clear");
             }}
-            className="h-14 bg-flag hover:bg-flag hover:opacity-90 active:bg-flag active:opacity-80 rounded-xl text-xl font-bold text-scorecard transition-all touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
+            className="h-14 bg-transparent border-2 border-flag text-flag hover:bg-flag/10 rounded-xl text-xl font-bold transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
           >
             <span>−</span>
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
@@ -206,11 +208,11 @@ export function CustomKeyboard({
               e.preventDefault();
               handleSpecialPress("unreported");
             }}
-            className="h-14 bg-rough bg-opacity-40 hover:bg-rough hover:bg-opacity-60 active:bg-rough active:bg-opacity-80 rounded-xl text-xl font-bold text-fairway transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
+            className="h-14 bg-transparent border-2 border-soft-grey text-charcoal hover:bg-rough/30 rounded-xl text-xl font-bold transition-colors touch-manipulation flex flex-col items-center justify-center focus:outline-none font-primary"
           >
             <span>0</span>
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-90">
-              UNREPORTED
+              CLEAR
             </span>
           </button>
         </div>

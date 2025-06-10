@@ -188,7 +188,7 @@ export function formatScoreDisplay(score: number): string {
  */
 export function formatScoreEntryDisplay(score: number | null): string {
   if (score === -1 || score === null) return "-"; // Gave up
-  if (score === 0) return "NR"; // Not reported
+  if (score === 0) return "0"; // Not reported
   return score.toString(); // Actual score
 }
 
