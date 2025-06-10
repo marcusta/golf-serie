@@ -9,7 +9,19 @@ import {
   useCreateParticipant,
   useDeleteTeeTime,
 } from "../../api/tee-times";
-import { Plus, Clock, Users, Trash2, AlertCircle } from "lucide-react";
+import {
+  useLockParticipant,
+  useUnlockParticipant,
+} from "../../api/participants";
+import {
+  Plus,
+  Clock,
+  Users,
+  Trash2,
+  AlertCircle,
+  Lock,
+  Unlock,
+} from "lucide-react";
 import ParticipantAssignment from "../../components/ParticipantAssignment";
 
 interface ParticipantType {
@@ -44,6 +56,8 @@ export default function AdminCompetitionTeeTimes() {
   const createTeeTimeMutation = useCreateTeeTime();
   const createParticipantMutation = useCreateParticipant();
   const deleteTeeTimeMutation = useDeleteTeeTime();
+  const lockParticipantMutation = useLockParticipant();
+  const unlockParticipantMutation = useUnlockParticipant();
 
   // Analyze existing tee times and prefill teams/participant types
   useEffect(() => {
@@ -370,12 +384,54 @@ export default function AdminCompetitionTeeTimes() {
                       key={participant.id}
                       className="p-3 bg-white rounded-lg border border-gray-200"
                     >
-                      <div className="font-medium text-gray-900">
-                        {participant.team_name} {participant.position_name}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium text-gray-900">
+                          {participant.team_name} {participant.position_name}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {participant.is_locked ? (
+                            <Lock className="h-4 w-4 text-red-600" />
+                          ) : (
+                            <Unlock className="h-4 w-4 text-green-600" />
+                          )}
+                          <button
+                            onClick={() => {
+                              if (participant.is_locked) {
+                                unlockParticipantMutation.mutate(
+                                  participant.id
+                                );
+                              } else {
+                                lockParticipantMutation.mutate(participant.id);
+                              }
+                            }}
+                            disabled={
+                              lockParticipantMutation.isPending ||
+                              unlockParticipantMutation.isPending
+                            }
+                            className={`px-2 py-1 text-xs rounded transition-colors disabled:opacity-50 ${
+                              participant.is_locked
+                                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                : "bg-red-100 text-red-700 hover:bg-red-200"
+                            }`}
+                            title={
+                              participant.is_locked
+                                ? "Unlock scorecard"
+                                : "Lock scorecard"
+                            }
+                          >
+                            {participant.is_locked ? "Unlock" : "Lock"}
+                          </button>
+                        </div>
                       </div>
                       {participant.player_names && (
                         <div className="text-sm text-gray-500">
                           {participant.player_names}
+                        </div>
+                      )}
+                      {participant.locked_at && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Locked:{" "}
+                          {new Date(participant.locked_at).toLocaleString()}
                         </div>
                       )}
                     </div>

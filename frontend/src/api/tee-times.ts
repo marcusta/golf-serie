@@ -11,6 +11,8 @@ export interface TeeTimeParticipant {
   updated_at: string;
   tee_time_id: number;
   score: number[];
+  is_locked: boolean;
+  locked_at?: string;
   team_name: string;
 }
 

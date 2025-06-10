@@ -51,6 +51,9 @@ interface ScoreEntryProps {
     currentName: string | null,
     positionName: string
   ) => void;
+  isReadyToFinalize?: boolean;
+  onFinalize?: () => void;
+  isLocked?: boolean;
 }
 
 export function ScoreEntry({
@@ -62,6 +65,9 @@ export function ScoreEntry({
   onHoleChange,
   syncStatus,
   onPlayerNameClick,
+  isReadyToFinalize = false,
+  onFinalize,
+  isLocked = false,
 }: ScoreEntryProps) {
   // Helper function to find the latest incomplete hole
   const findLatestIncompleteHole = (): number => {
@@ -176,12 +182,14 @@ export function ScoreEntry({
   };
 
   const handleScoreFieldClick = (playerIndex: number) => {
+    if (isLocked) return; // Only prevent interaction when actually locked
     setCurrentPlayerIndex(playerIndex);
     setKeyboardVisible(true);
     setIsEditing(true);
   };
 
   const handleNumberPress = (number: number) => {
+    if (isLocked) return; // Only prevent interaction when actually locked
     if (!currentPlayer) return;
 
     onScoreUpdate(currentPlayer.participantId, currentHole, number);
@@ -189,6 +197,7 @@ export function ScoreEntry({
   };
 
   const handleSpecialPress = (action: "more" | "clear" | "unreported") => {
+    if (isLocked) return; // Only prevent interaction when actually locked
     if (action === "more") {
       setKeyboardVisible(false);
       showNativeKeyboard();
@@ -263,6 +272,8 @@ export function ScoreEntry({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isEditing]);
 
+  console.log("!!!!!!! ##### ScoreEntry isReadyToFinalize", isReadyToFinalize);
+  console.log("!!!!!!! ##### ScoreEntry isLocked", isLocked);
   return (
     <div className="score-entry flex flex-col h-screen-mobile bg-scorecard relative">
       {/* Sync Status Indicator */}
@@ -286,7 +297,6 @@ export function ScoreEntry({
             )}
           </div>
         )}
-
       {/* Confirmation Message with TapScore Colors */}
       {showingConfirmation && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-turf text-scorecard px-6 py-4 rounded-xl shadow-lg z-30 animate-pulse">
@@ -300,7 +310,6 @@ export function ScoreEntry({
           </div>
         </div>
       )}
-
       {/* Player Area with Aligned Score Columns */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         {/* Hole Header - full width bar */}
@@ -411,7 +420,13 @@ export function ScoreEntry({
                     {/* Current hole score - ALWAYS in a circle */}
                     <button
                       onClick={() => handleScoreFieldClick(index)}
-                      className="w-12 h-12 rounded-full border-2 border-soft-grey bg-rough/10 flex items-center justify-center text-label-sm font-medium text-turf hover:bg-rough/20 transition-colors touch-manipulation"
+                      disabled={isLocked}
+                      className={cn(
+                        "w-12 h-12 rounded-full border-2 flex items-center justify-center text-label-sm font-medium touch-manipulation transition-colors",
+                        isLocked
+                          ? "border-soft-grey bg-soft-grey/20 cursor-not-allowed"
+                          : "border-soft-grey bg-rough/10 text-turf hover:bg-rough/20"
+                      )}
                     >
                       <span className="text-lg font-bold text-fairway font-display">
                         {currentScore > 0
@@ -427,32 +442,101 @@ export function ScoreEntry({
             );
           })}
 
-          {/* View Full Scorecard Button */}
-          <button
-            onClick={() => setFullScorecardVisible(true)}
-            className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-lg transition-colors mt-6 flex items-center justify-center space-x-2 font-primary"
-          >
-            <BarChart3 size={20} />
-            <span>View Full Scorecard</span>
-          </button>
+          {/* View Full Scorecard Button - Only show if not ready to finalize */}
+          {!isReadyToFinalize && (
+            <button
+              onClick={() => setFullScorecardVisible(true)}
+              className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-lg transition-colors mt-6 flex items-center justify-center space-x-2 font-primary"
+            >
+              <BarChart3 size={20} />
+              <span>View Full Scorecard</span>
+            </button>
+          )}
+
+          {isReadyToFinalize && !isLocked && (
+            <div className="bg-scorecard border-t border-soft-grey p-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setFullScorecardVisible(true)}
+                  className="flex-1 bg-turf hover:bg-fairway text-scorecard font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 font-primary"
+                >
+                  <span>Review Scorecard</span>
+                </button>
+                <button
+                  onClick={onFinalize}
+                  className="flex-1 bg-coral hover:bg-orange-600 text-scorecard font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 font-primary"
+                >
+                  <span>Complete Round</span>
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Locked State Overlay - Success state with navigation */}
+          {isLocked && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-scorecard rounded-2xl shadow-xl max-w-sm w-full mx-4">
+                <div className="p-8 text-center">
+                  <div className="w-16 h-16 mx-auto mb-6 bg-turf bg-opacity-20 rounded-full flex items-center justify-center">
+                    <span className="text-turf text-3xl">✓</span>
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4 font-display text-fairway">
+                    Round Complete!
+                  </h3>
+                  <p className="text-charcoal font-primary mb-8 leading-relaxed">
+                    Your round has been successfully finalized and locked. All
+                    scores have been submitted and the results are now official.
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => {
+                        // Navigate to leaderboard tab
+                        const pathParts = window.location.pathname.split("/");
+                        const competitionId =
+                          pathParts[pathParts.indexOf("competitions") + 1];
+                        window.location.href = `/player/competitions/${competitionId}#leaderboard`;
+                      }}
+                      className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-xl transition-colors font-primary"
+                    >
+                      View Leaderboard
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Navigate back to competition overview
+                        const pathParts = window.location.pathname.split("/");
+                        const competitionId =
+                          pathParts[pathParts.indexOf("competitions") + 1];
+                        window.location.href = `/player/competitions/${competitionId}`;
+                      }}
+                      className="w-full bg-soft-grey bg-opacity-30 hover:bg-soft-grey hover:bg-opacity-50 text-charcoal font-semibold py-4 px-6 rounded-xl transition-colors font-primary"
+                    >
+                      Back to Competition
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Enhanced Custom Keyboard with Previous Hole Display */}
-      <CustomKeyboard
-        visible={keyboardVisible}
-        onNumberPress={handleNumberPress}
-        onSpecialPress={handleSpecialPress}
-        holePar={currentHoleData?.par || 4}
-        currentHole={currentHole}
-        onDismiss={handleKeyboardDismiss}
-        teeTimeGroup={teeTimeGroup}
-        course={course}
-        playerName={
-          currentPlayer?.playerNames ||
-          `${currentPlayer?.participantName} ${currentPlayer?.participantType}`
-        }
-      />
+      {!isLocked && (
+        <CustomKeyboard
+          visible={keyboardVisible}
+          onNumberPress={handleNumberPress}
+          onSpecialPress={handleSpecialPress}
+          holePar={currentHoleData?.par || 4}
+          currentHole={currentHole}
+          onDismiss={handleKeyboardDismiss}
+          teeTimeGroup={teeTimeGroup}
+          course={course}
+          playerName={
+            currentPlayer?.playerNames ||
+            `${currentPlayer?.participantName} ${currentPlayer?.participantType}`
+          }
+        />
+      )}
+      {/* Completion Actions Bar - Show when ready to finalize and not locked */}
 
       {/* Full Scorecard Modal */}
       <FullScorecardModal
@@ -462,12 +546,11 @@ export function ScoreEntry({
         currentHole={currentHole}
         onClose={() => setFullScorecardVisible(false)}
         onContinueEntry={(hole) => {
-          setInternalCurrentHole(hole);
+          setInternalCurrentHole(hole || currentHole);
           setCurrentPlayerIndex(0);
           setFullScorecardVisible(false);
         }}
       />
-
       {/* Native Keyboard Modal with TapScore Styling */}
       {nativeKeyboardVisible && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

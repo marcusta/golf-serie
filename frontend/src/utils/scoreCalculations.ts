@@ -33,6 +33,10 @@ export interface ScoreStatistics {
   isValidRound: boolean;
 }
 
+export interface PlayerForRoundCheck {
+  score: number[];
+}
+
 /**
  * Calculate participant score statistics from their score array
  * @param scores Array of scores for each hole (0 = not reported, -1 = gave up, positive = actual score)
@@ -260,4 +264,29 @@ export function calculatePlayedPar(
     // Exclude gave up (-1) and not reported (0) holes
     return totalPar + (score && score > 0 ? hole.par : 0);
   }, 0);
+}
+
+export function isRoundComplete(players: PlayerForRoundCheck[]): boolean {
+  if (!players || players.length === 0) {
+    return false;
+  }
+
+  // Check every player in the group
+  for (const player of players) {
+    if (!player.score || !Array.isArray(player.score)) {
+      return false;
+    }
+
+    // Check all 18 holes for this player
+    for (let holeIndex = 0; holeIndex < 18; holeIndex++) {
+      const score = player.score[holeIndex];
+      // A score of 0, null, or undefined indicates the hole is not yet played.
+      if (score === 0 || score === null || score === undefined) {
+        return false;
+      }
+    }
+  }
+
+  // If all loops complete, the round is finished.
+  return true;
 }

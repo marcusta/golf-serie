@@ -9,6 +9,8 @@ export interface Participant {
   position_name: string;
   player_names?: string;
   score: number[];
+  is_locked: boolean;
+  locked_at?: string;
   created_at: string;
   updated_at: string;
   team_name: string;
@@ -84,6 +86,67 @@ export function useUpdateParticipant() {
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
       queryClient.invalidateQueries({ queryKey: ["competitions"] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+    },
+  });
+}
+
+export function useLockParticipant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`${API_BASE_URL}/participants/${id}/lock`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to lock participant");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Invalidate queries to refresh the UI
+      const teeTimeId = data?.tee_time_id;
+      if (teeTimeId) {
+        queryClient.invalidateQueries({ queryKey: ["teeTime", teeTimeId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["tee-times"] });
+      queryClient.invalidateQueries({ queryKey: ["participant", data.id] });
+    },
+  });
+}
+
+export function useUnlockParticipant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${id}/unlock`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to unlock participant");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Invalidate queries to refresh the UI
+      const teeTimeId = data?.tee_time_id;
+      if (teeTimeId) {
+        queryClient.invalidateQueries({ queryKey: ["teeTime", teeTimeId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["tee-times"] });
+      queryClient.invalidateQueries({ queryKey: ["participant", data.id] });
     },
   });
 }

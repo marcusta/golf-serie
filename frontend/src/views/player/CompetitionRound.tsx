@@ -1,44 +1,56 @@
 // src/views/player/CompetitionRound.tsx
 
-import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
-import { ScoreEntry } from "../../components/score-entry";
+import { useState, useEffect, useCallback } from "react";
 import {
-  BottomTabNavigation,
-  HoleNavigation,
-  HamburgerMenu,
-} from "../../components/navigation";
-import { ParticipantScorecard } from "../../components/scorecard";
-import type { ParticipantData, CourseData } from "../../components/scorecard";
-import {
-  ParticipantsListComponent,
-  LeaderboardComponent,
-  TeamResultComponent,
-  CompetitionInfoBar,
-} from "../../components/competition";
-import { calculateTotalParticipants } from "../../utils/scoreCalculations";
-import {
-  processTeamResults,
-  convertLeaderboardToTeamInput,
-} from "../../utils/pointCalculation";
-import {
-  getInitialHole,
-  rememberCurrentHole,
-} from "../../utils/holeNavigation";
+  useLockParticipant,
+  useUpdateParticipant,
+} from "../../api/participants";
+import { useSeriesTeams } from "../../api/series";
+import { isRoundComplete } from "../../utils/scoreCalculations";
+import { HoleNavigation } from "../../components/navigation/HoleNavigation";
+import { BottomTabNavigation } from "../../components/navigation/BottomTabNavigation";
+import { CompetitionInfoBar } from "../../components/competition";
 import { useCompetitionData } from "../../hooks/useCompetitionData";
 import { useCompetitionSync } from "../../hooks/useCompetitionSync";
 import {
   formatTeeTimeGroup,
   formatParticipantForScorecard,
 } from "../../utils/participantFormatting";
-import { formatCourseFromTeeTime } from "../../utils/courseFormatting";
-import type { TeeTime } from "@/api/tee-times";
-import { useUpdateParticipant } from "../../api/participants";
+import {
+  getInitialHole,
+  rememberCurrentHole,
+} from "../../utils/holeNavigation";
+import { ScoreEntry } from "../../components/score-entry";
+import {
+  LeaderboardComponent,
+  TeamResultComponent,
+  ParticipantsListComponent,
+} from "../../components/competition";
+import { calculateTotalParticipants } from "../../utils/scoreCalculations";
+import {
+  processTeamResults,
+  convertLeaderboardToTeamInput,
+} from "../../utils/pointCalculation";
 import { CommonHeader } from "../../components/navigation/CommonHeader";
-import { useSeriesTeams } from "../../api/series";
+import { HamburgerMenu } from "../../components/navigation/HamburgerMenu";
+import {
+  ParticipantScorecard,
+  type CourseData,
+  type ParticipantData,
+} from "../../components/scorecard/ParticipantScorecard";
 import { EditPlayerNameModal } from "../../components/competition/EditPlayerNameModal";
+import { FullScorecardModal } from "../../components/score-entry/FullScorecardModal";
+import { formatCourseFromTeeTime } from "@/utils/courseFormatting";
+import type { TeeTime } from "../../api/tee-times";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
+
+// Local interface for participant with score property for typing
+interface ParticipantWithScore {
+  score?: number[];
+  [key: string]: unknown;
+}
 
 export default function CompetitionRound() {
   const { competitionId, teeTimeId } = useParams({ strict: false });
@@ -109,6 +121,12 @@ export default function CompetitionRound() {
 
   // API mutation for updating participant
   const updateParticipantMutation = useUpdateParticipant();
+  const lockParticipantMutation = useLockParticipant();
+
+  // New state for round completion workflow
+  const [isReadyToFinalize, setIsReadyToFinalize] = useState(false);
+  const [isFullScorecardModalOpen, setIsFullScorecardModalOpen] =
+    useState(false);
 
   // Update currentHole when teeTime data first loads
   useEffect(() => {
@@ -123,6 +141,36 @@ export default function CompetitionRound() {
       rememberCurrentHole(teeTimeId, currentHole);
     }
   }, [teeTimeId, currentHole]);
+
+  // Check if round is complete when teeTime data changes
+  useEffect(() => {
+    console.log("useEffect to check setIsReadyToFinalize");
+    if (teeTime?.participants && teeTime.participants.length > 0) {
+      // Ensure each participant has a valid score array before checking completion
+      const participantsWithScores = teeTime.participants.filter(
+        (p: ParticipantWithScore) => Array.isArray(p.score)
+      );
+
+      console.log("Debug: Checking round completion");
+      console.log("Participants count:", teeTime.participants.length);
+      console.log(
+        "Participants with valid scores:",
+        participantsWithScores.length
+      );
+
+      if (participantsWithScores.length === teeTime.participants.length) {
+        const roundComplete = isRoundComplete(teeTime.participants);
+        console.log("Round complete result:", roundComplete);
+        setIsReadyToFinalize(roundComplete);
+      } else {
+        console.log("Not all participants have valid score arrays");
+        setIsReadyToFinalize(false);
+      }
+    } else {
+      console.log("No participants found");
+      setIsReadyToFinalize(false);
+    }
+  }, [teeTime]);
 
   // Format data using utility functions
   const teeTimeGroup = formatTeeTimeGroup(teeTime);
@@ -229,6 +277,28 @@ export default function CompetitionRound() {
     (h: { number: number; par: number }) => h.number === currentHole
   );
 
+  const handleFinalize = () => {
+    setIsFullScorecardModalOpen(true);
+  };
+
+  const handleLockRound = () => {
+    if (!teeTime?.participants) return;
+
+    // Lock all participants in the tee time
+    teeTime.participants.forEach((participant: { id: number }) => {
+      lockParticipantMutation.mutate(participant.id);
+    });
+
+    // Close the modal
+    setIsFullScorecardModalOpen(false);
+  };
+
+  // Check if any participant in the tee time is locked
+  const isAnyParticipantLocked =
+    teeTime?.participants?.some(
+      (participant: { is_locked: boolean }) => participant.is_locked
+    ) || false;
+
   if (competitionLoading)
     return <div className="p-4">Loading competition...</div>;
   if (!competition) return <div className="p-4">Competition not found</div>;
@@ -257,6 +327,9 @@ export default function CompetitionRound() {
                 onHoleChange={handleHoleChange}
                 syncStatus={syncStatus}
                 onPlayerNameClick={handlePlayerNameClick}
+                isReadyToFinalize={isReadyToFinalize}
+                onFinalize={handleFinalize}
+                isLocked={isAnyParticipantLocked}
               />
             </div>
           </div>
@@ -350,6 +423,17 @@ export default function CompetitionRound() {
         onClose={handleCloseNameModal}
         onSave={handleSaveName}
         participant={editingParticipant}
+      />
+
+      {/* Full Scorecard Modal */}
+      <FullScorecardModal
+        visible={isFullScorecardModalOpen}
+        teeTimeGroup={teeTimeGroup || { id: "", players: [] }}
+        course={courseData || { id: "", name: "", holes: [] }}
+        currentHole={currentHole}
+        onClose={() => setIsFullScorecardModalOpen(false)}
+        onContinueEntry={() => setIsFullScorecardModalOpen(false)}
+        onLockRound={handleLockRound}
       />
     </div>
   );

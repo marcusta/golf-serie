@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { Menu, X, Trophy, Settings } from "lucide-react";
+import { Menu, X, Trophy } from "lucide-react";
 
 interface HamburgerMenuProps {
   className?: string;
@@ -16,12 +16,6 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
       label: "Competitions",
       icon: Trophy,
       description: "Browse all competitions",
-    },
-    {
-      to: "/admin/series",
-      label: "Admin Panel",
-      icon: Settings,
-      description: "Manage competitions and settings",
     },
   ];
 
