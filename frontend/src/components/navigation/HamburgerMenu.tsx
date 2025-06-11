@@ -1,25 +1,156 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { Link, useParams } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { Menu, X, Trophy } from "lucide-react";
+import {
+  Menu,
+  X,
+  Trophy,
+  Settings,
+  Award,
+  List,
+  Home,
+  LayoutDashboard,
+  Loader2,
+} from "lucide-react";
+import { useCompetition } from "@/api/competitions";
+import { useSingleSeries } from "@/api/series";
 
 interface HamburgerMenuProps {
   className?: string;
 }
 
+interface MenuLink {
+  to: string;
+  params?: Record<string, string>;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
 export function HamburgerMenu({ className }: HamburgerMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [seriesId, setSeriesId] = useState<number | undefined>();
+  const [seriesName, setSeriesName] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const menuItems = [
+  // Use router params to get context
+  const params = useParams({
+    strict: false,
+  }) as { competitionId?: string; serieId?: string };
+
+  const competitionIdNum = params.competitionId
+    ? parseInt(params.competitionId)
+    : undefined;
+  const serieIdNum = params.serieId ? parseInt(params.serieId) : undefined;
+
+  const { data: competitionData, isLoading: competitionLoading } =
+    useCompetition(competitionIdNum || 0);
+  const { data: seriesData, isLoading: seriesLoading } = useSingleSeries(
+    serieIdNum || competitionData?.series_id || 0
+  );
+
+  useEffect(() => {
+    setIsLoading(competitionLoading || seriesLoading);
+
+    if (seriesData) {
+      setSeriesId(seriesData.id);
+      setSeriesName(seriesData.name);
+    } else if (competitionData?.series_id) {
+      setSeriesId(competitionData.series_id);
+      setSeriesName(competitionData.series_name);
+    } else {
+      setSeriesId(undefined);
+      setSeriesName(undefined);
+    }
+  }, [competitionData, seriesData, competitionLoading, seriesLoading]);
+
+  const closeMenu = () => setIsOpen(false);
+
+  const contextualLinks =
+    seriesId && seriesName
+      ? [
+          {
+            to: "/player/series/$serieId",
+            params: { serieId: seriesId.toString() },
+            label: "View Overview",
+            icon: LayoutDashboard,
+          },
+          {
+            to: "/player/series/$serieId/standings",
+            params: { serieId: seriesId.toString() },
+            label: "View Standings",
+            icon: Trophy,
+          },
+        ]
+      : [];
+
+  const generalLinks = [
     {
       to: "/player/competitions",
-      label: "Competitions",
-      icon: Trophy,
-      description: "Browse all competitions",
+      label: "All Competitions",
+      icon: List,
+    },
+    {
+      to: "/player/series",
+      label: "All Series",
+      icon: Award,
+    },
+    {
+      to: "/player",
+      label: "Home",
+      icon: Home,
     },
   ];
 
-  const closeMenu = () => setIsOpen(false);
+  const adminLinks = [
+    {
+      to: "/admin/series",
+      label: "Admin Panel",
+      icon: Settings,
+    },
+  ];
+
+  console.log("contextualLinks", contextualLinks);
+  console.log("generalLinks", generalLinks);
+  console.log("adminLinks", adminLinks);
+
+  const MenuSection = ({
+    title,
+    links,
+  }: {
+    title: string;
+    links: MenuLink[];
+  }) => (
+    <div className="py-2">
+      <div className="px-3 pb-2">
+        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          {title}
+        </h4>
+      </div>
+      <div className="space-y-1">
+        {links.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              params={item.params || {}}
+              onClick={closeMenu}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 font-['Inter']",
+                "hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-600",
+                "group"
+              )}
+            >
+              <Icon className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors duration-200" />
+              <span className="text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors duration-200">
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   return (
     <div className={cn("relative", className)}>
@@ -28,15 +159,15 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "p-2 rounded-xl transition-all duration-200 touch-manipulation font-['Inter']",
-          "hover:bg-rough focus:outline-2 focus:outline-offset-2 focus:outline-turf",
-          isOpen && "bg-rough"
+          "hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-600",
+          isOpen && "bg-green-50"
         )}
         aria-label="Menu"
       >
         {isOpen ? (
-          <X className="w-5 h-5 text-charcoal" />
+          <X className="w-5 h-5 text-gray-900" />
         ) : (
-          <Menu className="w-5 h-5 text-charcoal" />
+          <Menu className="w-5 h-5 text-gray-900" />
         )}
       </button>
 
@@ -44,52 +175,31 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-fairway/25 z-40 md:hidden"
-            onClick={closeMenu}
-          />
+          <div className="fixed inset-0 bg-black/25 z-40" onClick={closeMenu} />
 
           {/* Menu Content */}
           <div
             className={cn(
-              "absolute top-12 right-0 w-80 bg-scorecard rounded-xl shadow-[0_4px_16px_rgba(27,67,50,0.15)] border-2 border-soft-grey z-50",
+              "absolute top-12 right-0 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50",
               "md:w-96"
             )}
           >
             <div className="p-2">
-              <div className="px-3 py-2 border-b-2 border-soft-grey">
-                <h3 className="text-sm font-semibold text-charcoal font-['DM_Sans']">
-                  Navigation
-                </h3>
-              </div>
-
-              <nav className="mt-2 space-y-1">
-                {menuItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={closeMenu}
-                      className={cn(
-                        "flex items-start gap-3 px-3 py-3 rounded-xl transition-all duration-200 font-['Inter']",
-                        "hover:bg-rough focus:outline-2 focus:outline-offset-2 focus:outline-turf",
-                        "group"
-                      )}
-                    >
-                      <Icon className="w-5 h-5 text-soft-grey group-hover:text-turf mt-0.5 flex-shrink-0 transition-colors duration-200" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-charcoal group-hover:text-fairway transition-colors duration-200">
-                          {item.label}
-                        </div>
-                        <div className="text-xs text-soft-grey mt-0.5">
-                          {item.description}
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </nav>
+              {isLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+                </div>
+              ) : (
+                <nav className="divide-y divide-gray-200">
+                  {contextualLinks.length > 0 && (
+                    <MenuSection
+                      title={`Series: ${seriesName}`}
+                      links={contextualLinks}
+                    />
+                  )}
+                  <MenuSection title="Navigation" links={generalLinks} />
+                </nav>
+              )}
             </div>
           </div>
         </>
