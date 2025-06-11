@@ -1,6 +1,4 @@
-// API configuration that works in both development and production
-// In development: uses proxy to localhost:3000
-// In production: uses relative paths that work with reverse proxy
+// API configuration that works in development, production, and E2E testing
 
 export function getBasePath(): string {
   // In development, no base path needed
@@ -18,6 +16,12 @@ export function getBasePath(): string {
 }
 
 function getApiBaseUrl(): string {
+  // E2E Test Override: Check localStorage for a specific port set by Playwright
+  const e2eApiPort = window.localStorage.getItem("E2E_API_PORT");
+  if (e2eApiPort) {
+    return `http://localhost:${e2eApiPort}/api`;
+  }
+
   // In development, Vite's proxy handles /api requests
   if (import.meta.env.DEV) {
     return "/api";

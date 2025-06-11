@@ -9,8 +9,10 @@ import { AddDocumentsMigration } from "./migrations/007_add_documents";
 import { AddLandingDocumentToSeriesMigration } from "./migrations/008_add_landing_document_to_series";
 import { AddParticipantLockStatusMigration } from "./migrations/009_add_participant_lock_status";
 
-export function createDatabase(dbPath: string = "golf_series.db"): Database {
-  const db = new Database(dbPath);
+export function createDatabase(dbPath?: string): Database {
+  // Use environment variable or default path
+  const finalPath = dbPath || process.env.DATABASE_PATH || "golf_series.db";
+  const db = new Database(finalPath);
 
   // Enable foreign keys
   db.run("PRAGMA foreign_keys = ON");

@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:prod": "vite preview --base /golf-serie/",
-    "deploy": "npm run build && rm -rf ../frontend_dist/* && cp -r dist/* ../frontend_dist/"
+    "deploy": "npm run build && rm -rf ../frontend_dist/* && cp -r dist/* ../frontend_dist/",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
@@ -37,6 +38,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@playwright/test": "^1.53.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
