@@ -370,7 +370,11 @@ export default function CompetitionRound() {
 
   return (
     <div className="h-screen flex flex-col">
-      <CommonHeader title={competition.name}>
+      <CommonHeader
+        title={competition.name}
+        seriesId={competition.series_id}
+        seriesName={competition.series_name}
+      >
         <HamburgerMenu />
       </CommonHeader>
 

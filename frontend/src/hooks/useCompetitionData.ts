@@ -18,7 +18,7 @@ export function useCompetitionData({
   teeTimeId,
   selectedParticipantId,
 }: UseCompetitionDataProps) {
-  // Main competition data
+  // Main competition data - now returns EnhancedCompetition with series info
   const { data: competition, isLoading: competitionLoading } = useCompetition(
     competitionId ? parseInt(competitionId) : 0
   );

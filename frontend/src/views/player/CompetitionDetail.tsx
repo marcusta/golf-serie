@@ -30,6 +30,7 @@ import {
 } from "../../utils/pointCalculation";
 import { CommonHeader } from "../../components/navigation/CommonHeader";
 import { useSeriesTeams } from "../../api/series";
+import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -256,6 +257,14 @@ export default function CompetitionDetail() {
             </div>
           </div>
         </div>
+
+        {/* Conditionally render the SeriesLinkBanner */}
+        {competition?.series_id && competition.series_name && (
+          <SeriesLinkBanner
+            seriesId={competition.series_id}
+            seriesName={competition.series_name}
+          />
+        )}
 
         {/* Tabs with TapScore Styling */}
         <div className="border-b border-soft-grey">

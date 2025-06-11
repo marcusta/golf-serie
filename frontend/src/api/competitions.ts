@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
+import type { Series } from "./series";
 import type { TeeTimeParticipant } from "./tee-times";
 
 export interface Competition {
@@ -12,6 +13,11 @@ export interface Competition {
   created_at: string;
   updated_at: string;
   participant_count: number;
+}
+
+// Enhanced Competition interface
+export interface EnhancedCompetition extends Competition {
+  series_name?: string;
 }
 
 export interface LeaderboardEntry {
@@ -35,16 +41,34 @@ export function useCompetitions() {
 }
 
 export function useCompetition(competitionId: number) {
-  return useQuery<Competition>({
+  return useQuery<EnhancedCompetition>({
     queryKey: ["competition", competitionId],
     queryFn: async () => {
-      const response = await fetch(
+      const competitionResponse = await fetch(
         `${API_BASE_URL}/competitions/${competitionId}`
       );
-      if (!response.ok) {
+      if (!competitionResponse.ok) {
         throw new Error("Network response was not ok");
       }
-      return response.json();
+      const competition: Competition = await competitionResponse.json();
+
+      if (competition.series_id) {
+        try {
+          const seriesResponse = await fetch(
+            `${API_BASE_URL}/series/${competition.series_id}`
+          );
+          if (seriesResponse.ok) {
+            const series: Series = await seriesResponse.json();
+            return { ...competition, series_name: series.name };
+          }
+        } catch (error) {
+          console.error("Failed to fetch series details", error);
+          // Return competition data even if series fetch fails
+          return { ...competition, series_name: undefined };
+        }
+      }
+
+      return competition;
     },
     enabled: competitionId > 0,
   });

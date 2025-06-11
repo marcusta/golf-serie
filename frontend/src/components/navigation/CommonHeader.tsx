@@ -1,5 +1,6 @@
 import React from "react";
-import { ArrowLeft } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowLeft, Trophy } from "lucide-react";
 import TapScoreLogo from "../ui/TapScoreLogo";
 
 interface CommonHeaderProps {
@@ -8,6 +9,8 @@ interface CommonHeaderProps {
   onBackClick?: () => void;
   children?: React.ReactNode;
   className?: string;
+  seriesId?: number;
+  seriesName?: string;
 }
 
 export function CommonHeader({
@@ -16,6 +19,8 @@ export function CommonHeader({
   onBackClick,
   children,
   className = "",
+  seriesId,
+  seriesName,
 }: CommonHeaderProps) {
   const handleBackClick = () => {
     if (onBackClick) {
@@ -45,10 +50,21 @@ export function CommonHeader({
           {title && (
             <>
               <div className="w-px h-6 bg-scorecard/30" />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 flex items-center gap-2">
                 <h1 className="text-body-lg font-semibold text-scorecard font-display truncate">
                   {title}
                 </h1>
+                {/* Render series link if seriesId exists */}
+                {seriesId && (
+                  <Link
+                    to="/player/series/$serieId"
+                    params={{ serieId: seriesId.toString() }}
+                    title={`View Series: ${seriesName || ""}`}
+                    className="p-1.5 hover:bg-turf rounded-lg transition-colors flex-shrink-0"
+                  >
+                    <Trophy className="h-4 w-4 text-coral" />
+                  </Link>
+                )}
               </div>
             </>
           )}
