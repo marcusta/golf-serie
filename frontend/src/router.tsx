@@ -3,12 +3,13 @@ import {
   RootRoute,
   Route,
   Navigate,
+  lazyRouteComponent,
 } from "@tanstack/react-router";
 import App from "./App";
 import { getBasePath } from "./api/config";
+import { LoadingSpinner } from "./components/ui/LoadingSpinner";
 
-// Import Admin views
-import AdminLayout from "./views/admin/AdminLayout";
+// Import Admin views (keeping only non-lazy loaded ones)
 import AdminSeries from "./views/admin/Series";
 import AdminSeriesDetail from "./views/admin/SeriesDetail";
 import AdminTeams from "./views/admin/Teams";
@@ -17,7 +18,7 @@ import AdminCompetitions from "./views/admin/Competitions";
 import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 import AdminManualScoreEntry from "./views/admin/AdminManualScoreEntry";
 
-// Import Player views
+// Import Player views (keeping only non-lazy loaded ones)
 import PlayerLayout from "./views/player/PlayerLayout";
 import PlayerLanding from "./views/player/Landing";
 import PlayerStandings from "./views/player/Standings";
@@ -28,8 +29,6 @@ import SeriesDocuments from "./views/player/SeriesDocuments";
 import SeriesDocumentDetail from "./views/player/SeriesDocumentDetail";
 import SeriesStandings from "./views/player/SeriesStandings";
 import SeriesCompetitions from "./views/player/SeriesCompetitions";
-import CompetitionDetail from "./views/player/CompetitionDetail";
-import CompetitionRound from "./views/player/CompetitionRound";
 
 // Root route
 const rootRoute = new RootRoute({
@@ -40,7 +39,8 @@ const rootRoute = new RootRoute({
 const adminRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/admin",
-  component: AdminLayout,
+  pendingComponent: LoadingSpinner,
+  component: lazyRouteComponent(() => import("./views/admin/AdminLayout")),
 });
 
 const adminSeriesRoute = new Route({
@@ -150,13 +150,19 @@ const seriesCompetitionsRoute = new Route({
 const competitionDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId",
-  component: CompetitionDetail,
+  pendingComponent: LoadingSpinner,
+  component: lazyRouteComponent(
+    () => import("./views/player/CompetitionDetail")
+  ),
 });
 
 const teeTimeDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId/tee-times/$teeTimeId",
-  component: CompetitionRound,
+  pendingComponent: LoadingSpinner,
+  component: lazyRouteComponent(
+    () => import("./views/player/CompetitionRound")
+  ),
 });
 
 // Default redirect to player landing page
