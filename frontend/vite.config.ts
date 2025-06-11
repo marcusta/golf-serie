@@ -32,33 +32,5 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id: string) {
-            // Force the markdown editor and its heavy dependencies into a separate chunk.
-            // This chunk will only be loaded when the Admin section is loaded.
-            if (
-              id.includes("@uiw/react-md-editor") ||
-              id.includes("refractor")
-            ) {
-              return "markdown-editor";
-            }
-            // Create a chunk for tanstack libraries
-            if (id.includes("@tanstack")) {
-              return "vendor-tanstack";
-            }
-            // Create a chunk for core react libraries
-            if (
-              id.includes("react-dom") ||
-              id.includes("react-router-dom") ||
-              id.includes("react")
-            ) {
-              return "vendor-react";
-            }
-          },
-        },
-      },
-    },
   };
 });
