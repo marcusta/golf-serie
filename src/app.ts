@@ -323,9 +323,15 @@ export function createApp(db: Database): Hono {
     return await documentsApi.findBySeriesIdAndType(seriesId, type);
   });
 
-  // Static file serving - UPDATED WITH CACHING
+  // Static file serving - UPDATED WITH CACHING AND COMPRESSION
   app.get("*", async (c) => {
     const assetPath = new URL(c.req.url).pathname;
+
+    // Don't try to serve API routes as static files
+    if (assetPath.startsWith("/api/")) {
+      return c.text("Not Found", 404);
+    }
+
     const filePath = `frontend_dist${
       assetPath === "/" ? "/index.html" : assetPath
     }`;
@@ -333,6 +339,11 @@ export function createApp(db: Database): Hono {
     const file = Bun.file(filePath);
     if (await file.exists()) {
       const headers = new Headers();
+
+      // Check if client accepts gzip
+      const acceptEncoding = c.req.header("Accept-Encoding") || "";
+      const supportsGzip = acceptEncoding.includes("gzip");
+
       // Heuristic for mime type
       if (filePath.endsWith(".js"))
         headers.set("Content-Type", "application/javascript");
@@ -343,11 +354,14 @@ export function createApp(db: Database): Hono {
         headers.set("Content-Type", "image/jpeg");
       if (filePath.endsWith(".svg"))
         headers.set("Content-Type", "image/svg+xml");
-      // Add more mime types as needed for images, etc.
 
-      // Smart Caching Logic
-      if (assetPath.match(/assets\/.*\.[a-f0-9]{8}\./)) {
-        // Asset has a hash, cache it for a long time
+      // Smart Caching Logic - Updated regex to match Vite's hash patterns
+      if (
+        assetPath.match(
+          /assets\/.*-[a-zA-Z0-9_-]+\.(js|css|png|jpg|jpeg|svg|woff|woff2)$/
+        )
+      ) {
+        // Asset has a hash (Vite pattern: filename-HASH.ext), cache it for a long time
         headers.set("Cache-Control", "public, max-age=31536000, immutable");
       } else if (assetPath.endsWith("index.html")) {
         // index.html should always be re-validated
@@ -357,18 +371,52 @@ export function createApp(db: Database): Hono {
         headers.set("Cache-Control", "public, max-age=3600");
       }
 
+      // Apply gzip compression ONLY for text-based static files
+      if (
+        supportsGzip &&
+        (filePath.endsWith(".js") ||
+          filePath.endsWith(".css") ||
+          filePath.endsWith(".html") ||
+          filePath.endsWith(".svg"))
+      ) {
+        try {
+          const fileContent = await file.arrayBuffer();
+          const compressed = Bun.gzipSync(new Uint8Array(fileContent));
+          headers.set("Content-Encoding", "gzip");
+          headers.set("Content-Length", compressed.length.toString());
+          return new Response(compressed, { headers });
+        } catch (error) {
+          console.error("Compression failed for", assetPath, error);
+          // Fall back to uncompressed
+        }
+      }
+
       return new Response(file, { headers });
     }
 
-    // SPA Fallback: serve index.html for any other route
+    // SPA Fallback: serve index.html for any other route (but not API routes)
     const indexFile = Bun.file("frontend_dist/index.html");
     if (await indexFile.exists()) {
-      return new Response(indexFile, {
-        headers: {
-          "Content-Type": "text/html",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
+      const headers = new Headers({
+        "Content-Type": "text/html",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
       });
+
+      // Compress index.html if client supports it
+      const acceptEncoding = c.req.header("Accept-Encoding") || "";
+      if (acceptEncoding.includes("gzip")) {
+        try {
+          const fileContent = await indexFile.arrayBuffer();
+          const compressed = Bun.gzipSync(new Uint8Array(fileContent));
+          headers.set("Content-Encoding", "gzip");
+          headers.set("Content-Length", compressed.length.toString());
+          return new Response(compressed, { headers });
+        } catch (error) {
+          console.error("Compression failed for index.html", error);
+        }
+      }
+
+      return new Response(indexFile, { headers });
     }
 
     return c.text("Not Found", 404);

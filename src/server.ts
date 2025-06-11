@@ -8,7 +8,6 @@ const app = createApp(db);
 const server = Bun.serve({
   port: process.env.PORT || 3010,
   fetch: app.fetch,
-  compress: "gzip",
-} as any);
+});
 
 console.log(`Server running on port ${server.port}`);
