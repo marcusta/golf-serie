@@ -323,48 +323,55 @@ export function createApp(db: Database): Hono {
     return await documentsApi.findBySeriesIdAndType(seriesId, type);
   });
 
-  // Static file serving - fallback for frontend
+  // Static file serving - UPDATED WITH CACHING
   app.get("*", async (c) => {
-    const pathname = new URL(c.req.url).pathname;
-    console.log("Serving static file for:", pathname);
+    const assetPath = new URL(c.req.url).pathname;
+    const filePath = `frontend_dist${
+      assetPath === "/" ? "/index.html" : assetPath
+    }`;
 
-    try {
-      let filePath = pathname === "/" ? "/index.html" : pathname;
-      const fullPath = `frontend_dist${filePath}`;
+    const file = Bun.file(filePath);
+    if (await file.exists()) {
+      const headers = new Headers();
+      // Heuristic for mime type
+      if (filePath.endsWith(".js"))
+        headers.set("Content-Type", "application/javascript");
+      if (filePath.endsWith(".css")) headers.set("Content-Type", "text/css");
+      if (filePath.endsWith(".html")) headers.set("Content-Type", "text/html");
+      if (filePath.endsWith(".png")) headers.set("Content-Type", "image/png");
+      if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg"))
+        headers.set("Content-Type", "image/jpeg");
+      if (filePath.endsWith(".svg"))
+        headers.set("Content-Type", "image/svg+xml");
+      // Add more mime types as needed for images, etc.
 
-      const file = Bun.file(fullPath);
-      if (file.size > 0 || filePath === "/index.html") {
-        const mimeType = filePath.endsWith(".js")
-          ? "application/javascript"
-          : filePath.endsWith(".css")
-          ? "text/css"
-          : filePath.endsWith(".html")
-          ? "text/html"
-          : filePath.endsWith(".png")
-          ? "image/png"
-          : filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")
-          ? "image/jpeg"
-          : filePath.endsWith(".svg")
-          ? "image/svg+xml"
-          : "text/plain";
-
-        return new Response(file, {
-          headers: { "Content-Type": mimeType },
-        });
+      // Smart Caching Logic
+      if (assetPath.match(/assets\/.*\.[a-f0-9]{8}\./)) {
+        // Asset has a hash, cache it for a long time
+        headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      } else if (assetPath.endsWith("index.html")) {
+        // index.html should always be re-validated
+        headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      } else {
+        // Other files can be cached for a short time
+        headers.set("Cache-Control", "public, max-age=3600");
       }
-    } catch (error) {
-      console.log("File not found:", error);
+
+      return new Response(file, { headers });
     }
 
-    // For SPA routes, serve index.html
-    try {
-      const indexFile = Bun.file("frontend_dist/index.html");
+    // SPA Fallback: serve index.html for any other route
+    const indexFile = Bun.file("frontend_dist/index.html");
+    if (await indexFile.exists()) {
       return new Response(indexFile, {
-        headers: { "Content-Type": "text/html" },
+        headers: {
+          "Content-Type": "text/html",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
       });
-    } catch (error) {
-      return c.text("Not Found", 404);
     }
+
+    return c.text("Not Found", 404);
   });
 
   return app;
