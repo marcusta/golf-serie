@@ -244,5 +244,49 @@ export function createParticipantsApi(participantService: ParticipantService) {
         );
       }
     },
+
+    async updateManualScore(req: Request, id: number): Promise<Response> {
+      try {
+        const data = (await req.json()) as {
+          out?: number;
+          in?: number;
+          total: number;
+        };
+
+        if (data.total === undefined) {
+          return new Response(
+            JSON.stringify({ error: "Total score is required" }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        const participant = await participantService.updateManualScore(
+          id,
+          data
+        );
+        return new Response(JSON.stringify(participant), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message === "Participant not found" ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
   };
 }

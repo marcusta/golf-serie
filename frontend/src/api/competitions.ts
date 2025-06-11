@@ -8,6 +8,7 @@ export interface Competition {
   date: string;
   course_id: number;
   series_id?: number;
+  manual_entry_format?: "out_in_total" | "total_only";
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -70,6 +71,7 @@ export interface CreateCompetitionDto {
   date: string;
   course_id: number;
   series_id?: number;
+  manual_entry_format?: "out_in_total" | "total_only";
 }
 
 export interface UpdateCompetitionDto {
@@ -77,6 +79,7 @@ export interface UpdateCompetitionDto {
   date?: string;
   course_id?: number;
   series_id?: number;
+  manual_entry_format?: "out_in_total" | "total_only";
 }
 
 // Note: These mutation hooks will be added when needed for admin functionality

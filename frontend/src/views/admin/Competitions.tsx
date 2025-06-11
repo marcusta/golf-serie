@@ -16,6 +16,7 @@ import {
   Clock,
   Award,
   ArrowLeft,
+  ClipboardEdit,
 } from "lucide-react";
 import { Link, useSearch } from "@tanstack/react-router";
 
@@ -46,6 +47,7 @@ export default function AdminCompetitions() {
     date: "",
     course_id: "",
     series_id: seriesFilter?.toString() || "",
+    manual_entry_format: "out_in_total" as "out_in_total" | "total_only",
   });
 
   if (isLoading) return <div>Loading competitions...</div>;
@@ -58,6 +60,7 @@ export default function AdminCompetitions() {
       date: competition.date,
       course_id: competition.course_id.toString(),
       series_id: competition.series_id?.toString() || "",
+      manual_entry_format: competition.manual_entry_format || "out_in_total",
     });
     setShowForm(true);
   };
@@ -81,6 +84,7 @@ export default function AdminCompetitions() {
       date: formData.date,
       course_id: parseInt(formData.course_id),
       series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
+      manual_entry_format: formData.manual_entry_format,
     };
 
     const onSuccess = () => {
@@ -90,6 +94,7 @@ export default function AdminCompetitions() {
         date: "",
         course_id: "",
         series_id: seriesFilter?.toString() || "",
+        manual_entry_format: "out_in_total" as "out_in_total" | "total_only",
       });
       setShowForm(false);
       setEditingCompetition(null);
@@ -155,6 +160,9 @@ export default function AdminCompetitions() {
               date: "",
               course_id: "",
               series_id: seriesFilter?.toString() || "",
+              manual_entry_format: "out_in_total" as
+                | "out_in_total"
+                | "total_only",
             });
             setShowForm(true);
           }}
@@ -238,6 +246,20 @@ export default function AdminCompetitions() {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Manual Entry Format
+              </label>
+              <select
+                name="manual_entry_format"
+                value={formData.manual_entry_format}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="out_in_total">Out, In, and Total</option>
+                <option value="total_only">Total Score Only</option>
+              </select>
+            </div>
             <div className="flex items-end gap-2">
               <button
                 type="submit"
@@ -262,6 +284,9 @@ export default function AdminCompetitions() {
                     date: "",
                     course_id: "",
                     series_id: seriesFilter?.toString() || "",
+                    manual_entry_format: "out_in_total" as
+                      | "out_in_total"
+                      | "total_only",
                   });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
@@ -332,6 +357,13 @@ export default function AdminCompetitions() {
                         title="Manage tee times"
                       >
                         <Clock className="h-4 w-4" />
+                      </Link>
+                      <Link
+                        to={`/admin/competitions/${competition.id}/manual-scores`}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Manual score entry"
+                      >
+                        <ClipboardEdit className="h-4 w-4" />
                       </Link>
                       <button
                         onClick={() => handleEdit(competition)}

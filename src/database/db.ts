@@ -8,6 +8,8 @@ import { SeriesTeamsJunctionMigration } from "./migrations/006_series_teams_junc
 import { AddDocumentsMigration } from "./migrations/007_add_documents";
 import { AddLandingDocumentToSeriesMigration } from "./migrations/008_add_landing_document_to_series";
 import { AddParticipantLockStatusMigration } from "./migrations/009_add_participant_lock_status";
+import { AddManualScoresToParticipantsMigration } from "./migrations/010_add_manual_scores_to_participants";
+import { AddManualEntryFormatToCompetitions } from "./migrations/011_add_manual_entry_format_to_competitions";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -47,6 +49,8 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddDocumentsMigration(db),
     new AddLandingDocumentToSeriesMigration(db),
     new AddParticipantLockStatusMigration(db),
+    new AddManualScoresToParticipantsMigration(db),
+    new AddManualEntryFormatToCompetitions(db),
   ];
 
   // Apply pending migrations

@@ -37,6 +37,7 @@ export interface Competition {
   date: string;
   course_id: number;
   series_id?: number;
+  manual_entry_format?: "out_in_total" | "total_only";
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +99,7 @@ export interface CreateCompetitionDto {
   date: string;
   course_id: number;
   series_id?: number;
+  manual_entry_format?: "out_in_total" | "total_only";
 }
 
 export interface UpdateCompetitionDto {
@@ -105,6 +107,7 @@ export interface UpdateCompetitionDto {
   date?: string;
   course_id?: number;
   series_id?: number;
+  manual_entry_format?: "out_in_total" | "total_only";
 }
 
 export interface TeeTime {
@@ -136,6 +139,9 @@ export interface Participant {
   score: number[];
   is_locked: boolean;
   locked_at?: string;
+  manual_score_out?: number;
+  manual_score_in?: number;
+  manual_score_total?: number;
   created_at: string;
   updated_at: string;
 }

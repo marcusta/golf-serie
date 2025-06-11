@@ -657,4 +657,342 @@ describe("Participant API", () => {
       expect(participants[0].locked_at).toBeNull();
     });
   });
+
+  describe("PUT /api/participants/:id/manual-score", () => {
+    test("should update manual scores for a participant", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+        player_names: "John Doe",
+      });
+      const created = await createResponse.json();
+
+      const manualScoreData = {
+        out: 40,
+        in: 41,
+        total: 81,
+      };
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/manual-score`,
+        "PUT",
+        manualScoreData
+      );
+      expect(response.status).toBe(200);
+
+      const participant = await expectJsonResponse(response);
+      expect(participant.manual_score_out).toBe(40);
+      expect(participant.manual_score_in).toBe(41);
+      expect(participant.manual_score_total).toBe(81);
+    });
+
+    test("should validate required fields", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/manual-score`,
+        "PUT",
+        {
+          out: 40,
+          in: 41,
+          // total missing
+        }
+      );
+      expectErrorResponse(response, 400);
+    });
+
+    test("should validate non-negative integers", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/manual-score`,
+        "PUT",
+        {
+          out: -5,
+          in: 41,
+          total: 81,
+        }
+      );
+      expectErrorResponse(response, 400);
+
+      const errorResponse = await response.json();
+      expect(errorResponse.error).toBe(
+        "Out score must be a non-negative integer or null to clear"
+      );
+    });
+
+    test("should validate that scores are integers", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/manual-score`,
+        "PUT",
+        {
+          out: 40.5,
+          in: 41,
+          total: 81,
+        }
+      );
+      expectErrorResponse(response, 400);
+    });
+
+    test("should return 404 for non-existent participant", async () => {
+      const response = await makeRequest(
+        "/api/participants/999/manual-score",
+        "PUT",
+        {
+          out: 40,
+          in: 41,
+          total: 81,
+        }
+      );
+      expectErrorResponse(response, 404);
+    });
+
+    test("should update existing manual scores", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      // Set initial manual scores
+      await makeRequest(`/api/participants/${created.id}/manual-score`, "PUT", {
+        out: 40,
+        in: 41,
+        total: 81,
+      });
+
+      // Update with new scores
+      const response = await makeRequest(
+        `/api/participants/${created.id}/manual-score`,
+        "PUT",
+        {
+          out: 38,
+          in: 39,
+          total: 77,
+        }
+      );
+      expect(response.status).toBe(200);
+
+      const participant = await expectJsonResponse(response);
+      expect(participant.manual_score_out).toBe(38);
+      expect(participant.manual_score_in).toBe(39);
+      expect(participant.manual_score_total).toBe(77);
+    });
+
+    test("should include manual scores in participant responses", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      // Set manual scores
+      await makeRequest(`/api/participants/${created.id}/manual-score`, "PUT", {
+        out: 40,
+        in: 41,
+        total: 81,
+      });
+
+      // Check GET by ID includes manual scores
+      const getResponse = await makeRequest(`/api/participants/${created.id}`);
+      const participant = await expectJsonResponse(getResponse);
+      expect(participant.manual_score_out).toBe(40);
+      expect(participant.manual_score_in).toBe(41);
+      expect(participant.manual_score_total).toBe(81);
+    });
+
+    test("should include team name in manual score response", async () => {
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Captain",
+      });
+      const created = await createResponse.json();
+
+      // Set manual scores
+      const updateResponse = await makeRequest(
+        `/api/participants/${created.id}/manual-score`,
+        "PUT",
+        {
+          out: 40,
+          in: 41,
+          total: 81,
+        }
+      );
+      const updated = await expectJsonResponse(updateResponse);
+
+      // Verify team name is included
+      expect(updated.team_name).toBe("Test Team");
+    });
+
+    test("should update manual scores with only total (for total_only mode)", async () => {
+      const courseResponse = await makeRequest("/api/courses", "POST", {
+        name: "Test Course",
+        description: "Test course for total only",
+      });
+      const course = await expectJsonResponse(courseResponse);
+
+      await makeRequest(`/api/courses/${course.id}/holes`, "PUT", {
+        holes: [{ number: 1, par: 4 }],
+      });
+
+      const teamResponse = await makeRequest("/api/teams", "POST", {
+        name: "Test Team Total Only",
+      });
+      const team = await expectJsonResponse(teamResponse);
+
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Test Competition Total Only",
+          date: "2024-01-15",
+          course_id: course.id,
+        }
+      );
+      const competition = await expectJsonResponse(competitionResponse);
+
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        {
+          teetime: "10:00",
+        }
+      );
+      const teeTime = await expectJsonResponse(teeTimeResponse);
+
+      const participantResponse = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          team_id: team.id,
+          tee_time_id: teeTime.id,
+          position_name: "Total Test Player",
+        }
+      );
+      const participant = await expectJsonResponse(participantResponse);
+
+      // Update with total only
+      const updateResponse = await makeRequest(
+        `/api/participants/${participant.id}/manual-score`,
+        "PUT",
+        {
+          total: 85,
+        }
+      );
+      expect(updateResponse.status).toBe(200);
+
+      const updated = await expectJsonResponse(updateResponse);
+      expect(updated.manual_score_total).toBe(85);
+      expect(updated.manual_score_out).toBeNull();
+      expect(updated.manual_score_in).toBeNull();
+    });
+
+    test("should clear manual scores when set to null", async () => {
+      const courseResponse = await makeRequest("/api/courses", "POST", {
+        name: "Test Course Clear",
+        description: "Test course for clearing scores",
+      });
+      const course = await expectJsonResponse(courseResponse);
+
+      await makeRequest(`/api/courses/${course.id}/holes`, "PUT", {
+        holes: [{ number: 1, par: 4 }],
+      });
+
+      const teamResponse = await makeRequest("/api/teams", "POST", {
+        name: "Test Team Clear",
+      });
+      const team = await expectJsonResponse(teamResponse);
+
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Test Competition Clear",
+          date: "2024-01-15",
+          course_id: course.id,
+        }
+      );
+      const competition = await expectJsonResponse(competitionResponse);
+
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        {
+          teetime: "10:00",
+        }
+      );
+      const teeTime = await expectJsonResponse(teeTimeResponse);
+
+      const participantResponse = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          team_id: team.id,
+          tee_time_id: teeTime.id,
+          position_name: "Clear Test Player",
+        }
+      );
+      expect(participantResponse.status).toBe(201);
+      const participant = await expectJsonResponse(participantResponse);
+
+      // First, set some manual scores
+      const setResponse = await makeRequest(
+        `/api/participants/${participant.id}/manual-score`,
+        "PUT",
+        {
+          out: 40,
+          in: 45,
+          total: 85,
+        }
+      );
+      expect(setResponse.status).toBe(200);
+
+      // Then clear them
+      const clearResponse = await makeRequest(
+        `/api/participants/${participant.id}/manual-score`,
+        "PUT",
+        {
+          out: null,
+          in: null,
+          total: null,
+        }
+      );
+      expect(clearResponse.status).toBe(200);
+
+      const cleared = await expectJsonResponse(clearResponse);
+      expect(cleared.manual_score_out).toBeNull();
+      expect(cleared.manual_score_in).toBeNull();
+      expect(cleared.manual_score_total).toBeNull();
+    });
+  });
 });

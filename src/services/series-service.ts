@@ -306,6 +306,23 @@ export class SeriesService {
         competition.id
       );
 
+      // Check if competition should be included in standings
+      const competitionDate = new Date(competition.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+      competitionDate.setHours(0, 0, 0, 0);
+
+      const isPastCompetition = competitionDate < today;
+      const hasAnyScores = teamResults.some((team) => team.totalShots > 0);
+
+      // Include competition if:
+      // 1. It's a past competition (always include regardless of scores), OR
+      // 2. It's a current/future competition AND has at least one score reported
+      if (!isPastCompetition && !hasAnyScores) {
+        // Skip future competitions with no scores
+        continue;
+      }
+
       for (const teamResult of teamResults) {
         if (!teamStandings[teamResult.team_id]) {
           teamStandings[teamResult.team_id] = {
@@ -371,31 +388,57 @@ export class SeriesService {
 
     // Calculate individual scores
     const participantScores = participants.map((participant) => {
-      const scores = JSON.parse(participant.score || "[]");
-      let totalShots = 0;
-      let totalPlayedPar = 0;
-      let holesPlayed = 0;
-      const hasGaveUp = scores.some((score: number) => score === -1);
+      // Check if participant has manual scores
+      if (
+        participant.manual_score_total !== null &&
+        participant.manual_score_total !== undefined
+      ) {
+        // Use manual scores
+        const totalShots = participant.manual_score_total;
+        const holesPlayed = 18; // Manual scores represent a full round
 
-      if (!hasGaveUp) {
-        for (let i = 0; i < Math.min(scores.length, coursePars.length); i++) {
-          const score = scores[i];
-          const par = coursePars[i];
-          if (score && score > 0) {
-            totalShots += score;
-            totalPlayedPar += par;
-            holesPlayed++;
+        // Calculate relative to par based on manual total
+        const totalPar = coursePars.reduce(
+          (sum: number, par: number) => sum + par,
+          0
+        );
+        const relativeToPar = totalShots - totalPar;
+
+        return {
+          participant,
+          totalShots,
+          relativeToPar,
+          holesPlayed,
+          isValidRound: true,
+        };
+      } else {
+        // Use existing logic for hole-by-hole scores
+        const scores = JSON.parse(participant.score || "[]");
+        let totalShots = 0;
+        let totalPlayedPar = 0;
+        let holesPlayed = 0;
+        const hasGaveUp = scores.some((score: number) => score === -1);
+
+        if (!hasGaveUp) {
+          for (let i = 0; i < Math.min(scores.length, coursePars.length); i++) {
+            const score = scores[i];
+            const par = coursePars[i];
+            if (score && score > 0) {
+              totalShots += score;
+              totalPlayedPar += par;
+              holesPlayed++;
+            }
           }
         }
-      }
 
-      return {
-        participant,
-        totalShots: hasGaveUp ? 0 : totalShots,
-        relativeToPar: hasGaveUp ? 0 : totalShots - totalPlayedPar,
-        holesPlayed: hasGaveUp ? 0 : holesPlayed,
-        isValidRound: !hasGaveUp,
-      };
+        return {
+          participant,
+          totalShots: hasGaveUp ? 0 : totalShots,
+          relativeToPar: hasGaveUp ? 0 : totalShots - totalPlayedPar,
+          holesPlayed: hasGaveUp ? 0 : holesPlayed,
+          isValidRound: !hasGaveUp,
+        };
+      }
     });
 
     // Group by team and calculate team totals
@@ -426,9 +469,48 @@ export class SeriesService {
       teamGroups[teamName].relativeToPar += entry.relativeToPar;
     });
 
-    // Sort teams by relativeToPar and assign points
+    // Sort teams by relativeToPar, total shots, and lowest individual score
     return Object.values(teamGroups)
-      .sort((a, b) => a.relativeToPar - b.relativeToPar)
+      .sort((a, b) => {
+        // Primary: lowest relativeToPar
+        if (a.relativeToPar !== b.relativeToPar) {
+          return a.relativeToPar - b.relativeToPar;
+        }
+
+        // Secondary: lowest total shots
+        if (a.totalShots !== b.totalShots) {
+          return a.totalShots - b.totalShots;
+        }
+
+        // Tertiary: compare individual scores (lowest first, then second lowest only if needed, etc.)
+        const aScores = a.participants
+          .map((p: any) => p.totalShots)
+          .filter((score: number) => score > 0)
+          .sort((x: number, y: number) => x - y);
+        const bScores = b.participants
+          .map((p: any) => p.totalShots)
+          .filter((score: number) => score > 0)
+          .sort((x: number, y: number) => x - y);
+
+        // Handle case where no valid scores exist (shouldn't happen in practice)
+        if (aScores.length === 0) return 1;
+        if (bScores.length === 0) return -1;
+
+        // Compare scores one by one, but only continue if tied
+        const maxLength = Math.max(aScores.length, bScores.length);
+        for (let i = 0; i < maxLength; i++) {
+          const aScore = aScores[i] || Infinity; // If team has fewer participants, treat as worst possible score
+          const bScore = bScores[i] || Infinity;
+
+          if (aScore !== bScore) {
+            return aScore - bScore; // Exit immediately when we find a difference
+          }
+          // Only continue to next score if current scores are tied
+        }
+
+        // All scores are identical
+        return 0;
+      })
       .map((team, index, array) => {
         const position = index + 1;
         let points = array.length - position + 1; // Base points (last place gets 1 point)

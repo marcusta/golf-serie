@@ -191,6 +191,11 @@ export function createApp(db: Database): Hono {
     return await participantsApi.updateScore(c.req.raw, id);
   });
 
+  app.put("/api/participants/:id/manual-score", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await participantsApi.updateManualScore(c.req.raw, id);
+  });
+
   app.post("/api/participants/:id/lock", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await participantsApi.lock(c.req.raw, id);

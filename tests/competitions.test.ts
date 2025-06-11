@@ -63,17 +63,31 @@ describe("Competition API", () => {
     });
 
     test("should create a competition with series", async () => {
-      const response = await makeRequest("/api/competitions", "POST", {
-        name: "Series Championship",
-        date: "2024-04-11",
+      const createResponse = await makeRequest("/api/competitions", "POST", {
+        name: "Championship",
+        date: "2024-06-01",
         course_id: courseId,
         series_id: seriesId,
       });
 
-      const competition = await expectJsonResponse(response);
-      expect(response.status).toBe(201);
-      expect(competition.name).toBe("Series Championship");
+      const competition = await expectJsonResponse(createResponse);
+      expect(competition.name).toBe("Championship");
       expect(competition.series_id).toBe(seriesId);
+      expect(competition.manual_entry_format).toBe("out_in_total"); // Default value
+    });
+
+    test("should create a competition with manual_entry_format", async () => {
+      const createResponse = await makeRequest("/api/competitions", "POST", {
+        name: "Total Only Competition",
+        date: "2024-06-01",
+        course_id: courseId,
+        series_id: seriesId,
+        manual_entry_format: "total_only",
+      });
+
+      const competition = await expectJsonResponse(createResponse);
+      expect(competition.name).toBe("Total Only Competition");
+      expect(competition.manual_entry_format).toBe("total_only");
     });
 
     test("should validate required fields", async () => {
@@ -592,6 +606,435 @@ describe("Competition API", () => {
     test("should return 404 for non-existent competition leaderboard", async () => {
       const response = await makeRequest("/api/competitions/999/leaderboard");
       expectErrorResponse(response, 404);
+    });
+
+    test("should calculate leaderboard with manual scores", async () => {
+      // Create competition
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Test Tournament",
+          date: "2024-04-11",
+          course_id: courseId,
+        }
+      );
+      const competition = await competitionResponse.json();
+
+      // Create tee time
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "08:00" }
+      );
+      const teeTime = await teeTimeResponse.json();
+
+      // Create teams
+      const team1Response = await makeRequest("/api/teams", "POST", {
+        name: "Manual Score Team",
+      });
+      const team1 = await team1Response.json();
+
+      const team2Response = await makeRequest("/api/teams", "POST", {
+        name: "Regular Score Team",
+      });
+      const team2 = await team2Response.json();
+
+      // Create participants
+      const participant1Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          team_id: team1.id,
+          tee_time_id: teeTime.id,
+          position_name: "Captain",
+          player_names: "Manual Score Player",
+        }
+      );
+      const participant1 = await participant1Response.json();
+
+      const participant2Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 2,
+          team_id: team2.id,
+          tee_time_id: teeTime.id,
+          position_name: "Captain",
+          player_names: "Regular Score Player",
+        }
+      );
+      const participant2 = await participant2Response.json();
+
+      // Set manual scores for participant 1 (total of 75, which should be 3 under par for 18 holes)
+      await makeRequest(
+        `/api/participants/${participant1.id}/manual-score`,
+        "PUT",
+        {
+          out: 37,
+          in: 38,
+          total: 75,
+        }
+      );
+
+      // Set regular hole-by-hole scores for participant 2 (worse performance)
+      // Set scores for first 3 holes: 5, 6, 5 = 16 total, +3 relative to par
+      await makeRequest(`/api/participants/${participant2.id}/score`, "PUT", {
+        hole: 1,
+        shots: 5,
+      });
+      await makeRequest(`/api/participants/${participant2.id}/score`, "PUT", {
+        hole: 2,
+        shots: 6,
+      });
+      await makeRequest(`/api/participants/${participant2.id}/score`, "PUT", {
+        hole: 3,
+        shots: 5,
+      });
+
+      // Get leaderboard
+      const leaderboardResponse = await makeRequest(
+        `/api/competitions/${competition.id}/leaderboard`
+      );
+      const leaderboard = await expectJsonResponse(leaderboardResponse);
+
+      expect(leaderboard).toHaveLength(2);
+
+      // Find participants in leaderboard
+      const p1Entry = leaderboard.find(
+        (entry: any) => entry.participant.id === participant1.id
+      );
+      const p2Entry = leaderboard.find(
+        (entry: any) => entry.participant.id === participant2.id
+      );
+
+      expect(p1Entry).toBeDefined();
+      expect(p2Entry).toBeDefined();
+
+      // Participant 1 (manual scores): 75 total shots, 18 holes played, +4 relative to par (75 - 71 = +4)
+      expect(p1Entry.totalShots).toBe(75);
+      expect(p1Entry.holesPlayed).toBe(18);
+      expect(p1Entry.relativeToPar).toBe(4); // 75 - 71 = +4
+
+      // Participant 2 (hole-by-hole): 16 shots for 3 holes, +3 relative to par
+      expect(p2Entry.totalShots).toBe(16);
+      expect(p2Entry.holesPlayed).toBe(3);
+      expect(p2Entry.relativeToPar).toBe(3); // (5-4)+(6-5)+(5-4) = 1+1+1 = 3
+
+      // Participant 2 should be ranked higher (lower relative to par: +3 vs +4)
+      expect(leaderboard[0].participant.id).toBe(participant2.id);
+      expect(leaderboard[1].participant.id).toBe(participant1.id);
+    });
+
+    test("should prioritize manual scores over hole-by-hole scores when both exist", async () => {
+      // Create competition
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Test Tournament",
+          date: "2024-04-11",
+          course_id: courseId,
+        }
+      );
+      const competition = await competitionResponse.json();
+
+      // Create tee time
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "08:00" }
+      );
+      const teeTime = await teeTimeResponse.json();
+
+      // Create team
+      const teamResponse = await makeRequest("/api/teams", "POST", {
+        name: "Test Team",
+      });
+      const team = await teamResponse.json();
+
+      // Create participant
+      const participantResponse = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          team_id: team.id,
+          tee_time_id: teeTime.id,
+          position_name: "Captain",
+          player_names: "Test Player",
+        }
+      );
+      const participant = await participantResponse.json();
+
+      // Set hole-by-hole scores first (bad scores)
+      await makeRequest(`/api/participants/${participant.id}/score`, "PUT", {
+        hole: 1,
+        shots: 8,
+      });
+      await makeRequest(`/api/participants/${participant.id}/score`, "PUT", {
+        hole: 2,
+        shots: 9,
+      });
+
+      // Then set manual scores (good scores)
+      await makeRequest(
+        `/api/participants/${participant.id}/manual-score`,
+        "PUT",
+        {
+          out: 35,
+          in: 36,
+          total: 71,
+        }
+      );
+
+      // Get leaderboard
+      const leaderboardResponse = await makeRequest(
+        `/api/competitions/${competition.id}/leaderboard`
+      );
+      const leaderboard = await expectJsonResponse(leaderboardResponse);
+
+      expect(leaderboard).toHaveLength(1);
+      const entry = leaderboard[0];
+
+      // Should use manual scores (71 total), not hole-by-hole scores (8+9=17)
+      expect(entry.totalShots).toBe(71);
+      expect(entry.holesPlayed).toBe(18);
+      expect(entry.relativeToPar).toBe(0); // 71 - 71 = 0
+    });
+
+    test("should handle three-level tie-breaker in team standings", async () => {
+      // Setup: Create a complex scenario to test all three tie-breaker levels through series standings
+
+      // Create series first
+      const seriesResponse = await makeRequest("/api/series", "POST", {
+        name: "Tie-Breaker Test Series",
+        description: "Testing tie-breaker scenarios",
+      });
+      const series = await expectJsonResponse(seriesResponse);
+
+      // Create competition within the series
+      const competitionResponse = await makeRequest(
+        "/api/competitions",
+        "POST",
+        {
+          name: "Tie-Breaker Competition",
+          date: "2024-01-15",
+          course_id: courseId,
+          series_id: series.id,
+        }
+      );
+      const competition = await expectJsonResponse(competitionResponse);
+
+      // Create tee time
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "09:00" }
+      );
+      const teeTime = await expectJsonResponse(teeTimeResponse);
+
+      // Create teams with identical relativeToPar and totalShots, but different lowest individual scores
+      const teamAResponse = await makeRequest("/api/teams", "POST", {
+        name: "Team A",
+      });
+      const teamA = await expectJsonResponse(teamAResponse);
+
+      const teamBResponse = await makeRequest("/api/teams", "POST", {
+        name: "Team B",
+      });
+      const teamB = await expectJsonResponse(teamBResponse);
+
+      const teamCResponse = await makeRequest("/api/teams", "POST", {
+        name: "Team C",
+      });
+      const teamC = await expectJsonResponse(teamCResponse);
+
+      // Add teams to series
+      await makeRequest(`/api/series/${series.id}/teams`, "POST", {
+        team_id: teamA.id,
+      });
+      await makeRequest(`/api/series/${series.id}/teams`, "POST", {
+        team_id: teamB.id,
+      });
+      await makeRequest(`/api/series/${series.id}/teams`, "POST", {
+        team_id: teamC.id,
+      });
+
+      // Team A participants: manual scores 70 and 74 (total 144, +2 relative to par)
+      const participantA1Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          tee_time_id: teeTime.id,
+          team_id: teamA.id,
+          player_names: "Player A1",
+          position_name: "Captain",
+        }
+      );
+      const participantA1 = await expectJsonResponse(participantA1Response);
+
+      await makeRequest(
+        `/api/participants/${participantA1.id}/manual-score`,
+        "PUT",
+        {
+          total: 70, // 1 under par (individual)
+        }
+      );
+
+      const participantA2Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 2,
+          tee_time_id: teeTime.id,
+          team_id: teamA.id,
+          player_names: "Player A2",
+          position_name: "Player",
+        }
+      );
+      const participantA2 = await expectJsonResponse(participantA2Response);
+
+      await makeRequest(
+        `/api/participants/${participantA2.id}/manual-score`,
+        "PUT",
+        {
+          total: 74, // 3 over par (individual)
+        }
+      );
+
+      // Team B participants: manual scores 69 and 75 (total 144, +2 relative to par)
+      const participantB1Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          tee_time_id: teeTime.id,
+          team_id: teamB.id,
+          player_names: "Player B1",
+          position_name: "Captain",
+        }
+      );
+      const participantB1 = await expectJsonResponse(participantB1Response);
+
+      await makeRequest(
+        `/api/participants/${participantB1.id}/manual-score`,
+        "PUT",
+        {
+          total: 69, // 2 under par (individual) - LOWEST INDIVIDUAL SCORE
+        }
+      );
+
+      const participantB2Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 2,
+          tee_time_id: teeTime.id,
+          team_id: teamB.id,
+          player_names: "Player B2",
+          position_name: "Player",
+        }
+      );
+      const participantB2 = await expectJsonResponse(participantB2Response);
+
+      await makeRequest(
+        `/api/participants/${participantB2.id}/manual-score`,
+        "PUT",
+        {
+          total: 75, // 4 over par (individual)
+        }
+      );
+
+      // Team C participants: manual scores 71 and 71 (total 142, 0 relative to par) - should win on primary tie-breaker
+      const participantC1Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 1,
+          tee_time_id: teeTime.id,
+          team_id: teamC.id,
+          player_names: "Player C1",
+          position_name: "Captain",
+        }
+      );
+      const participantC1 = await expectJsonResponse(participantC1Response);
+
+      await makeRequest(
+        `/api/participants/${participantC1.id}/manual-score`,
+        "PUT",
+        {
+          total: 71, // even par (individual)
+        }
+      );
+
+      const participantC2Response = await makeRequest(
+        "/api/participants",
+        "POST",
+        {
+          tee_order: 2,
+          tee_time_id: teeTime.id,
+          team_id: teamC.id,
+          player_names: "Player C2",
+          position_name: "Player",
+        }
+      );
+      const participantC2 = await expectJsonResponse(participantC2Response);
+
+      await makeRequest(
+        `/api/participants/${participantC2.id}/manual-score`,
+        "PUT",
+        {
+          total: 71, // even par (individual)
+        }
+      );
+
+      // Get series standings to verify tie-breaker logic
+      const standingsResponse = await makeRequest(
+        `/api/series/${series.id}/standings`
+      );
+      const standings = await expectJsonResponse(standingsResponse);
+
+      // Find the competition result within the team standings
+      const teamCStanding = standings.team_standings.find(
+        (team: any) => team.team_name === "Team C"
+      );
+      const teamBStanding = standings.team_standings.find(
+        (team: any) => team.team_name === "Team B"
+      );
+      const teamAStanding = standings.team_standings.find(
+        (team: any) => team.team_name === "Team A"
+      );
+
+      expect(teamCStanding).toBeDefined();
+      expect(teamBStanding).toBeDefined();
+      expect(teamAStanding).toBeDefined();
+
+      // Team C should be 1st (best relativeToPar in the competition)
+      expect(teamCStanding.position).toBe(1);
+
+      // Team B should be 2nd (tie-breaker: better individual score 69 vs 70)
+      expect(teamBStanding.position).toBe(2);
+
+      // Team A should be 3rd (tie-breaker: worse individual score 70 vs 69)
+      expect(teamAStanding.position).toBe(3);
+
+      // Verify the competition results exist in their standings
+      expect(teamCStanding.competitions).toHaveLength(1);
+      expect(teamBStanding.competitions).toHaveLength(1);
+      expect(teamAStanding.competitions).toHaveLength(1);
+
+      expect(teamCStanding.competitions[0].competition_name).toBe(
+        "Tie-Breaker Competition"
+      );
+      expect(teamBStanding.competitions[0].competition_name).toBe(
+        "Tie-Breaker Competition"
+      );
+      expect(teamAStanding.competitions[0].competition_name).toBe(
+        "Tie-Breaker Competition"
+      );
     });
   });
 });

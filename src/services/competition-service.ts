@@ -46,8 +46,8 @@ export class CompetitionService {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, manual_entry_format)
+      VALUES (?, ?, ?, ?, ?)
       RETURNING *
     `);
 
@@ -55,7 +55,8 @@ export class CompetitionService {
       data.name,
       data.date,
       data.course_id,
-      data.series_id || null
+      data.series_id || null,
+      data.manual_entry_format || "out_in_total"
     ) as Competition;
   }
 
@@ -165,6 +166,11 @@ export class CompetitionService {
       values.push(data.series_id);
     }
 
+    if (data.manual_entry_format) {
+      updates.push("manual_entry_format = ?");
+      values.push(data.manual_entry_format);
+    }
+
     if (updates.length === 0) {
       return competition;
     }
@@ -244,40 +250,70 @@ export class CompetitionService {
           ? participant.score
           : [];
 
-      // Count holes played: positive scores and -1 (gave up) count as played
-      // 0 means unreported/cleared, so it doesn't count as played
-      const holesPlayed = score.filter((s: number) => s > 0 || s === -1).length;
+      // Check if participant has manual scores
+      if (
+        participant.manual_score_total !== null &&
+        participant.manual_score_total !== undefined
+      ) {
+        // Use manual scores
+        const totalShots = participant.manual_score_total;
+        const holesPlayed = 18; // Manual scores represent a full round
 
-      // Calculate total shots: only count positive scores
-      // -1 (gave up) and 0 (unreported) don't count towards total
-      const totalShots = score.reduce(
-        (sum: number, shots: number) => sum + (shots > 0 ? shots : 0),
-        0
-      );
+        // Calculate relative to par based on manual total
+        const totalPar = pars.reduce(
+          (sum: number, par: number) => sum + par,
+          0
+        );
+        const relativeToPar = totalShots - totalPar;
 
-      // Calculate relative to par: only count positive scores
-      let relativeToPar = 0;
-      try {
-        for (let i = 0; i < score.length; i++) {
-          if (score[i] > 0 && pars[i] !== undefined) {
-            relativeToPar += score[i] - pars[i];
+        return {
+          participant: {
+            ...participant,
+            score,
+          },
+          totalShots,
+          holesPlayed,
+          relativeToPar,
+        };
+      } else {
+        // Use existing logic for hole-by-hole scores
+        // Count holes played: positive scores and -1 (gave up) count as played
+        // 0 means unreported/cleared, so it doesn't count as played
+        const holesPlayed = score.filter(
+          (s: number) => s > 0 || s === -1
+        ).length;
+
+        // Calculate total shots: only count positive scores
+        // -1 (gave up) and 0 (unreported) don't count towards total
+        const totalShots = score.reduce(
+          (sum: number, shots: number) => sum + (shots > 0 ? shots : 0),
+          0
+        );
+
+        // Calculate relative to par: only count positive scores
+        let relativeToPar = 0;
+        try {
+          for (let i = 0; i < score.length; i++) {
+            if (score[i] > 0 && pars[i] !== undefined) {
+              relativeToPar += score[i] - pars[i];
+            }
+            // Note: -1 (gave up) and 0 (unreported) don't contribute to par calculation
           }
-          // Note: -1 (gave up) and 0 (unreported) don't contribute to par calculation
+        } catch (error) {
+          console.error("Error calculating relative to par", error);
+          throw error;
         }
-      } catch (error) {
-        console.error("Error calculating relative to par", error);
-        throw error;
-      }
 
-      return {
-        participant: {
-          ...participant,
-          score,
-        },
-        totalShots,
-        holesPlayed,
-        relativeToPar,
-      };
+        return {
+          participant: {
+            ...participant,
+            score,
+          },
+          totalShots,
+          holesPlayed,
+          relativeToPar,
+        };
+      }
     });
     // Sort by relative to par (ascending)
     return leaderboard.sort((a, b) => a.relativeToPar - b.relativeToPar);

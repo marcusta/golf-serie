@@ -178,11 +178,12 @@ export class ParticipantService {
       throw new Error("Competition not found");
     }
 
-    // Join with tee_times to get participants for this competition
+    // Join with tee_times and teams to get participants for this competition with team names
     const stmt = this.db.prepare(`
-      SELECT p.* 
+      SELECT p.*, te.name as team_name
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
+      JOIN teams te ON p.team_id = te.id
       WHERE t.competition_id = ?
       ORDER BY t.teetime, p.tee_order
     `);
@@ -311,6 +312,92 @@ export class ParticipantService {
     `);
 
     const updated = stmt.get(id) as Participant;
+    return {
+      ...updated,
+      is_locked: Boolean(updated.is_locked),
+      score: JSON.parse(updated.score as unknown as string),
+    };
+  }
+
+  async updateManualScore(
+    participantId: number,
+    scores: { out?: number | null; in?: number | null; total: number | null }
+  ): Promise<Participant> {
+    // Validate that the participant exists
+    const participant = await this.findById(participantId);
+    if (!participant) {
+      throw new Error("Participant not found");
+    }
+
+    // Validate total score (allow null for clearing, otherwise non-negative integer)
+    if (
+      scores.total !== null &&
+      (scores.total < 0 || !Number.isInteger(scores.total))
+    ) {
+      throw new Error(
+        "Total score must be a non-negative integer or null to clear"
+      );
+    }
+
+    // Validate optional out/in scores if provided (allow null for clearing)
+    if (
+      scores.out !== undefined &&
+      scores.out !== null &&
+      (scores.out < 0 || !Number.isInteger(scores.out))
+    ) {
+      throw new Error(
+        "Out score must be a non-negative integer or null to clear"
+      );
+    }
+    if (
+      scores.in !== undefined &&
+      scores.in !== null &&
+      (scores.in < 0 || !Number.isInteger(scores.in))
+    ) {
+      throw new Error(
+        "In score must be a non-negative integer or null to clear"
+      );
+    }
+
+    // Build dynamic UPDATE query based on provided fields
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (scores.out !== undefined) {
+      updates.push("manual_score_out = ?");
+      values.push(scores.out);
+    }
+
+    if (scores.in !== undefined) {
+      updates.push("manual_score_in = ?");
+      values.push(scores.in);
+    }
+
+    // Total is always updated (including null for clearing)
+    updates.push("manual_score_total = ?");
+    values.push(scores.total);
+
+    updates.push("updated_at = CURRENT_TIMESTAMP");
+    values.push(participantId);
+
+    // Execute UPDATE SQL query
+    const stmt = this.db.prepare(`
+      UPDATE participants 
+      SET ${updates.join(", ")}
+      WHERE id = ?
+    `);
+
+    stmt.run(...values);
+
+    // Fetch the updated participant with team name using JOIN
+    const selectStmt = this.db.prepare(`
+      SELECT p.*, te.name as team_name
+      FROM participants p
+      JOIN teams te ON p.team_id = te.id
+      WHERE p.id = ?
+    `);
+
+    const updated = selectStmt.get(participantId) as Participant;
     return {
       ...updated,
       is_locked: Boolean(updated.is_locked),

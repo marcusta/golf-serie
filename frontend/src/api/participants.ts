@@ -11,6 +11,9 @@ export interface Participant {
   score: number[];
   is_locked: boolean;
   locked_at?: string;
+  manual_score_out?: number;
+  manual_score_in?: number;
+  manual_score_total?: number;
   created_at: string;
   updated_at: string;
   team_name: string;
@@ -39,6 +42,22 @@ export function useParticipant(id: number) {
       }
       return response.json();
     },
+  });
+}
+
+export function useCompetitionParticipants(competitionId: number) {
+  return useQuery<Participant[]>({
+    queryKey: ["competition-participants", competitionId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/participants`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: competitionId > 0,
   });
 }
 
@@ -147,6 +166,69 @@ export function useUnlockParticipant() {
       }
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
       queryClient.invalidateQueries({ queryKey: ["participant", data.id] });
+    },
+  });
+}
+
+export interface ManualScoreDto {
+  out?: number | null;
+  in?: number | null;
+  total: number | null;
+}
+
+export function useUpdateManualScore() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: ManualScoreDto }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${id}/manual-score`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update manual score");
+      }
+      return response.json();
+    },
+    onSuccess: (updatedParticipant, variables) => {
+      // Update the specific participant in all relevant caches without invalidating
+      queryClient.setQueryData(
+        ["participant", variables.id],
+        updatedParticipant
+      );
+
+      // Update the participant in competition-participants cache
+      queryClient.setQueriesData(
+        { queryKey: ["competition-participants"] },
+        (oldData: Participant[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map((participant) =>
+            participant.id === variables.id ? updatedParticipant : participant
+          );
+        }
+      );
+
+      // Update the participant in participants cache
+      queryClient.setQueriesData(
+        { queryKey: ["participants"] },
+        (oldData: Participant[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map((participant) =>
+            participant.id === variables.id ? updatedParticipant : participant
+          );
+        }
+      );
+
+      // Only invalidate leaderboard queries since manual scores affect standings
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["competition-leaderboard"] });
     },
   });
 }
