@@ -177,6 +177,7 @@ export interface LeaderboardEntry {
   totalShots: number;
   holesPlayed: number;
   relativeToPar: number;
+  startTime: string;
 }
 
 export interface Document {

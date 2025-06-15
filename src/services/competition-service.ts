@@ -224,7 +224,7 @@ export class CompetitionService {
     console.log("competition leaderboard 1");
     // Get all participants for this competition
     const participantsStmt = this.db.prepare(`
-      SELECT p.*, tm.name as team_name
+      SELECT p.*, tm.name as team_name, t.teetime
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN teams tm ON p.team_id = tm.id
@@ -233,6 +233,7 @@ export class CompetitionService {
     `);
     const participants = participantsStmt.all(competitionId) as (Participant & {
       team_name: string;
+      teetime: string;
     })[];
     // Parse course pars
     const coursePars = JSON.parse(competition.pars);
@@ -274,6 +275,7 @@ export class CompetitionService {
           totalShots,
           holesPlayed,
           relativeToPar,
+          startTime: participant.teetime,
         };
       } else {
         // Use existing logic for hole-by-hole scores
@@ -312,6 +314,7 @@ export class CompetitionService {
           totalShots,
           holesPlayed,
           relativeToPar,
+          startTime: participant.teetime,
         };
       }
     });

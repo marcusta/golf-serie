@@ -8,6 +8,7 @@ interface UseCompetitionSyncProps {
   activeTab: string;
   refetchTeeTime: () => Promise<unknown>;
   refetchLeaderboard: () => Promise<unknown>;
+  refetchTeamLeaderboard?: () => Promise<unknown>;
   refetchTeeTimes: () => Promise<unknown>;
   updateScoreMutation: {
     mutate: (
@@ -32,6 +33,7 @@ export function useCompetitionSync({
   activeTab,
   refetchTeeTime,
   refetchLeaderboard,
+  refetchTeamLeaderboard,
   refetchTeeTimes,
   updateScoreMutation,
   teeTime,
@@ -160,6 +162,9 @@ export function useCompetitionSync({
         activeTab,
         async () => {
           await refetchLeaderboard();
+          if (refetchTeamLeaderboard) {
+            await refetchTeamLeaderboard();
+          }
         },
         async () => {
           await refetchTeeTimes();
@@ -169,7 +174,13 @@ export function useCompetitionSync({
     }, SYNC_INTERVALS.PERIODIC);
 
     return () => clearInterval(syncInterval);
-  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+  }, [
+    activeTab,
+    competitionId,
+    refetchLeaderboard,
+    refetchTeamLeaderboard,
+    refetchTeeTimes,
+  ]);
 
   // Fetch fresh data when first entering leaderboard or teams views
   useEffect(() => {
@@ -182,13 +193,22 @@ export function useCompetitionSync({
         competitionId,
         async () => {
           await refetchLeaderboard();
+          if (refetchTeamLeaderboard) {
+            await refetchTeamLeaderboard();
+          }
         },
         async () => {
           await refetchTeeTimes();
         }
       );
     }
-  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+  }, [
+    activeTab,
+    competitionId,
+    refetchLeaderboard,
+    refetchTeamLeaderboard,
+    refetchTeeTimes,
+  ]);
 
   const syncStatus = SyncManager.createSyncStatus(scoreManager, lastSyncTime);
 
@@ -199,6 +219,7 @@ export function useCompetitionSync({
       // Add to local storage immediately
       scoreManager.addPendingScore(participantIdNum, hole, score);
 
+      // Attempt to sync with server
       updateScoreMutation.mutate(
         {
           participantId: participantIdNum,
@@ -207,17 +228,14 @@ export function useCompetitionSync({
         },
         {
           onSuccess: () => {
-            // Remove from pending scores on success
+            // Remove from pending on success
             scoreManager.removePendingScore(participantIdNum, hole);
             setLastSyncTime(Date.now());
-
-            console.log(
-              "Score update successful, cache invalidated automatically"
-            );
           },
           onError: (error) => {
             console.error("Score update failed:", error);
-            // Score is already in pending storage, will be retried
+            // Mark as attempted but keep in pending for retry
+            scoreManager.markAttempted(participantIdNum, hole);
           },
         }
       );
@@ -225,65 +243,34 @@ export function useCompetitionSync({
     [updateScoreMutation, scoreManager]
   );
 
-  // Handle tab changes with sync
   const handleTabChangeSync = useCallback(
     async (newTab: string) => {
-      await SyncManager.handleTabChangeSync({
-        newTab,
-        teeTimeId,
-        competitionId: competitionId || "",
-        activeTab: newTab,
-        lastSyncTime,
-        onSync: async () => {
-          await refetchTeeTime();
-          setLastSyncTime(Date.now());
-        },
-        onLeaderboardSync: async () => {
-          await refetchLeaderboard();
-          setLastSyncTime(Date.now());
-        },
-        onTeamsSync: async () => {
-          await refetchTeeTimes();
-        },
-      });
-    },
-    [
-      teeTimeId,
-      competitionId,
-      lastSyncTime,
-      refetchTeeTime,
-      refetchLeaderboard,
-      refetchTeeTimes,
-    ]
-  );
-
-  // Handle hole navigation with occasional sync
-  const handleHoleNavigationSync = useCallback(
-    async (newHole: number) => {
-      const synced = await SyncManager.handleHoleNavigationSync({
-        currentHole: newHole,
-        teeTimeId,
-        competitionId: competitionId || "",
-        activeTab,
-        lastSyncTime,
-        onSync: async () => {
-          await refetchTeeTime();
-          setLastSyncTime(Date.now());
-        },
-      });
-
-      if (synced) {
-        setLastSyncTime(Date.now());
+      if (newTab === "leaderboard" || newTab === "teams") {
+        await refetchLeaderboard();
+        if (refetchTeamLeaderboard) {
+          await refetchTeamLeaderboard();
+        }
       }
+      if (newTab === "teams" || newTab === "participants") {
+        await refetchTeeTimes();
+      }
+      setLastSyncTime(Date.now());
     },
-    [lastSyncTime, refetchTeeTime, teeTimeId, competitionId, activeTab]
+    [refetchLeaderboard, refetchTeamLeaderboard, refetchTeeTimes]
   );
+
+  const handleHoleNavigationSync = useCallback(async () => {
+    // Sync on hole navigation to ensure we have latest data
+    if (teeTimeId) {
+      await refetchTeeTime();
+      setLastSyncTime(Date.now());
+    }
+  }, [refetchTeeTime, teeTimeId]);
 
   return {
     syncStatus,
     handleScoreUpdate,
     handleTabChangeSync,
     handleHoleNavigationSync,
-    lastSyncTime,
   };
 }

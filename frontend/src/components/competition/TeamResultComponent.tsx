@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
-import type { TeamResultWithPoints } from "../../utils/pointCalculation";
+import type { TeamLeaderboardEntry } from "../../api/competitions";
+import type { LeaderboardEntry } from "../../api/competitions";
 
 interface TeamResultComponentProps {
-  teamResults: TeamResultWithPoints[] | undefined;
+  teamResults: TeamLeaderboardEntry[] | undefined;
   leaderboardLoading: boolean;
+  individualResults?: LeaderboardEntry[] | undefined; // For individual player sorting
   // For CompetitionRound context
   isRoundView?: boolean;
 }
@@ -11,12 +14,87 @@ interface TeamResultComponentProps {
 export function TeamResultComponent({
   teamResults,
   leaderboardLoading,
+  individualResults,
   isRoundView = false,
 }: TeamResultComponentProps) {
+  // Filter state
+  const [filter, setFilter] = useState<"all" | "finished">("all");
+
   // Debug log to check data structure
   if (teamResults) {
     console.log("TeamResultComponent data:", teamResults);
   }
+
+  // Apply filter
+  const filteredTeamResults = teamResults?.filter((team) => {
+    if (filter === "finished") {
+      return team.status === "FINISHED";
+    }
+    return true; // 'all' shows everything
+  });
+
+  // Helper function to get individual players for a team, sorted according to leaderboard rules
+  const getTeamPlayers = (teamName: string) => {
+    if (!individualResults) return [];
+
+    const teamPlayers = individualResults.filter(
+      (entry) => entry.participant.team_name === teamName
+    );
+
+    // Sort players according to leaderboard rules (same as in LeaderboardComponent)
+    return teamPlayers.sort((a, b) => {
+      const aHasInvalidRound = a.participant.score.includes(-1);
+      const bHasInvalidRound = b.participant.score.includes(-1);
+      const aStarted = a.holesPlayed > 0;
+      const bStarted = b.holesPlayed > 0;
+
+      // Category 1: Valid scores (started, no -1 scores)
+      const aHasValidScore = aStarted && !aHasInvalidRound;
+      const bHasValidScore = bStarted && !bHasInvalidRound;
+
+      // Category 2: Invalid scores (started, has -1 scores)
+      const aHasInvalidScore = aStarted && aHasInvalidRound;
+      const bHasInvalidScore = bStarted && bHasInvalidRound;
+
+      // Category 3: Not started (0 holes played)
+      const aNotStarted = !aStarted;
+      const bNotStarted = !bStarted;
+
+      // Sort by category priority: Valid scores first, then invalid scores, then not started
+      if (aHasValidScore && !bHasValidScore) return -1;
+      if (!aHasValidScore && bHasValidScore) return 1;
+
+      if (aHasInvalidScore && bNotStarted) return -1;
+      if (aNotStarted && bHasInvalidScore) return 1;
+
+      // Within valid scores category: sort by relativeToPar (best score first)
+      if (aHasValidScore && bHasValidScore) {
+        return a.relativeToPar - b.relativeToPar;
+      }
+
+      return 0;
+    });
+  };
+
+  // Helper function to determine player status
+  const getPlayerStatus = (entry: LeaderboardEntry) => {
+    const hasInvalidRound = entry.participant.score.includes(-1);
+    const isLocked = entry.participant.is_locked;
+    const hasStarted = entry.holesPlayed > 0;
+
+    if (!hasStarted) return "NOT_STARTED";
+    if (isLocked && !hasInvalidRound) return "FINISHED";
+    return "IN_PROGRESS";
+  };
+
+  // Helper function to get display progress for individual players
+  const getPlayerDisplayProgress = (entry: LeaderboardEntry) => {
+    const status = getPlayerStatus(entry);
+
+    if (status === "NOT_STARTED") return "Starts TBD";
+    if (status === "FINISHED") return "F";
+    return entry.holesPlayed.toString();
+  };
 
   const content = (
     <div className="space-y-4 md:space-y-6">
@@ -27,12 +105,37 @@ export function TeamResultComponent({
             Team Results
           </h2>
           <p className="text-sm md:text-base text-turf font-primary mt-1">
-            Final standings with ranking points
+            Team standings with individual player results
           </p>
         </div>
         <div className="text-xs md:text-sm text-turf font-primary bg-rough/20 px-3 py-2 rounded-full border border-soft-grey">
-          {teamResults?.filter((t) => t.hasResults).length || 0} teams scored
+          {teamResults?.filter((t) => t.status !== "NOT_STARTED").length || 0}{" "}
+          teams scored
         </div>
+      </div>
+
+      {/* Filter Controls */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setFilter("all")}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === "all"
+              ? "bg-coral text-scorecard"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setFilter("finished")}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === "finished"
+              ? "bg-coral text-scorecard"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Only Finished
+        </button>
       </div>
 
       {leaderboardLoading ? (
@@ -72,14 +175,15 @@ export function TeamResultComponent({
         </div>
       ) : (
         <div className="space-y-3">
-          {teamResults.map((team) => {
-            const isLeading = team.position === 1 && team.hasResults;
-            const isPodium = team.position <= 3 && team.hasResults;
-            const hasValidResults = team.hasResults;
+          {filteredTeamResults?.map((team, index) => {
+            const isLeading = index === 0 && team.status !== "NOT_STARTED";
+            const isPodium = index <= 2 && team.status !== "NOT_STARTED";
+            const hasValidResults = team.status !== "NOT_STARTED";
+            const teamPlayers = getTeamPlayers(team.teamName);
 
             return (
               <div
-                key={team.teamName}
+                key={team.teamId}
                 className={`relative bg-scorecard rounded-xl p-4 shadow-sm border transition-all duration-300 hover:shadow-md ${
                   isLeading
                     ? "border-coral/30 shadow-lg ring-2 ring-coral/20 bg-gradient-to-br from-scorecard to-coral/5"
@@ -93,7 +197,7 @@ export function TeamResultComponent({
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      {/* Position Badge - inline with team name */}
+                      {/* Position Badge */}
                       <div
                         className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold shadow-md ${
                           isLeading
@@ -105,7 +209,7 @@ export function TeamResultComponent({
                             : "bg-scorecard text-soft-grey border-soft-grey"
                         }`}
                       >
-                        #{team.position}
+                        #{index + 1}
                       </div>
 
                       <div>
@@ -132,164 +236,185 @@ export function TeamResultComponent({
                     </div>
 
                     <div className="flex items-center gap-4 text-sm text-turf font-primary">
-                      <span>{team.participants.length} players</span>
-                      {hasValidResults && (
-                        <span className="flex items-center gap-1">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                          </svg>
-                          {
-                            team.participants.filter((p) => p.totalShots > 0)
-                              .length
-                          }{" "}
-                          scored
-                        </span>
-                      )}
+                      <span>{teamPlayers.length} players</span>
+                      <span className="flex items-center gap-1">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        {team.displayProgress}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Right side - Team totals and Points */}
+                  {/* Right side - Team summary based on status */}
                   <div className="text-right flex flex-col items-end gap-2">
-                    {team.totalShots === -1 ? (
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg font-medium text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded-lg">
-                          -
-                        </span>
-                        <span className="text-2xl font-bold text-soft-grey font-display">
-                          -
-                        </span>
+                    {team.status === "NOT_STARTED" ? (
+                      <div className="text-center">
+                        <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
+                          Status
+                        </div>
+                        <div className="text-lg font-medium text-soft-grey bg-soft-grey/10 px-3 py-1 rounded-lg">
+                          Not Started
+                        </div>
                       </div>
-                    ) : hasValidResults ? (
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`text-lg font-bold font-display px-3 py-1 rounded-lg ${getToParColor(
-                            team.relativeToPar
-                          )} ${
-                            team.relativeToPar < 0
-                              ? "bg-turf/10"
-                              : team.relativeToPar > 0
-                              ? "bg-flag/10"
-                              : "bg-charcoal/10"
-                          }`}
-                        >
-                          {formatToPar(team.relativeToPar)}
-                        </span>
-                        <span className="text-2xl font-bold text-charcoal font-display">
-                          {team.totalShots}
-                        </span>
+                    ) : team.status === "IN_PROGRESS" ? (
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
+                            Score
+                          </div>
+                          <div
+                            className={`text-2xl font-bold font-display px-3 py-1 rounded-lg ${
+                              team.totalRelativeScore !== null &&
+                              team.totalRelativeScore < 0
+                                ? "bg-turf/10 text-turf"
+                                : team.totalRelativeScore !== null &&
+                                  team.totalRelativeScore > 0
+                                ? "bg-flag/10 text-flag"
+                                : "bg-charcoal/10 text-charcoal"
+                            }`}
+                          >
+                            {team.totalRelativeScore !== null
+                              ? formatToPar(team.totalRelativeScore)
+                              : "-"}
+                          </div>
+                        </div>
+                        {team.teamPoints !== null && (
+                          <div>
+                            <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
+                              Points
+                            </div>
+                            <div className="text-xl font-bold font-display px-3 py-1 rounded-lg bg-charcoal/10 text-charcoal">
+                              {team.teamPoints}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg font-medium text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded-lg">
-                          No results
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Points Display */}
-                    {hasValidResults && team.totalShots !== -1 && (
-                      <div>
-                        <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                          Points
+                      // FINISHED status
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
+                            Total Shots
+                          </div>
+                          <div className="text-2xl font-bold text-charcoal font-display px-3 py-1 rounded-lg bg-charcoal/10">
+                            {team.totalShots || "-"}
+                          </div>
                         </div>
-                        <div
-                          className={`text-xl font-bold font-display px-3 py-1 rounded-lg ${
-                            isLeading
-                              ? "bg-coral text-scorecard shadow-md"
-                              : isPodium
-                              ? "bg-turf text-scorecard shadow-md"
-                              : "bg-charcoal/10 text-charcoal"
-                          }`}
-                        >
-                          {team.rankingPoints}
-                        </div>
+                        {team.teamPoints !== null && (
+                          <div>
+                            <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
+                              Points
+                            </div>
+                            <div
+                              className={`text-xl font-bold font-display px-3 py-1 rounded-lg shadow-md ${
+                                isLeading
+                                  ? "bg-coral text-scorecard"
+                                  : isPodium
+                                  ? "bg-turf text-scorecard"
+                                  : "bg-charcoal/10 text-charcoal"
+                              }`}
+                            >
+                              {team.teamPoints}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Individual Scores Section - ONLY place participants should be rendered */}
+                {/* Individual Players Section */}
                 <div className="border-t border-soft-grey/30 pt-3">
                   <h5 className="text-sm font-semibold text-fairway mb-2 font-primary uppercase tracking-wide">
-                    Individual Scores
+                    Individual Players
                   </h5>
                   <div className="space-y-1">
-                    {team.participants.map((participant, idx) => (
-                      <div
-                        key={participant.name || idx}
-                        className={`flex items-center justify-between py-1.5 px-3 rounded-lg transition-colors ${
-                          participant.totalShots !== 0
-                            ? "bg-rough/10 hover:bg-rough/20"
-                            : "bg-soft-grey/5"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 flex-1">
-                          <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                              participant.totalShots !== 0
-                                ? "bg-turf/20 text-turf"
-                                : "bg-soft-grey/20 text-soft-grey"
-                            }`}
-                          >
-                            {idx + 1}
-                          </div>
-                          <div>
-                            <span
-                              className={`font-medium font-primary text-sm ${
-                                participant.totalShots !== 0
-                                  ? "text-charcoal"
-                                  : "text-soft-grey"
+                    {teamPlayers.map((player, idx) => {
+                      const playerStatus = getPlayerStatus(player);
+                      const playerProgress = getPlayerDisplayProgress(player);
+                      const isRoundInvalid =
+                        player.participant.score.includes(-1);
+
+                      return (
+                        <div
+                          key={player.participant.id}
+                          className={`flex items-center justify-between py-1.5 px-3 rounded-lg transition-colors ${
+                            playerStatus !== "NOT_STARTED"
+                              ? "bg-rough/10 hover:bg-rough/20"
+                              : "bg-soft-grey/5"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                                playerStatus !== "NOT_STARTED"
+                                  ? "bg-turf/20 text-turf"
+                                  : "bg-soft-grey/20 text-soft-grey"
                               }`}
                             >
-                              {participant.name
-                                ? `${participant.name} (${participant.position})`
-                                : participant.position}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {participant.totalShots === -1 ? (
-                            <span className="text-sm text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded">
-                              Gave up
-                            </span>
-                          ) : participant.totalShots > 0 ? (
-                            <>
+                              {idx + 1}
+                            </div>
+                            <div className="flex-1">
                               <span
-                                className={`text-sm font-semibold px-2 py-1 rounded ${getToParColor(
-                                  participant.relativeToPar
-                                )} ${
-                                  participant.relativeToPar < 0
-                                    ? "bg-turf/10"
-                                    : participant.relativeToPar > 0
-                                    ? "bg-flag/10"
-                                    : "bg-charcoal/10"
+                                className={`font-medium font-primary text-sm ${
+                                  playerStatus !== "NOT_STARTED"
+                                    ? "text-charcoal"
+                                    : "text-soft-grey"
                                 }`}
                               >
-                                {formatToPar(participant.relativeToPar)}
+                                {player.participant.player_names
+                                  ? `${player.participant.player_names} (${player.participant.position_name})`
+                                  : player.participant.position_name}
                               </span>
+                              <div className="text-xs text-turf font-primary">
+                                Hole {playerProgress}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {playerStatus === "NOT_STARTED" ? (
+                              <span className="text-sm text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded">
+                                Not Started
+                              </span>
+                            ) : playerStatus === "FINISHED" ? (
                               <span className="text-base font-bold text-charcoal font-display min-w-[2.5rem] text-right">
-                                {participant.totalShots}
+                                {isRoundInvalid ? "-" : player.totalShots}
                               </span>
-                            </>
-                          ) : (
-                            <span className="text-sm text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded">
-                              No score
-                            </span>
-                          )}
+                            ) : (
+                              <span
+                                className={`text-sm font-semibold px-2 py-1 rounded ${
+                                  isRoundInvalid
+                                    ? "text-gray-500 bg-gray-100"
+                                    : getToParColor(player.relativeToPar) ===
+                                      "text-turf"
+                                    ? "bg-turf/10 text-turf"
+                                    : getToParColor(player.relativeToPar) ===
+                                      "text-flag"
+                                    ? "bg-flag/10 text-flag"
+                                    : "bg-charcoal/10 text-charcoal"
+                                }`}
+                              >
+                                {isRoundInvalid
+                                  ? "-"
+                                  : formatToPar(player.relativeToPar)}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

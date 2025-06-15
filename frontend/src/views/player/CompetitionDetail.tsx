@@ -3,6 +3,7 @@ import { Link, useParams, useSearch } from "@tanstack/react-router";
 import {
   useCompetition,
   useCompetitionLeaderboard,
+  useCompetitionTeamLeaderboard,
 } from "../../api/competitions";
 import { useCourse } from "../../api/courses";
 import { useTeeTimesForCompetition, useParticipant } from "../../api/tee-times";
@@ -24,10 +25,7 @@ import {
   TeamResultComponent,
 } from "../../components/competition";
 import { calculateTotalParticipants } from "../../utils/scoreCalculations";
-import {
-  processTeamResults,
-  convertLeaderboardToTeamInput,
-} from "../../utils/pointCalculation";
+
 import { CommonHeader } from "../../components/navigation/CommonHeader";
 import { useSeriesTeams } from "../../api/series";
 import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
@@ -60,7 +58,8 @@ export default function CompetitionDetail() {
     competitionId ? parseInt(competitionId) : 0
   );
   const { data: course } = useCourse(competition?.course_id || 0);
-  const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
+  // Keep series teams for potential future use
+  useSeriesTeams(competition?.series_id || 0);
   const {
     data: teeTimes,
     isLoading: teeTimesLoading,
@@ -71,6 +70,14 @@ export default function CompetitionDetail() {
     isLoading: leaderboardLoading,
     refetch: refetchLeaderboard,
   } = useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+
+  const {
+    data: teamLeaderboard,
+    isLoading: teamLeaderboardLoading,
+    refetch: refetchTeamLeaderboard,
+  } = useCompetitionTeamLeaderboard(
+    competitionId ? parseInt(competitionId) : 0
+  );
 
   // Fetch selected participant data for scorecard
   const { data: selectedParticipant } = useParticipant(
@@ -186,18 +193,8 @@ export default function CompetitionDetail() {
 
   const totalParticipants = calculateTotalParticipants(teeTimes);
 
-  // Calculate team results using new encapsulated ranking logic
-  const sortedTeamResults = leaderboard
-    ? processTeamResults(
-        convertLeaderboardToTeamInput(
-          leaderboard.map((entry) => ({
-            ...entry,
-            participantId: entry.participant.id,
-          }))
-        ),
-        seriesTeams?.length // Pass total teams in series
-      )
-    : [];
+  // Use team leaderboard data directly
+  const sortedTeamResults = teamLeaderboard || [];
 
   return (
     <div className="min-h-screen flex flex-col bg-scorecard">
@@ -311,6 +308,7 @@ export default function CompetitionDetail() {
                 // Immediately fetch fresh data when switching to team results
                 console.log("Syncing data for team results view...");
                 refetchLeaderboard();
+                refetchTeamLeaderboard();
                 refetchTeeTimes();
               }}
               className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
@@ -347,7 +345,8 @@ export default function CompetitionDetail() {
         {activeTab === "teamresult" && (
           <TeamResultComponent
             teamResults={sortedTeamResults}
-            leaderboardLoading={leaderboardLoading}
+            leaderboardLoading={teamLeaderboardLoading}
+            individualResults={leaderboard}
           />
         )}
       </div>

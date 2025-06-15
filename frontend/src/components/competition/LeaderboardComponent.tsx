@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
 import type { LeaderboardEntry } from "../../api/competitions";
 
@@ -15,6 +16,35 @@ export function LeaderboardComponent({
   onParticipantClick,
   isRoundView = false,
 }: LeaderboardComponentProps) {
+  // Filter state
+  const [filter, setFilter] = useState<"all" | "finished">("all");
+
+  // Helper function to determine player status
+  const getPlayerStatus = (entry: LeaderboardEntry) => {
+    const hasInvalidRound = entry.participant.score.includes(-1);
+    const isLocked = entry.participant.is_locked;
+    const hasStarted = entry.holesPlayed > 0;
+
+    if (!hasStarted) return "NOT_STARTED";
+    if (isLocked && !hasInvalidRound) return "FINISHED";
+    return "IN_PROGRESS";
+  };
+
+  // Helper function to get display progress
+  const getDisplayProgress = (entry: LeaderboardEntry) => {
+    const status = getPlayerStatus(entry);
+
+    if (status === "NOT_STARTED") {
+      if (entry.startTime) {
+        // startTime is in "HH:MM" format, so we can return it directly
+        return entry.startTime;
+      }
+      return "TBD";
+    }
+    if (status === "FINISHED") return "F";
+    return entry.holesPlayed.toString();
+  };
+
   // Shared sorting logic for both mobile and desktop views
   const sortedLeaderboard = leaderboard
     ? [...leaderboard].sort((a, b) => {
@@ -64,6 +94,14 @@ export function LeaderboardComponent({
       })
     : [];
 
+  // Apply filter
+  const filteredLeaderboard = sortedLeaderboard.filter((entry) => {
+    if (filter === "finished") {
+      return getPlayerStatus(entry) === "FINISHED";
+    }
+    return true; // 'all' shows everything
+  });
+
   // Helper function to get position styling
   const getPositionStyling = (index: number, holesPlayed: number) => {
     if (holesPlayed === 0) {
@@ -107,6 +145,30 @@ export function LeaderboardComponent({
         </div>
       </div>
 
+      {/* Filter Controls */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setFilter("all")}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === "all"
+              ? "bg-coral text-scorecard"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setFilter("finished")}
+          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            filter === "finished"
+              ? "bg-coral text-scorecard"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Only Finished
+        </button>
+      </div>
+
       {leaderboardLoading ? (
         <div className="p-4 text-charcoal font-primary">
           Loading leaderboard...
@@ -119,9 +181,12 @@ export function LeaderboardComponent({
         <>
           {/* Mobile Card View */}
           <div className="md:hidden space-y-3">
-            {sortedLeaderboard.map((entry, index) => {
+            {filteredLeaderboard.map((entry, index) => {
               const isRoundInvalid = entry.participant.score.includes(-1);
               const isActive = index === 0; // Highlight leader
+              const status = getPlayerStatus(entry);
+              const displayProgress = getDisplayProgress(entry);
+
               return (
                 <button
                   key={entry.participant.id}
@@ -156,9 +221,6 @@ export function LeaderboardComponent({
                               {entry.participant.team_name}{" "}
                               {entry.participant.position_name}
                             </p>
-                            <p className="text-label-sm text-turf font-primary">
-                              Thru {entry.holesPlayed} holes
-                            </p>
                           </>
                         ) : (
                           // No player name - show team name + position
@@ -167,38 +229,49 @@ export function LeaderboardComponent({
                               {entry.participant.team_name}{" "}
                               {entry.participant.position_name}
                             </h3>
-                            <p className="text-label-sm text-turf font-primary">
-                              Thru {entry.holesPlayed} holes
-                            </p>
                           </>
                         )}
                       </div>
                     </div>
 
-                    {/* Score Section */}
-                    <div className="flex items-center space-x-6 text-right ml-auto">
-                      <div>
-                        <div className="text-xs text-gray-500">Total</div>
-                        <div className="text-2xl font-bold text-gray-800">
-                          {entry.holesPlayed === 0 || isRoundInvalid
-                            ? "-"
-                            : entry.totalShots}
+                    {/* Score Section - Hole and Score side by side */}
+                    <div className="flex items-center space-x-4 text-right ml-auto">
+                      {status === "NOT_STARTED" ? (
+                        <div className="text-center">
+                          <div className="text-xs text-gray-500">
+                            Start Time
+                          </div>
+                          <div className="text-lg font-medium text-gray-500">
+                            {displayProgress}
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">To Par</div>
-                        <div
-                          className={`text-2xl font-bold ${
-                            entry.holesPlayed === 0 || isRoundInvalid
-                              ? "text-gray-500"
-                              : getToParColor(entry.relativeToPar)
-                          }`}
-                        >
-                          {entry.holesPlayed === 0 || isRoundInvalid
-                            ? "-"
-                            : formatToPar(entry.relativeToPar)}
-                        </div>
-                      </div>
+                      ) : (
+                        <>
+                          {/* Hole Number */}
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500">Hole</div>
+                            <div className="text-xl font-bold text-gray-800">
+                              {displayProgress}
+                            </div>
+                          </div>
+
+                          {/* Score */}
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500">To Par</div>
+                            <div
+                              className={`text-xl font-bold ${
+                                isRoundInvalid
+                                  ? "text-gray-500"
+                                  : getToParColor(entry.relativeToPar)
+                              }`}
+                            >
+                              {isRoundInvalid
+                                ? "-"
+                                : formatToPar(entry.relativeToPar)}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </button>
@@ -219,20 +292,17 @@ export function LeaderboardComponent({
                       Player/Team
                     </th>
                     <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
-                      Thru
-                    </th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
-                      Total
-                    </th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
-                      To Par
+                      Hole & Score
                     </th>
                     <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedLeaderboard.map((entry, index) => {
+                  {filteredLeaderboard.map((entry, index) => {
                     const isRoundInvalid = entry.participant.score.includes(-1);
+                    const status = getPlayerStatus(entry);
+                    const displayProgress = getDisplayProgress(entry);
+
                     return (
                       <tr
                         key={entry.participant.id}
@@ -263,9 +333,6 @@ export function LeaderboardComponent({
                                   {entry.participant.team_name}{" "}
                                   {entry.participant.position_name}
                                 </div>
-                                <div className="text-label-sm text-turf font-primary">
-                                  Thru {entry.holesPlayed} holes
-                                </div>
                               </>
                             ) : (
                               // No player name - show team name + position
@@ -274,37 +341,62 @@ export function LeaderboardComponent({
                                   {entry.participant.team_name}{" "}
                                   {entry.participant.position_name}
                                 </div>
-                                <div className="text-label-sm text-turf font-primary">
-                                  Thru {entry.holesPlayed} holes
-                                </div>
                               </>
                             )}
                           </div>
                         </td>
                         <td className="py-4 px-4 text-center">
-                          <span className="text-body-md font-medium text-charcoal font-primary">
-                            {entry.holesPlayed}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className="text-xl font-bold text-charcoal font-display">
-                            {entry.holesPlayed === 0 || isRoundInvalid
-                              ? "-"
-                              : entry.totalShots}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-center">
-                          <span
-                            className={`text-xl font-bold font-display ${
-                              entry.holesPlayed === 0 || isRoundInvalid
-                                ? "text-gray-500"
-                                : getToParColor(entry.relativeToPar)
-                            }`}
-                          >
-                            {entry.holesPlayed === 0 || isRoundInvalid
-                              ? "-"
-                              : formatToPar(entry.relativeToPar)}
-                          </span>
+                          {status === "NOT_STARTED" ? (
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">
+                                Start Time
+                              </div>
+                              <div className="text-base font-medium text-gray-500">
+                                {displayProgress}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center space-x-4">
+                              {/* Hole Number */}
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">
+                                  Hole
+                                </div>
+                                <div className="text-xl font-bold text-charcoal font-display">
+                                  {displayProgress}
+                                </div>
+                              </div>
+
+                              {/* Score */}
+                              {status === "FINISHED" ? (
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">
+                                    Total
+                                  </div>
+                                  <div className="text-xl font-bold text-charcoal font-display">
+                                    {isRoundInvalid ? "-" : entry.totalShots}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">
+                                    To Par
+                                  </div>
+                                  <div
+                                    className={`text-xl font-bold font-display ${
+                                      isRoundInvalid
+                                        ? "text-gray-500"
+                                        : getToParColor(entry.relativeToPar)
+                                    }`}
+                                  >
+                                    {isRoundInvalid
+                                      ? "-"
+                                      : formatToPar(entry.relativeToPar)}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="py-4 px-4 text-center">
                           <button

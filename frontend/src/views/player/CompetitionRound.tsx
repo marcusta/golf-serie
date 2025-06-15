@@ -28,10 +28,6 @@ import {
   ParticipantsListComponent,
 } from "../../components/competition";
 import { calculateTotalParticipants } from "../../utils/scoreCalculations";
-import {
-  processTeamResults,
-  convertLeaderboardToTeamInput,
-} from "../../utils/pointCalculation";
 import { CommonHeader } from "../../components/navigation/CommonHeader";
 import { HamburgerMenu } from "../../components/navigation/HamburgerMenu";
 import {
@@ -101,12 +97,15 @@ export default function CompetitionRound() {
     course,
     teeTimes,
     leaderboard,
+    teamLeaderboard,
     teeTime,
     selectedParticipant,
     isLoading: competitionLoading,
     leaderboardLoading,
+    teamLeaderboardLoading,
     refetchTeeTime,
     refetchLeaderboard,
+    refetchTeamLeaderboard,
     refetchTeeTimes,
     updateScoreMutation,
   } = useCompetitionData({
@@ -126,12 +125,14 @@ export default function CompetitionRound() {
     activeTab,
     refetchTeeTime,
     refetchLeaderboard,
+    refetchTeamLeaderboard,
     refetchTeeTimes,
     updateScoreMutation,
     teeTime,
   });
 
-  const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
+  // Keep series teams for potential future use
+  useSeriesTeams(competition?.series_id || 0);
 
   // API mutation for updating participant
   const updateParticipantMutation = useUpdateParticipant();
@@ -204,10 +205,9 @@ export default function CompetitionRound() {
   };
 
   const handleComplete = () => {
-    console.log("Score entry completed!");
+    console.log("Round completed!");
   };
 
-  // Handle opening player name editing modal
   const handlePlayerNameClick = (
     participantId: string,
     currentName: string | null,
@@ -220,12 +220,10 @@ export default function CompetitionRound() {
     });
   };
 
-  // Handle closing player name editing modal
   const handleCloseNameModal = () => {
     setEditingParticipant(null);
   };
 
-  // Handle saving player name
   const handleSaveName = (participantId: string, newName: string) => {
     updateParticipantMutation.mutate(
       {
@@ -234,12 +232,8 @@ export default function CompetitionRound() {
       },
       {
         onSuccess: () => {
-          // Close modal on success
+          refetchTeeTime();
           setEditingParticipant(null);
-        },
-        onError: (error) => {
-          console.error("Failed to update participant name:", error);
-          // Here you can add a user-facing error message, e.g., using a toast notification
         },
       }
     );
@@ -249,23 +243,13 @@ export default function CompetitionRound() {
   const handleHoleChange = useCallback(
     async (newHole: number) => {
       setCurrentHole(newHole);
-      await handleHoleNavigationSync(newHole);
+      await handleHoleNavigationSync();
     },
     [handleHoleNavigationSync]
   );
 
-  // Calculate team results using new encapsulated ranking logic
-  const sortedTeamResults = leaderboard
-    ? processTeamResults(
-        convertLeaderboardToTeamInput(
-          leaderboard.map((entry) => ({
-            ...entry,
-            participantId: entry.participant.id,
-          }))
-        ),
-        seriesTeams?.length
-      )
-    : [];
+  // Use team leaderboard data directly
+  const sortedTeamResults = teamLeaderboard || [];
 
   const totalParticipants = calculateTotalParticipants(teeTimes);
 
@@ -345,7 +329,8 @@ export default function CompetitionRound() {
         return (
           <TeamResultComponent
             teamResults={sortedTeamResults}
-            leaderboardLoading={leaderboardLoading}
+            leaderboardLoading={teamLeaderboardLoading}
+            individualResults={leaderboard}
             isRoundView={true}
           />
         );
@@ -447,54 +432,46 @@ function InvalidTeeTimes({
   competitionId: string;
 }) {
   const navigate = useNavigate();
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-            Select Tee Time for Score Entry
-          </h2>
-        </div>
 
-        {!teeTimes || teeTimes.length === 0 ? (
-          <div className="text-center py-6 md:py-8 text-gray-500">
-            No tee times available for this competition.
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="divide-y divide-gray-200">
-              {teeTimes.map((teeTime) => (
-                <button
-                  key={teeTime.id}
-                  onClick={() =>
-                    navigate({
-                      to: `/player/competitions/${competitionId}/tee-times/${teeTime.id}`,
-                      replace: true,
-                    })
-                  }
-                  className="w-full px-4 md:px-6 py-3 md:py-4 text-left hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="text-sm md:text-lg font-medium text-gray-900">
-                        {teeTime.teetime}
-                      </h4>
-                      <p className="text-xs md:text-sm text-gray-600 mt-1">
-                        {teeTime.participants
-                          .map((p) => p.team_name)
-                          .join(", ")}
-                      </p>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {teeTime.participants.length} player
-                      {teeTime.participants.length !== 1 ? "s" : ""}
-                    </div>
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+      <div className="max-w-md">
+        <h2 className="text-xl font-bold text-charcoal mb-4">
+          No Valid Tee Time
+        </h2>
+        <p className="text-turf mb-6">
+          You don't have access to score entry for this competition. You can
+          view the leaderboard or participant list instead.
+        </p>
+        <div className="space-y-3">
+          <button
+            onClick={() =>
+              navigate({ to: `/player/competitions/${competitionId}` })
+            }
+            className="w-full bg-coral text-scorecard px-4 py-2 rounded-lg font-medium hover:bg-coral/90 transition-colors"
+          >
+            View Competition Details
+          </button>
+          {teeTimes && teeTimes.length > 0 && (
+            <div className="text-sm text-turf">
+              <p className="mb-2">Available tee times:</p>
+              <div className="space-y-1">
+                {teeTimes.slice(0, 3).map((teeTime) => (
+                  <div key={teeTime.id} className="text-xs">
+                    {teeTime.teetime}
+                    {" - "}
+                    {teeTime.participants.length} players
                   </div>
-                </button>
-              ))}
+                ))}
+                {teeTimes.length > 3 && (
+                  <div className="text-xs">
+                    ... and {teeTimes.length - 3} more
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

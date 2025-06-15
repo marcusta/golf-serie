@@ -1,4 +1,8 @@
-import { useCompetition, useCompetitionLeaderboard } from "../api/competitions";
+import {
+  useCompetition,
+  useCompetitionLeaderboard,
+  useCompetitionTeamLeaderboard,
+} from "../api/competitions";
 import { useCourse } from "../api/courses";
 import {
   useParticipant,
@@ -31,10 +35,22 @@ export function useCompetitionData({
     useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
 
   const {
-    data: leaderboard,
+    data: rawLeaderboard,
     isLoading: leaderboardLoading,
     refetch: refetchLeaderboard,
   } = useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+
+  // Use leaderboard data directly from API (now includes start time)
+  const leaderboard = rawLeaderboard;
+
+  // Team leaderboard data
+  const {
+    data: teamLeaderboard,
+    isLoading: teamLeaderboardLoading,
+    refetch: refetchTeamLeaderboard,
+  } = useCompetitionTeamLeaderboard(
+    competitionId ? parseInt(competitionId) : 0
+  );
 
   // Tee time data for score entry
   const { data: teeTime, refetch: refetchTeeTime } = useTeeTime(
@@ -54,12 +70,15 @@ export function useCompetitionData({
     course,
     teeTimes,
     leaderboard,
+    teamLeaderboard,
     teeTime,
     selectedParticipant,
     isLoading: competitionLoading,
     leaderboardLoading,
+    teamLeaderboardLoading,
     refetchTeeTime,
     refetchLeaderboard,
+    refetchTeamLeaderboard,
     refetchTeeTimes,
     updateScoreMutation,
   };
