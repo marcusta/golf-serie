@@ -102,8 +102,8 @@ export function formatToPar(toPar: number): string {
  * @returns CSS color class string
  */
 export function getToParColor(toPar: number): string {
-  if (toPar < 0) return "text-turf";
-  if (toPar > 0) return "text-flag";
+  if (toPar === 0) return "text-turf";
+  if (toPar < 0) return "text-flag";
   return "text-charcoal";
 }
 

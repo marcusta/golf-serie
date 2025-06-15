@@ -87,11 +87,17 @@ export function TeamResultComponent({
     return "IN_PROGRESS";
   };
 
-  // Helper function to get display progress for individual players
+  // Helper function to get display progress for individual players (matching LeaderboardComponent)
   const getPlayerDisplayProgress = (entry: LeaderboardEntry) => {
     const status = getPlayerStatus(entry);
 
-    if (status === "NOT_STARTED") return "Starts TBD";
+    if (status === "NOT_STARTED") {
+      if (entry.startTime) {
+        // startTime is in "HH:MM" format, so we can return it directly
+        return entry.startTime;
+      }
+      return "TBD";
+    }
     if (status === "FINISHED") return "F";
     return entry.holesPlayed.toString();
   };
@@ -108,7 +114,7 @@ export function TeamResultComponent({
             Team standings with individual player results
           </p>
         </div>
-        <div className="text-xs md:text-sm text-turf font-primary bg-rough/20 px-3 py-2 rounded-full border border-soft-grey">
+        <div className="text-center text-xs md:text-sm text-turf font-primary bg-rough/20 px-3 py-2 rounded-full border border-soft-grey">
           {teamResults?.filter((t) => t.status !== "NOT_STARTED").length || 0}{" "}
           teams scored
         </div>
@@ -274,7 +280,7 @@ export function TeamResultComponent({
                             Score
                           </div>
                           <div
-                            className={`text-2xl font-bold font-display px-3 py-1 rounded-lg ${
+                            className={`text-xl font-bold font-display px-3 py-1 rounded-lg ${
                               team.totalRelativeScore !== null &&
                               team.totalRelativeScore < 0
                                 ? "bg-turf/10 text-turf"
@@ -349,7 +355,7 @@ export function TeamResultComponent({
                       return (
                         <div
                           key={player.participant.id}
-                          className={`flex items-center justify-between py-1.5 px-3 rounded-lg transition-colors ${
+                          className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
                             playerStatus !== "NOT_STARTED"
                               ? "bg-rough/10 hover:bg-rough/20"
                               : "bg-soft-grey/5"
@@ -377,39 +383,50 @@ export function TeamResultComponent({
                                   ? `${player.participant.player_names} (${player.participant.position_name})`
                                   : player.participant.position_name}
                               </span>
-                              <div className="text-xs text-turf font-primary">
-                                Hole {playerProgress}
-                              </div>
                             </div>
                           </div>
 
+                          {/* Score Section - matching LeaderboardComponent layout */}
                           <div className="flex items-center gap-3">
                             {playerStatus === "NOT_STARTED" ? (
-                              <span className="text-sm text-soft-grey font-primary bg-soft-grey/10 px-3 py-1 rounded">
-                                Not Started
-                              </span>
-                            ) : playerStatus === "FINISHED" ? (
-                              <span className="text-base font-bold text-charcoal font-display min-w-[2.5rem] text-right">
-                                {isRoundInvalid ? "-" : player.totalShots}
-                              </span>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">
+                                  Start Time
+                                </div>
+                                <div className="text-sm font-medium text-gray-500">
+                                  {playerProgress}
+                                </div>
+                              </div>
                             ) : (
-                              <span
-                                className={`text-sm font-semibold px-2 py-1 rounded ${
-                                  isRoundInvalid
-                                    ? "text-gray-500 bg-gray-100"
-                                    : getToParColor(player.relativeToPar) ===
-                                      "text-turf"
-                                    ? "bg-turf/10 text-turf"
-                                    : getToParColor(player.relativeToPar) ===
-                                      "text-flag"
-                                    ? "bg-flag/10 text-flag"
-                                    : "bg-charcoal/10 text-charcoal"
-                                }`}
-                              >
-                                {isRoundInvalid
-                                  ? "-"
-                                  : formatToPar(player.relativeToPar)}
-                              </span>
+                              <>
+                                {/* Hole Number */}
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">
+                                    Thru
+                                  </div>
+                                  <div className="text-sm font-bold text-gray-800">
+                                    {playerProgress}
+                                  </div>
+                                </div>
+
+                                {/* Score */}
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">
+                                    To Par
+                                  </div>
+                                  <div
+                                    className={`text-sm font-bold ${
+                                      isRoundInvalid
+                                        ? "text-gray-500"
+                                        : getToParColor(player.relativeToPar)
+                                    }`}
+                                  >
+                                    {isRoundInvalid
+                                      ? "-"
+                                      : formatToPar(player.relativeToPar)}
+                                  </div>
+                                </div>
+                              </>
                             )}
                           </div>
                         </div>
