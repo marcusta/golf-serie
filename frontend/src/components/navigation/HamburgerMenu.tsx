@@ -5,7 +5,6 @@ import {
   Menu,
   X,
   Trophy,
-  Settings,
   Award,
   List,
   Home,
@@ -98,14 +97,6 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
       to: "/player",
       label: "Home",
       icon: Home,
-    },
-  ];
-
-  const adminLinks = [
-    {
-      to: "/admin/series",
-      label: "Admin Panel",
-      icon: Settings,
     },
   ];
 
