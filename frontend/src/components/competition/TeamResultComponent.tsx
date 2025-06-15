@@ -281,12 +281,8 @@ export function TeamResultComponent({
                           </div>
                           <div
                             className={`text-xl font-bold font-display px-3 py-1 rounded-lg ${
-                              team.totalRelativeScore !== null &&
-                              team.totalRelativeScore < 0
-                                ? "bg-turf/10 text-turf"
-                                : team.totalRelativeScore !== null &&
-                                  team.totalRelativeScore > 0
-                                ? "bg-flag/10 text-flag"
+                              team.totalRelativeScore !== null
+                                ? getToParColor(team.totalRelativeScore)
                                 : "bg-charcoal/10 text-charcoal"
                             }`}
                           >
