@@ -72,45 +72,52 @@ export function Scorecard({
 
   const renderScoreDecoration = (score: number, par: number) => {
     if (!isValidScore(score)) {
-      if (score === -1) return { color: "text-flag", decoration: "" }; // Gave up
+      if (score === -1) return { color: "text-red-600", decoration: "" }; // Gave up
       if (score === 0) return { color: "text-soft-grey", decoration: "" }; // Not reported
       return { color: "text-charcoal", decoration: "" };
     }
 
     if (score === 1) {
-      // Hole in one - special case (purple circle)
+      // Hole in one - special case (red circle)
       return {
         color: "text-scorecard font-bold",
-        decoration: "bg-coral rounded-full border-2 border-coral",
+        decoration: "bg-red-800 rounded-full border-2 border-red-800",
       };
     } else if (score < par - 1) {
-      // Eagle or better - turf double circle
+      // Eagle or better - red double circle
       return {
-        color: "text-turf font-bold",
+        color: "text-red-800 font-bold",
         decoration:
-          "border-2 border-turf rounded-full shadow-[0_0_0_2px_white,0_0_0_4px_#2d6a4f]",
+          "border-2 border-red-800 rounded-full shadow-[0_0_0_2px_white,0_0_0_4px_#aa2626]",
       };
     } else if (score === par - 1) {
-      // Birdie - turf circle
+      // Birdie - red circle
       return {
-        color: "text-turf font-bold",
-        decoration: "border-2 border-turf rounded-full",
+        color: "text-red-800 font-bold",
+        decoration: "border-2 border-red-800 rounded-full",
       };
     } else if (score === par) {
-      // Par - no decoration
-      return { color: "text-charcoal", decoration: "" };
+      // Par - fairway green (no decoration)
+      return { color: "text-turf", decoration: "" };
     } else if (score === par + 1) {
-      // Bogey - flag square
+      // Bogey - dark blue square
       return {
-        color: "text-flag font-bold",
-        decoration: "border-2 border-flag",
+        color: "text-blue-900 font-bold",
+        decoration: "border-2 border-blue-900",
       };
-    } else if (score >= par + 2) {
-      // Double bogey or worse - double flag square
+    } else if (score === par + 2) {
+      // Double bogey - dark blue double square
       return {
-        color: "text-flag font-bold",
+        color: "text-blue-900 font-bold",
         decoration:
-          "border-2 border-flag shadow-[0_0_0_2px_white,0_0_0_4px_#ef476f]",
+          "border-2 border-blue-900 shadow-[0_0_0_2px_white,0_0_0_4px_#1e40af]",
+      };
+    } else if (score >= par + 3) {
+      // Triple bogey or worse - bright blue double square
+      return {
+        color: "text-blue-600 font-bold",
+        decoration:
+          "border-2 border-blue-600 shadow-[0_0_0_2px_white,0_0_0_4px_#60a5fa]",
       };
     }
 
