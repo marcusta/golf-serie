@@ -21,7 +21,7 @@ import AdminManualScoreEntry from "./views/admin/AdminManualScoreEntry";
 // Import Player views (keeping only non-lazy loaded ones)
 import PlayerLayout from "./views/player/PlayerLayout";
 import PlayerLanding from "./views/player/Landing";
-import PlayerStandings from "./views/player/Standings";
+
 import PlayerCompetitions from "./views/player/Competitions";
 import PlayerSeries from "./views/player/Series";
 import SeriesDetail from "./views/player/SeriesDetail";
@@ -96,12 +96,6 @@ const playerLandingRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/",
   component: PlayerLanding,
-});
-
-const playerStandingsRoute = new Route({
-  getParentRoute: () => playerRoute,
-  path: "/standings",
-  component: PlayerStandings,
 });
 
 const playerCompetitionsRoute = new Route({
@@ -185,7 +179,6 @@ const routeTree = rootRoute.addChildren([
   ]),
   playerRoute.addChildren([
     playerLandingRoute,
-    playerStandingsRoute,
     playerCompetitionsRoute,
     playerSeriesRoute,
     seriesDetailRoute,
