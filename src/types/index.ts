@@ -173,11 +173,22 @@ export interface UpdateParticipantDto {
 }
 
 export interface LeaderboardEntry {
-  participant: Participant;
+  participant: Participant & { team_name: string };
   totalShots: number;
   holesPlayed: number;
   relativeToPar: number;
   startTime: string;
+}
+
+export interface TeamLeaderboardEntry {
+  teamId: string;
+  teamName: string;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "FINISHED";
+  displayProgress: string; // E.g., "Starts 09:30", "Thru 14", or "F" for Finished.
+  totalRelativeScore: number | null; // Null if not started.
+  totalShots: number | null; // Null if not started.
+  teamPoints: number | null; // Null if not started.
+  startTime: string | null; // Start time from tee time data
 }
 
 export interface Document {

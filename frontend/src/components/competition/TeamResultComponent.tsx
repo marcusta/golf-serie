@@ -243,22 +243,6 @@ export function TeamResultComponent({
 
                     <div className="flex items-center gap-4 text-sm text-turf font-primary">
                       <span>{teamPlayers.length} players</span>
-                      <span className="flex items-center gap-1">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        {team.displayProgress}
-                      </span>
                     </div>
                   </div>
 
@@ -291,16 +275,14 @@ export function TeamResultComponent({
                               : "-"}
                           </div>
                         </div>
-                        {team.teamPoints !== null && (
-                          <div>
-                            <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                              Points
-                            </div>
-                            <div className="text-xl font-bold font-display px-3 py-1 rounded-lg bg-charcoal/10 text-charcoal">
-                              {team.teamPoints}
-                            </div>
+                        <div>
+                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
+                            Points
                           </div>
-                        )}
+                          <div className="text-xl font-bold font-display px-3 py-1 rounded-lg bg-charcoal/10 text-charcoal">
+                            {team.teamPoints}
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       // FINISHED status

@@ -4,6 +4,7 @@ import type {
   CreateCompetitionDto,
   LeaderboardEntry,
   Participant,
+  TeamLeaderboardEntry,
   UpdateCompetitionDto,
 } from "../types";
 
@@ -320,5 +321,247 @@ export class CompetitionService {
     });
     // Sort by relative to par (ascending)
     return leaderboard.sort((a, b) => a.relativeToPar - b.relativeToPar);
+  }
+
+  async getTeamLeaderboard(
+    competitionId: number
+  ): Promise<TeamLeaderboardEntry[]> {
+    // First get the regular leaderboard
+    const leaderboard = await this.getLeaderboard(competitionId);
+
+    // Get the competition to check if it belongs to a series
+    const competitionStmt = this.db.prepare(`
+      SELECT c.*, co.pars
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      WHERE c.id = ?
+    `);
+    const competition = competitionStmt.get(competitionId) as
+      | (Competition & { pars: string })
+      | null;
+    if (!competition) {
+      throw new Error("Competition not found");
+    }
+
+    // Get number of teams in the series (if competition belongs to a series)
+    let numberOfTeams = 0;
+    if (competition.series_id) {
+      const teamsCountStmt = this.db.prepare(`
+        SELECT COUNT(*) as count
+        FROM series_teams
+        WHERE series_id = ?
+      `);
+      const result = teamsCountStmt.get(competition.series_id) as {
+        count: number;
+      } | null;
+      numberOfTeams = result?.count || 0;
+    }
+
+    // Transform leaderboard data into team leaderboard format
+    return this.transformLeaderboardToTeamLeaderboard(
+      leaderboard,
+      numberOfTeams
+    );
+  }
+
+  private transformLeaderboardToTeamLeaderboard(
+    leaderboard: LeaderboardEntry[],
+    numberOfTeams: number
+  ): TeamLeaderboardEntry[] {
+    interface TeamGroup {
+      teamId: string;
+      teamName: string;
+      participants: LeaderboardEntry[];
+      totalShots: number;
+      totalRelativeScore: number;
+      maxHolesCompleted: number;
+      startTime: string | null;
+    }
+
+    // 1. Group participants by team and pre-calculate sums.
+    const teamGroups = leaderboard.reduce((acc, entry) => {
+      const teamName = entry.participant.team_name;
+      if (!acc[teamName]) {
+        acc[teamName] = {
+          teamId: teamName,
+          teamName,
+          participants: [],
+          totalShots: 0,
+          totalRelativeScore: 0,
+          maxHolesCompleted: 0,
+          startTime: null,
+        };
+      }
+
+      const hasStarted = entry.holesPlayed > 0;
+      const hasInvalidRound = entry.participant.score.includes(-1);
+
+      acc[teamName].participants.push(entry);
+
+      if (hasStarted && !hasInvalidRound) {
+        acc[teamName].totalShots += entry.totalShots;
+        acc[teamName].totalRelativeScore += entry.relativeToPar;
+      }
+
+      if (hasStarted) {
+        acc[teamName].maxHolesCompleted = Math.max(
+          acc[teamName].maxHolesCompleted,
+          entry.holesPlayed
+        );
+      }
+
+      return acc;
+    }, {} as Record<string, TeamGroup>);
+
+    // 2. Populate start times for each team.
+    Object.values(teamGroups).forEach((team: TeamGroup) => {
+      let earliestStartTime: string | null = null;
+      team.participants.forEach((participant) => {
+        if (participant.startTime) {
+          if (!earliestStartTime || participant.startTime < earliestStartTime) {
+            earliestStartTime = participant.startTime;
+          }
+        }
+      });
+      if (earliestStartTime) {
+        team.startTime = earliestStartTime;
+      }
+    });
+
+    // 3. Sort the teams with the tie-breaker logic.
+    const sortedTeamGroups = Object.values(teamGroups).sort((a, b) => {
+      const getStatus = (
+        team: TeamGroup
+      ): "NOT_STARTED" | "IN_PROGRESS" | "FINISHED" => {
+        const anyStarted = team.participants.some((p) => p.holesPlayed > 0);
+        if (!anyStarted) return "NOT_STARTED";
+        const allFinished = team.participants.every(
+          (p) => p.participant.is_locked && !p.participant.score.includes(-1)
+        );
+        if (allFinished) return "FINISHED";
+        return "IN_PROGRESS";
+      };
+
+      const statusA = getStatus(a);
+      const statusB = getStatus(b);
+
+      // Primary sort: By status.
+      if (statusA !== statusB) {
+        const statusOrder = { FINISHED: 0, IN_PROGRESS: 1, NOT_STARTED: 2 };
+        return statusOrder[statusA] - statusOrder[statusB];
+      }
+
+      // If status is the same and they haven't started, don't sort further.
+      if (statusA === "NOT_STARTED") return 0;
+
+      // Secondary sort: By total score.
+      if (a.totalRelativeScore !== b.totalRelativeScore) {
+        return a.totalRelativeScore - b.totalRelativeScore;
+      }
+
+      // Tie-breaker: Compare best individual scores, then next best, and so on.
+      const sortedScoresA = a.participants
+        .filter((p) => p.holesPlayed > 0 && !p.participant.score.includes(-1))
+        .map((p) => p.relativeToPar)
+        .sort((x, y) => x - y);
+
+      const sortedScoresB = b.participants
+        .filter((p) => p.holesPlayed > 0 && !p.participant.score.includes(-1))
+        .map((p) => p.relativeToPar)
+        .sort((x, y) => x - y);
+
+      const maxPlayers = Math.max(sortedScoresA.length, sortedScoresB.length);
+      for (let i = 0; i < maxPlayers; i++) {
+        const scoreA = sortedScoresA[i];
+        const scoreB = sortedScoresB[i];
+
+        if (scoreA === undefined) return 1; // Team A has fewer valid scores, B wins.
+        if (scoreB === undefined) return -1; // Team B has fewer valid scores, A wins.
+
+        if (scoreA !== scoreB) {
+          return scoreA - scoreB; // The first non-tied score determines the winner.
+        }
+      }
+
+      return 0; // It's a perfect tie.
+    });
+
+    // 4. Map sorted groups to the final TeamLeaderboardEntry format.
+    const sortedTeams = sortedTeamGroups.map(
+      (team: TeamGroup): TeamLeaderboardEntry => {
+        const anyStarted = team.participants.some((p) => p.holesPlayed > 0);
+        const allFinished =
+          anyStarted &&
+          team.participants.every(
+            (p) => p.participant.is_locked && !p.participant.score.includes(-1)
+          );
+
+        let status: "NOT_STARTED" | "IN_PROGRESS" | "FINISHED";
+        let displayProgress: string;
+
+        if (!anyStarted) {
+          status = "NOT_STARTED";
+          displayProgress = team.startTime
+            ? `Starts ${team.startTime}`
+            : "Starts TBD";
+        } else if (allFinished) {
+          status = "FINISHED";
+          displayProgress = "F";
+        } else {
+          status = "IN_PROGRESS";
+          displayProgress = `Thru ${team.maxHolesCompleted}`;
+        }
+
+        return {
+          teamId: team.teamId,
+          teamName: team.teamName,
+          status,
+          startTime: team.startTime,
+          displayProgress,
+          totalRelativeScore: anyStarted ? team.totalRelativeScore : null,
+          totalShots: anyStarted ? team.totalShots : null,
+          teamPoints: null, // Points are calculated next.
+        };
+      }
+    );
+
+    // 5. Calculate points based on the final sorted order.
+    if (numberOfTeams > 0) {
+      let currentPosition = 0;
+      let lastScoreSignature: string | null = null;
+
+      sortedTeams.forEach((team, index) => {
+        if (team.status !== "NOT_STARTED") {
+          // Create a signature of the score to handle ties correctly.
+          // A simple score check isn't enough due to the individual tie-breaker.
+          // The position in the sorted array is now the definitive rank.
+          const scoreSignature = `${team.totalRelativeScore}-${index}`;
+
+          if (scoreSignature !== lastScoreSignature) {
+            currentPosition = index + 1;
+          }
+          team.teamPoints = this.calculateTeamPoints(
+            currentPosition,
+            numberOfTeams
+          );
+          lastScoreSignature = scoreSignature;
+        }
+      });
+    }
+
+    return sortedTeams;
+  }
+
+  private calculateTeamPoints(position: number, numberOfTeams: number): number {
+    if (position <= 0) return 0;
+    if (position === 1) {
+      return numberOfTeams + 2;
+    }
+    if (position === 2) {
+      return numberOfTeams;
+    }
+    // For position 3 and below, ensuring points don't go below 0.
+    const points = numberOfTeams - (position - 1);
+    return Math.max(0, points);
   }
 }

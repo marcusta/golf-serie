@@ -145,5 +145,32 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
         );
       }
     },
+
+    async getTeamLeaderboard(competitionId: number): Promise<Response> {
+      try {
+        const teamLeaderboard = await competitionService.getTeamLeaderboard(
+          competitionId
+        );
+        return new Response(JSON.stringify(teamLeaderboard), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message === "Competition not found" ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
   };
 }

@@ -136,6 +136,11 @@ export function createApp(db: Database): Hono {
     return await competitionsApi.getLeaderboard(competitionId);
   });
 
+  app.get("/api/competitions/:competitionId/team-leaderboard", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await competitionsApi.getTeamLeaderboard(competitionId);
+  });
+
   // TeeTime routes
   app.post("/api/competitions/:competitionId/tee-times", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));

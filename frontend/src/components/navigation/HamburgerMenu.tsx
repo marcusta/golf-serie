@@ -109,10 +109,6 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
     },
   ];
 
-  console.log("contextualLinks", contextualLinks);
-  console.log("generalLinks", generalLinks);
-  console.log("adminLinks", adminLinks);
-
   const MenuSection = ({
     title,
     links,
