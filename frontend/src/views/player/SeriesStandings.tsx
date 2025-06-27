@@ -1,5 +1,9 @@
 import { useParams } from "@tanstack/react-router";
-import { useSingleSeries, useSeriesStandings } from "@/api/series";
+import {
+  useSingleSeries,
+  useSeriesStandings,
+  useSeriesCompetitions,
+} from "@/api/series";
 import {
   Trophy,
   AlertCircle,
@@ -7,9 +11,21 @@ import {
   Share,
   Download,
   Medal,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CommonHeader } from "@/components/navigation/CommonHeader";
+import { useState } from "react";
+
+interface EnhancedCompetition {
+  competition_id: number;
+  competition_name: string;
+  competition_date: string;
+  points: number;
+  position: number;
+  is_future?: boolean;
+  not_participated?: boolean;
+}
 
 function LoadingSkeleton() {
   return (
@@ -78,6 +94,8 @@ export default function SeriesStandings() {
   const { serieId } = useParams({ from: "/player/series/$serieId/standings" });
 
   const seriesId = parseInt(serieId);
+  const [expandedTeams, setExpandedTeams] = useState<Set<number>>(new Set());
+
   const {
     data: series,
     isLoading: seriesLoading,
@@ -90,6 +108,12 @@ export default function SeriesStandings() {
     error: standingsError,
     refetch: refetchStandings,
   } = useSeriesStandings(seriesId);
+
+  const {
+    data: allCompetitions,
+    isLoading: competitionsLoading,
+    error: competitionsError,
+  } = useSeriesCompetitions(seriesId);
 
   const handleShare = async () => {
     if (navigator.share && series) {
@@ -130,7 +154,8 @@ export default function SeriesStandings() {
     window.URL.revokeObjectURL(url);
   };
 
-  if (seriesLoading || standingsLoading) return <LoadingSkeleton />;
+  if (seriesLoading || standingsLoading || competitionsLoading)
+    return <LoadingSkeleton />;
 
   if (seriesError) {
     return (
@@ -141,7 +166,7 @@ export default function SeriesStandings() {
     );
   }
 
-  if (standingsError) {
+  if (standingsError || competitionsError) {
     return (
       <ErrorState
         title="Error Loading Standings"
@@ -200,7 +225,62 @@ export default function SeriesStandings() {
     );
   }
 
+  const toggleTeamDetails = (teamId: number) => {
+    const newExpanded = new Set(expandedTeams);
+    if (newExpanded.has(teamId)) {
+      newExpanded.delete(teamId);
+    } else {
+      newExpanded.add(teamId);
+    }
+    setExpandedTeams(newExpanded);
+  };
+
+  // Create enhanced team standings with all competitions (including future ones)
+  const getEnhancedTeamStandings = () => {
+    if (!standings || !allCompetitions) return [];
+
+    return standings.team_standings.map((teamStanding) => {
+      // Create a map of participated competitions for this team
+      const participatedCompetitions = new Map(
+        teamStanding.competitions.map((comp) => [comp.competition_id, comp])
+      );
+
+      // Create enhanced competitions list with all competitions
+      const enhancedCompetitions = allCompetitions.map((competition) => {
+        const participated = participatedCompetitions.get(competition.id);
+
+        if (participated) {
+          // Team participated in this competition
+          return participated;
+        } else {
+          // Team didn't participate or competition is in the future
+          const competitionDate = new Date(competition.date);
+          const today = new Date();
+          today.setHours(23, 59, 59, 999); // End of today for comparison
+
+          const isFutureCompetition = competitionDate > today;
+
+          return {
+            competition_id: competition.id,
+            competition_name: competition.name,
+            competition_date: competition.date,
+            points: 0,
+            position: 0,
+            is_future: isFutureCompetition,
+            not_participated: !isFutureCompetition,
+          };
+        }
+      });
+
+      return {
+        ...teamStanding,
+        competitions: enhancedCompetitions,
+      };
+    });
+  };
+
   const topThree = standings.team_standings.slice(0, 3);
+  const enhancedTeamStandings = getEnhancedTeamStandings();
 
   return (
     <div className="min-h-screen bg-scorecard">
@@ -254,21 +334,24 @@ export default function SeriesStandings() {
               {topThree.map((standing, index) => (
                 <div
                   key={standing.team_id}
-                  className={`p-6 rounded-xl border-2 transition-all duration-200 ${
+                  className={`p-6 rounded-xl border-2 transition-all duration-300 hover:transform hover:-translate-y-1 ${
                     index === 0
-                      ? "bg-gradient-to-br from-coral/10 to-coral/5 border-coral shadow-lg shadow-coral/20"
+                      ? "bg-gradient-to-br from-coral/10 to-coral/5 border-coral shadow-lg shadow-coral/20 hover:shadow-xl hover:shadow-coral/30"
                       : index === 1
-                      ? "bg-gradient-to-br from-soft-grey/20 to-soft-grey/10 border-soft-grey"
-                      : "bg-gradient-to-br from-turf/10 to-turf/5 border-turf"
+                      ? "bg-gradient-to-br from-slate-100/50 to-slate-50/30 border-slate-300 hover:shadow-lg"
+                      : "bg-gradient-to-br from-turf/10 to-turf/5 border-turf hover:shadow-lg"
                   }`}
+                  style={{
+                    animationDelay: `${index * 0.1}s`,
+                  }}
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-200 ${
                         index === 0
                           ? "bg-coral text-scorecard"
                           : index === 1
-                          ? "bg-soft-grey text-charcoal"
+                          ? "bg-slate-400 text-scorecard"
                           : "bg-turf text-scorecard"
                       }`}
                     >
@@ -304,7 +387,7 @@ export default function SeriesStandings() {
           </section>
         )}
 
-        {/* Full Standings Table */}
+        {/* Enhanced Standings with Expandable Details */}
         <section>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-display-sm font-display font-semibold text-charcoal">
@@ -316,105 +399,183 @@ export default function SeriesStandings() {
             </span>
           </div>
 
-          {/* Mobile Cards */}
-          <div className="md:hidden space-y-3">
-            {standings.team_standings.map((standing) => (
-              <div
-                key={standing.team_id}
-                className="p-4 rounded-xl border border-soft-grey bg-scorecard"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold text-sm ${
-                      standing.position === 1
-                        ? "bg-coral text-scorecard shadow-lg shadow-coral/30"
-                        : standing.position <= 3
-                        ? "bg-turf/20 text-turf"
-                        : "bg-charcoal/10 text-charcoal"
-                    }`}
-                  >
-                    {standing.position}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-label-md font-semibold text-charcoal truncate">
-                      {standing.team_name}
-                    </h3>
-                    <p className="text-body-sm text-charcoal/70">
-                      {standing.competitions_played} competitions played
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-label-lg font-semibold text-charcoal">
-                      {standing.total_points}
+          {/* Clean Hierarchical List */}
+          <div className="bg-scorecard rounded-xl shadow-sm border border-soft-grey/30 overflow-hidden">
+            {enhancedTeamStandings.map((standing, index) => (
+              <div key={standing.team_id}>
+                {/* Team Row */}
+                <div
+                  className={`relative cursor-pointer transition-colors duration-150 hover:bg-rough/30 ${
+                    index > 0 ? "border-t border-slate-100" : ""
+                  }`}
+                  onClick={() => toggleTeamDetails(standing.team_id)}
+                >
+                  <div className="flex items-center gap-4 p-5">
+                    {/* Position Badge */}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                        standing.position === 1
+                          ? "bg-amber-100 text-amber-700"
+                          : standing.position === 2
+                          ? "bg-slate-200 text-slate-600"
+                          : standing.position === 3
+                          ? "bg-orange-100 text-orange-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {standing.position}
                     </div>
-                    <div className="text-body-sm text-charcoal/70">points</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
 
-          {/* Desktop Table */}
-          <div className="hidden md:block bg-scorecard border border-soft-grey rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-fairway to-turf text-scorecard">
-                <tr>
-                  <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wide">
-                    Position
-                  </th>
-                  <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wide">
-                    Team
-                  </th>
-                  <th className="text-center py-4 px-6 font-semibold text-sm uppercase tracking-wide">
-                    Points
-                  </th>
-                  <th className="text-center py-4 px-6 font-semibold text-sm uppercase tracking-wide">
-                    Competitions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.team_standings.map((standing, index) => (
-                  <tr
-                    key={standing.team_id}
-                    className={`border-b border-soft-grey/50 transition-colors hover:bg-rough/20 ${
-                      index % 2 === 0 ? "bg-scorecard" : "bg-rough/10"
-                    }`}
-                  >
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm ${
-                            standing.position === 1
-                              ? "bg-coral text-scorecard"
-                              : standing.position <= 3
-                              ? "bg-turf/20 text-turf"
-                              : "bg-charcoal/10 text-charcoal"
-                          }`}
-                        >
-                          {standing.position}
+                    {/* Team Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-semibold text-charcoal leading-tight mb-1">
+                        {standing.team_name}
+                      </h3>
+                      <p className="text-sm text-slate-500 leading-tight">
+                        {standing.competitions_played} of{" "}
+                        {standings.total_competitions} competitions
+                      </p>
+                    </div>
+
+                    {/* Stats - Desktop */}
+                    <div className="hidden sm:flex items-center gap-6">
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-charcoal leading-tight">
+                          {standing.total_points}
+                        </div>
+                        <div className="text-xs text-slate-500 uppercase tracking-wide leading-tight">
+                          Points
                         </div>
                       </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="font-semibold text-charcoal">
-                        {standing.team_name}
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-charcoal leading-tight">
+                          {standing.competitions_played}
+                        </div>
+                        <div className="text-xs text-slate-500 uppercase tracking-wide leading-tight">
+                          Played
+                        </div>
                       </div>
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="font-semibold text-charcoal">
+                    </div>
+
+                    {/* Stats - Mobile */}
+                    <div className="sm:hidden text-right">
+                      <div className="text-lg font-bold text-charcoal leading-tight">
                         {standing.total_points}
                       </div>
-                    </td>
-                    <td className="py-4 px-6 text-center">
-                      <div className="text-charcoal">
-                        {standing.competitions_played}
+                      <div className="text-xs text-slate-500 leading-tight">
+                        pts
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+
+                    {/* Expand Arrow */}
+                    <div
+                      className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 text-slate-400 ${
+                        expandedTeams.has(standing.team_id) ? "rotate-90" : ""
+                      }`}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Competition Details - Expandable */}
+                {expandedTeams.has(standing.team_id) && (
+                  <div className="bg-slate-50 border-t border-slate-100">
+                    <div className="pl-16 pr-5 py-4 space-y-1">
+                      {standing.competitions.map((competition) => {
+                        const enhancedComp = competition as EnhancedCompetition;
+                        const isFuture = enhancedComp.is_future;
+                        const notParticipated = enhancedComp.not_participated;
+
+                        return (
+                          <div
+                            key={competition.competition_id}
+                            className="flex items-center gap-3 py-3 border-b border-slate-200/50 last:border-b-0"
+                          >
+                            {/* Status Badge */}
+                            <div
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${
+                                isFuture
+                                  ? "bg-blue-100 text-blue-600"
+                                  : notParticipated
+                                  ? "bg-red-100 text-red-600"
+                                  : standing.position === 1
+                                  ? "bg-amber-100 text-amber-700"
+                                  : standing.position === 2
+                                  ? "bg-slate-200 text-slate-600"
+                                  : standing.position === 3
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {isFuture
+                                ? "•"
+                                : notParticipated
+                                ? "×"
+                                : competition.position}
+                            </div>
+
+                            {/* Competition Info */}
+                            <div className="flex-1 min-w-0">
+                              <div
+                                className={`text-sm font-medium leading-tight mb-1 ${
+                                  isFuture
+                                    ? "text-blue-800"
+                                    : notParticipated
+                                    ? "text-red-800"
+                                    : "text-charcoal"
+                                }`}
+                              >
+                                {competition.competition_name}
+                              </div>
+                              <div
+                                className={`text-xs leading-tight ${
+                                  isFuture
+                                    ? "text-blue-600"
+                                    : notParticipated
+                                    ? "text-red-600"
+                                    : "text-slate-500"
+                                }`}
+                              >
+                                {new Date(
+                                  competition.competition_date
+                                ).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Points */}
+                            <div className="text-right">
+                              {isFuture || notParticipated ? (
+                                <div
+                                  className={`text-lg font-bold ${
+                                    isFuture ? "text-blue-600" : "text-red-600"
+                                  }`}
+                                >
+                                  –
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="text-sm font-bold text-charcoal leading-tight">
+                                    {competition.points}
+                                  </div>
+                                  <div className="text-xs text-slate-500 leading-tight">
+                                    pts
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </section>
       </main>
