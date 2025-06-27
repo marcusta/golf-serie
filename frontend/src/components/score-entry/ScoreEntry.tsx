@@ -55,6 +55,11 @@ interface ScoreEntryProps {
   isReadyToFinalize?: boolean;
   onFinalize?: () => void;
   isLocked?: boolean;
+  competition?: {
+    id: number;
+    series_id?: number;
+    series_name?: string;
+  };
 }
 
 export function ScoreEntry({
@@ -69,6 +74,7 @@ export function ScoreEntry({
   isReadyToFinalize = false,
   onFinalize,
   isLocked = false,
+  competition,
 }: ScoreEntryProps) {
   // Helper function to find the latest incomplete hole
   const findLatestIncompleteHole = (): number => {
@@ -489,11 +495,24 @@ export function ScoreEntry({
                   <div className="space-y-3">
                     <button
                       onClick={() => {
-                        // Navigate to leaderboard tab
+                        // Navigate to appropriate leaderboard based on series/non-series
                         const pathParts = window.location.pathname.split("/");
                         const competitionId =
                           pathParts[pathParts.indexOf("competitions") + 1];
-                        navigate({ to: `/player/competitions/${competitionId}`, hash: "leaderboard" });
+
+                        if (competition?.series_id) {
+                          // Series competition - go to team leaderboard
+                          navigate({
+                            to: `/player/competitions/${competitionId}`,
+                            hash: "teamresult",
+                          });
+                        } else {
+                          // Non-series competition - go to regular leaderboard
+                          navigate({
+                            to: `/player/competitions/${competitionId}`,
+                            hash: "leaderboard",
+                          });
+                        }
                       }}
                       className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-xl transition-colors font-primary"
                     >
@@ -501,15 +520,21 @@ export function ScoreEntry({
                     </button>
                     <button
                       onClick={() => {
-                        // Navigate back to competition overview
-                        const pathParts = window.location.pathname.split("/");
-                        const competitionId =
-                          pathParts[pathParts.indexOf("competitions") + 1];
-                        navigate({ to: `/player/competitions/${competitionId}` });
+                        if (competition?.series_id) {
+                          // Series competition - go to series landing page
+                          navigate({
+                            to: `/player/series/${competition.series_id}`,
+                          });
+                        } else {
+                          // Non-series competition - go to app landing page
+                          navigate({ to: "/player" });
+                        }
                       }}
                       className="w-full bg-soft-grey bg-opacity-30 hover:bg-soft-grey hover:bg-opacity-50 text-charcoal font-semibold py-4 px-6 rounded-xl transition-colors font-primary"
                     >
-                      Back to Competition
+                      {competition?.series_id
+                        ? `Back to ${competition.series_name}`
+                        : "Back to Home"}
                     </button>
                   </div>
                 </div>

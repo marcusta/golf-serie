@@ -310,6 +310,11 @@ export default function CompetitionRound() {
                 isReadyToFinalize={isReadyToFinalize}
                 onFinalize={handleFinalize}
                 isLocked={isAnyParticipantLocked}
+                competition={{
+                  id: competition.id,
+                  series_id: competition.series_id,
+                  series_name: competition.series_name,
+                }}
               />
             </div>
           </div>
