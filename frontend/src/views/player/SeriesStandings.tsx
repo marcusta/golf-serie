@@ -479,10 +479,20 @@ export default function SeriesStandings() {
                 </div>
 
                 {/* Competition Details - Expandable */}
-                {expandedTeams.has(standing.team_id) && (
-                  <div className="bg-slate-50 border-t border-slate-100">
-                    <div className="pl-16 pr-5 py-4 space-y-1">
-                      {standing.competitions.map((competition) => {
+                <div
+                  className={`bg-slate-50 border-t border-slate-100 overflow-hidden transition-all duration-300 ease-in-out ${
+                    expandedTeams.has(standing.team_id)
+                      ? "max-h-[1000px] opacity-100"
+                      : "max-h-0 opacity-0"
+                  }`}
+                >
+                  <div
+                    className={`pl-16 pr-5 space-y-1 transition-all duration-300 ease-in-out ${
+                      expandedTeams.has(standing.team_id) ? "py-4" : "py-0"
+                    }`}
+                  >
+                    {expandedTeams.has(standing.team_id) &&
+                      standing.competitions.map((competition) => {
                         const enhancedComp = competition as EnhancedCompetition;
                         const isFuture = enhancedComp.is_future;
                         const notParticipated = enhancedComp.not_participated;
@@ -571,9 +581,8 @@ export default function SeriesStandings() {
                           </div>
                         );
                       })}
-                    </div>
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </div>
