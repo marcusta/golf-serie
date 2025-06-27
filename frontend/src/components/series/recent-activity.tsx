@@ -31,17 +31,15 @@ export function RecentActivity({
   if (!recentCompetitions.length) {
     return (
       <section className={cn("space-y-6", className)}>
-        <h3 className="text-display-sm font-display font-semibold text-charcoal">
-          Recent Activity
-        </h3>
+        <h3 className="text-xl font-semibold text-gray-900">Recent Activity</h3>
         <div className="text-center py-8">
-          <div className="w-16 h-16 bg-rough/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <TrendingUp className="h-8 w-8 text-turf" />
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <TrendingUp className="h-8 w-8 text-green-600" />
           </div>
-          <h4 className="text-label-lg font-semibold text-charcoal mb-2">
+          <h4 className="text-lg font-semibold text-gray-900 mb-2">
             No recent activity
           </h4>
-          <p className="text-body-sm text-charcoal/70">
+          <p className="text-sm text-gray-600">
             Competition results will appear here as they become available.
           </p>
         </div>
@@ -52,11 +50,9 @@ export function RecentActivity({
   return (
     <section className={cn("space-y-6", className)}>
       <div className="flex items-center justify-between">
-        <h3 className="text-display-sm font-display font-semibold text-charcoal">
-          Recent Activity
-        </h3>
+        <h3 className="text-xl font-semibold text-gray-900">Recent Activity</h3>
         {competitions.length > maxItems && (
-          <button className="text-label-md font-medium text-turf hover:text-fairway transition-colors">
+          <button className="text-sm font-medium text-green-600 hover:text-green-700 transition-colors">
             View all
           </button>
         )}
@@ -72,7 +68,7 @@ export function RecentActivity({
             <div key={competition.id} className="relative">
               {/* Timeline line */}
               {index !== recentCompetitions.length - 1 && (
-                <div className="absolute left-6 top-12 w-0.5 h-12 bg-turf/20" />
+                <div className="absolute left-6 top-12 w-0.5 h-12 bg-green-200" />
               )}
 
               {/* Activity item */}
@@ -80,16 +76,16 @@ export function RecentActivity({
                 to={`/player/competitions/${competition.id}`}
                 className="group block"
               >
-                <div className="flex items-start gap-4 p-4 rounded-xl bg-scorecard border border-soft-grey hover:border-turf hover:shadow-md transition-all duration-200">
+                <div className="flex items-start gap-4 p-4 rounded-xl bg-white border border-gray-200 hover:border-green-300 hover:shadow-md transition-all duration-200">
                   {/* Timeline dot */}
                   <div
                     className={cn(
                       "flex-shrink-0 w-3 h-3 rounded-full mt-3",
                       isFirst
-                        ? "bg-turf shadow-lg shadow-turf/30"
+                        ? "bg-green-600 shadow-lg shadow-green-600/30"
                         : isPast
-                        ? "bg-charcoal/30"
-                        : "bg-coral"
+                        ? "bg-gray-400"
+                        : "bg-orange-500"
                     )}
                   />
 
@@ -98,17 +94,17 @@ export function RecentActivity({
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
-                          <h4 className="text-label-lg font-semibold text-charcoal truncate">
+                          <h4 className="text-lg font-semibold text-gray-900 truncate">
                             {competition.name}
                           </h4>
                           <span
                             className={cn(
-                              "px-2 py-1 rounded-full text-label-sm font-medium whitespace-nowrap",
+                              "px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap",
                               isPast
-                                ? "text-charcoal bg-charcoal/10"
+                                ? "text-gray-700 bg-gray-100"
                                 : isFirst
-                                ? "text-turf bg-turf/10"
-                                : "text-coral bg-coral/10"
+                                ? "text-green-700 bg-green-100"
+                                : "text-orange-700 bg-orange-100"
                             )}
                           >
                             {isPast
@@ -119,7 +115,7 @@ export function RecentActivity({
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-4 text-body-sm text-charcoal/70">
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-4 w-4 flex-shrink-0" />
                             <span className="truncate">
@@ -138,8 +134,8 @@ export function RecentActivity({
 
                         {/* Additional context for latest/completed */}
                         {isFirst && isPast && (
-                          <div className="mt-3 pt-3 border-t border-soft-grey">
-                            <div className="flex items-center gap-2 text-body-sm text-turf">
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex items-center gap-2 text-sm text-green-600">
                               <Trophy className="h-4 w-4" />
                               <span className="font-medium">
                                 Results available - View standings
@@ -149,7 +145,7 @@ export function RecentActivity({
                         )}
                       </div>
 
-                      <ChevronRight className="h-5 w-5 text-charcoal/30 group-hover:text-turf transition-colors flex-shrink-0 mt-1" />
+                      <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-green-600 transition-colors flex-shrink-0 mt-1" />
                     </div>
                   </div>
                 </div>
@@ -161,8 +157,8 @@ export function RecentActivity({
 
       {/* Show more link for mobile */}
       {competitions.length > maxItems && (
-        <div className="pt-4 border-t border-soft-grey">
-          <button className="w-full py-3 text-label-md font-medium text-turf hover:text-fairway transition-colors text-center">
+        <div className="pt-4 border-t border-gray-200">
+          <button className="w-full py-3 text-sm font-medium text-green-600 hover:text-green-700 transition-colors text-center">
             View all {competitions.length} competitions
           </button>
         </div>

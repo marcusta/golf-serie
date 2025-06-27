@@ -19,7 +19,11 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { CommonHeader } from "@/components/navigation/CommonHeader";
-import RecentActivity from "@/components/series/recent-activity";
+import {
+  RecentActivity,
+  TodayCompetitionBanner,
+  UpcomingCompetitions,
+} from "@/components/series";
 
 // Loading skeleton components
 function LoadingSkeleton() {
@@ -123,7 +127,15 @@ export default function SeriesDetail() {
   // Calculate key metrics for info bar
   const totalCompetitions = competitions?.length || 0;
   const activeTeams = standings?.team_standings?.length || 0;
-  const latestCompetition = competitions?.[0];
+
+  // Find the most recent past competition (for the info bar)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const latestCompetition = competitions?.find((comp) => {
+    const compDate = new Date(comp.date);
+    compDate.setHours(0, 0, 0, 0);
+    return compDate < today;
+  });
 
   // Find the landing document
   const landingDocument = series?.landing_document_id
@@ -160,8 +172,23 @@ export default function SeriesDetail() {
 
   // Main content
   const renderMainContent = () => {
+    // Find today's competitions
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayCompetition = competitions?.find((comp) => {
+      const compDate = new Date(comp.date);
+      compDate.setHours(0, 0, 0, 0);
+      return compDate.getTime() === today.getTime();
+    });
+
     return (
       <div className="space-y-8">
+        {/* Today's Competition Banner */}
+        {todayCompetition && (
+          <TodayCompetitionBanner competition={todayCompetition} />
+        )}
+
         {/* Primary Content Area */}
         {landingDocument ? (
           <section>
@@ -269,6 +296,9 @@ export default function SeriesDetail() {
             )}
           </div>
         </section>
+
+        {/* Upcoming Competitions Section */}
+        <UpcomingCompetitions competitions={competitions || []} maxItems={3} />
 
         {/* Recent Activity Section */}
         <RecentActivity competitions={competitions} maxItems={3} />

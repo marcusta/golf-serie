@@ -191,7 +191,13 @@ export class SeriesService {
     }
 
     const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name
+      SELECT 
+        c.*, 
+        co.name as course_name,
+        (SELECT COUNT(DISTINCT p.id) 
+         FROM participants p 
+         JOIN tee_times t ON p.tee_time_id = t.id 
+         WHERE t.competition_id = c.id) as participant_count
       FROM competitions c
       JOIN courses co ON c.course_id = co.id
       WHERE c.series_id = ?
