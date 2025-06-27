@@ -337,6 +337,7 @@ export default function CompetitionRound() {
             leaderboardLoading={teamLeaderboardLoading}
             individualResults={leaderboard}
             isRoundView={true}
+            onParticipantClick={handleParticipantClick}
           />
         );
 

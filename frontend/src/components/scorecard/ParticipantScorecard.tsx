@@ -40,17 +40,7 @@ export function ParticipantScorecard({
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-200">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900 truncate">
-              Team: {participant.team_name}
-            </h2>
-            <p className="text-sm text-blue-600 mt-1">
-              {participant.position_name}
-            </p>
-            {participant.player_names && (
-              <p className="text-sm text-gray-600 mt-1 truncate">
-                Players: {participant.player_names}
-              </p>
-            )}
+            <h2 className="text-lg font-semibold text-gray-900">Scorecard</h2>
           </div>
           <button
             onClick={onClose}
@@ -66,8 +56,10 @@ export function ParticipantScorecard({
             <Scorecard
               participant={{
                 id: participant.id.toString(),
-                name: participant.team_name,
-                type: participant.position_name,
+                name: participant.player_names || participant.position_name,
+                type: participant.player_names
+                  ? `${participant.team_name}, ${participant.position_name}`
+                  : participant.team_name,
                 scores: participant.score,
               }}
               course={course}

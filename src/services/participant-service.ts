@@ -66,7 +66,12 @@ export class ParticipantService {
   }
 
   async findById(id: number): Promise<Participant | null> {
-    const stmt = this.db.prepare("SELECT * FROM participants WHERE id = ?");
+    const stmt = this.db.prepare(`
+      SELECT p.*, te.name as team_name
+      FROM participants p
+      JOIN teams te ON p.team_id = te.id
+      WHERE p.id = ?
+    `);
     const participant = stmt.get(id) as Participant | null;
     if (!participant) return null;
 

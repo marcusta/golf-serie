@@ -9,6 +9,8 @@ interface TeamResultComponentProps {
   individualResults?: LeaderboardEntry[] | undefined; // For individual player sorting
   // For CompetitionRound context
   isRoundView?: boolean;
+  // Add participant click handler for scorecard modal
+  onParticipantClick?: (participantId: number) => void;
 }
 
 export function TeamResultComponent({
@@ -16,14 +18,10 @@ export function TeamResultComponent({
   leaderboardLoading,
   individualResults,
   isRoundView = false,
+  onParticipantClick,
 }: TeamResultComponentProps) {
   // Filter state
   const [filter, setFilter] = useState<"all" | "finished">("all");
-
-  // Debug log to check data structure
-  if (teamResults) {
-    console.log("TeamResultComponent data:", teamResults);
-  }
 
   // Apply filter
   const filteredTeamResults = teamResults?.filter((team) => {
@@ -331,13 +329,20 @@ export function TeamResultComponent({
                         player.participant.score.includes(-1);
 
                       return (
-                        <div
+                        <button
                           key={player.participant.id}
-                          className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors ${
+                          onClick={() =>
+                            onParticipantClick?.(player.participant.id)
+                          }
+                          className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-colors text-left ${
                             playerStatus !== "NOT_STARTED"
-                              ? "bg-rough/10 hover:bg-rough/20"
-                              : "bg-soft-grey/5"
-                          }`}
+                              ? "bg-rough/10 hover:bg-rough/20 cursor-pointer"
+                              : "bg-soft-grey/5 cursor-default"
+                          } ${onParticipantClick ? "hover:shadow-sm" : ""}`}
+                          disabled={
+                            !onParticipantClick ||
+                            playerStatus === "NOT_STARTED"
+                          }
                         >
                           <div className="flex items-center gap-3 flex-1">
                             <div
@@ -407,7 +412,7 @@ export function TeamResultComponent({
                               </>
                             )}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>

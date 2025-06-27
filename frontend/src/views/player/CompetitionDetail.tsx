@@ -347,6 +347,7 @@ export default function CompetitionDetail() {
             teamResults={sortedTeamResults}
             leaderboardLoading={teamLeaderboardLoading}
             individualResults={leaderboard}
+            onParticipantClick={handleParticipantClick}
           />
         )}
       </div>
