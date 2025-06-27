@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CustomKeyboard } from "./CustomKeyboard";
@@ -95,6 +96,7 @@ export function ScoreEntry({
     return 1; // Default to hole 1 if no scores found
   };
 
+  const navigate = useNavigate();
   const [internalCurrentHole, setInternalCurrentHole] = useState(() =>
     findLatestIncompleteHole()
   );
@@ -491,7 +493,7 @@ export function ScoreEntry({
                         const pathParts = window.location.pathname.split("/");
                         const competitionId =
                           pathParts[pathParts.indexOf("competitions") + 1];
-                        window.location.href = `/player/competitions/${competitionId}#leaderboard`;
+                        navigate({ to: `/player/competitions/${competitionId}`, hash: "leaderboard" });
                       }}
                       className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-xl transition-colors font-primary"
                     >
@@ -503,7 +505,7 @@ export function ScoreEntry({
                         const pathParts = window.location.pathname.split("/");
                         const competitionId =
                           pathParts[pathParts.indexOf("competitions") + 1];
-                        window.location.href = `/player/competitions/${competitionId}`;
+                        navigate({ to: `/player/competitions/${competitionId}` });
                       }}
                       className="w-full bg-soft-grey bg-opacity-30 hover:bg-soft-grey hover:bg-opacity-50 text-charcoal font-semibold py-4 px-6 rounded-xl transition-colors font-primary"
                     >
