@@ -1,4 +1,4 @@
-import { useParams } from "@tanstack/react-router";
+import { useParams, useNavigate } from "@tanstack/react-router";
 import {
   useSingleSeries,
   useSeriesStandings,
@@ -92,6 +92,7 @@ function ErrorState({
 
 export default function SeriesStandings() {
   const { serieId } = useParams({ from: "/player/series/$serieId/standings" });
+  const navigate = useNavigate();
 
   const seriesId = parseInt(serieId);
   const [expandedTeams, setExpandedTeams] = useState<Set<number>>(new Set());
@@ -233,6 +234,20 @@ export default function SeriesStandings() {
       newExpanded.add(teamId);
     }
     setExpandedTeams(newExpanded);
+  };
+
+  const handleCompetitionClick = (
+    competitionId: number,
+    event: React.MouseEvent
+  ) => {
+    // Prevent event from bubbling up to the team toggle
+    event.stopPropagation();
+
+    // Navigate to the competition's team result tab
+    navigate({
+      to: `/player/competitions/${competitionId}`,
+      hash: "teamresult",
+    });
   };
 
   // Create enhanced team standings with all competitions (including future ones)
@@ -500,7 +515,20 @@ export default function SeriesStandings() {
                         return (
                           <div
                             key={competition.competition_id}
-                            className="flex items-center gap-3 py-3 border-b border-slate-200/50 last:border-b-0"
+                            className={`group flex items-center gap-3 py-3 border-b border-slate-200/50 last:border-b-0 transition-colors ${
+                              isFuture || notParticipated
+                                ? "cursor-default"
+                                : "cursor-pointer hover:bg-slate-100/50"
+                            }`}
+                            onClick={
+                              isFuture || notParticipated
+                                ? undefined
+                                : (e) =>
+                                    handleCompetitionClick(
+                                      competition.competition_id,
+                                      e
+                                    )
+                            }
                           >
                             {/* Status Badge */}
                             <div
@@ -557,25 +585,34 @@ export default function SeriesStandings() {
                               </div>
                             </div>
 
-                            {/* Points */}
-                            <div className="text-right">
-                              {isFuture || notParticipated ? (
-                                <div
-                                  className={`text-lg font-bold ${
-                                    isFuture ? "text-blue-600" : "text-red-600"
-                                  }`}
-                                >
-                                  –
+                            {/* Points and Click Indicator */}
+                            <div className="text-right flex items-center gap-2">
+                              <div>
+                                {isFuture || notParticipated ? (
+                                  <div
+                                    className={`text-lg font-bold ${
+                                      isFuture
+                                        ? "text-blue-600"
+                                        : "text-red-600"
+                                    }`}
+                                  >
+                                    –
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="text-sm font-bold text-charcoal leading-tight">
+                                      {competition.points}
+                                    </div>
+                                    <div className="text-xs text-slate-500 leading-tight">
+                                      pts
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              {!isFuture && !notParticipated && (
+                                <div className="w-4 h-4 flex items-center justify-center text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <ChevronDown className="h-3 w-3 rotate-[-90deg]" />
                                 </div>
-                              ) : (
-                                <>
-                                  <div className="text-sm font-bold text-charcoal leading-tight">
-                                    {competition.points}
-                                  </div>
-                                  <div className="text-xs text-slate-500 leading-tight">
-                                    pts
-                                  </div>
-                                </>
                               )}
                             </div>
                           </div>
