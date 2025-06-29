@@ -18,7 +18,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
-import { CommonHeader } from "@/components/navigation/CommonHeader";
+import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import {
   RecentActivity,
   TodayCompetitionBanner,
@@ -307,8 +307,7 @@ export default function SeriesDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-scorecard">
-      <CommonHeader onBackClick={handleBackNavigation} />
+    <PlayerPageLayout onBackClick={handleBackNavigation} seriesId={seriesId} seriesName={series.name}>
 
       {/* Hero Section */}
       <section className="relative">
@@ -395,6 +394,6 @@ export default function SeriesDetail() {
 
       {/* Content Area */}
       <main className="container mx-auto px-4 py-6">{renderMainContent()}</main>
-    </div>
+    </PlayerPageLayout>
   );
 }

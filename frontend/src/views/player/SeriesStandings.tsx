@@ -14,7 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CommonHeader } from "@/components/navigation/CommonHeader";
+import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { useState } from "react";
 
 interface EnhancedCompetition {
@@ -188,8 +188,7 @@ export default function SeriesStandings() {
 
   if (!standings?.team_standings?.length) {
     return (
-      <div className="min-h-screen bg-scorecard">
-        <CommonHeader title="Team Standings" />
+      <PlayerPageLayout title="Team Standings" seriesId={seriesId} seriesName={series?.name}>
 
         {/* Sub-header with Page Title */}
         <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -222,7 +221,7 @@ export default function SeriesStandings() {
             </Button>
           </div>
         </main>
-      </div>
+      </PlayerPageLayout>
     );
   }
 
@@ -298,8 +297,7 @@ export default function SeriesStandings() {
   const enhancedTeamStandings = getEnhancedTeamStandings();
 
   return (
-    <div className="min-h-screen bg-scorecard">
-      <CommonHeader title="Team Standings" />
+    <PlayerPageLayout title="Team Standings" seriesId={seriesId} seriesName={series?.name}>
 
       {/* Sub-header with export functionality */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -625,6 +623,6 @@ export default function SeriesStandings() {
           </div>
         </section>
       </main>
-    </div>
+    </PlayerPageLayout>
   );
 }

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CommonHeader } from "@/components/navigation/CommonHeader";
+import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 
 type FilterStatus = "all" | "upcoming" | "active" | "completed";
 
@@ -160,8 +160,7 @@ export default function SeriesCompetitions() {
 
   if (!competitions || competitions.length === 0) {
     return (
-      <div className="min-h-screen bg-scorecard">
-        <CommonHeader title={series.name} />
+      <PlayerPageLayout title={series.name} seriesId={seriesId} seriesName={series.name}>
 
         {/* Sub-header with Page Title */}
         <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -194,13 +193,12 @@ export default function SeriesCompetitions() {
             </Button>
           </div>
         </main>
-      </div>
+      </PlayerPageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-scorecard">
-      <CommonHeader title={series.name} />
+    <PlayerPageLayout title={series.name} seriesId={seriesId} seriesName={series.name}>
 
       {/* Sub-header with Page Title and Filter */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -378,6 +376,6 @@ export default function SeriesCompetitions() {
           </div>
         )}
       </main>
-    </div>
+    </PlayerPageLayout>
   );
 }

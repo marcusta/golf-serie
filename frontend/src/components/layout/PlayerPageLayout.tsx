@@ -8,6 +8,10 @@ interface PlayerPageLayoutProps {
   onBackClick?: () => void;
   headerContent?: React.ReactNode;
   className?: string;
+  seriesId?: number;
+  seriesName?: string;
+  showHamburgerMenu?: boolean;
+  customActions?: React.ReactNode;
 }
 
 export function PlayerPageLayout({
@@ -17,6 +21,10 @@ export function PlayerPageLayout({
   onBackClick,
   headerContent,
   className = "",
+  seriesId,
+  seriesName,
+  showHamburgerMenu = true,
+  customActions,
 }: PlayerPageLayoutProps) {
   return (
     <div className={`min-h-screen bg-scorecard ${className}`}>
@@ -24,6 +32,10 @@ export function PlayerPageLayout({
         title={title}
         showBackButton={showBackButton}
         onBackClick={onBackClick}
+        seriesId={seriesId}
+        seriesName={seriesName}
+        showHamburgerMenu={showHamburgerMenu}
+        customActions={customActions}
       >
         {headerContent}
       </CommonHeader>

@@ -28,8 +28,7 @@ import {
   ParticipantsListComponent,
 } from "../../components/competition";
 import { calculateTotalParticipants } from "../../utils/scoreCalculations";
-import { CommonHeader } from "../../components/navigation/CommonHeader";
-import { HamburgerMenu } from "../../components/navigation/HamburgerMenu";
+import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import {
   ParticipantScorecard,
   type CourseData,
@@ -360,14 +359,12 @@ export default function CompetitionRound() {
   };
 
   return (
-    <div className="h-screen flex flex-col">
-      <CommonHeader
-        title={competition.name}
-        seriesId={competition.series_id}
-        seriesName={competition.series_name}
-      >
-        <HamburgerMenu />
-      </CommonHeader>
+    <PlayerPageLayout
+      title={competition.name}
+      seriesId={competition.series_id}
+      seriesName={competition.series_name}
+      className="h-screen flex flex-col"
+    >
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">{renderContent()}</div>
@@ -479,6 +476,6 @@ function InvalidTeeTimes({
           )}
         </div>
       </div>
-    </div>
+    </PlayerPageLayout>
   );
 }

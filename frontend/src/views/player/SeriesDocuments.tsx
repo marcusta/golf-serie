@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CommonHeader } from "@/components/navigation/CommonHeader";
+import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 
 function LoadingSkeleton() {
   return (
@@ -121,8 +121,7 @@ export default function SeriesDocuments() {
   }
 
   return (
-    <div className="min-h-screen bg-scorecard">
-      <CommonHeader title="Documents" />
+    <PlayerPageLayout title="Documents" seriesId={seriesId} seriesName={series?.name}>
 
       {/* Sub-header with Page Title and Search */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">
@@ -238,6 +237,6 @@ export default function SeriesDocuments() {
           </div>
         )}
       </main>
-    </div>
+    </PlayerPageLayout>
   );
 }

@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Trophy } from "lucide-react";
 import TapScoreLogo from "../ui/TapScoreLogo";
+import { HamburgerMenu } from "./HamburgerMenu";
 
 interface CommonHeaderProps {
   title?: string;
@@ -11,6 +12,8 @@ interface CommonHeaderProps {
   className?: string;
   seriesId?: number;
   seriesName?: string;
+  showHamburgerMenu?: boolean;
+  customActions?: React.ReactNode;
 }
 
 export function CommonHeader({
@@ -21,6 +24,8 @@ export function CommonHeader({
   className = "",
   seriesId,
   seriesName,
+  showHamburgerMenu = true,
+  customActions,
 }: CommonHeaderProps) {
   const handleBackClick = () => {
     if (onBackClick) {
@@ -69,7 +74,11 @@ export function CommonHeader({
             </>
           )}
 
-          {children && <div className="ml-auto">{children}</div>}
+          <div className="ml-auto flex items-center gap-2">
+            {customActions}
+            {children}
+            {showHamburgerMenu && <HamburgerMenu />}
+          </div>
         </div>
       </div>
     </header>

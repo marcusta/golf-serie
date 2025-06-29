@@ -15,7 +15,7 @@ import {
   Search,
   Eye,
 } from "lucide-react";
-import { CommonHeader } from "../../components/navigation/CommonHeader";
+import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 
 type FilterStatus = "all" | "upcoming" | "live" | "completed";
 
@@ -266,9 +266,7 @@ export default function PlayerCompetitions() {
   }
 
   return (
-    <div className="min-h-screen bg-scorecard">
-      <CommonHeader />
-
+    <PlayerPageLayout title="All Competitions">
       {/* Page Title & Filters */}
       <div className="bg-scorecard border-b shadow-sm">
         <div className="container mx-auto px-4">
@@ -426,7 +424,7 @@ export default function PlayerCompetitions() {
           )}
         </div>
       </main>
-    </div>
+    </PlayerPageLayout>
   );
 }
 

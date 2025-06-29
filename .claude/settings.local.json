@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rg:*)",
+      "Bash(grep:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx eslint:*)",
+      "Bash(pkill:*)",
+      "Bash(awk:*)"
+    ],
+    "deny": []
+  }
+}

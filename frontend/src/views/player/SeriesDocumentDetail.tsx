@@ -8,7 +8,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CommonHeader } from "@/components/navigation/CommonHeader";
+import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -153,8 +153,7 @@ export default function SeriesDocumentDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-scorecard">
-      <CommonHeader title={currentDocument.title} />
+    <PlayerPageLayout title={currentDocument.title} seriesId={seriesId} seriesName={series?.name}>
 
       {/* Sub-header with Document Title and Actions */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm sticky top-16 z-9">
@@ -273,6 +272,6 @@ export default function SeriesDocumentDetail() {
           </div>
         )}
       </main>
-    </div>
+    </PlayerPageLayout>
   );
 }

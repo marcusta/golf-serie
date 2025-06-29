@@ -152,9 +152,9 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
         aria-label="Menu"
       >
         {isOpen ? (
-          <X className="w-5 h-5 text-gray-900" />
+          <X className="w-5 h-5 text-scorecard" />
         ) : (
-          <Menu className="w-5 h-5 text-gray-900" />
+          <Menu className="w-5 h-5 text-scorecard" />
         )}
       </button>
 

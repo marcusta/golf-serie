@@ -1,5 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import {
   useTeeTime,
   useUpdateScore,
@@ -66,12 +67,15 @@ export default function TeeTimeDetail() {
   };
 
   return (
-    <div className="h-screen-mobile flex flex-col bg-gray-50">
-      {/* Minimal back navigation - only shown when needed */}
-      <div className="absolute top-2 left-2 z-10">
+    <PlayerPageLayout 
+      title="Score Entry"
+      onBackClick={() => window.history.back()}
+      className="h-screen flex flex-col"
+    >
+      <div className="flex-1 bg-gray-50">
         <Link
           to={`/player/competitions/${competitionId}`}
-          className="p-2 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-full shadow-sm transition-all touch-manipulation"
+          className="absolute top-2 left-2 z-10 p-2 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-full shadow-sm transition-all touch-manipulation"
         >
           <ArrowLeft className="h-4 w-4 text-gray-700" />
         </Link>
@@ -93,6 +97,7 @@ export default function TeeTimeDetail() {
         onScoreUpdate={handleScoreUpdate}
         onComplete={handleComplete}
       />
-    </div>
+      </div>
+    </PlayerPageLayout>
   );
 }

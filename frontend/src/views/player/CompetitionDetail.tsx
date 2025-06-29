@@ -16,7 +16,6 @@ import {
   Medal,
   Edit3,
 } from "lucide-react";
-import { HamburgerMenu } from "../../components/navigation";
 import { ParticipantScorecard } from "../../components/scorecard";
 import type { ParticipantData, CourseData } from "../../components/scorecard";
 import {
@@ -26,7 +25,7 @@ import {
 } from "../../components/competition";
 import { calculateTotalParticipants } from "../../utils/scoreCalculations";
 
-import { CommonHeader } from "../../components/navigation/CommonHeader";
+import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import { useSeriesTeams } from "../../api/series";
 import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
 
@@ -197,8 +196,12 @@ export default function CompetitionDetail() {
   const sortedTeamResults = teamLeaderboard || [];
 
   return (
-    <div className="min-h-screen flex flex-col bg-scorecard">
-      <CommonHeader onBackClick={handleBackNavigation}>
+    <PlayerPageLayout 
+      title={competition.name}
+      onBackClick={handleBackNavigation}
+      seriesId={competition.series_id}
+      seriesName={competition.series_name}
+      customActions={
         <div className="flex items-center gap-4">
           {/* Back to Score Entry button */}
           {fromTeeTime && (
@@ -211,9 +214,9 @@ export default function CompetitionDetail() {
               <span>Score</span>
             </Link>
           )}
-          <HamburgerMenu />
         </div>
-      </CommonHeader>
+      }
+    >
 
       <div className="flex-1 space-y-4 md:space-y-6 p-4 md:p-6">
         {/* Competition Title */}
@@ -359,6 +362,6 @@ export default function CompetitionDetail() {
         course={scorecardCourseData}
         onClose={handleCloseScorecardModal}
       />
-    </div>
+    </PlayerPageLayout>
   );
 }

@@ -73,6 +73,7 @@ This is a full-stack golf series management application with clean separation be
 - Mobile-first responsive design with Tailwind CSS
 - Dual interface: Admin panel for management, Player view for scorecards
 - Real-time updates with automatic cache invalidation
+- **Unified Topbar Architecture**: All player views use PlayerPageLayout for consistent navigation
 
 ## Domain Model
 
@@ -154,9 +155,54 @@ bun run src/database/migrate.ts  # Direct migration run
 - Supports deployment under subpaths (e.g., `/golf-serie/`)
 - Dynamic API base URL detection for dev/prod environments
 
+## Frontend Navigation Architecture
+
+### Unified Topbar System
+**Implementation Date**: 2025-01-28
+
+All player views MUST use the unified topbar architecture for consistency:
+
+#### Required Pattern for All Player Views
+```tsx
+export default function MyPlayerView() {
+  return (
+    <PlayerPageLayout 
+      title="Page Title"
+      seriesId={seriesId}           // When available
+      seriesName={seriesName}       // When available  
+      onBackClick={customHandler}   // When needed
+      customActions={<Actions />}   // When needed
+    >
+      {/* Page content */}
+    </PlayerPageLayout>
+  );
+}
+```
+
+#### Architecture Components
+- **PlayerPageLayout**: Main wrapper for all player views (`src/components/layout/PlayerPageLayout.tsx`)
+- **CommonHeader**: Enhanced header with automatic HamburgerMenu (`src/components/navigation/CommonHeader.tsx`)
+- **HamburgerMenu**: Context-aware navigation menu with improved contrast (`src/components/navigation/HamburgerMenu.tsx`)
+
+#### Key Benefits
+- **Automatic hamburger menu** on all player views with context-aware navigation
+- **Improved accessibility** with light icons (`text-scorecard`) on dark backgrounds
+- **Consistent UX** across all views with unified navigation patterns
+- **Easy maintenance** through single source of truth for header behavior
+
+#### Implementation Status
+✅ **All 10 player views successfully converted**:
+- Competitions.tsx, Series.tsx, SeriesCompetitions.tsx
+- SeriesDetail.tsx, SeriesDocumentDetail.tsx, SeriesDocuments.tsx  
+- SeriesStandings.tsx, CompetitionDetail.tsx, CompetitionRound.tsx
+- TeeTimeDetail.tsx
+
+**Documentation**: See `/docs/frontend-topbar-architecture.md` for complete implementation guide.
+
 ## Important Constraints
 
 - Never modify files in the `frontend/` directory unless explicitly requested
+- **ALL player views must use PlayerPageLayout** - never use CommonHeader directly
 - Backend serves as API and static file server for the frontend
 - Database migrations are one-way (no rollback implemented)
 - Mobile-first design principles must be maintained

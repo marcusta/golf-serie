@@ -16,7 +16,7 @@ import {
   ChevronRight,
   Mail,
 } from "lucide-react";
-import { CommonHeader } from "../../components/navigation/CommonHeader";
+import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 
 // Types for enhanced series data
 interface SeriesStats {
@@ -137,8 +137,7 @@ export default function PlayerSeries() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-scorecard">
-        <CommonHeader />
+      <PlayerPageLayout title="Golf Series">
 
         {/* Hero Skeleton */}
         <div
@@ -190,14 +189,13 @@ export default function PlayerSeries() {
             </div>
           </div>
         </main>
-      </div>
+      </PlayerPageLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-scorecard">
-        <CommonHeader />
+      <PlayerPageLayout title="Golf Series">
 
         <main className="container mx-auto px-4 py-12">
           <div className="text-center">
@@ -216,13 +214,12 @@ export default function PlayerSeries() {
             </button>
           </div>
         </main>
-      </div>
+      </PlayerPageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-scorecard">
-      <CommonHeader />
+    <PlayerPageLayout title="Golf Series">
 
       {/* Hero Section */}
       <div
@@ -335,7 +332,7 @@ export default function PlayerSeries() {
           </div>
         </div>
       </main>
-    </div>
+    </PlayerPageLayout>
   );
 }
 
