@@ -293,6 +293,22 @@ export function TeamResultComponent({
                             {team.totalShots || "-"}
                           </div>
                         </div>
+                        <div>
+                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
+                            To Par
+                          </div>
+                          <div
+                            className={`text-xl font-bold font-display px-3 py-1 rounded-lg ${
+                              team.totalRelativeScore !== null
+                                ? getToParColor(team.totalRelativeScore)
+                                : "bg-charcoal/10 text-charcoal"
+                            }`}
+                          >
+                            {team.totalRelativeScore !== null
+                              ? formatToPar(team.totalRelativeScore)
+                              : "-"}
+                          </div>
+                        </div>
                         {team.teamPoints !== null && (
                           <div>
                             <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
