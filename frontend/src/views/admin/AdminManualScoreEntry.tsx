@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle, Clock, X } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, X, Lock, Unlock } from "lucide-react";
 import { useCompetition } from "../../api/competitions";
 import {
   useCompetitionParticipants,
@@ -281,6 +281,24 @@ export default function AdminManualScoreEntry() {
     }
   };
 
+  const hasAnyScores = (participant: Participant): boolean => {
+    return Array.isArray(participant.score)
+      ? participant.score.some((value) => value !== 0)
+      : false;
+  };
+
+  const getHoleProgress = (participant: Participant): number | null => {
+    if (!Array.isArray(participant.score) || participant.score.length === 0) {
+      return null;
+    }
+    for (let i = participant.score.length - 1; i >= 0; i -= 1) {
+      if (participant.score[i] !== 0) {
+        return i + 1; // holes are 1-indexed in display
+      }
+    }
+    return null;
+  };
+
   if (competitionLoading || participantsLoading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -329,6 +347,15 @@ export default function AdminManualScoreEntry() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Team & Position
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Scores
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Hole
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Finalized
+                </th>
                 {isOutInTotalMode && (
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     OUT
@@ -364,6 +391,31 @@ export default function AdminManualScoreEntry() {
                             {participant.position_name}
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {hasAnyScores(participant) ? (
+                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                            Yes
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                            No
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {getHoleProgress(participant) ?? "—"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {participant.is_locked ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                            <Lock className="h-3 w-3" /> Locked
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                            <Unlock className="h-3 w-3" /> Open
+                          </span>
+                        )}
                       </td>
                       {isOutInTotalMode && (
                         <td className="px-6 py-4 whitespace-nowrap text-center">
