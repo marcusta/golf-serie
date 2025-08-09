@@ -1,0 +1,157 @@
+---
+alwaysApply: false
+---
+# Golf Scorecard Frontend - Cursor Rules
+
+## Project Overview
+This is a React TypeScript frontend for a golf scorecard application with dual interfaces: **Admin Panel** for managing competitions/teams/courses and **Player View** for score entry and leaderboards.
+
+## Tech Stack & Core Dependencies
+- **Framework**: React 19.1.0 + TypeScript
+- **Build Tool**: Vite 6.3.5
+- **Routing**: TanStack Router with file-based routing
+- **State Management**: TanStack Query (React Query) for server state
+- **Styling**: Tailwind CSS 4.1.7 with custom design system
+- **UI Components**: Radix UI primitives + custom shadcn/ui components
+- **Icons**: Lucide React
+- **HTTP Client**: Native fetch API with custom config
+
+## Project Structure
+
+```
+src/
+├── api/           # API layer with React Query hooks
+├── components/    # Reusable UI components
+│   ├── ui/        # shadcn/ui base components
+│   └── score-entry/ # Specialized score entry components
+├── views/         # Page-level components
+│   ├── admin/     # Admin panel pages
+│   └── player/    # Player interface pages
+├── utils/         # Utility functions
+├── lib/           # Core utilities (utils.ts for cn() helper)
+└── router.tsx     # Route definitions
+```
+
+## API Layer (`src/api/`)
+- **Pattern**: Each entity has its own file (teams.ts, courses.ts, etc.)
+- **Hooks**: Custom React Query hooks for CRUD operations
+  - `use[Entity]()` - fetch list
+  - `use[Entity](id)` - fetch single
+  - `useCreate[Entity]()` - mutation for creation
+  - `useUpdate[Entity]()` - mutation for updates
+  - `useDelete[Entity]()` - mutation for deletion
+- **Config**: `config.ts` handles base URL detection for dev/prod environments
+- **Base URL**: Uses dynamic detection (`/api` in dev, `/golf-serie/api` in production)
+
+## Components Architecture
+
+### UI Components (`src/components/ui/`)
+- **Base**: shadcn/ui components with Radix UI primitives
+- **Styling**: Uses `cn()` utility for conditional classes
+- **Variants**: CVA (class-variance-authority) for component variants
+- **Theme**: CSS custom properties for consistent theming
+
+### Specialized Components
+- **ParticipantAssignment**: Complex drag-and-drop assignment interface
+- **ScoreEntry**: Mobile-optimized score entry with custom keyboard
+- **Custom Keyboard**: Touch-optimized number input for mobile score entry
+
+## Routing & Navigation
+- **Router**: TanStack Router with dynamic base path support
+- **Structure**: 
+  - `/admin/*` - Admin panel routes
+  - `/player/*` - Player interface routes
+  - Default redirect to `/player/standings`
+- **Base Path**: Configurable for deployment under subpaths (e.g., `/golf-serie/`)
+
+## Views Structure
+
+### Admin Views (`src/views/admin/`)
+- **AdminLayout**: Shared layout with navigation tabs
+- **Teams**: Team CRUD with modal forms
+- **Courses**: Course management with hole par configuration
+- **Competitions**: Competition creation and management
+- **CompetitionTeeTimes**: Complex tee time and participant assignment
+
+### Player Views (`src/views/player/`)
+- **PlayerLayout**: Player-focused layout
+- **Standings**: General leaderboard and statistics
+- **Competitions**: Browse and view competitions
+- **CompetitionDetail**: Detailed competition view with tabs
+- **TeeTimeDetail**: Full-screen score entry interface
+
+## Styling Conventions
+- **Utility-First**: Tailwind CSS with custom design tokens
+- **Colors**: Green primary theme with semantic color usage
+- **Responsive**: Mobile-first design with `md:` and `lg:` breakpoints
+- **Components**: Consistent padding, shadows, and border radius
+- **State Indicators**: Color-coded status (green=success, blue=info, red=error)
+
+## Data Flow & State Management
+- **Server State**: TanStack Query for all API interactions
+- **Local State**: React useState for component-specific state
+- **Mutations**: Optimistic updates with error handling and cache invalidation
+- **Real-time**: Automatic cache invalidation for data consistency
+
+## Key Features & Patterns
+
+### Participant Assignment System
+- **Multi-format Support**: Handles single players and team formats (Bästboll, etc.)
+- **Player Limits**: 4-player maximum per tee time with validation
+- **Drag & Drop**: Native HTML5 drag-and-drop with touch support
+- **Reordering**: Participant order management within tee times
+
+### Score Entry Interface
+- **Mobile-Optimized**: Full-screen interface with custom keyboard
+- **Touch-First**: Large touch targets and gesture support
+- **Progressive**: Hole-by-hole entry with navigation
+- **Flexible Input**: Custom keyboard for common scores + native input for edge cases
+
+### Deployment Configuration
+- **Multi-Environment**: Supports root deployment and subpath deployment
+- **Dynamic Config**: Runtime detection of deployment context
+- **Reverse Proxy Ready**: Configured for Nginx/Apache deployment
+- **Asset Paths**: Correct static asset handling in all environments
+
+## Development Conventions
+
+### Code Style
+- **TypeScript**: Strict mode enabled with proper typing
+- **Components**: Functional components with hooks
+- **Props**: Interface definitions for all component props
+- **Exports**: Named exports preferred, default exports for pages/layouts
+
+### Error Handling
+- **API Errors**: Handled in React Query with user-friendly messages
+- **Loading States**: Consistent loading indicators and skeletons
+- **Validation**: Client-side validation with server-side backup
+- **Fallbacks**: Graceful degradation for missing data
+
+### Performance
+- **Query Optimization**: Efficient React Query cache management
+- **Bundle Splitting**: Route-based code splitting
+- **Mobile Performance**: Optimized for mobile devices and touch interactions
+- **Memory Management**: Proper cleanup of event listeners and timers
+
+## File Naming & Organization
+- **PascalCase**: React components and TypeScript interfaces
+- **camelCase**: Functions, variables, and file names (except components)
+- **kebab-case**: CSS classes and some utility files
+- **Grouping**: Related functionality grouped in folders (api/, components/, views/)
+
+## Environment & Build
+- **Development**: Vite dev server with proxy to localhost:3010
+- **Production**: Static build with configurable base path
+- **Preview**: Production preview mode for testing
+- **Deploy**: Automated copy to `../frontend_dist/` directory
+
+## Integration Points
+- **Backend API**: RESTful API ron port 3010 with CORS support
+- **Course Data**: Handles 18-hole courses with par information
+- **Multi-team**: Supports multiple teams with flexible participant types
+- **Score Tracking**: Real-time score updates with leaderboard calculation
+
+Remember to maintain consistency with existing patterns, use the established API hooks, and follow the mobile-first responsive design principles throughout the codebase.
+
+# React rules
+useEffect() should not be used directly in components. They should be broken out into separate hooks instead. When useEffect() is used to update data relating to server state it is probably wrong and Tanstack Query should be used if at all possible

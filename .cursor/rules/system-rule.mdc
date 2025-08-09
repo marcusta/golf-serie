@@ -157,4 +157,3 @@ Remember: Every code change should be accompanied by corresponding test updates 
 ## Prompt interaction
 When changing or updating APIs you should print routes and body format at the end of prompts so I know the API
 
-There is a frontend codebase in the /frontend directory. You should never update those files.

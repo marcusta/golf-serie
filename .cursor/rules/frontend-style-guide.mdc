@@ -1,0 +1,408 @@
+---
+globs: *.tsx,*.css
+alwaysApply: false
+---
+# TapScore Style Guide
+*Version 1.0 - Golf Scorecard Application*
+
+## 🎨 Brand Identity
+
+### Logo Usage
+- **Primary Logo**: TapScore with finger tap icon (tapscore_logo.png)
+- **Horizontal Logo**: TapScore with finger tap icon (tapscore_horizontal.png)
+- **Minimum Size**: 120px width for digital applications
+- **Clear Space**: Maintain 1x logo height clear space around all sides
+- **Background**: Logos work best on Fairway Green (#1B4332) or Scorecard White (#F8F9FA)
+
+---
+
+## 🌈 Color Palette
+
+### Core Greens (Primary Brand Colors)
+```css
+:root {
+  --fairway-green: #1B4332;    /* Deep forest green - headers, navigation */
+  --turf-green: #2D6A4F;       /* Medium green - buttons, highlights */
+  --light-rough: #95D5B2;      /* Light sage - fills, hover states */
+}
+```
+
+### Accent Colors
+```css
+:root {
+  --sunset-coral: #FF9F1C;     /* Orange - primary CTAs, active states */
+  --flag-red: #EF476F;         /* Red - warnings, delete actions */
+  --sky-blue: #118AB2;         /* Blue - notifications, info states */
+}
+```
+
+### Neutrals
+```css
+:root {
+  --scorecard-white: #F8F9FA;  /* Off-white - backgrounds, cards */
+  --charcoal-text: #1C1C1E;    /* Dark gray - primary text */
+  --soft-grey: #CED4DA;        /* Light gray - borders, inactive */
+}
+```
+
+### Semantic Color Usage
+- **Success**: Turf Green (#2D6A4F)
+- **Warning**: Sunset Coral (#FF9F1C) 
+- **Error**: Flag Red (#EF476F)
+- **Info**: Sky Blue (#118AB2)
+- **Neutral**: Soft Grey (#CED4DA)
+
+---
+
+## 📝 Typography
+
+### Font Stack
+```css
+/* Primary - Inter (Body text, UI elements) */
+font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+/* Display - DM Sans (Headings, titles) */
+font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+```
+
+### Typography Scale
+```css
+/* Display Headings (DM Sans) */
+.text-display-xl { font-size: 3.5rem; line-height: 1.1; font-weight: 700; } /* Hero titles */
+.text-display-lg { font-size: 2.5rem; line-height: 1.2; font-weight: 700; } /* Page titles */
+.text-display-md { font-size: 2rem; line-height: 1.3; font-weight: 600; }   /* Section headers */
+.text-display-sm { font-size: 1.5rem; line-height: 1.4; font-weight: 600; } /* Card titles */
+
+/* Body Text (Inter) */
+.text-body-xl { font-size: 1.25rem; line-height: 1.6; font-weight: 400; }   /* Large body */
+.text-body-lg { font-size: 1.125rem; line-height: 1.6; font-weight: 400; }  /* Default body */
+.text-body-md { font-size: 1rem; line-height: 1.5; font-weight: 400; }      /* Standard text */
+.text-body-sm { font-size: 0.875rem; line-height: 1.5; font-weight: 400; }  /* Small text */
+.text-body-xs { font-size: 0.75rem; line-height: 1.4; font-weight: 400; }   /* Caption text */
+
+/* UI Labels (Inter) */
+.text-label-lg { font-size: 1rem; line-height: 1.4; font-weight: 500; }     /* Button text */
+.text-label-md { font-size: 0.875rem; line-height: 1.4; font-weight: 500; } /* Form labels */
+.text-label-sm { font-size: 0.75rem; line-height: 1.4; font-weight: 500; }  /* Small labels */
+```
+
+---
+
+## 🎯 Component Design System
+
+### Buttons
+
+#### Primary Button
+```css
+.btn-primary {
+  background: var(--sunset-coral);
+  color: var(--scorecard-white);
+  border: 2px solid var(--sunset-coral);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: #E8890A; /* Darker sunset coral */
+  border-color: #E8890A;
+  transform: translateY(-1px);
+}
+```
+
+#### Secondary Button
+```css
+.btn-secondary {
+  background: transparent;
+  color: var(--turf-green);
+  border: 2px solid var(--turf-green);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+}
+
+.btn-secondary:hover {
+  background: var(--light-rough);
+  color: var(--fairway-green);
+}
+```
+
+#### Danger Button
+```css
+.btn-danger {
+  background: var(--flag-red);
+  color: var(--scorecard-white);
+  border: 2px solid var(--flag-red);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+}
+```
+
+### Cards
+```css
+.card {
+  background: var(--scorecard-white);
+  border: 1px solid var(--soft-grey);
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(27, 67, 50, 0.08);
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(27, 67, 50, 0.12);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  border-bottom: 1px solid var(--soft-grey);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+```
+
+### Navigation
+```css
+.nav-primary {
+  background: var(--fairway-green);
+  color: var(--scorecard-white);
+  padding: 1rem 0;
+  border-bottom: 2px solid var(--turf-green);
+}
+
+.nav-link {
+  color: var(--scorecard-white);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background: var(--turf-green);
+  color: var(--scorecard-white);
+}
+```
+
+### Form Elements
+```css
+.input {
+  border: 2px solid var(--soft-grey);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  font-family: 'Inter', sans-serif;
+  background: var(--scorecard-white);
+  transition: border-color 0.2s ease;
+}
+
+.input:focus {
+  border-color: var(--turf-green);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+}
+
+.label {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  color: var(--charcoal-text);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+```
+
+---
+
+## 📱 Layout Principles
+
+### Admin Interface
+- **Background**: Linear gradient from Scorecard White to Light Rough
+- **Sidebar**: Fairway Green with white text
+- **Content Area**: White cards with subtle shadows
+- **Typography**: DM Sans for page titles, Inter for content
+
+### Player Interface
+- **Background**: Clean Scorecard White
+- **Headers**: Turf Green with white text
+- **Cards**: White with Soft Grey borders
+- **Active Elements**: Sunset Coral accents
+
+### Mobile-First Responsive
+```css
+/* Mobile (default) */
+.container { padding: 1rem; }
+
+/* Tablet */
+@media (min-width: 768px) {
+  .container { padding: 1.5rem; }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .container { padding: 2rem; }
+}
+```
+
+---
+
+## 🎮 Interactive States
+
+### Hover States
+- **Buttons**: Slight darkening + 1px upward translation
+- **Cards**: Increased shadow + 2px upward translation
+- **Links**: Color transition to Turf Green
+
+### Active States
+- **Primary**: Sunset Coral background
+- **Secondary**: Light Rough background
+- **Navigation**: Turf Green background
+
+### Focus States
+- **Inputs**: Turf Green border + subtle shadow
+- **Buttons**: 2px solid outline in contrasting color
+- **Cards**: Subtle Turf Green border
+
+---
+
+## 📊 Golf-Specific Components
+
+### Score Display
+```css
+.score-card {
+  background: linear-gradient(135deg, var(--scorecard-white), var(--light-rough));
+  border: 2px solid var(--turf-green);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.score-number {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--fairway-green);
+}
+```
+
+### Leaderboard
+```css
+.leaderboard-item {
+  border-left: 4px solid var(--light-rough);
+  transition: all 0.2s ease;
+}
+
+.leaderboard-item:nth-child(1) { border-left-color: #FFD700; } /* Gold */
+.leaderboard-item:nth-child(2) { border-left-color: #C0C0C0; } /* Silver */
+.leaderboard-item:nth-child(3) { border-left-color: #CD7F32; } /* Bronze */
+```
+
+### Status Indicators
+```css
+.status-completed { color: var(--turf-green); }
+.status-active { color: var(--sunset-coral); }
+.status-pending { color: var(--sky-blue); }
+.status-error { color: var(--flag-red); }
+```
+
+---
+
+## 🔧 Implementation Guidelines
+
+### CSS Custom Properties Setup
+```css
+:root {
+  /* Colors */
+  --fairway-green: #1B4332;
+  --turf-green: #2D6A4F;
+  --light-rough: #95D5B2;
+  --sunset-coral: #FF9F1C;
+  --flag-red: #EF476F;
+  --sky-blue: #118AB2;
+  --scorecard-white: #F8F9FA;
+  --charcoal-text: #1C1C1E;
+  --soft-grey: #CED4DA;
+  
+  /* Typography */
+  --font-primary: 'Inter', sans-serif;
+  --font-display: 'DM Sans', sans-serif;
+  
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  
+  /* Borders */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+```
+
+### Tailwind Configuration
+```javascript
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        fairway: '#1B4332',
+        turf: '#2D6A4F',
+        rough: '#95D5B2',
+        coral: '#FF9F1C',
+        flag: '#EF476F',
+        sky: '#118AB2',
+        scorecard: '#F8F9FA',
+        charcoal: '#1C1C1E',
+        'soft-grey': '#CED4DA',
+      },
+      fontFamily: {
+        'sans': ['Inter', 'sans-serif'],
+        'display': ['DM Sans', 'sans-serif'],
+      },
+    },
+  },
+}
+```
+
+---
+
+## ✅ Accessibility Guidelines
+
+### Color Contrast
+- **Text on Light Backgrounds**: Minimum 4.5:1 ratio (Charcoal Text on Scorecard White: 16.75:1 ✓)
+- **Text on Dark Backgrounds**: Minimum 4.5:1 ratio (Scorecard White on Fairway Green: 13.94:1 ✓)
+- **Interactive Elements**: Minimum 3:1 ratio for borders and focus indicators
+
+### Focus Indicators
+- All interactive elements must have visible focus indicators
+- Focus indicators should be 2px minimum thickness
+- Use contrasting colors (Sunset Coral on light, Scorecard White on dark)
+
+### Typography
+- Minimum 16px (1rem) for body text
+- Maximum line length of 70 characters
+- Sufficient line spacing (1.5 minimum for body text)
+
+---
+
+## 🎯 Brand Voice & Tone
+
+### Personality
+- **Professional yet Approachable**: Serious about golf but fun to use
+- **Confident**: Reliable scoring and data management
+- **Inclusive**: Welcoming to all skill levels
+- **Modern**: Clean, contemporary design language
+
+### Tone of Voice
+- **Clear and Direct**: No jargon, straightforward instructions
+- **Encouraging**: Positive reinforcement for good plays
+- **Respectful**: Honor golf's traditions while embracing technology
+- **Helpful**: Always guiding users toward success
