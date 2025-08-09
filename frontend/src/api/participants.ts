@@ -126,14 +126,42 @@ export function useLockParticipant() {
       }
       return response.json();
     },
-    onSuccess: (data) => {
-      // Invalidate queries to refresh the UI
-      const teeTimeId = data?.tee_time_id;
+    onSuccess: (updatedParticipant) => {
+      // Update specific caches with the updated participant, preserving fields
+      queryClient.setQueryData(
+        ["participant", updatedParticipant.id],
+        (oldData: Participant | undefined) =>
+          oldData ? { ...oldData, ...updatedParticipant } : updatedParticipant
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ["participants"] },
+        (oldData: Participant[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map((p) =>
+            p.id === updatedParticipant.id ? { ...p, ...updatedParticipant } : p
+          );
+        }
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ["competition-participants"] },
+        (oldData: Participant[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map((p) =>
+            p.id === updatedParticipant.id ? { ...p, ...updatedParticipant } : p
+          );
+        }
+      );
+
+      // Also invalidate related lists/leaderboards
+      const teeTimeId = updatedParticipant?.tee_time_id;
       if (teeTimeId) {
         queryClient.invalidateQueries({ queryKey: ["teeTime", teeTimeId] });
       }
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
-      queryClient.invalidateQueries({ queryKey: ["participant", data.id] });
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["competition-leaderboard"] });
     },
   });
 }
@@ -158,14 +186,42 @@ export function useUnlockParticipant() {
       }
       return response.json();
     },
-    onSuccess: (data) => {
-      // Invalidate queries to refresh the UI
-      const teeTimeId = data?.tee_time_id;
+    onSuccess: (updatedParticipant) => {
+      // Update specific caches with the updated participant, preserving fields
+      queryClient.setQueryData(
+        ["participant", updatedParticipant.id],
+        (oldData: Participant | undefined) =>
+          oldData ? { ...oldData, ...updatedParticipant } : updatedParticipant
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ["participants"] },
+        (oldData: Participant[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map((p) =>
+            p.id === updatedParticipant.id ? { ...p, ...updatedParticipant } : p
+          );
+        }
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ["competition-participants"] },
+        (oldData: Participant[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map((p) =>
+            p.id === updatedParticipant.id ? { ...p, ...updatedParticipant } : p
+          );
+        }
+      );
+
+      // Also invalidate related lists/leaderboards
+      const teeTimeId = updatedParticipant?.tee_time_id;
       if (teeTimeId) {
         queryClient.invalidateQueries({ queryKey: ["teeTime", teeTimeId] });
       }
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
-      queryClient.invalidateQueries({ queryKey: ["participant", data.id] });
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["competition-leaderboard"] });
     },
   });
 }

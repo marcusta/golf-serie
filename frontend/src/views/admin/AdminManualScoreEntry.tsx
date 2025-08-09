@@ -5,6 +5,8 @@ import { useCompetition } from "../../api/competitions";
 import {
   useCompetitionParticipants,
   useUpdateManualScore,
+  useLockParticipant,
+  useUnlockParticipant,
   type Participant,
 } from "../../api/participants";
 import { useCourses } from "../../api/courses";
@@ -32,12 +34,15 @@ export default function AdminManualScoreEntry() {
     useCompetitionParticipants(competitionIdNum);
   const { data: courses } = useCourses();
   const updateManualScore = useUpdateManualScore();
+  const lockParticipant = useLockParticipant();
+  const unlockParticipant = useUnlockParticipant();
 
   // Track only the scores that are currently being edited by the user
   const [editedScores, setEditedScores] = useState<{
     [participantId: number]: ManualScoreInputs;
   }>({});
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({});
+  const [lockStatus, setLockStatus] = useState<SaveStatus>({});
 
   // Get the manual entry format from competition (default to out_in_total for backward compatibility)
   const isOutInTotalMode = competition?.manual_entry_format !== "total_only";
@@ -281,12 +286,6 @@ export default function AdminManualScoreEntry() {
     }
   };
 
-  const hasAnyScores = (participant: Participant): boolean => {
-    return Array.isArray(participant.score)
-      ? participant.score.some((value) => value !== 0)
-      : false;
-  };
-
   const getHoleProgress = (participant: Participant): number | null => {
     if (!Array.isArray(participant.score) || participant.score.length === 0) {
       return null;
@@ -297,6 +296,52 @@ export default function AdminManualScoreEntry() {
       }
     }
     return null;
+  };
+
+  const getRelativeToPar = (
+    participant: Participant,
+    coursePars: number[] | undefined
+  ): string | null => {
+    if (!Array.isArray(participant.score) || !coursePars) return null;
+    const scores = participant.score;
+    if (scores.some((v) => v === -1)) return null; // DNF state → show no aggregate
+
+    let totalStrokes = 0;
+    let totalPar = 0;
+    let anyHoleEntered = false;
+    for (let i = 0; i < Math.min(scores.length, coursePars.length); i += 1) {
+      const s = scores[i];
+      if (s > 0) {
+        totalStrokes += s;
+        totalPar += coursePars[i] ?? 0;
+        anyHoleEntered = true;
+      }
+    }
+    if (!anyHoleEntered) return null;
+    const rel = totalStrokes - totalPar;
+    if (rel === 0) return "E";
+    return rel > 0 ? `+${rel}` : `${rel}`;
+  };
+
+  const handleToggleLocked = async (participant: Participant) => {
+    const id = participant.id;
+    try {
+      setLockStatus((prev) => ({ ...prev, [id]: "saving" }));
+      if (participant.is_locked) {
+        await unlockParticipant.mutateAsync(id);
+      } else {
+        await lockParticipant.mutateAsync(id);
+      }
+      setLockStatus((prev) => ({ ...prev, [id]: "saved" }));
+      setTimeout(() => {
+        setLockStatus((prev) => ({ ...prev, [id]: "idle" }));
+      }, 1000);
+    } catch {
+      setLockStatus((prev) => ({ ...prev, [id]: "error" }));
+      setTimeout(() => {
+        setLockStatus((prev) => ({ ...prev, [id]: "idle" }));
+      }, 1500);
+    }
   };
 
   if (competitionLoading || participantsLoading) {
@@ -348,7 +393,7 @@ export default function AdminManualScoreEntry() {
                   Team & Position
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Scores
+                  Rel/Par
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Hole
@@ -393,29 +438,63 @@ export default function AdminManualScoreEntry() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {hasAnyScores(participant) ? (
-                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                            Yes
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                            No
-                          </span>
-                        )}
+                        {(() => {
+                          const rel = getRelativeToPar(
+                            participant,
+                            course?.pars?.holes
+                          );
+                          if (rel == null) {
+                            return (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                —
+                              </span>
+                            );
+                          }
+                          const isPositive = rel.startsWith("+");
+                          const isEven = rel === "E";
+                          const cls = isEven
+                            ? "bg-gray-50 text-gray-700"
+                            : isPositive
+                            ? "bg-red-50 text-red-700"
+                            : "bg-green-50 text-green-700";
+                          return (
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}
+                            >
+                              {rel}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {getHoleProgress(participant) ?? "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {participant.is_locked ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                            <Lock className="h-3 w-3" /> Locked
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
-                            <Unlock className="h-3 w-3" /> Open
-                          </span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLocked(participant)}
+                          disabled={lockStatus[participant.id] === "saving"}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border border-transparent hover:border-gray-300 disabled:opacity-50"
+                          title={
+                            participant.is_locked
+                              ? "Click to unlock"
+                              : "Click to lock"
+                          }
+                        >
+                          {lockStatus[participant.id] === "saving" ? (
+                            <Clock className="h-3 w-3 animate-spin text-blue-500" />
+                          ) : participant.is_locked ? (
+                            <>
+                              <Lock className="h-3 w-3 text-blue-700" />
+                              <span className="text-blue-700">Locked</span>
+                            </>
+                          ) : (
+                            <>
+                              <Unlock className="h-3 w-3 text-yellow-700" />
+                              <span className="text-yellow-700">Open</span>
+                            </>
+                          )}
+                        </button>
                       </td>
                       {isOutInTotalMode && (
                         <td className="px-6 py-4 whitespace-nowrap text-center">
