@@ -114,6 +114,7 @@ export interface TeeTime {
   id: number;
   teetime: string;
   competition_id: number;
+  start_hole: number;
   created_at: string;
   updated_at: string;
 }
@@ -122,6 +123,7 @@ export interface TeeTimeWithParticipants {
   id: number;
   teetime: string;
   competition_id: number;
+  start_hole: number;
   created_at: string;
   updated_at: string;
   course_name: string;
@@ -149,11 +151,13 @@ export interface Participant {
 export interface CreateTeeTimeDto {
   teetime: string;
   competition_id: number;
+  start_hole?: number; // 1 or 10
 }
 
 export interface UpdateTeeTimeDto {
   teetime?: string;
   competition_id?: number;
+  start_hole?: number; // 1 or 10
 }
 
 export interface CreateParticipantDto {

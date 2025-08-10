@@ -20,6 +20,7 @@ export interface TeeTime {
   id: number;
   teetime: string;
   competition_id: number;
+  start_hole: number;
   created_at: string;
   updated_at: string;
   course_name: string;
@@ -112,6 +113,7 @@ export function useUpdateScore() {
 interface CreateTeeTimeParams {
   competitionId: number;
   teetime: string;
+  start_hole?: number; // 1 or 10
 }
 
 interface CreateParticipantParams {
@@ -125,7 +127,11 @@ export function useCreateTeeTime() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ competitionId, teetime }: CreateTeeTimeParams) => {
+    mutationFn: async ({
+      competitionId,
+      teetime,
+      start_hole,
+    }: CreateTeeTimeParams) => {
       const response = await fetch(
         `${API_BASE_URL}/competitions/${competitionId}/tee-times`,
         {
@@ -133,7 +139,7 @@ export function useCreateTeeTime() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ teetime }),
+          body: JSON.stringify({ teetime, start_hole }),
         }
       );
       if (!response.ok) {
@@ -194,6 +200,45 @@ export function useDeleteTeeTime() {
     },
     onSuccess: () => {
       // Invalidate the tee times query to refetch the updated data
+      queryClient.invalidateQueries({ queryKey: ["tee-times"] });
+    },
+  });
+}
+
+export function useUpdateTeeTime() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Partial<{
+        teetime: string;
+        competition_id: number;
+        start_hole: number;
+      }>;
+    }) => {
+      const response = await fetch(`${API_BASE_URL}/tee-times/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to update tee time");
+      }
+      return response.json();
+    },
+    onSuccess: (updated) => {
+      if (updated?.id) {
+        queryClient.invalidateQueries({ queryKey: ["teeTime", updated.id] });
+      }
+      if (updated?.competition_id) {
+        queryClient.invalidateQueries({
+          queryKey: ["tee-times", "competition", updated.competition_id],
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["tee-times"] });
     },
   });

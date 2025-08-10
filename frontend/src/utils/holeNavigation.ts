@@ -31,7 +31,8 @@ export const findFirstIncompleteHole = (
 
 export const getInitialHole = (
   teeTimeId: string | undefined,
-  participants: TeeTimeParticipant[] | undefined
+  participants: TeeTimeParticipant[] | undefined,
+  startHole?: number
 ): number => {
   if (!teeTimeId || !participants) return 1;
 
@@ -46,7 +47,11 @@ export const getInitialHole = (
     }
   }
 
-  // No remembered hole, find first incomplete
+  // No remembered hole, use configured start hole if provided and valid
+  if (startHole === 1 || startHole === 10) {
+    return startHole;
+  }
+  // Otherwise, find first incomplete
   return findFirstIncompleteHole(participants);
 };
 

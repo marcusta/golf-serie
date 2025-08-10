@@ -157,6 +157,11 @@ export function createApp(db: Database): Hono {
     return await teeTimesApi.findByIdWithParticipants(c.req.raw, id);
   });
 
+  app.put("/api/tee-times/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await teeTimesApi.update(c.req.raw, id);
+  });
+
   app.delete("/api/tee-times/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await teeTimesApi.delete(id);

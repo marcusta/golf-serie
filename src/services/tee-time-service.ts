@@ -15,6 +15,12 @@ export class TeeTimeService {
       throw new Error("Tee time is required");
     }
 
+    // Validate start_hole if provided
+    const startHole = data.start_hole ?? 1;
+    if (startHole !== 1 && startHole !== 10) {
+      throw new Error("start_hole must be 1 or 10");
+    }
+
     // Verify competition exists
     const competitionStmt = this.db.prepare(
       "SELECT id FROM competitions WHERE id = ?"
@@ -25,12 +31,12 @@ export class TeeTimeService {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO tee_times (teetime, competition_id)
-      VALUES (?, ?)
+      INSERT INTO tee_times (teetime, competition_id, start_hole)
+      VALUES (?, ?, ?)
       RETURNING *
     `);
 
-    return stmt.get(data.teetime, data.competition_id) as TeeTime;
+    return stmt.get(data.teetime, data.competition_id, startHole) as TeeTime;
   }
 
   async findAllForCompetition(competitionId: number): Promise<TeeTime[]> {
@@ -194,6 +200,14 @@ export class TeeTimeService {
     if (data.competition_id) {
       updates.push("competition_id = ?");
       values.push(data.competition_id);
+    }
+
+    if (typeof data.start_hole !== "undefined") {
+      if (data.start_hole !== 1 && data.start_hole !== 10) {
+        throw new Error("start_hole must be 1 or 10");
+      }
+      updates.push("start_hole = ?");
+      values.push(data.start_hole);
     }
 
     if (updates.length === 0) {

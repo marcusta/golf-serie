@@ -8,6 +8,7 @@ import {
   useCreateTeeTime,
   useCreateParticipant,
   useDeleteTeeTime,
+  useUpdateTeeTime,
 } from "../../api/tee-times";
 import {
   useLockParticipant,
@@ -50,12 +51,16 @@ export default function AdminCompetitionTeeTimes() {
   const [selectedTeams, setSelectedTeams] = useState<number[]>([]);
   const [firstTeeTime, setFirstTeeTime] = useState("");
   const [timeBetweenTeeTimes, setTimeBetweenTeeTimes] = useState(10);
+  const [startHole, setStartHole] = useState<number>(1);
   const [isCreating, setIsCreating] = useState(false);
   const [hasAnalyzedExistingData, setHasAnalyzedExistingData] = useState(false);
+  const [bulkStartHole, setBulkStartHole] = useState<number>(1);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   const createTeeTimeMutation = useCreateTeeTime();
   const createParticipantMutation = useCreateParticipant();
   const deleteTeeTimeMutation = useDeleteTeeTime();
+  const updateTeeTimeMutation = useUpdateTeeTime();
   const lockParticipantMutation = useLockParticipant();
   const unlockParticipantMutation = useUnlockParticipant();
 
@@ -143,6 +148,7 @@ export default function AdminCompetitionTeeTimes() {
       await createTeeTimeMutation.mutateAsync({
         competitionId: parseInt(competitionId),
         teetime: newTeeTime,
+        start_hole: startHole,
       });
 
       // Refresh the tee times list
@@ -321,6 +327,80 @@ export default function AdminCompetitionTeeTimes() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Start Hole (1 or 10)
+            </label>
+            <select
+              value={startHole}
+              onChange={(e) => setStartHole(parseInt(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={1}>Hole 1</option>
+              <option value={10}>Hole 10</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Bulk Start Hole Setter */}
+        <div className="mt-6 border-t border-gray-200 pt-4">
+          <h4 className="text-md font-semibold text-gray-900 mb-3">
+            Apply Start Hole To All Tee Times
+          </h4>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-700">Start hole for all:</label>
+            <select
+              value={bulkStartHole}
+              onChange={(e) => setBulkStartHole(parseInt(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={1}>Hole 1</option>
+              <option value={10}>Hole 10</option>
+            </select>
+            <button
+              onClick={async () => {
+                if (!teeTimes || teeTimes.length === 0) return;
+                if (
+                  !confirm(
+                    `Set start hole to ${bulkStartHole} for all ${teeTimes.length} tee times?`
+                  )
+                )
+                  return;
+                setIsBulkUpdating(true);
+                try {
+                  await Promise.all(
+                    teeTimes.map((tt) =>
+                      updateTeeTimeMutation.mutateAsync({
+                        id: tt.id,
+                        data: { start_hole: bulkStartHole },
+                      })
+                    )
+                  );
+                  await refetchTeeTimes();
+                } catch (err) {
+                  console.error(err);
+                  alert(
+                    "Failed to update start hole for all tee times. Please try again."
+                  );
+                } finally {
+                  setIsBulkUpdating(false);
+                }
+              }}
+              disabled={
+                isBulkUpdating ||
+                updateTeeTimeMutation.isPending ||
+                !teeTimes ||
+                teeTimes.length === 0
+              }
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {isBulkUpdating ? "Applying..." : "Apply to All"}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Useful when shotgun start is determined after tee times are created.
+          </p>
         </div>
       </div>
 
@@ -363,6 +443,28 @@ export default function AdminCompetitionTeeTimes() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Start hole:</label>
+                    <select
+                      value={teeTime.start_hole ?? 1}
+                      onChange={async (e) => {
+                        const value = parseInt(e.target.value);
+                        try {
+                          await updateTeeTimeMutation.mutateAsync({
+                            id: teeTime.id,
+                            data: { start_hole: value },
+                          });
+                          await refetchTeeTimes();
+                        } catch (err) {
+                          alert(
+                            "Failed to update start hole. Please try again."
+                          );
+                        }
+                      }}
+                      className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                    >
+                      <option value={1}>1</option>
+                      <option value={10}>10</option>
+                    </select>
                     <Users className="h-4 w-4 text-gray-500" />
                     <span className="text-sm text-gray-500">
                       {teeTime.participants.length} participants

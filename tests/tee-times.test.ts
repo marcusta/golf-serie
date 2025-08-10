@@ -51,6 +51,7 @@ describe("TeeTime API", () => {
     test("should create a tee time", async () => {
       const teeTimeData = {
         teetime: "08:30",
+        start_hole: 10,
       };
 
       const response = await makeRequest(
@@ -64,6 +65,7 @@ describe("TeeTime API", () => {
       expect(teeTime.teetime).toBe(teeTimeData.teetime);
       expect(teeTime.competition_id).toBe(competitionId);
       expect(teeTime.id).toBeTypeOf("number");
+      expect(teeTime.start_hole).toBe(10);
     });
 
     test("should validate required fields", async () => {
@@ -150,6 +152,7 @@ describe("TeeTime API", () => {
       const teeTime = await expectJsonResponse(response);
       expect(teeTime.id).toBe(created.id);
       expect(teeTime.teetime).toBe("08:30");
+      expect(teeTime.start_hole).toBe(1);
       expect(teeTime.participants).toEqual([]);
       expect(teeTime.course_name).toBe("Test Course");
       expect(teeTime.pars).toBeDefined();
@@ -276,6 +279,46 @@ describe("TeeTime API", () => {
         { participantIds: "invalid" }
       );
       expectErrorResponse(response, 400);
+    });
+  });
+
+  describe("PUT /api/tee-times/:id", () => {
+    test("should update start_hole of a tee time", async () => {
+      const createResponse = await makeRequest(
+        `/api/competitions/${competitionId}/tee-times`,
+        "POST",
+        { teetime: "09:00" }
+      );
+      const created = await createResponse.json();
+
+      const updateResponse = await makeRequest(
+        `/api/tee-times/${created.id}`,
+        "PUT",
+        { start_hole: 10 }
+      );
+      expect(updateResponse.status).toBe(200);
+      const updated = await updateResponse.json();
+      expect(updated.start_hole).toBe(10);
+
+      const getResponse = await makeRequest(`/api/tee-times/${created.id}`);
+      const fetched = await getResponse.json();
+      expect(fetched.start_hole).toBe(10);
+    });
+
+    test("should reject invalid start_hole", async () => {
+      const createResponse = await makeRequest(
+        `/api/competitions/${competitionId}/tee-times`,
+        "POST",
+        { teetime: "09:15" }
+      );
+      const created = await createResponse.json();
+
+      const updateResponse = await makeRequest(
+        `/api/tee-times/${created.id}`,
+        "PUT",
+        { start_hole: 7 }
+      );
+      expectErrorResponse(updateResponse, 400);
     });
   });
 });

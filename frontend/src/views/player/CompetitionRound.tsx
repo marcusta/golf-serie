@@ -168,6 +168,49 @@ export default function CompetitionRound() {
     }
   }, [teeTime]);
 
+  // Initialize to tee time's configured start_hole if no progress exists
+  useEffect(() => {
+    if (!teeTime) return;
+
+    const sessionKey = teeTimeId ? getSessionStorageKey(teeTimeId) : null;
+    const rememberedHole = sessionKey
+      ? sessionStorage.getItem(sessionKey)
+      : null;
+
+    // Type guards for participant score arrays
+    const participants = Array.isArray(teeTime.participants)
+      ? (teeTime.participants as Array<{ score?: number[] }>)
+      : [];
+
+    const hasNoScores =
+      participants.length === 0 ||
+      participants.every((p) => {
+        const s = Array.isArray(p.score) ? p.score : [];
+        return s.length === 0 || s.every((v) => !v || v === 0);
+      });
+
+    const startHole: number | undefined =
+      typeof (teeTime as unknown as { start_hole?: number }).start_hole ===
+      "number"
+        ? (teeTime as unknown as { start_hole?: number }).start_hole
+        : undefined;
+
+    const validStart = startHole === 1 || startHole === 10;
+
+    // If no scores have been entered yet, prefer start_hole over any remembered hole
+    if (hasNoScores && validStart) {
+      setCurrentHole(startHole!);
+      if (sessionKey) sessionStorage.setItem(sessionKey, String(startHole));
+      return;
+    }
+
+    // Otherwise, if nothing remembered, fall back to start_hole
+    if (!rememberedHole && validStart) {
+      setCurrentHole(startHole!);
+      if (sessionKey) sessionStorage.setItem(sessionKey, String(startHole));
+    }
+  }, [teeTime, teeTimeId]);
+
   // Format data using utility functions
   const teeTimeGroup = formatTeeTimeGroup(teeTime);
   const courseData = formatCourseFromTeeTime(teeTime, course);
@@ -365,7 +408,6 @@ export default function CompetitionRound() {
       seriesName={competition.series_name}
       className="h-screen flex flex-col"
     >
-
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden">{renderContent()}</div>
 
@@ -423,7 +465,7 @@ export default function CompetitionRound() {
         onContinueEntry={() => setIsFullScorecardModalOpen(false)}
         onLockRound={handleLockRound}
       />
-    </div>
+    </PlayerPageLayout>
   );
 }
 
@@ -476,6 +518,6 @@ function InvalidTeeTimes({
           )}
         </div>
       </div>
-    </PlayerPageLayout>
+    </div>
   );
 }

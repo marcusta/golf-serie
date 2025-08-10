@@ -174,17 +174,13 @@ export function ScoreEntry({
       setTimeout(() => {
         setShowingConfirmation(false);
 
-        if (currentHole < 18) {
-          const nextHole = currentHole + 1;
-          if (onHoleChange) {
-            onHoleChange(nextHole);
-          } else {
-            setInternalCurrentHole(nextHole);
-          }
-          setCurrentPlayerIndex(0);
+        const nextHole = currentHole < 18 ? currentHole + 1 : 1;
+        if (onHoleChange) {
+          onHoleChange(nextHole);
         } else {
-          onComplete();
+          setInternalCurrentHole(nextHole);
         }
+        setCurrentPlayerIndex(0);
       }, 800); // Show confirmation for shorter time
     }
   };
@@ -311,7 +307,7 @@ export function ScoreEntry({
               ✓ Hole {currentHole} Complete!
             </div>
             <div className="text-sm opacity-90 font-primary">
-              Moving to hole {currentHole + 1}...
+              Moving to hole {currentHole < 18 ? currentHole + 1 : 1}...
             </div>
           </div>
         </div>
