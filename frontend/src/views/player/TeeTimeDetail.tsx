@@ -67,7 +67,7 @@ export default function TeeTimeDetail() {
   };
 
   return (
-    <PlayerPageLayout 
+    <PlayerPageLayout
       title="Score Entry"
       onBackClick={() => window.history.back()}
       className="h-screen flex flex-col"
@@ -97,7 +97,6 @@ export default function TeeTimeDetail() {
         onScoreUpdate={handleScoreUpdate}
         onComplete={handleComplete}
       />
-      </div>
     </PlayerPageLayout>
   );
 }

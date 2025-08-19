@@ -66,7 +66,6 @@ export function ScoreEntry({
   teeTimeGroup,
   course,
   onScoreUpdate,
-  onComplete,
   currentHole: externalCurrentHole,
   onHoleChange,
   syncStatus,
