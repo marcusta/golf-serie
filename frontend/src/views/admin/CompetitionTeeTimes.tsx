@@ -6,7 +6,6 @@ import { useSeriesTeams } from "../../api/series";
 import {
   useTeeTimesForCompetition,
   useCreateTeeTime,
-  useCreateParticipant,
   useDeleteTeeTime,
   useUpdateTeeTime,
 } from "../../api/tee-times";
@@ -51,14 +50,16 @@ export default function AdminCompetitionTeeTimes() {
   const [selectedTeams, setSelectedTeams] = useState<number[]>([]);
   const [firstTeeTime, setFirstTeeTime] = useState("");
   const [timeBetweenTeeTimes, setTimeBetweenTeeTimes] = useState(10);
-  const [startHole, setStartHole] = useState<number>(1);
   const [isCreating, setIsCreating] = useState(false);
   const [hasAnalyzedExistingData, setHasAnalyzedExistingData] = useState(false);
   const [bulkStartHole, setBulkStartHole] = useState<number>(1);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  
+  // Specific tee time creation state
+  const [specificTime, setSpecificTime] = useState("");
+  const [specificStartHole, setSpecificStartHole] = useState<number>(1);
 
   const createTeeTimeMutation = useCreateTeeTime();
-  const createParticipantMutation = useCreateParticipant();
   const deleteTeeTimeMutation = useDeleteTeeTime();
   const updateTeeTimeMutation = useUpdateTeeTime();
   const lockParticipantMutation = useLockParticipant();
@@ -122,7 +123,7 @@ export default function AdminCompetitionTeeTimes() {
     );
   };
 
-  const handleCreateTeeTimes = async () => {
+  const handleCreateNextTeeTime = async (useStartHole: number) => {
     if (!competitionId) return;
 
     setIsCreating(true);
@@ -148,13 +149,35 @@ export default function AdminCompetitionTeeTimes() {
       await createTeeTimeMutation.mutateAsync({
         competitionId: parseInt(competitionId),
         teetime: newTeeTime,
-        start_hole: startHole,
+        start_hole: useStartHole,
       });
 
       // Refresh the tee times list
       await refetchTeeTimes();
     } catch (error) {
       console.error("Error creating tee time:", error);
+      alert("Failed to create tee time. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCreateSpecificTeeTime = async () => {
+    if (!competitionId || !specificTime) return;
+
+    setIsCreating(true);
+    try {
+      // Create the tee time with the specific time and hole
+      await createTeeTimeMutation.mutateAsync({
+        competitionId: parseInt(competitionId),
+        teetime: specificTime,
+        start_hole: specificStartHole,
+      });
+
+      // Refresh the tee times list
+      await refetchTeeTimes();
+    } catch (error) {
+      console.error("Error creating specific tee time:", error);
       alert("Failed to create tee time. Please try again.");
     } finally {
       setIsCreating(false);
@@ -293,54 +316,125 @@ export default function AdminCompetitionTeeTimes() {
         )}
       </div>
 
-      {/* Tee Time Settings Section */}
+      {/* Tee Time Creation Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Tee Time Settings
+          Create Tee Times
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              First Tee Time
-            </label>
-            <input
-              type="time"
-              value={firstTeeTime}
-              onChange={(e) => setFirstTeeTime(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        {/* Quick Sequential Creation */}
+        <div className="mb-6">
+          <h4 className="text-md font-semibold text-gray-900 mb-3">
+            Quick Sequential Creation
+          </h4>
+          <p className="text-sm text-gray-600 mb-4">
+            Add tee times sequentially based on the latest existing tee time (or first tee time if none exist).
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                First Tee Time (if no existing tee times)
+              </label>
+              <input
+                type="time"
+                value={firstTeeTime}
+                onChange={(e) => setFirstTeeTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Minutes Between Tee Times
+              </label>
+              <input
+                type="number"
+                min="5"
+                max="30"
+                value={timeBetweenTeeTimes}
+                onChange={(e) =>
+                  setTimeBetweenTeeTimes(parseInt(e.target.value) || 10)
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Minutes Between Tee Times
-            </label>
-            <input
-              type="number"
-              min="5"
-              max="30"
-              value={timeBetweenTeeTimes}
-              onChange={(e) =>
-                setTimeBetweenTeeTimes(parseInt(e.target.value) || 10)
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => handleCreateNextTeeTime(1)}
+              disabled={
+                !firstTeeTime ||
+                isCreating ||
+                createTeeTimeMutation.isPending
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCreating ? "Creating..." : "Add Next Tee Time (Hole 1)"}
+            </button>
+            <button
+              onClick={() => handleCreateNextTeeTime(10)}
+              disabled={
+                !firstTeeTime ||
+                isCreating ||
+                createTeeTimeMutation.isPending
+              }
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCreating ? "Creating..." : "Add Next Tee Time (Hole 10)"}
+            </button>
+          </div>
+        </div>
+
+        {/* Specific Time Creation */}
+        <div className="border-t border-gray-200 pt-6">
+          <h4 className="text-md font-semibold text-gray-900 mb-3">
+            Add Specific Tee Time
+          </h4>
+          <p className="text-sm text-gray-600 mb-4">
+            Create a tee time at an exact time and hole (useful for simultaneous starts on different holes).
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Specific Time
+              </label>
+              <input
+                type="time"
+                value={specificTime}
+                onChange={(e) => setSpecificTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Start Hole
+              </label>
+              <select
+                value={specificStartHole}
+                onChange={(e) => setSpecificStartHole(parseInt(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={1}>Hole 1</option>
+                <option value={10}>Hole 10</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Start Hole (1 or 10)
-            </label>
-            <select
-              value={startHole}
-              onChange={(e) => setStartHole(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value={1}>Hole 1</option>
-              <option value={10}>Hole 10</option>
-            </select>
-          </div>
+          <button
+            onClick={handleCreateSpecificTeeTime}
+            disabled={
+              !specificTime ||
+              isCreating ||
+              createTeeTimeMutation.isPending
+            }
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCreating ? "Creating..." : "Add Specific Tee Time"}
+          </button>
         </div>
 
         {/* Bulk Start Hole Setter */}
@@ -404,23 +498,6 @@ export default function AdminCompetitionTeeTimes() {
         </div>
       </div>
 
-      {/* Create Tee Times Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleCreateTeeTimes}
-          disabled={
-            participantTypes.length === 0 ||
-            selectedTeams.length === 0 ||
-            !firstTeeTime ||
-            isCreating ||
-            createTeeTimeMutation.isPending ||
-            createParticipantMutation.isPending
-          }
-          className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isCreating ? "Creating..." : "Create Tee Times"}
-        </button>
-      </div>
 
       {/* Existing Tee Times Section */}
       {teeTimes && teeTimes.length > 0 && (
