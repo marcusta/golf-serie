@@ -10,7 +10,9 @@
       "Bash(npx eslint:*)",
       "Bash(pkill:*)",
       "Bash(awk:*)",
-      "Bash(npm run deploy:*)"
+      "Bash(npm run deploy:*)",
+      "Bash(bun run:*)",
+      "Bash(bun test:*)"
     ],
     "deny": []
   }

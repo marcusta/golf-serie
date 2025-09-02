@@ -6,9 +6,10 @@ import type {
   SeriesTeamStanding,
   UpdateSeriesDto,
 } from "../types";
+import type { CompetitionService } from "./competition-service";
 
 export class SeriesService {
-  constructor(private db: Database) {}
+  constructor(private db: Database, private competitionService: CompetitionService) {}
 
   async create(data: CreateSeriesDto): Promise<Series> {
     if (!data.name?.trim()) {
@@ -307,8 +308,8 @@ export class SeriesService {
     const teamStandings: { [teamId: number]: SeriesTeamStanding } = {};
 
     for (const competition of competitions) {
-      // Calculate team results for this competition using the same logic as competition leaderboard
-      const teamResults = await this.calculateCompetitionTeamResults(
+      // Calculate team results for this competition using CompetitionService
+      const teamResults = await this.competitionService.getTeamLeaderboard(
         competition.id
       );
 
@@ -319,7 +320,7 @@ export class SeriesService {
       competitionDate.setHours(0, 0, 0, 0);
 
       const isPastCompetition = competitionDate < today;
-      const hasAnyScores = teamResults.some((team) => team.totalShots > 0);
+      const hasAnyScores = teamResults.some((team) => team.totalShots && team.totalShots > 0);
 
       // Include competition if:
       // 1. It's a past competition (always include regardless of scores), OR
@@ -329,11 +330,12 @@ export class SeriesService {
         continue;
       }
 
-      for (const teamResult of teamResults) {
-        if (!teamStandings[teamResult.team_id]) {
-          teamStandings[teamResult.team_id] = {
-            team_id: teamResult.team_id,
-            team_name: teamResult.team_name,
+      for (let i = 0; i < teamResults.length; i++) {
+        const teamResult = teamResults[i];
+        if (!teamStandings[teamResult.teamId]) {
+          teamStandings[teamResult.teamId] = {
+            team_id: teamResult.teamId,
+            team_name: teamResult.teamName,
             total_points: 0,
             competitions_played: 0,
             position: 0,
@@ -341,15 +343,17 @@ export class SeriesService {
           };
         }
 
-        teamStandings[teamResult.team_id].total_points += teamResult.points;
-        teamStandings[teamResult.team_id].competitions_played += 1;
-        teamStandings[teamResult.team_id].competitions.push({
-          competition_id: competition.id,
-          competition_name: competition.name,
-          competition_date: competition.date,
-          points: teamResult.points,
-          position: teamResult.position,
-        });
+        if (teamResult.teamPoints !== null) {
+          teamStandings[teamResult.teamId].total_points += teamResult.teamPoints;
+          teamStandings[teamResult.teamId].competitions_played += 1;
+          teamStandings[teamResult.teamId].competitions.push({
+            competition_id: competition.id,
+            competition_name: competition.name,
+            competition_date: competition.date,
+            points: teamResult.teamPoints,
+            position: i + 1, // Position based on sorted order from getTeamLeaderboard
+          });
+        }
       }
     }
 
@@ -368,168 +372,4 @@ export class SeriesService {
     };
   }
 
-  private async calculateCompetitionTeamResults(
-    competitionId: number
-  ): Promise<any[]> {
-    // Get all participants for this competition
-    const participantsStmt = this.db.prepare(`
-      SELECT p.*, tm.name as team_name, tm.id as team_id
-      FROM participants p
-      JOIN tee_times t ON p.tee_time_id = t.id
-      JOIN teams tm ON p.team_id = tm.id
-      WHERE t.competition_id = ?
-      ORDER BY t.teetime, p.tee_order
-    `);
-    const participants = participantsStmt.all(competitionId) as any[];
-
-    // Get course pars for score calculation
-    const courseStmt = this.db.prepare(`
-      SELECT co.pars
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.id = ?
-    `);
-    const courseResult = courseStmt.get(competitionId) as any;
-    const coursePars = JSON.parse(courseResult.pars);
-
-    // Calculate individual scores
-    const participantScores = participants.map((participant) => {
-      // Check if participant has manual scores
-      if (
-        participant.manual_score_total !== null &&
-        participant.manual_score_total !== undefined
-      ) {
-        // Use manual scores
-        const totalShots = participant.manual_score_total;
-        const holesPlayed = 18; // Manual scores represent a full round
-
-        // Calculate relative to par based on manual total
-        const totalPar = coursePars.reduce(
-          (sum: number, par: number) => sum + par,
-          0
-        );
-        const relativeToPar = totalShots - totalPar;
-
-        return {
-          participant,
-          totalShots,
-          relativeToPar,
-          holesPlayed,
-          isValidRound: true,
-        };
-      } else {
-        // Use existing logic for hole-by-hole scores
-        const scores = JSON.parse(participant.score || "[]");
-        let totalShots = 0;
-        let totalPlayedPar = 0;
-        let holesPlayed = 0;
-        const hasGaveUp = scores.some((score: number) => score === -1);
-
-        if (!hasGaveUp) {
-          for (let i = 0; i < Math.min(scores.length, coursePars.length); i++) {
-            const score = scores[i];
-            const par = coursePars[i];
-            if (score && score > 0) {
-              totalShots += score;
-              totalPlayedPar += par;
-              holesPlayed++;
-            }
-          }
-        }
-
-        return {
-          participant,
-          totalShots: hasGaveUp ? 0 : totalShots,
-          relativeToPar: hasGaveUp ? 0 : totalShots - totalPlayedPar,
-          holesPlayed: hasGaveUp ? 0 : holesPlayed,
-          isValidRound: !hasGaveUp,
-        };
-      }
-    });
-
-    // Group by team and calculate team totals
-    const teamGroups: { [teamName: string]: any } = {};
-
-    participantScores.forEach((entry) => {
-      const teamName = entry.participant.team_name;
-      const teamId = entry.participant.team_id;
-
-      if (!teamGroups[teamName]) {
-        teamGroups[teamName] = {
-          team_id: teamId,
-          team_name: teamName,
-          participants: [],
-          totalShots: 0,
-          relativeToPar: 0,
-        };
-      }
-
-      teamGroups[teamName].participants.push({
-        name: entry.participant.player_names || "",
-        position: entry.participant.position_name,
-        totalShots: entry.totalShots,
-        relativeToPar: entry.relativeToPar,
-      });
-
-      teamGroups[teamName].totalShots += entry.totalShots;
-      teamGroups[teamName].relativeToPar += entry.relativeToPar;
-    });
-
-    // Sort teams by relativeToPar, total shots, and lowest individual score
-    return Object.values(teamGroups)
-      .sort((a, b) => {
-        // Primary: lowest relativeToPar
-        if (a.relativeToPar !== b.relativeToPar) {
-          return a.relativeToPar - b.relativeToPar;
-        }
-
-        // Secondary: lowest total shots
-        if (a.totalShots !== b.totalShots) {
-          return a.totalShots - b.totalShots;
-        }
-
-        // Tertiary: compare individual scores (lowest first, then second lowest only if needed, etc.)
-        const aScores = a.participants
-          .map((p: any) => p.totalShots)
-          .filter((score: number) => score > 0)
-          .sort((x: number, y: number) => x - y);
-        const bScores = b.participants
-          .map((p: any) => p.totalShots)
-          .filter((score: number) => score > 0)
-          .sort((x: number, y: number) => x - y);
-
-        // Handle case where no valid scores exist (shouldn't happen in practice)
-        if (aScores.length === 0) return 1;
-        if (bScores.length === 0) return -1;
-
-        // Compare scores one by one, but only continue if tied
-        const maxLength = Math.max(aScores.length, bScores.length);
-        for (let i = 0; i < maxLength; i++) {
-          const aScore = aScores[i] || Infinity; // If team has fewer participants, treat as worst possible score
-          const bScore = bScores[i] || Infinity;
-
-          if (aScore !== bScore) {
-            return aScore - bScore; // Exit immediately when we find a difference
-          }
-          // Only continue to next score if current scores are tied
-        }
-
-        // All scores are identical
-        return 0;
-      })
-      .map((team, index, array) => {
-        const position = index + 1;
-        let points = array.length - position + 1; // Base points (last place gets 1 point)
-
-        // Add extra points for top 3 positions
-        if (position === 1) points += 2; // First place gets 2 extra points
-        if (position === 2) points += 1; // Second place gets 1 extra point
-
-        return {
-          ...team,
-          position,
-          points,
-        };
-      });
-  }
 }

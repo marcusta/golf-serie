@@ -23,7 +23,7 @@ export function createApp(db: Database): Hono {
   const competitionService = new CompetitionService(db);
   const teeTimeService = new TeeTimeService(db);
   const participantService = new ParticipantService(db);
-  const seriesService = new SeriesService(db);
+  const seriesService = new SeriesService(db, competitionService);
   const documentService = new DocumentService(db);
 
   // Initialize APIs

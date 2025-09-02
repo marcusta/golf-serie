@@ -225,7 +225,7 @@ export class CompetitionService {
     console.log("competition leaderboard 1");
     // Get all participants for this competition
     const participantsStmt = this.db.prepare(`
-      SELECT p.*, tm.name as team_name, t.teetime
+      SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN teams tm ON p.team_id = tm.id
@@ -234,6 +234,7 @@ export class CompetitionService {
     `);
     const participants = participantsStmt.all(competitionId) as (Participant & {
       team_name: string;
+      team_id: number;
       teetime: string;
     })[];
     // Parse course pars
@@ -369,7 +370,7 @@ export class CompetitionService {
     numberOfTeams: number
   ): TeamLeaderboardEntry[] {
     interface TeamGroup {
-      teamId: string;
+      teamId: number;
       teamName: string;
       participants: LeaderboardEntry[];
       totalShots: number;
@@ -380,10 +381,11 @@ export class CompetitionService {
 
     // 1. Group participants by team and pre-calculate sums.
     const teamGroups = leaderboard.reduce((acc, entry) => {
+      const teamId = entry.participant.team_id;
       const teamName = entry.participant.team_name;
-      if (!acc[teamName]) {
-        acc[teamName] = {
-          teamId: teamName,
+      if (!acc[teamId]) {
+        acc[teamId] = {
+          teamId,
           teamName,
           participants: [],
           totalShots: 0,
@@ -396,22 +398,22 @@ export class CompetitionService {
       const hasStarted = entry.holesPlayed > 0;
       const hasInvalidRound = entry.participant.score.includes(-1);
 
-      acc[teamName].participants.push(entry);
+      acc[teamId].participants.push(entry);
 
       if (hasStarted && !hasInvalidRound) {
-        acc[teamName].totalShots += entry.totalShots;
-        acc[teamName].totalRelativeScore += entry.relativeToPar;
+        acc[teamId].totalShots += entry.totalShots;
+        acc[teamId].totalRelativeScore += entry.relativeToPar;
       }
 
       if (hasStarted) {
-        acc[teamName].maxHolesCompleted = Math.max(
-          acc[teamName].maxHolesCompleted,
+        acc[teamId].maxHolesCompleted = Math.max(
+          acc[teamId].maxHolesCompleted,
           entry.holesPlayed
         );
       }
 
       return acc;
-    }, {} as Record<string, TeamGroup>);
+    }, {} as Record<number, TeamGroup>);
 
     // 2. Populate start times for each team.
     Object.values(teamGroups).forEach((team: TeamGroup) => {

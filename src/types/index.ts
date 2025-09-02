@@ -185,7 +185,7 @@ export interface LeaderboardEntry {
 }
 
 export interface TeamLeaderboardEntry {
-  teamId: string;
+  teamId: number;
   teamName: string;
   status: "NOT_STARTED" | "IN_PROGRESS" | "FINISHED";
   displayProgress: string; // E.g., "Starts 09:30", "Thru 14", or "F" for Finished.
