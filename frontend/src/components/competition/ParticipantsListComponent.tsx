@@ -9,6 +9,7 @@ import type { TeeTimeParticipant } from "../../api/tee-times";
 interface TeeTime {
   id: number;
   teetime: string;
+  start_hole: number;
   participants: TeeTimeParticipant[];
   pars: number[];
   course_name: string;
@@ -67,6 +68,9 @@ export function ParticipantsListComponent({
                     <h4 className="text-base md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
                       <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />
                       {teeTime.teetime}
+                      <span className="text-xs md:text-sm text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
+                        Hole {teeTime.start_hole}
+                      </span>
                     </h4>
                     <div className="text-xs md:text-sm text-turf font-primary">
                       {teeTime.participants.length} players
@@ -135,8 +139,11 @@ export function ParticipantsListComponent({
         {currentTeeTimeId && currentTeeTime && (
           <div className="bg-rough bg-opacity-20 rounded-xl border border-turf p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm md:text-lg font-semibold text-fairway font-display">
+              <h3 className="text-sm md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
                 Your Group - {currentTeeTime.teetime}
+                <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
+                  Hole {currentTeeTime.start_hole}
+                </span>
               </h3>
               <span className="text-xs md:text-sm text-scorecard bg-coral px-2 py-1 rounded-full font-primary font-medium">
                 Active
@@ -199,8 +206,11 @@ export function ParticipantsListComponent({
                     className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden"
                   >
                     <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
-                      <h4 className="text-sm md:text-base font-semibold text-fairway font-display">
+                      <h4 className="text-sm md:text-base font-semibold text-fairway font-display flex items-center gap-2">
                         {teeTimeGroup.teetime}
+                        <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
+                          Hole {teeTimeGroup.start_hole}
+                        </span>
                       </h4>
                     </div>
                     <div className="divide-y divide-soft-grey">
