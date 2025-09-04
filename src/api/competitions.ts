@@ -1,17 +1,43 @@
+import { z } from "zod";
 import { CompetitionService } from "../services/competition-service";
 import type { CreateCompetitionDto, UpdateCompetitionDto } from "../types";
+
+const createCompetitionSchema = z.object({
+  name: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  course_id: z.number().positive(),
+  series_id: z.number().positive().optional(),
+  manual_entry_format: z.enum(["out_in_total", "total_only"]).optional(),
+  points_multiplier: z.number().positive().optional(),
+});
+
+const updateCompetitionSchema = z.object({
+  name: z.string().min(1).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  course_id: z.number().positive().optional(),
+  series_id: z.number().positive().optional(),
+  manual_entry_format: z.enum(["out_in_total", "total_only"]).optional(),
+  points_multiplier: z.number().positive().optional(),
+});
 
 export function createCompetitionsApi(competitionService: CompetitionService) {
   return {
     async create(req: Request): Promise<Response> {
       try {
-        const data = (await req.json()) as CreateCompetitionDto;
+        const rawData = await req.json();
+        const data = createCompetitionSchema.parse(rawData) as CreateCompetitionDto;
         const competition = await competitionService.create(data);
         return new Response(JSON.stringify(competition), {
           status: 201,
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
+        if (error instanceof z.ZodError) {
+          return new Response(JSON.stringify({ error: "Validation error", details: error.errors }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
             status: 400,
@@ -75,13 +101,20 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
 
     async update(req: Request, id: number): Promise<Response> {
       try {
-        const data = (await req.json()) as UpdateCompetitionDto;
+        const rawData = await req.json();
+        const data = updateCompetitionSchema.parse(rawData) as UpdateCompetitionDto;
         const competition = await competitionService.update(id, data);
         return new Response(JSON.stringify(competition), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
+        if (error instanceof z.ZodError) {
+          return new Response(JSON.stringify({ error: "Validation error", details: error.errors }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
             status: 400,

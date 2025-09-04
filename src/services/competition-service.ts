@@ -47,8 +47,8 @@ export class CompetitionService {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, manual_entry_format)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, manual_entry_format, points_multiplier)
+      VALUES (?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
 
@@ -57,7 +57,8 @@ export class CompetitionService {
       data.date,
       data.course_id,
       data.series_id || null,
-      data.manual_entry_format || "out_in_total"
+      data.manual_entry_format || "out_in_total",
+      data.points_multiplier ?? 1
     ) as Competition;
   }
 
@@ -170,6 +171,11 @@ export class CompetitionService {
     if (data.manual_entry_format) {
       updates.push("manual_entry_format = ?");
       values.push(data.manual_entry_format);
+    }
+
+    if (data.points_multiplier !== undefined) {
+      updates.push("points_multiplier = ?");
+      values.push(data.points_multiplier);
     }
 
     if (updates.length === 0) {

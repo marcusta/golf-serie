@@ -620,4 +620,214 @@ describe("Series API", () => {
       expect(series.banner_image_url).toBeNull();
     });
   });
+
+  describe("Points Multiplier Feature", () => {
+    test("should create competition with points multiplier", async () => {
+      // Create a course first
+      const courseResponse = await makeRequest("/api/courses", "POST", {
+        name: "Test Course",
+      });
+      const course = await expectJsonResponse(courseResponse);
+
+      // Create a series
+      const seriesResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+      });
+      const series = await expectJsonResponse(seriesResponse);
+
+      // Create competition with multiplier
+      const competitionResponse = await makeRequest("/api/competitions", "POST", {
+        name: "Championship Final",
+        date: "2024-01-22",
+        course_id: course.id,
+        series_id: series.id,
+        points_multiplier: 2,
+      });
+
+      expect(competitionResponse.status).toBe(201);
+      const competition = await expectJsonResponse(competitionResponse);
+      expect(competition.points_multiplier).toBe(2);
+    });
+
+    test("should apply points multiplier to competition results in series standings", async () => {
+      // Create a series
+      const seriesResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series for Multiplier",
+      });
+      const series = await expectJsonResponse(seriesResponse);
+
+      // Create two teams
+      const team1Response = await makeRequest("/api/teams", "POST", {
+        name: "Team Alpha",
+      });
+      const team1 = await expectJsonResponse(team1Response);
+
+      const team2Response = await makeRequest("/api/teams", "POST", {
+        name: "Team Beta",
+      });
+      const team2 = await expectJsonResponse(team2Response);
+
+      // Add teams to series
+      await makeRequest(`/api/series/${series.id}/teams/${team1.id}`, "POST");
+      await makeRequest(`/api/series/${series.id}/teams/${team2.id}`, "POST");
+
+      // Create a course
+      const courseResponse = await makeRequest("/api/courses", "POST", {
+        name: "Test Course",
+      });
+      const course = await expectJsonResponse(courseResponse);
+
+      // Update course holes (required for calculations)
+      await makeRequest(`/api/courses/${course.id}/holes`, "PUT", [4, 4, 3, 5, 4, 3, 4, 4, 5, 4, 4, 3, 5, 4, 3, 4, 4, 5]);
+
+      // Create first competition (normal points_multiplier = 1) - use past date
+      const comp1Response = await makeRequest("/api/competitions", "POST", {
+        name: "Regular Competition",
+        date: "2024-09-01", // Past date to ensure it's included
+        course_id: course.id,
+        series_id: series.id,
+        points_multiplier: 1,
+      });
+      const competition1 = await expectJsonResponse(comp1Response);
+
+      // Create second competition with double points (points_multiplier = 2)
+      const comp2Response = await makeRequest("/api/competitions", "POST", {
+        name: "Championship Final",
+        date: "2024-09-02", // Past date to ensure it's included
+        course_id: course.id,
+        series_id: series.id,
+        points_multiplier: 2,
+      });
+      const competition2 = await expectJsonResponse(comp2Response);
+
+      // Create tee times for both competitions
+      const teeTime1Response = await makeRequest(
+        `/api/competitions/${competition1.id}/tee-times`,
+        "POST",
+        {
+          teetime: "09:00",
+          competition_id: competition1.id,
+        }
+      );
+      const teeTime1 = await expectJsonResponse(teeTime1Response);
+
+      const teeTime2Response = await makeRequest(
+        `/api/competitions/${competition2.id}/tee-times`,
+        "POST",
+        {
+          teetime: "09:00",
+          competition_id: competition2.id,
+        }
+      );
+      const teeTime2 = await expectJsonResponse(teeTime2Response);
+
+      // Create participants for first competition
+      const participant1Comp1Response = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: team1.id,
+        tee_time_id: teeTime1.id,
+        position_name: "Player 1",
+      });
+      const participant1Comp1 = await expectJsonResponse(participant1Comp1Response);
+
+      const participant2Comp1Response = await makeRequest("/api/participants", "POST", {
+        tee_order: 2,
+        team_id: team2.id,
+        tee_time_id: teeTime1.id,
+        position_name: "Player 2",
+      });
+      const participant2Comp1 = await expectJsonResponse(participant2Comp1Response);
+
+      // Create participants for second competition
+      const participant1Comp2Response = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: team1.id,
+        tee_time_id: teeTime2.id,
+        position_name: "Player 1",
+      });
+      const participant1Comp2 = await expectJsonResponse(participant1Comp2Response);
+
+      const participant2Comp2Response = await makeRequest("/api/participants", "POST", {
+        tee_order: 2,
+        team_id: team2.id,
+        tee_time_id: teeTime2.id,
+        position_name: "Player 2",
+      });
+      const participant2Comp2 = await expectJsonResponse(participant2Comp2Response);
+
+      // Add scores to first competition (Team Alpha wins, Team Beta comes second)
+      // Team Alpha: 72 shots (even par)
+      await makeRequest(`/api/participants/${participant1Comp1.id}/manual-score`, "PUT", {
+        manual_score_total: 72,
+      });
+      await makeRequest(`/api/participants/${participant1Comp1.id}/lock`, "POST");
+
+      // Team Beta: 75 shots (+3)
+      await makeRequest(`/api/participants/${participant2Comp1.id}/manual-score`, "PUT", {
+        manual_score_total: 75,
+      });
+      await makeRequest(`/api/participants/${participant2Comp1.id}/lock`, "POST");
+
+      // Add scores to second competition (same results, but with 2x multiplier)
+      // Team Alpha: 72 shots (even par) - should get double points
+      await makeRequest(`/api/participants/${participant1Comp2.id}/manual-score`, "PUT", {
+        manual_score_total: 72,
+      });
+      await makeRequest(`/api/participants/${participant1Comp2.id}/lock`, "POST");
+
+      // Team Beta: 75 shots (+3) - should get double points
+      await makeRequest(`/api/participants/${participant2Comp2.id}/manual-score`, "PUT", {
+        manual_score_total: 75,
+      });
+      await makeRequest(`/api/participants/${participant2Comp2.id}/lock`, "POST");
+
+      // Debug: Check competition leaderboards individually
+      const leaderboard1Response = await makeRequest(`/api/competitions/${competition1.id}/team-leaderboard`);
+      const leaderboard1 = await expectJsonResponse(leaderboard1Response);
+      console.log('Competition 1 team leaderboard:', JSON.stringify(leaderboard1, null, 2));
+
+      const leaderboard2Response = await makeRequest(`/api/competitions/${competition2.id}/team-leaderboard`);
+      const leaderboard2 = await expectJsonResponse(leaderboard2Response);
+      console.log('Competition 2 team leaderboard:', JSON.stringify(leaderboard2, null, 2));
+
+      // Get series standings
+      const standingsResponse = await makeRequest(`/api/series/${series.id}/standings`);
+      if (standingsResponse.status !== 200) {
+        const error = await expectJsonResponse(standingsResponse);
+        console.log('Error response:', error);
+      }
+      expect(standingsResponse.status).toBe(200);
+      const standings = await expectJsonResponse(standingsResponse);
+
+      console.log('Standings response:', JSON.stringify(standings, null, 2));
+      expect(standings.team_standings).toHaveLength(2);
+
+      // Team Alpha should be first with more total points due to multiplier
+      const teamAlphaStanding = standings.team_standings.find((t: any) => t.team_name === "Team Alpha");
+      const teamBetaStanding = standings.team_standings.find((t: any) => t.team_name === "Team Beta");
+
+      expect(teamAlphaStanding).toBeDefined();
+      expect(teamBetaStanding).toBeDefined();
+
+      // With 2 teams, Team Alpha (1st place) gets 4 points normally, Team Beta (2nd place) gets 2 points
+      // In first competition: Team Alpha = 4 points, Team Beta = 2 points  
+      // In second competition (2x multiplier): Team Alpha = 8 points, Team Beta = 4 points
+      // Total: Team Alpha = 12 points, Team Beta = 6 points
+      expect(teamAlphaStanding.total_points).toBe(12);
+      expect(teamBetaStanding.total_points).toBe(6);
+
+      // Verify individual competition points in the breakdown
+      const alphaComp2 = teamAlphaStanding.competitions.find((c: any) => c.competition_name === "Championship Final");
+      const betaComp2 = teamBetaStanding.competitions.find((c: any) => c.competition_name === "Championship Final");
+
+      expect(alphaComp2.points).toBe(8); // 4 points * 2 multiplier
+      expect(betaComp2.points).toBe(4); // 2 points * 2 multiplier
+
+      const alphaComp1 = teamAlphaStanding.competitions.find((c: any) => c.competition_name === "Regular Competition");
+      const betaComp1 = teamBetaStanding.competitions.find((c: any) => c.competition_name === "Regular Competition");
+
+      expect(alphaComp1.points).toBe(4); // 4 points * 1 multiplier
+      expect(betaComp1.points).toBe(2); // 2 points * 1 multiplier
+    });
+  });
 });
