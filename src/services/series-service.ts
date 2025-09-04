@@ -295,9 +295,9 @@ export class SeriesService {
       throw new Error("Series not found");
     }
 
-    // Get all competitions in the series with their points multipliers
+    // Get all competitions in the series
     const competitionsStmt = this.db.prepare(`
-      SELECT c.id, c.name, c.date, c.points_multiplier
+      SELECT c.id, c.name, c.date
       FROM competitions c
       WHERE c.series_id = ?
       ORDER BY c.date
@@ -344,14 +344,14 @@ export class SeriesService {
         }
 
         if (teamResult.teamPoints !== null) {
-          const multipliedPoints = teamResult.teamPoints * competition.points_multiplier;
-          teamStandings[teamResult.teamId].total_points += multipliedPoints;
+          // teamPoints already includes the multiplier from CompetitionService
+          teamStandings[teamResult.teamId].total_points += teamResult.teamPoints;
           teamStandings[teamResult.teamId].competitions_played += 1;
           teamStandings[teamResult.teamId].competitions.push({
             competition_id: competition.id,
             competition_name: competition.name,
             competition_date: competition.date,
-            points: multipliedPoints,
+            points: teamResult.teamPoints, // Already multiplied by CompetitionService
             position: i + 1, // Position based on sorted order from getTeamLeaderboard
           });
         }

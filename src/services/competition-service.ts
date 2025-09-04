@@ -367,13 +367,15 @@ export class CompetitionService {
     // Transform leaderboard data into team leaderboard format
     return this.transformLeaderboardToTeamLeaderboard(
       leaderboard,
-      numberOfTeams
+      numberOfTeams,
+      competition.points_multiplier
     );
   }
 
   private transformLeaderboardToTeamLeaderboard(
     leaderboard: LeaderboardEntry[],
-    numberOfTeams: number
+    numberOfTeams: number,
+    pointsMultiplier: number = 1
   ): TeamLeaderboardEntry[] {
     interface TeamGroup {
       teamId: number;
@@ -550,7 +552,8 @@ export class CompetitionService {
           }
           team.teamPoints = this.calculateTeamPoints(
             currentPosition,
-            numberOfTeams
+            numberOfTeams,
+            pointsMultiplier
           );
           lastScoreSignature = scoreSignature;
         }
@@ -560,16 +563,20 @@ export class CompetitionService {
     return sortedTeams;
   }
 
-  private calculateTeamPoints(position: number, numberOfTeams: number): number {
+  private calculateTeamPoints(position: number, numberOfTeams: number, multiplier: number = 1): number {
     if (position <= 0) return 0;
+    
+    let basePoints: number;
     if (position === 1) {
-      return numberOfTeams + 2;
+      basePoints = numberOfTeams + 2;
+    } else if (position === 2) {
+      basePoints = numberOfTeams;
+    } else {
+      // For position 3 and below, ensuring points don't go below 0.
+      basePoints = numberOfTeams - (position - 1);
+      basePoints = Math.max(0, basePoints);
     }
-    if (position === 2) {
-      return numberOfTeams;
-    }
-    // For position 3 and below, ensuring points don't go below 0.
-    const points = numberOfTeams - (position - 1);
-    return Math.max(0, points);
+    
+    return basePoints * multiplier;
   }
 }

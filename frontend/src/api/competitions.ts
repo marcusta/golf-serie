@@ -10,6 +10,7 @@ export interface Competition {
   course_id: number;
   series_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
+  points_multiplier: number;
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -124,6 +125,7 @@ export interface CreateCompetitionDto {
   course_id: number;
   series_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
+  points_multiplier?: number;
 }
 
 export interface UpdateCompetitionDto {
@@ -132,6 +134,7 @@ export interface UpdateCompetitionDto {
   course_id?: number;
   series_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
+  points_multiplier?: number;
 }
 
 export function useCreateCompetition() {

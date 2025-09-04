@@ -17,6 +17,7 @@ import {
   Award,
   ArrowLeft,
   ClipboardEdit,
+  Star,
 } from "lucide-react";
 import { Link, useSearch } from "@tanstack/react-router";
 
@@ -48,6 +49,7 @@ export default function AdminCompetitions() {
     course_id: "",
     series_id: seriesFilter?.toString() || "",
     manual_entry_format: "out_in_total" as "out_in_total" | "total_only",
+    points_multiplier: "1",
   });
 
   if (isLoading) return <div>Loading competitions...</div>;
@@ -61,6 +63,7 @@ export default function AdminCompetitions() {
       course_id: competition.course_id.toString(),
       series_id: competition.series_id?.toString() || "",
       manual_entry_format: competition.manual_entry_format || "out_in_total",
+      points_multiplier: competition.points_multiplier?.toString() || "1",
     });
     setShowForm(true);
   };
@@ -85,6 +88,7 @@ export default function AdminCompetitions() {
       course_id: parseInt(formData.course_id),
       series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
       manual_entry_format: formData.manual_entry_format,
+      points_multiplier: parseFloat(formData.points_multiplier),
     };
 
     const onSuccess = () => {
@@ -95,6 +99,7 @@ export default function AdminCompetitions() {
         course_id: "",
         series_id: seriesFilter?.toString() || "",
         manual_entry_format: "out_in_total" as "out_in_total" | "total_only",
+        points_multiplier: "1",
       });
       setShowForm(false);
       setEditingCompetition(null);
@@ -163,6 +168,7 @@ export default function AdminCompetitions() {
               manual_entry_format: "out_in_total" as
                 | "out_in_total"
                 | "total_only",
+              points_multiplier: "1",
             });
             setShowForm(true);
           }}
@@ -260,6 +266,26 @@ export default function AdminCompetitions() {
                 <option value="total_only">Total Score Only</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Points Multiplier
+              </label>
+              <input
+                type="number"
+                name="points_multiplier"
+                value={formData.points_multiplier}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="1"
+                min="0.1"
+                max="10"
+                step="0.1"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Multiplier for series points (1 = normal, 2 = double points, etc.)
+              </p>
+            </div>
             <div className="flex items-end gap-2">
               <button
                 type="submit"
@@ -287,6 +313,7 @@ export default function AdminCompetitions() {
                     manual_entry_format: "out_in_total" as
                       | "out_in_total"
                       | "total_only",
+                    points_multiplier: "1",
                   });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
@@ -346,6 +373,12 @@ export default function AdminCompetitions() {
                             <Award className="h-4 w-4" />
                             {series?.find((s) => s.id === competition.series_id)
                               ?.name || `Series #${competition.series_id}`}
+                          </div>
+                        )}
+                        {competition.points_multiplier !== 1 && (
+                          <div className="flex items-center gap-1 text-orange-600">
+                            <Star className="h-4 w-4" />
+                            {competition.points_multiplier}x Points
                           </div>
                         )}
                       </div>
