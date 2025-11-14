@@ -15,28 +15,51 @@ export class TeeTimeService {
       throw new Error("Tee time is required");
     }
 
-    // Validate start_hole if provided
-    const startHole = data.start_hole ?? 1;
-    if (startHole !== 1 && startHole !== 10) {
-      throw new Error("start_hole must be 1 or 10");
-    }
-
-    // Verify competition exists
+    // Verify competition exists and get venue_type
     const competitionStmt = this.db.prepare(
-      "SELECT id FROM competitions WHERE id = ?"
+      "SELECT id, venue_type FROM competitions WHERE id = ?"
     );
-    const competition = competitionStmt.get(data.competition_id);
+    const competition = competitionStmt.get(data.competition_id) as {
+      id: number;
+      venue_type: "outdoor" | "indoor";
+    } | null;
     if (!competition) {
       throw new Error("Competition not found");
     }
 
+    // Validate based on venue_type
+    if (competition.venue_type === "indoor") {
+      if (!data.hitting_bay) {
+        throw new Error("Hitting bay is required for indoor competitions");
+      }
+      if (data.hitting_bay < 1) {
+        throw new Error("Hitting bay must be a positive number");
+      }
+    } else {
+      // Outdoor competition
+      const startHole = data.start_hole ?? 1;
+      if (startHole !== 1 && startHole !== 10) {
+        throw new Error("start_hole must be 1 or 10");
+      }
+      if (data.hitting_bay) {
+        throw new Error("Hitting bay should not be set for outdoor competitions");
+      }
+    }
+
+    const startHole = data.start_hole ?? 1;
+
     const stmt = this.db.prepare(`
-      INSERT INTO tee_times (teetime, competition_id, start_hole)
-      VALUES (?, ?, ?)
+      INSERT INTO tee_times (teetime, competition_id, start_hole, hitting_bay)
+      VALUES (?, ?, ?, ?)
       RETURNING *
     `);
 
-    return stmt.get(data.teetime, data.competition_id, startHole) as TeeTime;
+    return stmt.get(
+      data.teetime,
+      data.competition_id,
+      startHole,
+      data.hitting_bay ?? null
+    ) as TeeTime;
   }
 
   async findAllForCompetition(competitionId: number): Promise<TeeTime[]> {
@@ -179,13 +202,42 @@ export class TeeTimeService {
       throw new Error("Tee time cannot be empty");
     }
 
-    if (data.competition_id) {
-      const competitionStmt = this.db.prepare(
-        "SELECT id FROM competitions WHERE id = ?"
-      );
-      const competition = competitionStmt.get(data.competition_id);
-      if (!competition) {
-        throw new Error("Competition not found");
+    // Get competition venue_type for validation
+    const competitionId = data.competition_id ?? teeTime.competition_id;
+    const competitionStmt = this.db.prepare(
+      "SELECT id, venue_type FROM competitions WHERE id = ?"
+    );
+    const competition = competitionStmt.get(competitionId) as {
+      id: number;
+      venue_type: "outdoor" | "indoor";
+    } | null;
+    if (!competition) {
+      throw new Error("Competition not found");
+    }
+
+    // Validate based on venue_type
+    if (competition.venue_type === "indoor") {
+      if (typeof data.hitting_bay !== "undefined") {
+        if (!data.hitting_bay) {
+          throw new Error("Hitting bay is required for indoor competitions");
+        }
+        if (data.hitting_bay < 1) {
+          throw new Error("Hitting bay must be a positive number");
+        }
+      }
+      if (typeof data.start_hole !== "undefined" && data.start_hole !== 1) {
+        // Indoor competitions typically don't use start_hole, but we'll allow it to be 1
+        throw new Error("Start hole is not applicable for indoor competitions");
+      }
+    } else {
+      // Outdoor competition
+      if (typeof data.start_hole !== "undefined") {
+        if (data.start_hole !== 1 && data.start_hole !== 10) {
+          throw new Error("start_hole must be 1 or 10");
+        }
+      }
+      if (typeof data.hitting_bay !== "undefined" && data.hitting_bay !== null) {
+        throw new Error("Hitting bay should not be set for outdoor competitions");
       }
     }
 
@@ -203,11 +255,13 @@ export class TeeTimeService {
     }
 
     if (typeof data.start_hole !== "undefined") {
-      if (data.start_hole !== 1 && data.start_hole !== 10) {
-        throw new Error("start_hole must be 1 or 10");
-      }
       updates.push("start_hole = ?");
       values.push(data.start_hole);
+    }
+
+    if (typeof data.hitting_bay !== "undefined") {
+      updates.push("hitting_bay = ?");
+      values.push(data.hitting_bay ?? null);
     }
 
     if (updates.length === 0) {
@@ -218,7 +272,7 @@ export class TeeTimeService {
     values.push(id);
 
     const stmt = this.db.prepare(`
-      UPDATE tee_times 
+      UPDATE tee_times
       SET ${updates.join(", ")}
       WHERE id = ?
       RETURNING *

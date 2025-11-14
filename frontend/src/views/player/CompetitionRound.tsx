@@ -389,6 +389,7 @@ export default function CompetitionRound() {
             teeTimes={teeTimes}
             teeTimesLoading={false}
             competitionId={competitionId || ""}
+            venueType={competition?.venue_type}
             currentTeeTimeId={teeTimeId}
             currentTeeTime={teeTime}
             showCurrentGroup={true}

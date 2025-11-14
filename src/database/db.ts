@@ -12,6 +12,7 @@ import { AddManualScoresToParticipantsMigration } from "./migrations/010_add_man
 import { AddManualEntryFormatToCompetitions } from "./migrations/011_add_manual_entry_format_to_competitions";
 import { AddStartHoleToTeeTimesMigration } from "./migrations/012_add_start_hole_to_tee_times";
 import { AddPointsMultiplierToCompetitionsMigration } from "./migrations/013_add_points_multiplier_to_competitions";
+import { AddIndoorSupportMigration } from "./migrations/014_add_indoor_support";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -55,6 +56,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddManualEntryFormatToCompetitions(db),
     new AddStartHoleToTeeTimesMigration(db),
     new AddPointsMultiplierToCompetitionsMigration(db),
+    new AddIndoorSupportMigration(db),
   ];
 
   // Apply pending migrations

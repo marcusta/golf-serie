@@ -47,8 +47,8 @@ export class CompetitionService {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, manual_entry_format, points_multiplier)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, manual_entry_format, points_multiplier, venue_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
 
@@ -58,7 +58,8 @@ export class CompetitionService {
       data.course_id,
       data.series_id || null,
       data.manual_entry_format || "out_in_total",
-      data.points_multiplier ?? 1
+      data.points_multiplier ?? 1,
+      data.venue_type || "outdoor"
     ) as Competition;
   }
 
@@ -178,6 +179,11 @@ export class CompetitionService {
       values.push(data.points_multiplier);
     }
 
+    if (data.venue_type !== undefined) {
+      updates.push("venue_type = ?");
+      values.push(data.venue_type);
+    }
+
     if (updates.length === 0) {
       return competition;
     }
@@ -186,7 +192,7 @@ export class CompetitionService {
     values.push(id);
 
     const stmt = this.db.prepare(`
-      UPDATE competitions 
+      UPDATE competitions
       SET ${updates.join(", ")}
       WHERE id = ?
       RETURNING *

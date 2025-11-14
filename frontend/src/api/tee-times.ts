@@ -21,6 +21,7 @@ export interface TeeTime {
   teetime: string;
   competition_id: number;
   start_hole: number;
+  hitting_bay?: number;
   created_at: string;
   updated_at: string;
   course_name: string;
@@ -114,6 +115,7 @@ interface CreateTeeTimeParams {
   competitionId: number;
   teetime: string;
   start_hole?: number; // 1 or 10
+  hitting_bay?: number;
 }
 
 interface CreateParticipantParams {
@@ -131,6 +133,7 @@ export function useCreateTeeTime() {
       competitionId,
       teetime,
       start_hole,
+      hitting_bay,
     }: CreateTeeTimeParams) => {
       const response = await fetch(
         `${API_BASE_URL}/competitions/${competitionId}/tee-times`,
@@ -139,7 +142,7 @@ export function useCreateTeeTime() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ teetime, start_hole }),
+          body: JSON.stringify({ teetime, start_hole, hitting_bay }),
         }
       );
       if (!response.ok) {
@@ -218,6 +221,7 @@ export function useUpdateTeeTime() {
         teetime: string;
         competition_id: number;
         start_hole: number;
+        hitting_bay: number;
       }>;
     }) => {
       const response = await fetch(`${API_BASE_URL}/tee-times/${id}`, {

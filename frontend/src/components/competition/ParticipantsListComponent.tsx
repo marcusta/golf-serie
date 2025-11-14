@@ -10,6 +10,7 @@ interface TeeTime {
   id: number;
   teetime: string;
   start_hole: number;
+  hitting_bay?: number;
   participants: TeeTimeParticipant[];
   pars: number[];
   course_name: string;
@@ -19,6 +20,7 @@ interface ParticipantsListComponentProps {
   teeTimes: TeeTime[] | undefined;
   teeTimesLoading: boolean;
   competitionId: string;
+  venueType?: "outdoor" | "indoor";
   // For CompetitionRound context
   currentTeeTimeId?: string;
   currentTeeTime?: TeeTime;
@@ -30,6 +32,7 @@ export function ParticipantsListComponent({
   teeTimes,
   teeTimesLoading,
   competitionId,
+  venueType = "outdoor",
   currentTeeTimeId,
   currentTeeTime,
   showCurrentGroup = false,
@@ -69,7 +72,9 @@ export function ParticipantsListComponent({
                       <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />
                       {teeTime.teetime}
                       <span className="text-xs md:text-sm text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
-                        Hole {teeTime.start_hole}
+                        {venueType === "indoor" && teeTime.hitting_bay
+                          ? `Bay ${teeTime.hitting_bay}`
+                          : `Hole ${teeTime.start_hole}`}
                       </span>
                     </h4>
                     <div className="text-xs md:text-sm text-turf font-primary">
@@ -142,7 +147,9 @@ export function ParticipantsListComponent({
               <h3 className="text-sm md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
                 Your Group - {currentTeeTime.teetime}
                 <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
-                  Hole {currentTeeTime.start_hole}
+                  {venueType === "indoor" && currentTeeTime.hitting_bay
+                    ? `Bay ${currentTeeTime.hitting_bay}`
+                    : `Hole ${currentTeeTime.start_hole}`}
                 </span>
               </h3>
               <span className="text-xs md:text-sm text-scorecard bg-coral px-2 py-1 rounded-full font-primary font-medium">
@@ -209,7 +216,9 @@ export function ParticipantsListComponent({
                       <h4 className="text-sm md:text-base font-semibold text-fairway font-display flex items-center gap-2">
                         {teeTimeGroup.teetime}
                         <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
-                          Hole {teeTimeGroup.start_hole}
+                          {venueType === "indoor" && teeTimeGroup.hitting_bay
+                            ? `Bay ${teeTimeGroup.hitting_bay}`
+                            : `Hole ${teeTimeGroup.start_hole}`}
                         </span>
                       </h4>
                     </div>

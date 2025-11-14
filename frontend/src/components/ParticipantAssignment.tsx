@@ -95,7 +95,14 @@ function AssignmentDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Participant to {teeTime.teetime}</DialogTitle>
+          <DialogTitle>
+            Assign Participant to {teeTime.teetime}
+            {teeTime.hitting_bay && (
+              <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-semibold">
+                Bay {teeTime.hitting_bay}
+              </span>
+            )}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -509,6 +516,11 @@ function TeeTimesPanel({
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-gray-500" />
                   <span className="font-medium">{teeTime.teetime}</span>
+                  {teeTime.hitting_bay && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-semibold">
+                      Bay {teeTime.hitting_bay}
+                    </span>
+                  )}
                   <div
                     className={`px-2 py-1 rounded-full text-xs font-semibold ${
                       playerInfo.isOverLimit

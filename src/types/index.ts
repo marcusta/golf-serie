@@ -39,6 +39,7 @@ export interface Competition {
   series_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
+  venue_type: "outdoor" | "indoor";
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +103,7 @@ export interface CreateCompetitionDto {
   series_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
+  venue_type?: "outdoor" | "indoor";
 }
 
 export interface UpdateCompetitionDto {
@@ -111,6 +113,7 @@ export interface UpdateCompetitionDto {
   series_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
+  venue_type?: "outdoor" | "indoor";
 }
 
 export interface TeeTime {
@@ -118,6 +121,7 @@ export interface TeeTime {
   teetime: string;
   competition_id: number;
   start_hole: number;
+  hitting_bay?: number;
   created_at: string;
   updated_at: string;
 }
@@ -127,6 +131,7 @@ export interface TeeTimeWithParticipants {
   teetime: string;
   competition_id: number;
   start_hole: number;
+  hitting_bay?: number;
   created_at: string;
   updated_at: string;
   course_name: string;
@@ -155,12 +160,14 @@ export interface CreateTeeTimeDto {
   teetime: string;
   competition_id: number;
   start_hole?: number; // 1 or 10
+  hitting_bay?: number;
 }
 
 export interface UpdateTeeTimeDto {
   teetime?: string;
   competition_id?: number;
   start_hole?: number; // 1 or 10
+  hitting_bay?: number;
 }
 
 export interface CreateParticipantDto {

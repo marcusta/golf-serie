@@ -334,6 +334,7 @@ export default function CompetitionDetail() {
             teeTimes={teeTimes}
             teeTimesLoading={teeTimesLoading}
             competitionId={competitionId}
+            venueType={competition?.venue_type}
           />
         )}
 
