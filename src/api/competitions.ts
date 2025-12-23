@@ -16,7 +16,7 @@ const updateCompetitionSchema = z.object({
   name: z.string().min(1).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   course_id: z.number().positive().optional(),
-  series_id: z.number().positive().optional(),
+  series_id: z.number().positive().nullable().optional(),
   manual_entry_format: z.enum(["out_in_total", "total_only"]).optional(),
   points_multiplier: z.number().positive().optional(),
   venue_type: z.enum(["outdoor", "indoor"]).optional(),
@@ -35,7 +35,15 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
         });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return new Response(JSON.stringify({ error: "Validation error", details: error.errors }), {
+          // Translate Zod errors to user-friendly messages
+          const firstIssue = error.errors[0];
+          let message = "Validation error";
+          if (firstIssue.path[0] === "name" && firstIssue.code === "too_small") {
+            message = "Competition name is required";
+          } else if (firstIssue.path[0] === "date" && firstIssue.code === "invalid_string") {
+            message = "Date must be in YYYY-MM-DD format (e.g., 2024-03-21)";
+          }
+          return new Response(JSON.stringify({ error: message }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           });
@@ -112,7 +120,13 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
         });
       } catch (error) {
         if (error instanceof z.ZodError) {
-          return new Response(JSON.stringify({ error: "Validation error", details: error.errors }), {
+          // Translate Zod errors to user-friendly messages
+          const firstIssue = error.errors[0];
+          let message = "Validation error";
+          if (firstIssue.path[0] === "date" && firstIssue.code === "invalid_string") {
+            message = "Date must be in YYYY-MM-DD format (e.g., 2024-03-21)";
+          }
+          return new Response(JSON.stringify({ error: message }), {
             status: 400,
             headers: { "Content-Type": "application/json" },
           });

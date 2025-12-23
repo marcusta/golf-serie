@@ -1,11 +1,11 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
-  cleanupTestDatabase,
-  expectErrorResponse,
-  expectJsonResponse,
-  setupTestDatabase,
-  type MakeRequestFunction,
+    cleanupTestDatabase,
+    expectErrorResponse,
+    expectJsonResponse,
+    setupTestDatabase,
+    type MakeRequestFunction,
 } from "./test-helpers";
 
 describe("Competition API", () => {
@@ -852,15 +852,9 @@ describe("Competition API", () => {
       const teamC = await expectJsonResponse(teamCResponse);
 
       // Add teams to series
-      await makeRequest(`/api/series/${series.id}/teams`, "POST", {
-        team_id: teamA.id,
-      });
-      await makeRequest(`/api/series/${series.id}/teams`, "POST", {
-        team_id: teamB.id,
-      });
-      await makeRequest(`/api/series/${series.id}/teams`, "POST", {
-        team_id: teamC.id,
-      });
+      await makeRequest(`/api/series/${series.id}/teams/${teamA.id}`, "POST");
+      await makeRequest(`/api/series/${series.id}/teams/${teamB.id}`, "POST");
+      await makeRequest(`/api/series/${series.id}/teams/${teamC.id}`, "POST");
 
       // Team A participants: manual scores 70 and 74 (total 144, +2 relative to par)
       const participantA1Response = await makeRequest(

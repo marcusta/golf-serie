@@ -1,16 +1,38 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Users, Map, Trophy, Settings, Award } from "lucide-react";
+import { Link, Outlet, useRouterState, Navigate } from "@tanstack/react-router";
+import { Users, Map, Trophy, Settings, Award, LogOut } from "lucide-react";
 import TapScoreLogo from "../../components/ui/TapScoreLogo";
+import { useAuth } from "../../hooks/useAuth";
 
 const adminNavLinks = [
   { to: "/admin/series", label: "Series", icon: Award },
+  { to: "/admin/tours", label: "Tours", icon: Trophy },
   { to: "/admin/teams", label: "Teams", icon: Users },
   { to: "/admin/courses", label: "Courses", icon: Map },
   { to: "/admin/competitions", label: "Competitions", icon: Trophy },
+  { to: "/admin/point-templates", label: "Points", icon: Award },
 ];
 
 export default function AdminLayout() {
   const { location } = useRouterState();
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough flex items-center justify-center">
+        <div className="text-charcoal">Loading...</div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough">
@@ -27,12 +49,26 @@ export default function AdminLayout() {
                 </span>
               </div>
             </div>
-            <Link
-              to="/player/competitions"
-              className="px-4 py-2 bg-coral text-scorecard rounded-xl hover:bg-[#E8890A] hover:-translate-y-0.5 transition-all duration-200 font-['Inter'] font-semibold border-2 border-coral hover:border-[#E8890A] shadow-sm"
-            >
-              Switch to Player View
-            </Link>
+            <div className="flex items-center space-x-4">
+              {user && (
+                <span className="text-scorecard/80 text-sm font-['Inter']">
+                  {user.email}
+                </span>
+              )}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-2 text-scorecard/80 hover:text-scorecard transition-colors font-['Inter'] text-sm"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+              <Link
+                to="/player/competitions"
+                className="px-4 py-2 bg-coral text-scorecard rounded-xl hover:bg-[#E8890A] hover:-translate-y-0.5 transition-all duration-200 font-['Inter'] font-semibold border-2 border-coral hover:border-[#E8890A] shadow-sm"
+              >
+                Switch to Player View
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -76,3 +112,4 @@ export default function AdminLayout() {
     </div>
   );
 }
+

@@ -15,7 +15,8 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
     "setup": "bun install && bun run src/database/migrate.ts && bun run src/database/seed.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "create-admin": "bun run scripts/create-admin.ts"
   },
   "dependencies": {
     "hono": "^4.7.10",

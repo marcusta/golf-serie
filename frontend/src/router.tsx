@@ -17,6 +17,8 @@ import AdminCourses from "./views/admin/Courses";
 import AdminCompetitions from "./views/admin/Competitions";
 import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 import AdminManualScoreEntry from "./views/admin/AdminManualScoreEntry";
+import AdminPointTemplates from "./views/admin/PointTemplates";
+import AdminTours from "./views/admin/Tours";
 
 // Import Player views (keeping only non-lazy loaded ones)
 import PlayerLayout from "./views/player/PlayerLayout";
@@ -29,6 +31,10 @@ import SeriesDocuments from "./views/player/SeriesDocuments";
 import SeriesDocumentDetail from "./views/player/SeriesDocumentDetail";
 import SeriesStandings from "./views/player/SeriesStandings";
 import SeriesCompetitions from "./views/player/SeriesCompetitions";
+
+// Import Auth views
+import Login from "./views/auth/Login";
+import Register from "./views/auth/Register";
 
 // Root route
 const rootRoute = new RootRoute({
@@ -83,6 +89,18 @@ const adminManualScoreEntryRoute = new Route({
   getParentRoute: () => adminRoute,
   path: "/competitions/$competitionId/manual-scores",
   component: AdminManualScoreEntry,
+});
+
+const adminPointTemplatesRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/point-templates",
+  component: AdminPointTemplates,
+});
+
+const adminToursRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/tours",
+  component: AdminTours,
 });
 
 // Player routes
@@ -166,8 +184,23 @@ const indexRoute = new Route({
   component: () => <Navigate to="/player" replace />,
 });
 
+// Auth routes
+const loginRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: Login,
+});
+
+const registerRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: "/register",
+  component: Register,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  loginRoute,
+  registerRoute,
   adminRoute.addChildren([
     adminSeriesRoute,
     adminSeriesDetailRoute,
@@ -176,6 +209,8 @@ const routeTree = rootRoute.addChildren([
     adminCompetitionsRoute,
     adminCompetitionTeeTimesRoute,
     adminManualScoreEntryRoute,
+    adminPointTemplatesRoute,
+    adminToursRoute,
   ]),
   playerRoute.addChildren([
     playerLandingRoute,

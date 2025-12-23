@@ -1,20 +1,29 @@
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createAuthApi } from "./api/auth";
 import { createCompetitionsApi } from "./api/competitions";
 import { createCoursesApi } from "./api/courses";
 import { createDocumentsApi } from "./api/documents";
 import { createParticipantsApi } from "./api/participants";
+import { createPlayersApi } from "./api/players";
+import { createPointTemplatesApi } from "./api/point-templates";
 import { createSeriesApi } from "./api/series";
 import { createTeamsApi } from "./api/teams";
 import { createTeeTimesApi } from "./api/tee-times";
+import { createToursApi } from "./api/tours";
+import { createAuthMiddleware } from "./middleware/auth";
+import { createAuthService } from "./services/auth.service";
 import { CompetitionService } from "./services/competition-service";
 import { CourseService } from "./services/course-service";
 import { DocumentService } from "./services/document-service";
 import { ParticipantService } from "./services/participant-service";
+import { createPlayerService } from "./services/player.service";
+import { createPointTemplateService } from "./services/point-template.service";
 import { SeriesService } from "./services/series-service";
 import { TeamService } from "./services/team-service";
 import { TeeTimeService } from "./services/tee-time-service";
+import { createTourService } from "./services/tour.service";
 
 export function createApp(db: Database): Hono {
   // Initialize services
@@ -25,6 +34,10 @@ export function createApp(db: Database): Hono {
   const participantService = new ParticipantService(db);
   const seriesService = new SeriesService(db, competitionService);
   const documentService = new DocumentService(db);
+  const authService = createAuthService(db);
+  const playerService = createPlayerService(db);
+  const pointTemplateService = createPointTemplateService(db);
+  const tourService = createTourService(db);
 
   // Initialize APIs
   const coursesApi = createCoursesApi(courseService);
@@ -34,6 +47,10 @@ export function createApp(db: Database): Hono {
   const participantsApi = createParticipantsApi(participantService);
   const seriesApi = createSeriesApi(seriesService);
   const documentsApi = createDocumentsApi(documentService);
+  const authApi = createAuthApi(authService);
+  const playersApi = createPlayersApi(playerService);
+  const pointTemplatesApi = createPointTemplatesApi(pointTemplateService);
+  const toursApi = createToursApi(tourService);
 
   // Create Hono app
   const app = new Hono();
@@ -42,9 +59,10 @@ export function createApp(db: Database): Hono {
   app.use(
     "*",
     cors({
-      origin: "*",
+      origin: (origin) => origin || "http://localhost:5173", // Allow dev and prod origins
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
+      credentials: true, // Required for cookies
     })
   );
 
@@ -53,6 +71,21 @@ export function createApp(db: Database): Hono {
     console.log(`${c.req.method} ${c.req.url}`);
     await next();
   });
+
+  // Add auth middleware to attach user to context
+  app.use("*", createAuthMiddleware(authService));
+
+  // Mount auth API routes
+  app.route("/api/auth", authApi);
+
+  // Mount players API routes
+  app.route("/api/players", playersApi);
+
+  // Mount point templates API routes
+  app.route("/api/point-templates", pointTemplatesApi);
+
+  // Mount tours API routes
+  app.route("/api/tours", toursApi);
 
   // Course routes
   app.post("/api/courses", async (c) => {

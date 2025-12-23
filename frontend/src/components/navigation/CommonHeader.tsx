@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Trophy } from "lucide-react";
 import TapScoreLogo from "../ui/TapScoreLogo";
 import { HamburgerMenu } from "./HamburgerMenu";
+import { AuthButtons } from "../auth/AuthButtons";
 
 interface CommonHeaderProps {
   title?: string;
@@ -75,6 +76,7 @@ export function CommonHeader({
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            <AuthButtons />
             {customActions}
             {children}
             {showHamburgerMenu && <HamburgerMenu />}

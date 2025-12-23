@@ -17,7 +17,10 @@ export async function setupTestDatabase(): Promise<{
   const db = await createTestDatabase();
   const port = await startTestServer(db);
 
-  // Create closure that captures the port
+  // Cookie jar to store cookies across requests
+  let cookieJar: string[] = [];
+
+  // Create closure that captures the port and cookie jar
   const makeRequest: MakeRequestFunction = async (
     path: string,
     method: string = "GET",
@@ -28,6 +31,7 @@ export async function setupTestDatabase(): Promise<{
       method,
       headers: {
         "Content-Type": "application/json",
+        ...(cookieJar.length > 0 ? { Cookie: cookieJar.join("; ") } : {}),
       },
     };
 
@@ -35,7 +39,25 @@ export async function setupTestDatabase(): Promise<{
       options.body = JSON.stringify(body);
     }
 
-    return fetch(url, options);
+    const response = await fetch(url, options);
+
+    // Store cookies from response
+    const setCookie = response.headers.get("set-cookie");
+    if (setCookie) {
+      // Parse and store the cookie
+      const cookie = setCookie.split(";")[0];
+      const cookieName = cookie.split("=")[0];
+      
+      // Remove old cookie with same name
+      cookieJar = cookieJar.filter(c => !c.startsWith(cookieName + "="));
+      
+      // Add new cookie
+      if (cookie.includes("=")) {
+        cookieJar.push(cookie);
+      }
+    }
+
+    return response;
   };
 
   return { db, makeRequest };

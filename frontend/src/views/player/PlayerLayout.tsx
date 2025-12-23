@@ -1,6 +1,7 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { List, Trophy } from "lucide-react";
 import TapScoreLogo from "../../components/ui/TapScoreLogo";
+import { AuthButtons } from "../../components/auth/AuthButtons";
 
 const playerNavLinks = [
   { to: "/player/competitions", label: "Competitions", icon: List },
@@ -30,8 +31,9 @@ export default function PlayerLayout() {
       {/* TapScore Header */}
       <div className="bg-fairway text-scorecard shadow-[0_2px_8px_rgba(27,67,50,0.15)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center h-16">
+          <div className="flex items-center justify-between h-16">
             <TapScoreLogo size="md" variant="color" layout="horizontal" />
+            <AuthButtons />
           </div>
         </div>
       </div>
@@ -80,3 +82,4 @@ export default function PlayerLayout() {
     </div>
   );
 }
+

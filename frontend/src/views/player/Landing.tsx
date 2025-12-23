@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useMemo } from "react";
+import { CommonHeader } from "../../components/navigation/CommonHeader";
 
 interface SkeletonProps {
   className?: string;
@@ -264,7 +265,6 @@ export default function PlayerLanding() {
     if (isFuture) {
       return `/player/competitions/${competition.id}?view=teams#`;
     }
-
     // If non-series competition and past → Leaderboard
     if (!isSeriesCompetition && isPast) {
       return `/player/competitions/${competition.id}?view=teams#leaderboard`;
@@ -290,6 +290,8 @@ export default function PlayerLanding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough">
+      <CommonHeader showBackButton={false} />
+      
       {/* Hero Section */}
       {isLoading ? (
         <HeroSkeleton />
@@ -301,8 +303,8 @@ export default function PlayerLanding() {
               "linear-gradient(135deg, var(--fairway-green), var(--turf-green))",
           }}
         >
-          <div className="container mx-auto px-4 py-8 sm:py-0">
-            <div className="text-center max-w-4xl mx-auto">
+          <div className="container mx-auto px-4 py-8 sm:py-0 relative">
+            <div className="text-center max-w-4xl mx-auto pt-8 sm:pt-0">
               {/* Logo */}
               <div className="mb-8">
                 <div className="flex items-center justify-center">

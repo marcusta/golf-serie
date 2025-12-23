@@ -13,6 +13,10 @@ import { AddManualEntryFormatToCompetitions } from "./migrations/011_add_manual_
 import { AddStartHoleToTeeTimesMigration } from "./migrations/012_add_start_hole_to_tee_times";
 import { AddPointsMultiplierToCompetitionsMigration } from "./migrations/013_add_points_multiplier_to_competitions";
 import { AddIndoorSupportMigration } from "./migrations/014_add_indoor_support";
+import { AddUsersAndSessionsMigration } from "./migrations/015_add_users_and_sessions";
+import { AddPlayersMigration } from "./migrations/016_add_players";
+import { AddToursAndPointTemplatesMigration } from "./migrations/017_add_tours_and_point_templates";
+import { UpdateExistingTablesMigration } from "./migrations/018_update_existing_tables";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -57,6 +61,10 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddStartHoleToTeeTimesMigration(db),
     new AddPointsMultiplierToCompetitionsMigration(db),
     new AddIndoorSupportMigration(db),
+    new AddUsersAndSessionsMigration(db),
+    new AddPlayersMigration(db),
+    new AddToursAndPointTemplatesMigration(db),
+    new UpdateExistingTablesMigration(db),
   ];
 
   // Apply pending migrations
