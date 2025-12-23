@@ -19,6 +19,7 @@ import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 import AdminManualScoreEntry from "./views/admin/AdminManualScoreEntry";
 import AdminPointTemplates from "./views/admin/PointTemplates";
 import AdminTours from "./views/admin/Tours";
+import AdminTourDetail from "./views/admin/TourDetail";
 
 // Import Player views (keeping only non-lazy loaded ones)
 import PlayerLayout from "./views/player/PlayerLayout";
@@ -101,6 +102,12 @@ const adminToursRoute = new Route({
   getParentRoute: () => adminRoute,
   path: "/tours",
   component: AdminTours,
+});
+
+const adminTourDetailRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/tours/$id",
+  component: AdminTourDetail,
 });
 
 // Player routes
@@ -211,6 +218,7 @@ const routeTree = rootRoute.addChildren([
     adminManualScoreEntryRoute,
     adminPointTemplatesRoute,
     adminToursRoute,
+    adminTourDetailRoute,
   ]),
   playerRoute.addChildren([
     playerLandingRoute,

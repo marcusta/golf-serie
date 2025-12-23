@@ -8,6 +8,8 @@ import {
 } from "../../api/competitions";
 import { useCourses } from "../../api/courses";
 import { useSeries, useSeriesCompetitions } from "../../api/series";
+import { useTours, useTourCompetitions } from "../../api/tours";
+import { usePointTemplates } from "../../api/point-templates";
 import {
   Plus,
   Edit,
@@ -22,23 +24,29 @@ import {
 import { Link, useSearch } from "@tanstack/react-router";
 
 export default function AdminCompetitions() {
-  // Get series filter from URL search params
+  // Get series and tour filter from URL search params
   const search = useSearch({ from: "/admin/competitions" }) as {
     series?: string;
+    tour?: string;
   };
   const seriesFilter = search.series ? parseInt(search.series) : null;
+  const tourFilter = search.tour ? parseInt(search.tour) : null;
 
   const { data: allCompetitions, isLoading, error } = useCompetitions();
   const { data: seriesCompetitions } = useSeriesCompetitions(seriesFilter || 0);
+  const { data: tourCompetitions } = useTourCompetitions(tourFilter || 0);
   const { data: courses } = useCourses();
   const { data: series } = useSeries();
+  const { data: tours } = useTours();
+  const { data: pointTemplates } = usePointTemplates();
   const createCompetition = useCreateCompetition();
   const updateCompetition = useUpdateCompetition();
   const deleteCompetition = useDeleteCompetition();
 
-  // Use series-specific competitions if filtering, otherwise all competitions
-  const competitions = seriesFilter ? seriesCompetitions : allCompetitions;
+  // Use series-specific or tour-specific competitions if filtering, otherwise all
+  const competitions = seriesFilter ? seriesCompetitions : tourFilter ? tourCompetitions : allCompetitions;
   const filteredSeries = series?.find((s) => s.id === seriesFilter);
+  const filteredTour = tours?.find((t) => t.id === tourFilter);
 
   const [showForm, setShowForm] = useState(false);
   const [editingCompetition, setEditingCompetition] =
@@ -48,6 +56,8 @@ export default function AdminCompetitions() {
     date: string;
     course_id: string;
     series_id: string;
+    tour_id: string;
+    point_template_id: string;
     manual_entry_format: "out_in_total" | "total_only";
     points_multiplier: string;
     venue_type: "outdoor" | "indoor";
@@ -56,6 +66,8 @@ export default function AdminCompetitions() {
     date: "",
     course_id: "",
     series_id: seriesFilter?.toString() || "",
+    tour_id: tourFilter?.toString() || "",
+    point_template_id: "",
     manual_entry_format: "out_in_total",
     points_multiplier: "1",
     venue_type: "outdoor",
@@ -71,6 +83,8 @@ export default function AdminCompetitions() {
       date: competition.date,
       course_id: competition.course_id.toString(),
       series_id: competition.series_id?.toString() || "",
+      tour_id: (competition as any).tour_id?.toString() || "",
+      point_template_id: (competition as any).point_template_id?.toString() || "",
       manual_entry_format: competition.manual_entry_format || "out_in_total",
       points_multiplier: competition.points_multiplier?.toString() || "1",
       venue_type: competition.venue_type || "outdoor",
@@ -97,6 +111,8 @@ export default function AdminCompetitions() {
       date: formData.date,
       course_id: parseInt(formData.course_id),
       series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
+      tour_id: formData.tour_id ? parseInt(formData.tour_id) : undefined,
+      point_template_id: formData.point_template_id ? parseInt(formData.point_template_id) : undefined,
       manual_entry_format: formData.manual_entry_format,
       points_multiplier: parseFloat(formData.points_multiplier),
       venue_type: formData.venue_type,
@@ -109,6 +125,8 @@ export default function AdminCompetitions() {
         date: "",
         course_id: "",
         series_id: seriesFilter?.toString() || "",
+        tour_id: tourFilter?.toString() || "",
+        point_template_id: "",
         manual_entry_format: "out_in_total",
         points_multiplier: "1",
         venue_type: "outdoor",
@@ -157,15 +175,29 @@ export default function AdminCompetitions() {
                 Back to Series
               </Link>
             </div>
+          ) : tourFilter && filteredTour ? (
+            <div className="flex items-center gap-3 mb-2">
+              <Link
+                to={`/admin/tours/${tourFilter}`}
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to {filteredTour.name}
+              </Link>
+            </div>
           ) : null}
           <h2 className="text-2xl font-bold text-gray-900">
             {seriesFilter && filteredSeries
               ? `${filteredSeries.name} - Competitions`
+              : tourFilter && filteredTour
+              ? `${filteredTour.name} - Competitions`
               : "Competitions"}
           </h2>
           <p className="text-gray-600">
             {seriesFilter && filteredSeries
               ? `Competitions in the ${filteredSeries.name} series`
+              : tourFilter && filteredTour
+              ? `Competitions in the ${filteredTour.name} tour`
               : "Manage golf competitions and tournaments"}
           </p>
         </div>
@@ -177,6 +209,8 @@ export default function AdminCompetitions() {
               date: "",
               course_id: "",
               series_id: seriesFilter?.toString() || "",
+              tour_id: tourFilter?.toString() || "",
+              point_template_id: "",
               manual_entry_format: "out_in_total",
               points_multiplier: "1",
               venue_type: "outdoor",
@@ -243,22 +277,74 @@ export default function AdminCompetitions() {
                     {course.name}
                   </option>
                 ))}
-              </select>
+            </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Series (Optional)
+                Series {formData.tour_id ? "(Disabled - Tour selected)" : "(Optional)"}
               </label>
               <select
                 name="series_id"
                 value={formData.series_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    series_id: value,
+                    tour_id: value ? "" : prev.tour_id, // Clear tour if series selected
+                  }));
+                }}
+                disabled={!!formData.tour_id}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 <option value="">No series (standalone competition)</option>
                 {series?.map((seriesItem) => (
                   <option key={seriesItem.id} value={seriesItem.id}>
                     {seriesItem.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tour {formData.series_id ? "(Disabled - Series selected)" : "(Optional)"}
+              </label>
+              <select
+                name="tour_id"
+                value={formData.tour_id}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    tour_id: value,
+                    series_id: value ? "" : prev.series_id, // Clear series if tour selected
+                  }));
+                }}
+                disabled={!!formData.series_id}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">No tour (standalone competition)</option>
+                {tours?.map((tour) => (
+                  <option key={tour.id} value={tour.id}>
+                    {tour.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Point Template (Optional)
+              </label>
+              <select
+                name="point_template_id"
+                value={formData.point_template_id}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">No point template</option>
+                {pointTemplates?.map((template: any) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
                   </option>
                 ))}
               </select>
@@ -335,6 +421,8 @@ export default function AdminCompetitions() {
                     date: "",
                     course_id: "",
                     series_id: seriesFilter?.toString() || "",
+                    tour_id: tourFilter?.toString() || "",
+                    point_template_id: "",
                     manual_entry_format: "out_in_total",
                     points_multiplier: "1",
                     venue_type: "outdoor",

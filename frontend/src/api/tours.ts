@@ -109,3 +109,17 @@ export function useDeleteTour() {
     },
   });
 }
+
+export function useTourCompetitions(id: number) {
+  return useQuery<any[]>({
+    queryKey: ["tour-competitions", id],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/tours/${id}/competitions`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch tour competitions");
+      }
+      return response.json();
+    },
+    enabled: !!id,
+  });
+}

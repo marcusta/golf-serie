@@ -1,11 +1,11 @@
 import { Database } from "bun:sqlite";
 import type {
-  Competition,
-  CreateCompetitionDto,
-  LeaderboardEntry,
-  Participant,
-  TeamLeaderboardEntry,
-  UpdateCompetitionDto,
+    Competition,
+    CreateCompetitionDto,
+    LeaderboardEntry,
+    Participant,
+    TeamLeaderboardEntry,
+    UpdateCompetitionDto,
 } from "../types";
 
 function isValidYYYYMMDD(date: string): boolean {
@@ -46,9 +46,18 @@ export class CompetitionService {
       }
     }
 
+    // Verify tour exists if provided
+    if (data.tour_id) {
+      const tourStmt = this.db.prepare("SELECT id FROM tours WHERE id = ?");
+      const tour = tourStmt.get(data.tour_id);
+      if (!tour) {
+        throw new Error("Tour not found");
+      }
+    }
+
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, manual_entry_format, points_multiplier, venue_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, manual_entry_format, points_multiplier, venue_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
 
@@ -57,6 +66,7 @@ export class CompetitionService {
       data.date,
       data.course_id,
       data.series_id || null,
+      data.tour_id || null,
       data.manual_entry_format || "out_in_total",
       data.points_multiplier ?? 1,
       data.venue_type || "outdoor"
@@ -146,6 +156,20 @@ export class CompetitionService {
       }
     }
 
+    if (data.tour_id !== undefined) {
+      if (data.tour_id === null) {
+        // Allow setting tour_id to null
+      } else {
+        const tourStmt = this.db.prepare(
+          "SELECT id FROM tours WHERE id = ?"
+        );
+        const tour = tourStmt.get(data.tour_id);
+        if (!tour) {
+          throw new Error("Tour not found");
+        }
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -167,6 +191,11 @@ export class CompetitionService {
     if (data.series_id !== undefined) {
       updates.push("series_id = ?");
       values.push(data.series_id);
+    }
+
+    if (data.tour_id !== undefined) {
+      updates.push("tour_id = ?");
+      values.push(data.tour_id);
     }
 
     if (data.manual_entry_format) {

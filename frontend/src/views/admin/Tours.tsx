@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Trophy } from "lucide-react";
+import { Plus, Pencil, Trash2, Trophy, Eye } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useTours,
   useCreateTour,
@@ -9,6 +10,7 @@ import {
 } from "../../api/tours";
 
 export default function Tours() {
+  const navigate = useNavigate();
   const { data: tours, isLoading } = useTours();
   const createMutation = useCreateTour();
   const updateMutation = useUpdateTour();
@@ -113,6 +115,13 @@ export default function Tours() {
                 </p>
               </div>
               <div className="flex gap-2">
+                <button
+                  onClick={() => navigate({ to: `/admin/tours/${tour.id}` })}
+                  className="p-2 text-charcoal hover:text-fairway transition-colors"
+                  title="View Details"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => openEdit(tour)}
                   className="p-2 text-charcoal hover:text-turf transition-colors"
