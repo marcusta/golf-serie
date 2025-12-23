@@ -12,6 +12,9 @@ const createCompetitionSchema = z.object({
   manual_entry_format: z.enum(["out_in_total", "total_only"]).optional(),
   points_multiplier: z.number().positive().optional(),
   venue_type: z.enum(["outdoor", "indoor"]).optional(),
+  start_mode: z.enum(["scheduled", "open"]).optional(),
+  open_start: z.string().optional(),
+  open_end: z.string().optional(),
 });
 
 const updateCompetitionSchema = z.object({
@@ -24,6 +27,9 @@ const updateCompetitionSchema = z.object({
   manual_entry_format: z.enum(["out_in_total", "total_only"]).optional(),
   points_multiplier: z.number().positive().optional(),
   venue_type: z.enum(["outdoor", "indoor"]).optional(),
+  start_mode: z.enum(["scheduled", "open"]).optional(),
+  open_start: z.string().nullable().optional(),
+  open_end: z.string().nullable().optional(),
 });
 
 export function createCompetitionsApi(competitionService: CompetitionService) {

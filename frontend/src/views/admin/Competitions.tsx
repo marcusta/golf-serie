@@ -61,6 +61,9 @@ export default function AdminCompetitions() {
     manual_entry_format: "out_in_total" | "total_only";
     points_multiplier: string;
     venue_type: "outdoor" | "indoor";
+    start_mode: "scheduled" | "open";
+    open_start: string;
+    open_end: string;
   }>({
     name: "",
     date: "",
@@ -71,6 +74,9 @@ export default function AdminCompetitions() {
     manual_entry_format: "out_in_total",
     points_multiplier: "1",
     venue_type: "outdoor",
+    start_mode: "scheduled",
+    open_start: "",
+    open_end: "",
   });
 
   if (isLoading) return <div>Loading competitions...</div>;
@@ -88,6 +94,9 @@ export default function AdminCompetitions() {
       manual_entry_format: competition.manual_entry_format || "out_in_total",
       points_multiplier: competition.points_multiplier?.toString() || "1",
       venue_type: competition.venue_type || "outdoor",
+      start_mode: competition.start_mode || "scheduled",
+      open_start: competition.open_start || "",
+      open_end: competition.open_end || "",
     });
     setShowForm(true);
   };
@@ -116,6 +125,9 @@ export default function AdminCompetitions() {
       manual_entry_format: formData.manual_entry_format,
       points_multiplier: parseFloat(formData.points_multiplier),
       venue_type: formData.venue_type,
+      start_mode: formData.start_mode,
+      open_start: formData.start_mode === "open" && formData.open_start ? formData.open_start : undefined,
+      open_end: formData.start_mode === "open" && formData.open_end ? formData.open_end : undefined,
     };
 
     const onSuccess = () => {
@@ -130,6 +142,9 @@ export default function AdminCompetitions() {
         manual_entry_format: "out_in_total",
         points_multiplier: "1",
         venue_type: "outdoor",
+        start_mode: "scheduled",
+        open_start: "",
+        open_end: "",
       });
       setShowForm(false);
       setEditingCompetition(null);
@@ -214,6 +229,9 @@ export default function AdminCompetitions() {
               manual_entry_format: "out_in_total",
               points_multiplier: "1",
               venue_type: "outdoor",
+              start_mode: "scheduled",
+              open_start: "",
+              open_end: "",
             });
             setShowForm(true);
           }}
@@ -397,6 +415,51 @@ export default function AdminCompetitions() {
                 Multiplier for series points (1 = normal, 2 = double points, etc.)
               </p>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Start Mode
+              </label>
+              <select
+                name="start_mode"
+                value={formData.start_mode}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="scheduled">Scheduled (Prepared Start List)</option>
+                <option value="open">Open (Ad-hoc Play)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Scheduled: Players have assigned tee times. Open: Players play ad-hoc.
+              </p>
+            </div>
+            {formData.start_mode === "open" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Open Period Start
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="open_start"
+                    value={formData.open_start}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Open Period End
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="open_end"
+                    value={formData.open_end}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </>
+            )}
             <div className="flex items-end gap-2">
               <button
                 type="submit"
@@ -426,6 +489,9 @@ export default function AdminCompetitions() {
                     manual_entry_format: "out_in_total",
                     points_multiplier: "1",
                     venue_type: "outdoor",
+                    start_mode: "scheduled",
+                    open_start: "",
+                    open_end: "",
                   });
                 }}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
@@ -496,13 +562,15 @@ export default function AdminCompetitions() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Link
-                        to={`/admin/competitions/${competition.id}/tee-times`}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Manage tee times"
-                      >
-                        <Clock className="h-4 w-4" />
-                      </Link>
+                      {competition.start_mode !== "open" && (
+                        <Link
+                          to={`/admin/competitions/${competition.id}/tee-times`}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Manage tee times"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </Link>
+                      )}
                       <Link
                         to={`/admin/competitions/${competition.id}/manual-scores`}
                         className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"

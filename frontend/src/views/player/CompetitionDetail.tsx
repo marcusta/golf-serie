@@ -39,10 +39,12 @@ export default function CompetitionDetail() {
   const fromTeeTime = searchParams?.fromTeeTime;
 
   // Check for hash-based navigation to set initial tab
+  // Note: competition.start_mode is checked after data loads in useEffect
   const getInitialTab = (): TabType => {
     const hash = window.location.hash.replace("#", "");
     if (hash === "leaderboard") return "leaderboard";
     if (hash === "teamresult") return "teamresult";
+    // If no hash, we'll figure out default based on start_mode after competition loads
     return "startlist";
   };
 
@@ -130,12 +132,20 @@ export default function CompetitionDetail() {
       const hash = window.location.hash.replace("#", "");
       if (hash === "leaderboard") setActiveTab("leaderboard");
       else if (hash === "teamresult") setActiveTab("teamresult");
-      else setActiveTab("startlist");
+      else if (competition?.start_mode !== "open") setActiveTab("startlist");
+      else setActiveTab("leaderboard"); // Default to leaderboard for open mode
     };
 
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  }, [competition?.start_mode]);
+
+  // Set default tab to leaderboard for open mode competitions when competition data loads
+  useEffect(() => {
+    if (competition?.start_mode === "open" && activeTab === "startlist") {
+      setActiveTab("leaderboard");
+    }
+  }, [competition?.start_mode, activeTab]);
 
   // Fetch fresh data when first entering leaderboard or team results views
   useEffect(() => {
@@ -269,22 +279,24 @@ export default function CompetitionDetail() {
         {/* Tabs with TapScore Styling */}
         <div className="border-b border-soft-grey">
           <nav className="flex space-x-4 md:space-x-8">
-            <button
-              onClick={() => {
-                setActiveTab("startlist");
-                window.location.hash = "";
-              }}
-              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
-                ${
-                  activeTab === "startlist"
-                    ? "border-coral text-coral"
-                    : "border-transparent text-charcoal hover:text-turf hover:border-rough"
-                }
-              `}
-            >
-              <Clock className="h-3 w-3 md:h-4 md:w-4" />
-              Start List
-            </button>
+            {competition?.start_mode !== "open" && (
+              <button
+                onClick={() => {
+                  setActiveTab("startlist");
+                  window.location.hash = "";
+                }}
+                className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
+                  ${
+                    activeTab === "startlist"
+                      ? "border-coral text-coral"
+                      : "border-transparent text-charcoal hover:text-turf hover:border-rough"
+                  }
+                `}
+              >
+                <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                Start List
+              </button>
+            )}
             <button
               onClick={() => {
                 setActiveTab("leaderboard");

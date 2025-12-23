@@ -12,6 +12,9 @@ export interface Competition {
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";
+  start_mode: "scheduled" | "open";
+  open_start?: string;
+  open_end?: string;
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -128,6 +131,9 @@ export interface CreateCompetitionDto {
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
+  start_mode?: "scheduled" | "open";
+  open_start?: string;
+  open_end?: string;
 }
 
 export interface UpdateCompetitionDto {
@@ -138,6 +144,9 @@ export interface UpdateCompetitionDto {
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
+  start_mode?: "scheduled" | "open";
+  open_start?: string | null;
+  open_end?: string | null;
 }
 
 export function useCreateCompetition() {

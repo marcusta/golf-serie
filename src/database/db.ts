@@ -17,6 +17,7 @@ import { AddUsersAndSessionsMigration } from "./migrations/015_add_users_and_ses
 import { AddPlayersMigration } from "./migrations/016_add_players";
 import { AddToursAndPointTemplatesMigration } from "./migrations/017_add_tours_and_point_templates";
 import { UpdateExistingTablesMigration } from "./migrations/018_update_existing_tables";
+import { AddStartModeToCompetitionsMigration } from "./migrations/019_add_start_mode_to_competitions";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -65,6 +66,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddPlayersMigration(db),
     new AddToursAndPointTemplatesMigration(db),
     new UpdateExistingTablesMigration(db),
+    new AddStartModeToCompetitionsMigration(db),
   ];
 
   // Apply pending migrations

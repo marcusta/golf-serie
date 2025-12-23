@@ -56,8 +56,8 @@ export class CompetitionService {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, manual_entry_format, points_multiplier, venue_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
 
@@ -69,7 +69,10 @@ export class CompetitionService {
       data.tour_id || null,
       data.manual_entry_format || "out_in_total",
       data.points_multiplier ?? 1,
-      data.venue_type || "outdoor"
+      data.venue_type || "outdoor",
+      data.start_mode || "scheduled",
+      data.open_start || null,
+      data.open_end || null
     ) as Competition;
   }
 
@@ -211,6 +214,21 @@ export class CompetitionService {
     if (data.venue_type !== undefined) {
       updates.push("venue_type = ?");
       values.push(data.venue_type);
+    }
+
+    if (data.start_mode !== undefined) {
+      updates.push("start_mode = ?");
+      values.push(data.start_mode);
+    }
+
+    if (data.open_start !== undefined) {
+      updates.push("open_start = ?");
+      values.push(data.open_start);
+    }
+
+    if (data.open_end !== undefined) {
+      updates.push("open_end = ?");
+      values.push(data.open_end);
     }
 
     if (updates.length === 0) {
