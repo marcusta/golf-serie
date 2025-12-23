@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, X } from "lucide-react";
 import {
   usePointTemplates,
   useCreatePointTemplate,
@@ -8,6 +8,69 @@ import {
   type PointTemplate,
   type PointsStructure,
 } from "../../api/point-templates";
+
+// Type for a single position entry in the editor
+interface PositionEntry {
+  id: string; // unique key for React
+  position: string;
+  points: string;
+}
+
+// Convert PointsStructure to array of entries for the editor
+function structureToEntries(structure: PointsStructure): { entries: PositionEntry[]; defaultPoints: string } {
+  const entries: PositionEntry[] = [];
+  let defaultPoints = "10";
+
+  Object.entries(structure).forEach(([pos, pts]) => {
+    if (pos === "default") {
+      defaultPoints = String(pts);
+    } else {
+      entries.push({
+        id: crypto.randomUUID(),
+        position: pos,
+        points: String(pts),
+      });
+    }
+  });
+
+  // Sort entries by position number
+  entries.sort((a, b) => {
+    const aNum = parseInt(a.position) || 0;
+    const bNum = parseInt(b.position) || 0;
+    return aNum - bNum;
+  });
+
+  return { entries, defaultPoints };
+}
+
+// Convert editor entries back to PointsStructure
+function entriesToStructure(entries: PositionEntry[], defaultPoints: string): PointsStructure {
+  const structure: PointsStructure = {};
+
+  entries.forEach((entry) => {
+    const pos = entry.position.trim();
+    const pts = parseInt(entry.points);
+    if (pos && !isNaN(pts)) {
+      structure[pos] = pts;
+    }
+  });
+
+  const defaultPts = parseInt(defaultPoints);
+  if (!isNaN(defaultPts)) {
+    structure["default"] = defaultPts;
+  }
+
+  return structure;
+}
+
+// Default entries for a new template
+function getDefaultEntries(): PositionEntry[] {
+  return [
+    { id: crypto.randomUUID(), position: "1", points: "100" },
+    { id: crypto.randomUUID(), position: "2", points: "80" },
+    { id: crypto.randomUUID(), position: "3", points: "65" },
+  ];
+}
 
 export default function PointTemplates() {
   const { data: templates, isLoading } = usePointTemplates();
@@ -18,13 +81,15 @@ export default function PointTemplates() {
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PointTemplate | null>(null);
   const [name, setName] = useState("");
-  const [pointsJson, setPointsJson] = useState("");
+  const [entries, setEntries] = useState<PositionEntry[]>([]);
+  const [defaultPoints, setDefaultPoints] = useState("10");
   const [error, setError] = useState<string | null>(null);
 
   const openCreate = () => {
     setEditingTemplate(null);
     setName("");
-    setPointsJson('{\n  "1": 100,\n  "2": 80,\n  "3": 65,\n  "default": 10\n}');
+    setEntries(getDefaultEntries());
+    setDefaultPoints("10");
     setError(null);
     setShowModal(true);
   };
@@ -34,25 +99,70 @@ export default function PointTemplates() {
     setName(template.name);
     try {
       const parsed = JSON.parse(template.points_structure);
-      setPointsJson(JSON.stringify(parsed, null, 2));
+      const { entries: parsedEntries, defaultPoints: parsedDefault } = structureToEntries(parsed);
+      setEntries(parsedEntries);
+      setDefaultPoints(parsedDefault);
     } catch {
-      setPointsJson(template.points_structure);
+      setEntries(getDefaultEntries());
+      setDefaultPoints("10");
     }
     setError(null);
     setShowModal(true);
+  };
+
+  const addEntry = () => {
+    // Find the next position number
+    const usedPositions = entries.map((e) => parseInt(e.position)).filter((n) => !isNaN(n));
+    const nextPosition = usedPositions.length > 0 ? Math.max(...usedPositions) + 1 : 1;
+    
+    // Calculate suggested points (decrease from previous)
+    const lastEntry = entries[entries.length - 1];
+    const lastPoints = lastEntry ? parseInt(lastEntry.points) : 100;
+    const suggestedPoints = Math.max(1, lastPoints - 10);
+
+    setEntries([
+      ...entries,
+      {
+        id: crypto.randomUUID(),
+        position: String(nextPosition),
+        points: String(suggestedPoints),
+      },
+    ]);
+  };
+
+  const removeEntry = (id: string) => {
+    setEntries(entries.filter((e) => e.id !== id));
+  };
+
+  const updateEntry = (id: string, field: "position" | "points", value: string) => {
+    setEntries(
+      entries.map((e) => (e.id === id ? { ...e, [field]: value } : e))
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    let pointsStructure: PointsStructure;
-    try {
-      pointsStructure = JSON.parse(pointsJson);
-    } catch {
-      setError("Invalid JSON in points structure");
+    // Validate entries
+    const validEntries = entries.filter(
+      (e) => e.position.trim() && !isNaN(parseInt(e.points))
+    );
+
+    if (validEntries.length === 0) {
+      setError("Please add at least one position with points");
       return;
     }
+
+    // Check for duplicate positions
+    const positions = validEntries.map((e) => e.position.trim());
+    const uniquePositions = new Set(positions);
+    if (uniquePositions.size !== positions.length) {
+      setError("Duplicate positions found. Each position must be unique.");
+      return;
+    }
+
+    const pointsStructure = entriesToStructure(entries, defaultPoints);
 
     try {
       if (editingTemplate) {
@@ -112,41 +222,65 @@ export default function PointTemplates() {
             points = JSON.parse(template.points_structure);
           } catch {}
 
+          // Separate positions and default
+          const positionEntries = Object.entries(points)
+            .filter(([pos]) => pos !== "default")
+            .map(([pos, pts]) => ({ position: parseInt(pos), points: pts }))
+            .sort((a, b) => a.position - b.position);
+          const defaultPts = points["default"];
+
           return (
             <div
               key={template.id}
-              className="bg-rough/30 rounded-xl p-4 border-2 border-rough"
+              className="bg-scorecard rounded-xl border-2 border-rough overflow-hidden"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold text-charcoal font-['Inter']">
-                    {template.name}
-                  </h3>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {Object.entries(points).map(([pos, pts]) => (
-                      <span
-                        key={pos}
-                        className="px-2 py-1 bg-scorecard rounded text-sm font-['Inter']"
-                      >
-                        {pos === "default" ? "Default" : `#${pos}`}: {pts}pts
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-2">
+              {/* Header */}
+              <div className="flex justify-between items-center px-4 py-3 bg-rough/30 border-b border-rough">
+                <h3 className="font-semibold text-charcoal font-['Inter'] text-lg">
+                  {template.name}
+                </h3>
+                <div className="flex gap-1">
                   <button
                     onClick={() => openEdit(template)}
-                    className="p-2 text-charcoal hover:text-turf transition-colors"
+                    className="p-2 text-charcoal hover:text-turf transition-colors rounded-lg hover:bg-rough/50"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(template.id)}
-                    className="p-2 text-charcoal hover:text-coral transition-colors"
+                    className="p-2 text-charcoal hover:text-coral transition-colors rounded-lg hover:bg-rough/50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+              </div>
+
+              {/* Points Table */}
+              <div className="p-4">
+                {positionEntries.length > 0 && (
+                  <table className="text-sm font-['Inter']">
+                    <thead>
+                      <tr className="text-charcoal/60 border-b border-rough">
+                        <th className="px-3 py-2 font-medium text-left">Position</th>
+                        <th className="px-3 py-2 font-medium text-right">Points</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {positionEntries.map(({ position, points: pts }) => (
+                        <tr key={position} className="border-b border-rough/50 last:border-0">
+                          <td className="px-3 py-1.5 text-charcoal/70">{position}</td>
+                          <td className="px-3 py-1.5 text-charcoal font-semibold text-right">{pts}</td>
+                        </tr>
+                      ))}
+                      {defaultPts !== undefined && (
+                        <tr className="border-t border-rough">
+                          <td className="px-3 py-1.5 text-charcoal/70 italic">Other</td>
+                          <td className="px-3 py-1.5 text-charcoal font-semibold text-right">{defaultPts}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           );
@@ -177,24 +311,78 @@ export default function PointTemplates() {
                   onChange={(e) => setName(e.target.value)}
                   required
                   className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
-                  placeholder="Standard Points"
+                  placeholder="e.g., Standard Event, Major, Elevated"
                 />
               </div>
 
+              {/* Position Entries */}
               <div>
-                <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
-                  Points Structure (JSON)
+                <label className="block text-sm font-medium text-charcoal mb-2 font-['Inter']">
+                  Points by Position
                 </label>
-                <textarea
-                  value={pointsJson}
-                  onChange={(e) => setPointsJson(e.target.value)}
-                  required
-                  rows={8}
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] font-mono text-sm"
-                />
+                <div className="space-y-2">
+                  {entries.map((entry) => (
+                    <div key={entry.id} className="flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2">
+                        <span className="text-sm text-charcoal/60 w-6">#</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={entry.position}
+                          onChange={(e) => updateEntry(entry.id, "position", e.target.value)}
+                          className="w-16 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
+                          placeholder="Pos"
+                        />
+                        <span className="text-sm text-charcoal/60">=</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={entry.points}
+                          onChange={(e) => updateEntry(entry.id, "points", e.target.value)}
+                          className="w-24 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
+                          placeholder="Points"
+                        />
+                        <span className="text-sm text-charcoal/60">pts</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeEntry(entry.id)}
+                        className="p-2 text-charcoal/40 hover:text-coral transition-colors"
+                        title="Remove position"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addEntry}
+                  className="mt-3 flex items-center gap-2 text-sm text-turf hover:text-fairway transition-colors font-['Inter']"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Position
+                </button>
+              </div>
+
+              {/* Default Points */}
+              <div className="pt-2 border-t border-soft-grey">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-charcoal font-['Inter']">
+                    Default points
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={defaultPoints}
+                    onChange={(e) => setDefaultPoints(e.target.value)}
+                    className="w-24 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
+                  />
+                  <span className="text-sm text-charcoal/60">pts</span>
+                </div>
                 <p className="text-xs text-charcoal/60 mt-1">
-                  Use position numbers as keys. Use "default" for positions not
-                  specified.
+                  Points awarded to positions not listed above
                 </p>
               </div>
 
