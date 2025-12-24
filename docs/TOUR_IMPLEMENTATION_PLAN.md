@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-24 (Phase 6 complete)
+> Last updated: 2025-12-24 (Phase 7 complete)
 
 ## Overview
 
@@ -31,7 +31,7 @@ Transform the existing basic Tour infrastructure into a full-featured individual
 - ~~API endpoints for enrollments and admins~~ ✅ Phase 4
 - ~~Auto-enrollment logic on registration~~ ✅ Phase 5
 - ~~Frontend UI for tour management~~ ✅ Phase 6
-- Registration flow with email pre-fill (frontend)
+- ~~Registration flow with email pre-fill (frontend)~~ ✅ Phase 7
 - Complete tour standings calculation
 
 ---
@@ -373,17 +373,48 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 
 ---
 
-### Phase 7: Frontend - Registration Flow
+### Phase 7: Frontend - Registration Flow ✅ COMPLETE
 **Goal**: Support pre-filled email from registration links
 
 #### Tasks
-- [ ] 7.1 Update registration page to read `?email=` query parameter
-- [ ] 7.2 Pre-fill and optionally disable email field when from link
-- [ ] 7.3 Show success message when auto-enrolled after registration
-- [ ] 7.4 Add "Request to Join" button on public tour pages
+- [x] 7.1 Update registration page to read `?email=` query parameter
+- [x] 7.2 Pre-fill and optionally disable email field when from link
+- [x] 7.3 Show success message when auto-enrolled after registration
+- [x] 7.4 Add "Request to Join" button on public tour pages
 
-#### Notes
-_Space for implementation notes_
+#### Notes (2025-12-24)
+**Files modified:**
+- `frontend/src/router.tsx` - Added search param validation for register route
+- `frontend/src/api/auth.ts` - Added `AutoEnrollment` interface and updated `User` type
+- `frontend/src/views/auth/Register.tsx` - Complete update with email pre-fill and auto-enrollment success
+- `frontend/src/api/tours.ts` - Added `useRequestEnrollment()` and `usePlayerEnrollments()` hooks
+- `src/app.ts` - Added `/api/player/enrollments` endpoint
+
+**New files created:**
+- `frontend/src/views/player/Tours.tsx` - Player tours page with enrollment status and request to join
+
+**Registration flow features:**
+- Email query parameter (`?email=...`) is parsed and validated in router
+- When email is pre-filled from URL:
+  - Email field is read-only with lock icon
+  - Helper text indicates "email was provided via your invitation link"
+- After registration with pending enrollments:
+  - Success screen shows list of tours the user was auto-enrolled in
+  - "Continue to Player View" button navigates to player home
+
+**Player tours page features:**
+- Lists "My Tours" (active enrollments) and "Available Tours" (public tours)
+- Search functionality for finding tours
+- Status badges show enrollment status (Active, Pending, Requested)
+- "Request to Join" button for tours with `enrollment_mode: 'request'`
+- Prompts unauthenticated users to sign in to join
+- Shows "Invite only" for closed enrollment tours
+
+**Verification:**
+- All 145 tour-related tests pass
+- All 15 auth-related tests pass
+- No new lint errors introduced
+- Frontend compiles successfully
 
 ---
 
@@ -438,6 +469,20 @@ _Space for implementation notes_
 ---
 
 ## Progress Log
+
+### 2025-12-24 - Phase 7 Complete
+- **Phase 7 completed:**
+  - Updated `Register.tsx` to read `?email=` query parameter and pre-fill email field
+  - Email field shows read-only with lock icon when pre-filled from invitation link
+  - Added auto-enrollment success screen showing tours the user was enrolled in
+  - Created `frontend/src/views/player/Tours.tsx` - player tours page
+  - Added `useRequestEnrollment()` and `usePlayerEnrollments()` hooks to tours API
+  - Added `/api/player/enrollments` endpoint for getting current player's enrollments
+  - Player tours page shows "My Tours" and "Available Tours" sections
+  - "Request to Join" button for tours with request-based enrollment
+  - All 145 tour-related tests passing
+  - All 15 auth-related tests passing
+  - No new lint errors introduced
 
 ### 2025-12-24 - Phase 6 Complete
 - **Phase 6 completed:**

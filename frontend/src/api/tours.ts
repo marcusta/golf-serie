@@ -262,6 +262,52 @@ export function useRemoveEnrollment() {
   });
 }
 
+// Player hook to request joining a tour
+export function useRequestEnrollment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tourId: number) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/enrollments/request`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to request enrollment");
+      }
+      return response.json();
+    },
+    onSuccess: (_, tourId) => {
+      queryClient.invalidateQueries({ queryKey: ["tours"] });
+      queryClient.invalidateQueries({ queryKey: ["tour", tourId] });
+      queryClient.invalidateQueries({ queryKey: ["player-enrollments"] });
+    },
+  });
+}
+
+// Hook to get the current player's enrollments
+export function usePlayerEnrollments() {
+  return useQuery<TourEnrollment[]>({
+    queryKey: ["player-enrollments"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/player/enrollments`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          return []; // Not authenticated - no enrollments
+        }
+        throw new Error("Failed to fetch player enrollments");
+      }
+      return response.json();
+    },
+  });
+}
+
 export function useRegistrationLink(tourId: number, email: string) {
   return useQuery<{ registration_path: string }>({
     queryKey: ["registration-link", tourId, email],

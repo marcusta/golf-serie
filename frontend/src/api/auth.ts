@@ -1,10 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
 
+export interface AutoEnrollment {
+  tour_id: number;
+  tour_name: string;
+  enrollment_id: number;
+}
+
 export interface User {
   id: number;
   email: string;
   role: "SUPER_ADMIN" | "ADMIN" | "PLAYER";
+  player_id?: number;
+  auto_enrollments?: AutoEnrollment[];
 }
 
 export interface LoginCredentials {

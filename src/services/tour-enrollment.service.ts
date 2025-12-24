@@ -10,8 +10,10 @@ export class TourEnrollmentService {
   constructor(private db: Database) {}
 
   /**
-   * Add a pending enrollment for an email (Admin adds email)
-   * Status will be 'pending' - waiting for user to register
+   * Add an enrollment for an email (Admin adds email)
+   * If user already exists with a player profile -> 'active'
+   * If user exists but no player profile -> create player, then 'active'
+   * If user doesn't exist -> 'pending' (waiting for registration)
    */
   addPendingEnrollment(tourId: number, email: string): TourEnrollment {
     // Validate tour exists
@@ -28,6 +30,44 @@ export class TourEnrollmentService {
       throw new Error("Email is already enrolled in this tour");
     }
 
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if a user with this email already exists
+    const existingUser = this.db
+      .prepare("SELECT id, email FROM users WHERE LOWER(email) = ?")
+      .get(normalizedEmail) as { id: number; email: string } | null;
+
+    if (existingUser) {
+      // User exists - check if they have a player profile
+      let player = this.db
+        .prepare("SELECT id FROM players WHERE user_id = ?")
+        .get(existingUser.id) as { id: number } | null;
+
+      if (!player) {
+        // Create a player profile for this user
+        const emailName = existingUser.email.split("@")[0];
+        player = this.db
+          .prepare(
+            "INSERT INTO players (name, user_id) VALUES (?, ?) RETURNING id"
+          )
+          .get(emailName, existingUser.id) as { id: number };
+      }
+
+      // Create active enrollment directly
+      const result = this.db
+        .prepare(
+          `
+          INSERT INTO tour_enrollments (tour_id, player_id, email, status)
+          VALUES (?, ?, ?, 'active')
+          RETURNING *
+        `
+        )
+        .get(tourId, player.id, normalizedEmail) as TourEnrollment;
+
+      return result;
+    }
+
+    // User doesn't exist - create pending enrollment
     const result = this.db
       .prepare(
         `
@@ -36,7 +76,7 @@ export class TourEnrollmentService {
         RETURNING *
       `
       )
-      .get(tourId, email.toLowerCase()) as TourEnrollment;
+      .get(tourId, normalizedEmail) as TourEnrollment;
 
     return result;
   }

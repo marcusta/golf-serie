@@ -27,6 +27,7 @@ import PlayerLanding from "./views/player/Landing";
 
 import PlayerCompetitions from "./views/player/Competitions";
 import PlayerSeries from "./views/player/Series";
+import PlayerTours from "./views/player/Tours";
 import SeriesDetail from "./views/player/SeriesDetail";
 import SeriesDocuments from "./views/player/SeriesDocuments";
 import SeriesDocumentDetail from "./views/player/SeriesDocumentDetail";
@@ -135,6 +136,12 @@ const playerSeriesRoute = new Route({
   component: PlayerSeries,
 });
 
+const playerToursRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/tours",
+  component: PlayerTours,
+});
+
 const seriesDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/series/$serieId",
@@ -198,9 +205,18 @@ const loginRoute = new Route({
   component: Login,
 });
 
+interface RegisterSearchParams {
+  email?: string;
+}
+
 const registerRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/register",
+  validateSearch: (search: Record<string, unknown>): RegisterSearchParams => {
+    return {
+      email: typeof search.email === "string" ? search.email : undefined,
+    };
+  },
   component: Register,
 });
 
@@ -224,6 +240,7 @@ const routeTree = rootRoute.addChildren([
     playerLandingRoute,
     playerCompetitionsRoute,
     playerSeriesRoute,
+    playerToursRoute,
     seriesDetailRoute,
     seriesDocumentsRoute,
     seriesDocumentDetailRoute,

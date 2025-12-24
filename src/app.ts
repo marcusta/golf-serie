@@ -110,6 +110,23 @@ export function createApp(db: Database): Hono {
   // Mount tours API routes
   app.route("/api/tours", toursApi);
 
+  // Player enrollments endpoint - get current player's tour enrollments
+  app.get("/api/player/enrollments", async (c) => {
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    // Get the player ID associated with this user
+    const player = playerService.findByUserId(user.id);
+    if (!player) {
+      return c.json([]);
+    }
+
+    const enrollments = tourEnrollmentService.getEnrollmentsForPlayer(player.id);
+    return c.json(enrollments);
+  });
+
   // Course routes
   app.post("/api/courses", async (c) => {
     return await coursesApi.create(c.req.raw);

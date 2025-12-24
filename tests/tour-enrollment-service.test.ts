@@ -123,6 +123,49 @@ describe("TourEnrollmentService", () => {
       expect(enrollment1.tour_id).toBe(tour1.id);
       expect(enrollment2.tour_id).toBe(tour2.id);
     });
+
+    test("should auto-activate enrollment if user already exists", () => {
+      const admin = createUser("admin@test.com", "ADMIN");
+      const existingUser = createUser("existing@test.com", "PLAYER");
+      createPlayer("Existing Player", existingUser.id);
+      const tour = createTour("Test Tour", admin.id);
+
+      // Adding enrollment for existing user should auto-activate
+      const enrollment = service.addPendingEnrollment(
+        tour.id,
+        "existing@test.com"
+      );
+
+      expect(enrollment.status).toBe("active");
+      expect(enrollment.player_id).not.toBeNull();
+    });
+
+    test("should create player profile if user exists but has no player", () => {
+      const admin = createUser("admin@test.com", "ADMIN");
+      const userWithoutPlayer = createUser("noplayerprofile@test.com", "PLAYER");
+      const tour = createTour("Test Tour", admin.id);
+
+      // No player profile yet for this user
+      const playerBefore = db
+        .prepare("SELECT id FROM players WHERE user_id = ?")
+        .get(userWithoutPlayer.id);
+      expect(playerBefore).toBeNull();
+
+      // Adding enrollment should create player and auto-activate
+      const enrollment = service.addPendingEnrollment(
+        tour.id,
+        "noplayerprofile@test.com"
+      );
+
+      expect(enrollment.status).toBe("active");
+      expect(enrollment.player_id).not.toBeNull();
+
+      // Player profile should now exist
+      const playerAfter = db
+        .prepare("SELECT id FROM players WHERE user_id = ?")
+        .get(userWithoutPlayer.id);
+      expect(playerAfter).not.toBeNull();
+    });
   });
 
   describe("requestEnrollment", () => {
@@ -349,15 +392,18 @@ describe("TourEnrollmentService", () => {
   describe("activateEnrollment", () => {
     test("should activate a pending enrollment and link player", () => {
       const admin = createUser("admin@test.com", "ADMIN");
-      const playerUser = createUser("player@test.com", "PLAYER");
-      const player = createPlayer("Test Player", playerUser.id);
       const tour = createTour("Test Tour", admin.id);
 
-      service.addPendingEnrollment(tour.id, "player@test.com");
+      // Use email that doesn't exist yet to get pending status
+      service.addPendingEnrollment(tour.id, "newplayer@test.com");
+
+      // Now create the user and player
+      const playerUser = createUser("newplayer@test.com", "PLAYER");
+      const player = createPlayer("Test Player", playerUser.id);
 
       const activated = service.activateEnrollment(
         tour.id,
-        "player@test.com",
+        "newplayer@test.com",
         player.id
       );
 
@@ -416,15 +462,19 @@ describe("TourEnrollmentService", () => {
       const tour2 = createTour("Tour 2", admin.id, {
         enrollment_mode: "request",
       });
+      const tour3 = createTour("Tour 3", admin.id);
 
-      // Pending enrollment
-      service.addPendingEnrollment(tour1.id, "player@test.com");
+      // Use a non-existent email for pending enrollment
+      service.addPendingEnrollment(tour1.id, "newplayer@test.com");
 
-      // Requested enrollment (not pending)
+      // Requested enrollment (not pending) for existing user
       service.requestEnrollment(tour2.id, player.id);
 
+      // Active enrollment (existing user gets auto-activated)
+      service.addPendingEnrollment(tour3.id, "player@test.com");
+
       const enrollments = service.getPendingEnrollmentsForEmail(
-        "player@test.com"
+        "newplayer@test.com"
       );
 
       expect(enrollments).toHaveLength(1);
@@ -487,29 +537,31 @@ describe("TourEnrollmentService", () => {
     test("should allow actively enrolled player to view the tour", () => {
       const owner = createUser("owner@test.com", "ADMIN");
       const playerUser = createUser("player@test.com", "PLAYER");
-      const player = createPlayer("Test Player", playerUser.id);
+      createPlayer("Test Player", playerUser.id);
       const tour = createTour("Private Tour", owner.id, {
         visibility: "private",
       });
 
-      // Add pending enrollment and activate it
+      // Adding enrollment for existing user auto-activates it
       service.addPendingEnrollment(tour.id, "player@test.com");
-      service.activateEnrollment(tour.id, "player@test.com", player.id);
 
       expect(service.canViewTour(tour.id, playerUser.id)).toBe(true);
     });
 
     test("should deny pending enrollee from viewing private tour", () => {
       const owner = createUser("owner@test.com", "ADMIN");
-      const playerUser = createUser("player@test.com", "PLAYER");
-      createPlayer("Test Player", playerUser.id);
       const tour = createTour("Private Tour", owner.id, {
         visibility: "private",
       });
 
-      // Add only pending enrollment
-      service.addPendingEnrollment(tour.id, "player@test.com");
+      // Add pending enrollment for non-existent user
+      service.addPendingEnrollment(tour.id, "newplayer@test.com");
 
+      // Create the user AFTER the enrollment (so it stays pending)
+      const playerUser = createUser("newplayer@test.com", "PLAYER");
+      createPlayer("Test Player", playerUser.id);
+
+      // User has a pending enrollment but it's not active, so denied
       expect(service.canViewTour(tour.id, playerUser.id)).toBe(false);
     });
 
