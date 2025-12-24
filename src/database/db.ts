@@ -24,6 +24,7 @@ import { AddTourAdminsMigration } from "./migrations/022_add_tour_admins";
 import { AddTourSettingsMigration } from "./migrations/023_add_tour_settings";
 import { AddTourFieldsMigration } from "./migrations/024_add_tour_fields";
 import { AddTourDocumentsMigration } from "./migrations/025_add_tour_documents";
+import { AddTourPointTemplateMigration } from "./migrations/026_add_tour_point_template";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -79,6 +80,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddTourSettingsMigration(db),
     new AddTourFieldsMigration(db),
     new AddTourDocumentsMigration(db),
+    new AddTourPointTemplateMigration(db),
   ];
 
   // Apply pending migrations

@@ -81,7 +81,15 @@ export function createToursApi(
         return c.json({ error: "Tour not found" }, 404);
       }
 
-      const standings = tourService.getStandings(id);
+      // Support both full and simplified standings via query param
+      const format = c.req.query("format");
+      if (format === "simple") {
+        const standings = tourService.getStandings(id);
+        return c.json(standings);
+      }
+
+      // Default: return full standings with competition breakdown
+      const standings = tourService.getFullStandings(id);
       return c.json(standings);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);
@@ -103,6 +111,7 @@ export function createToursApi(
           name: body.name,
           description: body.description,
           banner_image_url: body.banner_image_url,
+          point_template_id: body.point_template_id,
         },
         user!.id
       );
@@ -135,6 +144,7 @@ export function createToursApi(
         description: body.description,
         banner_image_url: body.banner_image_url,
         landing_document_id: body.landing_document_id,
+        point_template_id: body.point_template_id,
       });
 
       return c.json(updated);

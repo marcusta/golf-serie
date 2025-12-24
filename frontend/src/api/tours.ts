@@ -28,6 +28,35 @@ export interface TourDocument {
   updated_at: string;
 }
 
+// Tour standings types
+export interface TourPlayerCompetition {
+  competition_id: number;
+  competition_name: string;
+  competition_date: string;
+  points: number;
+  position: number;
+  score_relative_to_par: number;
+}
+
+export interface TourPlayerStanding {
+  player_id: number;
+  player_name: string;
+  total_points: number;
+  competitions_played: number;
+  position: number;
+  competitions: TourPlayerCompetition[];
+}
+
+export interface TourStandings {
+  tour: Tour;
+  player_standings: TourPlayerStanding[];
+  total_competitions: number;
+  point_template?: {
+    id: number;
+    name: string;
+  };
+}
+
 export interface TourEnrollment {
   id: number;
   tour_id: number;
@@ -193,6 +222,20 @@ export function useTourCompetitions(id: number) {
       const response = await fetch(`${API_BASE_URL}/tours/${id}/competitions`);
       if (!response.ok) {
         throw new Error("Failed to fetch tour competitions");
+      }
+      return response.json();
+    },
+    enabled: !!id,
+  });
+}
+
+export function useTourStandings(id: number) {
+  return useQuery<TourStandings>({
+    queryKey: ["tour-standings", id],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/tours/${id}/standings`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch tour standings");
       }
       return response.json();
     },

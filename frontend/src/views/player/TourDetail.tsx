@@ -21,6 +21,7 @@ import {
   Lock,
   Globe,
   ChevronRight,
+  Trophy,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -337,6 +338,23 @@ export default function TourDetail() {
                 </p>
               </Link>
             )}
+
+            {/* Standings Card */}
+            <Link
+              to="/player/tours/$tourId/standings"
+              params={{ tourId }}
+              className="bg-scorecard border border-soft-grey rounded-xl p-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-turf group block"
+            >
+              <div className="w-12 h-12 bg-rough rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-turf/20 transition-colors">
+                <Trophy className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
+              </div>
+              <h4 className="text-label-lg font-display font-semibold text-charcoal mb-2 group-hover:text-fairway transition-colors">
+                Standings
+              </h4>
+              <p className="text-body-sm text-charcoal/70">
+                View player rankings
+              </p>
+            </Link>
           </div>
         </section>
 

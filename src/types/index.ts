@@ -264,6 +264,7 @@ export interface Tour {
   visibility: TourVisibility;
   banner_image_url?: string;
   landing_document_id?: number;
+  point_template_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -291,6 +292,7 @@ export interface CreateTourDto {
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
   banner_image_url?: string;
+  point_template_id?: number;
 }
 
 export interface UpdateTourDto {
@@ -300,6 +302,7 @@ export interface UpdateTourDto {
   visibility?: TourVisibility;
   banner_image_url?: string;
   landing_document_id?: number | null;
+  point_template_id?: number | null;
 }
 
 export interface CreateTourEnrollmentDto {
@@ -337,4 +340,31 @@ export interface UpdateTourDocumentDto {
   title?: string;
   content?: string;
   type?: string;
+}
+
+// Tour standings types
+export interface TourPlayerStanding {
+  player_id: number;
+  player_name: string;
+  total_points: number;
+  competitions_played: number;
+  position: number;
+  competitions: {
+    competition_id: number;
+    competition_name: string;
+    competition_date: string;
+    points: number;
+    position: number;
+    score_relative_to_par: number;
+  }[];
+}
+
+export interface TourStandings {
+  tour: Tour;
+  player_standings: TourPlayerStanding[];
+  total_competitions: number;
+  point_template?: {
+    id: number;
+    name: string;
+  };
 }

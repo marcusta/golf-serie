@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-24 (Phase 8 complete)
+> Last updated: 2025-12-24 (Phase 9 complete, Phases 10-12 planned)
 
 ## Overview
 
@@ -11,6 +11,8 @@ Transform the existing basic Tour infrastructure into a full-featured individual
 - Configurable visibility (private, public)
 - Multi-level admin system
 - Auto-enrollment on registration for pre-enrolled emails
+- Handicap support (gross, net, or both scoring modes)
+- Player categories/classes with separate standings
 
 ## Current State
 
@@ -32,7 +34,7 @@ Transform the existing basic Tour infrastructure into a full-featured individual
 - ~~Auto-enrollment logic on registration~~ ✅ Phase 5
 - ~~Frontend UI for tour management~~ ✅ Phase 6
 - ~~Registration flow with email pre-fill (frontend)~~ ✅ Phase 7
-- Complete tour standings calculation
+- ~~Complete tour standings calculation~~ ✅ Phase 9
 
 ---
 
@@ -487,40 +489,466 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 
 ---
 
-### Phase 9: Tour Standings & Points
+### Phase 9: Tour Standings & Points ✅ COMPLETE
 **Goal**: Complete the standings calculation for tours
 
 #### Tasks
-- [ ] 9.1 Implement proper `TourService.getStandings()`:
+- [x] 9.1 Implement proper `TourService.getStandings()`:
   - Aggregate player results across tour competitions
   - Calculate points using point_template or default formula
   - Handle ties appropriately
-- [ ] 9.2 Add point_template_id to tours table (optional)
-- [ ] 9.3 Create standings display component
-- [ ] 9.4 Write tests for standings calculation
+- [x] 9.2 Add point_template_id to tours table (optional)
+- [x] 9.3 Create standings display component
+- [x] 9.4 Write tests for standings calculation
+
+#### Notes (2025-12-24)
+**Database migration created:**
+- `src/database/migrations/026_add_tour_point_template.ts` - Adds `point_template_id` to tours table
+
+**Backend files modified:**
+- `src/services/tour.service.ts` - Complete rewrite with proper standings calculation
+  - Added `getFullStandings()` for detailed competition breakdown per player
+  - Calculates points using point template or default formula
+  - Handles ties properly
+  - Aggregates across multiple competitions
+  - Only counts finished players (is_locked and valid scores)
+- `src/api/tours.ts` - Updated standings endpoint to return full standings by default
+  - Supports `?format=simple` query param for backward compatibility
+- `src/types/index.ts` - Added `TourStandings`, `TourPlayerStanding` interfaces
+
+**Backend tests created:**
+- `tests/tour-standings.test.ts` - 14 comprehensive tests covering:
+  - Empty tour scenarios
+  - Single competition standings
+  - Multiple competition aggregation
+  - Tie handling
+  - Point template usage
+  - Default formula calculation
+  - Manual scores support
+  - Competition breakdown details
+  - Legacy method compatibility
+
+**Frontend files created:**
+- `frontend/src/views/player/TourStandings.tsx` - Full standings page with:
+  - Top 3 performers highlight cards
+  - Expandable player details with competition breakdown
+  - Score relative to par display
+  - Share and export functionality
+  - Loading and error states
+- Added `useTourStandings()` hook to `frontend/src/api/tours.ts`
+- Added standings link to `TourDetail.tsx` quick access cards
+- Added route `/player/tours/$tourId/standings` to router.tsx
+
+**Points calculation:**
+- With point template: Uses custom points_structure (e.g., "1": 100, "2": 75, "default": 10)
+- Default formula: 1st = N+2, 2nd = N, 3rd+ = N-(pos-1), min 0 (where N = number of enrolled players)
+
+**Verification:**
+- All 33 tour-related tests pass (14 standings + 19 existing)
+- Frontend builds successfully
+- No TypeScript errors
+
+---
+
+### Phase 10: UI Polish & Bug Fixes
+**Goal**: Fix Series/Team leakage in Tour UI and improve UX
+
+#### Bug Fixes
+
+##### 10.1 Competition Leaderboard - Series/Team Leakage
+**Problem**: When viewing a Tour competition, the leaderboard shows:
+- "Team Result" tab (should be hidden for Tours)
+- "Player/Team" column header (should be just "Player")
+- "Individual Players Individual" under player names (team_name + position_name leaking)
+
+**Files to modify:**
+- `frontend/src/views/player/CompetitionDetail.tsx`
+
+**Changes:**
+- [ ] 10.1.1 Add `tour_id` to frontend Competition type (already in backend)
+- [ ] 10.1.2 Hide "Team Result" tab when `competition.tour_id` is set
+- [ ] 10.1.3 Change column header from "Player/Team" to "Player" for Tour competitions
+- [ ] 10.1.4 Hide team_name display under player name for Tour competitions
+
+##### 10.2 Scorecard Modal - Team/Position Leakage
+**Problem**: Scorecard shows "Individual Players, Individual" instead of clean player display
+
+**Files to modify:**
+- `frontend/src/components/scorecard/ParticipantScorecard.tsx`
+- `frontend/src/components/scorecard/Scorecard.tsx`
+
+**Changes:**
+- [ ] 10.2.1 Pass `isTourCompetition` flag to scorecard components
+- [ ] 10.2.2 When tour competition, don't show team_name/position_name
+- [ ] 10.2.3 Only show player name in scorecard header for Tour participants
+
+##### 10.3 Current Round Quick Access
+**Problem**: No easy way to quickly access the currently open round from Tour detail page
+
+**Files to modify:**
+- `frontend/src/views/player/TourDetail.tsx`
+- `frontend/src/views/player/TourCompetitions.tsx`
+
+**Changes:**
+- [ ] 10.3.1 Add "Play Now" card/button on TourDetail when a round is currently open
+- [ ] 10.3.2 Highlight current open round in competitions list with visual indicator
+- [ ] 10.3.3 Show "Open until [date]" badge on current competition
+- [ ] 10.3.4 Add "Current Round" filter/jump button in TourCompetitions
+
+#### Edge Cases (deferred from original Phase 10)
+- [ ] 10.4 Handle player deletion (what happens to enrollments?)
+- [ ] 10.5 Handle tour deletion (cascade enrollments)
+- [ ] 10.6 Add email validation in enrollment
+- [ ] 10.7 Add pagination for large enrollment lists
+- [ ] 10.8 E2E tests for critical flows
 
 #### Notes
 _Space for implementation notes_
 
 ---
 
-### Phase 10: Polish & Edge Cases
-**Goal**: Handle edge cases and improve UX
+### Phase 11: Handicap Support
+**Goal**: Allow tours to use gross, net, or both scoring modes
+
+#### Background
+Golf handicaps allow players of different skill levels to compete fairly. Net score = Gross score - Handicap strokes (distributed across holes based on stroke index).
+
+**Swedish/WHS System:**
+- Players have a **Handicap Index** (e.g., 15.4)
+- Courses have **Course Rating** (CR) and **Slope Rating** (SR)
+- **Course Handicap** = Handicap Index × (Slope Rating / 113) + (Course Rating - Par)
+- Course handicap is then distributed to holes based on stroke index
+
+#### Database Changes
+
+##### 11.1 Schema
+```sql
+-- Add scoring mode to tours
+ALTER TABLE tours ADD COLUMN scoring_mode TEXT NOT NULL DEFAULT 'gross';
+  -- 'gross': Raw scores only (current behavior)
+  -- 'net': Net scores only (gross - handicap)
+  -- 'both': Track and display both, points can be awarded for either
+
+-- Tee boxes table (each course has multiple tee sets with different ratings)
+CREATE TABLE course_tees (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,              -- "Championship", "Men", "Ladies", "Senior", "Yellow", "Red"
+  color TEXT,                       -- "white", "yellow", "red", "blue" (for display)
+  course_rating REAL NOT NULL,      -- CR - expected score for scratch golfer, e.g., 72.3
+  slope_rating INTEGER NOT NULL DEFAULT 113,  -- SR - relative difficulty 55-155
+  stroke_index TEXT,                -- JSON array [1-18] hole difficulty order (can differ per tee)
+  pars TEXT,                        -- JSON array of pars (if different from course default)
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(course_id, name)
+);
+
+-- Link competitions to specific tee box
+ALTER TABLE competitions ADD COLUMN tee_id INTEGER REFERENCES course_tees(id);
+  -- Which tee box is used for this competition
+  -- NULL = use course defaults (backward compatible)
+
+-- Players already have handicap column, but ensure it's used as Handicap Index
+-- players.handicap is the Handicap Index (decimal, e.g., 15.4)
+
+-- Track playing handicap per enrollment (may differ from profile handicap)
+ALTER TABLE tour_enrollments ADD COLUMN playing_handicap REAL;
+  -- Overrides player.handicap if set, allows tour-specific handicap index
+```
+
+**Example tee boxes for a course:**
+| Name | Color | CR | SR | Notes |
+|------|-------|-----|-----|-------|
+| Championship | White | 74.2 | 138 | Back tees |
+| Men | Yellow | 72.3 | 128 | Standard men's |
+| Ladies | Red | 71.8 | 125 | Forward tees |
+| Senior | Blue | 70.1 | 118 | Senior tees |
 
 #### Tasks
-- [ ] 10.1 Handle player deletion (what happens to enrollments?)
-- [ ] 10.2 Handle tour deletion (cascade enrollments)
-- [ ] 10.3 Add email validation in enrollment
-- [ ] 10.4 Add pagination for large enrollment lists
-- [ ] 10.5 Add search/filter for enrollments
-- [ ] 10.6 E2E tests for critical flows
+
+##### Backend - Database
+- [ ] 11.1 Create migration 027 for `scoring_mode` on tours
+- [ ] 11.2 Create migration 028 for `course_tees` table
+- [ ] 11.3 Create migration 029 for `tee_id` on competitions
+- [ ] 11.4 Create migration 030 for `playing_handicap` on tour_enrollments
+- [ ] 11.5 Add TypeScript types:
+  - `TourScoringMode = 'gross' | 'net' | 'both'`
+  - `CourseTee` interface
+  - `CreateCourseTeeDto`, `UpdateCourseTeeDto`
+
+##### Backend - Handicap Utilities
+- [ ] 11.6 Create `src/utils/handicap.ts` with calculation functions:
+  - `calculateCourseHandicap(handicapIndex, slopeRating, courseRating, par)` - WHS formula
+  - `distributeHandicapStrokes(courseHandicap, strokeIndex)` - per-hole strokes array
+  - `calculateNetScores(grossScores, handicapStrokes)` - per-hole net calculation
+  - `calculateNetTotal(grossTotal, courseHandicap)` - simple total calculation
+- [ ] 11.7 Write comprehensive tests for handicap calculations
+
+##### Backend - Services & API
+- [ ] 11.8 Create `CourseTeeService` with CRUD operations
+- [ ] 11.9 Add tee box API endpoints:
+  - `GET /api/courses/:courseId/tees` - List tee boxes
+  - `POST /api/courses/:courseId/tees` - Create tee box
+  - `PUT /api/courses/:courseId/tees/:teeId` - Update tee box
+  - `DELETE /api/courses/:courseId/tees/:teeId` - Delete tee box
+- [ ] 11.10 Update competition create/update to accept `tee_id`
+- [ ] 11.11 Update `TourService.getFullStandings()`:
+  - Get tee box CR/SR for each competition
+  - Calculate course handicap per player per competition
+  - Calculate net scores when scoring_mode is 'net' or 'both'
+  - Support ranking by gross, net, or configurable
+- [ ] 11.12 Update competition leaderboard API to return both gross and net when applicable
+- [ ] 11.13 Add player handicap update endpoint: `PUT /api/players/:id/handicap`
+
+##### Frontend Admin
+- [ ] 11.14 Add scoring_mode selector in tour create/edit form
+- [ ] 11.15 Create tee box management UI for courses:
+  - List tee boxes with CR/SR display
+  - Add/edit tee box modal (name, color, CR, SR, stroke index)
+  - Stroke Index editor (18 hole inputs or visual editor)
+- [ ] 11.16 Add tee box selector in competition create/edit form
+- [ ] 11.17 Add playing_handicap field in enrollment management
+- [ ] 11.18 Show calculated course handicap preview when editing enrollment
+
+##### Frontend Player
+- [ ] 11.19 Add handicap display/edit on player profile page
+- [ ] 11.20 Show tee box info on competition detail (name, color, CR/SR)
+- [ ] 11.21 Update leaderboard to show Net column when applicable
+- [ ] 11.22 Update standings to show both Gross and Net when mode is 'both'
+- [ ] 11.23 Update scorecard to display:
+  - Handicap strokes per hole (dots or indicators)
+  - Net score per hole (when tour uses net)
+  - Net total alongside gross total
+- [ ] 11.24 Show player's course handicap for the competition
+
+#### Design Decisions
+
+##### Course Handicap Calculation (WHS Formula)
+```
+Course Handicap = (Handicap Index × Slope Rating / 113) + (Course Rating - Par)
+```
+
+**Example:**
+- Player Handicap Index: 15.4
+- Course: Par 72, CR 72.3, SR 128
+- Course Handicap = (15.4 × 128 / 113) + (72.3 - 72) = 17.4 + 0.3 = 17.7 → **18**
+
+##### Handicap Stroke Distribution
+- Course handicap is rounded to nearest integer
+- Strokes distributed to holes based on stroke_index
+- Hole with stroke_index 1 is hardest, gets first stroke
+- If course handicap > 18, second round starts at stroke_index 1
+- If course handicap > 36, third round starts, etc.
+
+**Example:** Course handicap 23, stroke_index = [5, 13, 1, 9, ...]
+- Holes with stroke_index 1-18: get 1 stroke each
+- Holes with stroke_index 1-5: get 2nd stroke (5 extra strokes)
+- Total: 18 + 5 = 23 strokes distributed
+
+##### Net Score Calculation
+- Per-hole: Net = Gross - Handicap Strokes for that hole
+- Total: Net Total = Gross Total - Course Handicap
+
+##### Leaderboard Display
+| Mode | Columns Shown | Ranking By |
+|------|---------------|------------|
+| gross | Gross, To Par | Gross |
+| net | Net, Gross | Net |
+| both | Gross, Net, To Par | Configurable (default: Net) |
+
+##### Player Handicap Sources (Priority Order)
+1. `tour_enrollments.playing_handicap` - Tour-specific override
+2. `players.handicap` - Player's profile handicap index
+3. Default: 0 (scratch)
 
 #### Notes
 _Space for implementation notes_
+
+---
+
+### Phase 12: Player Categories/Classes
+**Goal**: Support different player groups within a tour, each with separate standings
+
+#### Background
+Tours often need to segment players into categories for fairer competition:
+- Gender: Men's, Women's
+- Age: Seniors (55+), Juniors (under 18)
+- Handicap ranges: A-Class (0-12), B-Class (13-24), C-Class (25+)
+- Mixed: "Senior Women", "Junior Boys", etc.
+
+Each category has its own leaderboard and points calculation, but all play the same competitions.
+
+#### Database Changes
+
+##### 12.1 Schema
+```sql
+-- Tour categories table
+CREATE TABLE tour_categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tour_id INTEGER NOT NULL REFERENCES tours(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,              -- "Men", "Women", "Seniors", "A-Class"
+  description TEXT,                 -- Optional longer description
+  sort_order INTEGER DEFAULT 0,     -- Display order
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(tour_id, name)
+);
+
+-- Add category to enrollments
+ALTER TABLE tour_enrollments ADD COLUMN category_id INTEGER REFERENCES tour_categories(id) ON DELETE SET NULL;
+
+-- Optional: Auto-assignment rules (future enhancement)
+-- CREATE TABLE tour_category_rules (
+--   id INTEGER PRIMARY KEY,
+--   category_id INTEGER REFERENCES tour_categories(id),
+--   rule_type TEXT,  -- 'handicap_range', 'gender', 'age_range'
+--   rule_value TEXT  -- JSON: {"min": 0, "max": 12} or {"gender": "M"}
+-- );
+```
+
+#### Tasks
+
+##### Backend
+- [ ] 12.1 Create migration 030 for `tour_categories` table
+- [ ] 12.2 Create migration 031 for `category_id` on tour_enrollments
+- [ ] 12.3 Add TypeScript types: `TourCategory`, `CreateTourCategoryDto`
+- [ ] 12.4 Create `TourCategoryService`:
+  - `create(tourId, data)` - Create category
+  - `update(id, data)` - Update category
+  - `delete(id)` - Delete category (set enrollments to null)
+  - `findByTour(tourId)` - List categories for tour
+  - `findById(id)` - Get single category
+  - `reorder(tourId, categoryIds)` - Update sort order
+- [ ] 12.5 Add category API endpoints:
+  - `GET /api/tours/:id/categories` - List categories
+  - `POST /api/tours/:id/categories` - Create category
+  - `PUT /api/tours/:id/categories/:categoryId` - Update category
+  - `DELETE /api/tours/:id/categories/:categoryId` - Delete category
+- [ ] 12.6 Update enrollment endpoints to accept/return category_id
+- [ ] 12.7 Update `TourService.getFullStandings()`:
+  - Accept optional `categoryId` filter
+  - Return category info with standings
+  - When no filter, return all players (overall standings)
+- [ ] 12.8 Update standings API: `GET /api/tours/:id/standings?category=:categoryId`
+- [ ] 12.9 Write tests for category service and API
+
+##### Frontend Admin
+- [ ] 12.10 Add Categories tab in tour admin detail
+- [ ] 12.11 Category management UI:
+  - Create/edit/delete categories
+  - Drag-drop reordering
+  - Show enrollment count per category
+- [ ] 12.12 Add category selector in enrollment management
+- [ ] 12.13 Bulk category assignment tool
+
+##### Frontend Player
+- [ ] 12.14 Update TourStandings with category tabs/filter
+- [ ] 12.15 Show category name on player cards in standings
+- [ ] 12.16 Update TourDetail to show categories overview
+- [ ] 12.17 Competition leaderboard category filter (optional)
+
+#### Design Decisions
+
+##### Category Assignment
+- Manual assignment by admin (MVP)
+- Optional: Auto-assignment based on rules (future)
+- Players can only be in one category per tour
+- Category is optional (null = "uncategorized" or "overall only")
+
+##### Standings Display
+```
+Tour Standings
+├── Overall (all players)
+├── Men (category)
+├── Women (category)
+└── Seniors (category)
+```
+
+- Default view: Overall standings
+- Tab/dropdown to switch categories
+- Each category shows only players in that category
+- Points are calculated separately per category
+
+##### Points Calculation
+- Each category calculates positions independently
+- Example: If Men's category has 10 players, 1st place Men gets points for position 1 out of 10
+- Overall standings can either:
+  - (A) Sum category points (players compete within their category)
+  - (B) Calculate globally (all players compete together) - **Default for MVP**
+
+#### Notes
+_Space for implementation notes_
+
+---
+
+### Phase 13: Future Enhancements (Backlog)
+**Goal**: Track potential future improvements
+
+#### Potential Features
+- [ ] Email notifications for enrollment status changes
+- [ ] Maximum enrollment limit per tour
+- [ ] Waitlist when tour is full
+- [ ] Player transfer between tours
+- [ ] Season/year rollover for recurring tours
+- [ ] Auto-category assignment based on handicap/age/gender rules
+- [ ] Handicap index calculation and tracking
+- [ ] World Handicap System (WHS) integration
+- [ ] Multiple rounds per competition (36-hole events)
+- [ ] Cut line after round 1 for multi-round events
 
 ---
 
 ## Progress Log
+
+### 2025-12-24 - Phases 10-12 Planned
+- **Identified UI bugs from manual testing:**
+  - Competition leaderboard shows "Team Result" tab for Tour competitions (should be hidden)
+  - "Player/Team" column header showing instead of just "Player"
+  - "Individual Players Individual" team/position leakage under player names
+  - Scorecard modal shows "Individual Players, Individual"
+  - No quick access to current open round from Tour detail page
+- **Added Phase 10: UI Polish & Bug Fixes**
+  - Tasks to fix Series/Team leakage in CompetitionDetail.tsx
+  - Tasks to fix scorecard modal display
+  - Tasks to add "Play Now" quick access for current round
+- **Added Phase 11: Handicap Support**
+  - Schema for `scoring_mode` on tours ('gross', 'net', 'both')
+  - Schema for `course_tees` table (CR, SR, stroke_index per tee box)
+  - Schema for `tee_id` on competitions (link to specific tee box)
+  - Schema for `playing_handicap` on enrollments (override player's default)
+  - WHS formula for course handicap calculation
+  - Handicap stroke distribution based on stroke index
+  - Handicap calculation utilities in `src/utils/handicap.ts`
+  - CourseTeeService with full CRUD
+  - Tee box management UI for courses
+  - Tee box selector in competition form
+  - Player handicap profile management
+  - Leaderboard/standings updates for net scores
+  - Scorecard display with handicap strokes per hole
+- **Added Phase 12: Player Categories/Classes**
+  - Schema for `tour_categories` table
+  - Schema for `category_id` on enrollments
+  - TourCategoryService with full CRUD
+  - Category-filtered standings
+  - Admin UI for category management
+  - Player UI for category standings view
+- **Added Phase 13: Future Enhancements backlog**
+
+### 2025-12-24 - Phase 9 Complete
+- **Phase 9 completed:**
+  - Created migration 026 for `point_template_id` on tours table
+  - Rewrote `TourService.getStandings()` with full standings calculation
+  - Added `getFullStandings()` method with detailed competition breakdown
+  - Points calculation uses point template or default formula
+  - Proper tie handling and position assignment
+  - Only counts finished players (locked with valid scores)
+  - Updated API endpoint to return full standings by default
+  - Created 14 comprehensive backend tests for standings
+  - Created `TourStandings.tsx` frontend component
+  - Added `useTourStandings()` React Query hook
+  - Added standings link to TourDetail quick access
+  - Added route `/player/tours/$tourId/standings`
+  - All 33 tour-related tests passing
+  - Frontend builds successfully
 
 ### 2025-12-24 - Phase 8 Complete
 - **Phase 8 completed:**
@@ -662,13 +1090,13 @@ https://domain.com/register?email=player@example.com
 ### Key Files to Modify
 - `src/database/migrations/` - New migrations ✅
 - `src/types/index.ts` - New types ✅
-- `src/services/tour.service.ts` - Extend or split
+- `src/services/tour.service.ts` - Extend with standings ✅
 - `src/services/tour-enrollment.service.ts` - Enrollment business logic ✅
 - `src/services/tour-admin.service.ts` - Admin management ✅
 - `src/api/tours.ts` - New endpoints ✅
 - `src/services/auth.service.ts` - Auto-enrollment ✅
-- `frontend/src/views/admin/` - Admin UI
-- `frontend/src/views/player/` - Player UI
+- `frontend/src/views/admin/` - Admin UI ✅
+- `frontend/src/views/player/` - Player UI ✅
 
 ### Patterns to Follow
 - Factory functions for API creation

@@ -258,7 +258,7 @@ describe("Tours API", () => {
   });
 
   describe("GET /api/tours/:id/standings - Get Tour Standings (Public)", () => {
-    test("should return empty array for tour with no participants", async () => {
+    test("should return standings object with empty player_standings for tour with no participants", async () => {
       await makeRequest("/api/auth/register", "POST", {
         email: "admin@test.com",
         password: "password123",
@@ -277,6 +277,35 @@ describe("Tours API", () => {
       const created = await createResponse.json();
 
       const response = await makeRequest(`/api/tours/${created.id}/standings`);
+      const standings = await expectJsonResponse(response);
+      expect(response.status).toBe(200);
+      expect(standings).toHaveProperty("tour");
+      expect(standings).toHaveProperty("player_standings");
+      expect(standings).toHaveProperty("total_competitions");
+      expect(Array.isArray(standings.player_standings)).toBe(true);
+      expect(standings.player_standings.length).toBe(0);
+      expect(standings.total_competitions).toBe(0);
+    });
+
+    test("should return simple array format with format=simple query param", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      const createResponse = await makeRequest("/api/tours", "POST", {
+        name: "PGA Tour 2024",
+      });
+      const created = await createResponse.json();
+
+      const response = await makeRequest(`/api/tours/${created.id}/standings?format=simple`);
       const standings = await expectJsonResponse(response);
       expect(response.status).toBe(200);
       expect(Array.isArray(standings)).toBe(true);
