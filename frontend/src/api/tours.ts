@@ -1,13 +1,53 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
 
+export type TourEnrollmentStatus = "pending" | "requested" | "active";
+export type TourEnrollmentMode = "closed" | "request";
+export type TourVisibility = "private" | "public";
+
 export interface Tour {
   id: number;
   name: string;
   description: string | null;
   owner_id: number;
+  enrollment_mode: TourEnrollmentMode;
+  visibility: TourVisibility;
   created_at: string;
   updated_at: string;
+}
+
+export interface TourEnrollment {
+  id: number;
+  tour_id: number;
+  player_id?: number;
+  email: string;
+  status: TourEnrollmentStatus;
+  player_name?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TourAdmin {
+  id: number;
+  tour_id: number;
+  user_id: number;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface CreateTourData {
+  name: string;
+  description?: string;
+  enrollment_mode?: TourEnrollmentMode;
+  visibility?: TourVisibility;
+}
+
+export interface UpdateTourData {
+  name?: string;
+  description?: string;
+  enrollment_mode?: TourEnrollmentMode;
+  visibility?: TourVisibility;
 }
 
 export function useTours() {
@@ -41,7 +81,7 @@ export function useCreateTour() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { name: string; description?: string }) => {
+    mutationFn: async (data: CreateTourData) => {
       const response = await fetch(`${API_BASE_URL}/tours`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,7 +109,7 @@ export function useUpdateTour() {
       data,
     }: {
       id: number;
-      data: { name?: string; description?: string };
+      data: UpdateTourData;
     }) => {
       const response = await fetch(`${API_BASE_URL}/tours/${id}`, {
         method: "PUT",
@@ -83,8 +123,9 @@ export function useUpdateTour() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tours"] });
+      queryClient.invalidateQueries({ queryKey: ["tour", variables.id] });
     },
   });
 }
@@ -110,8 +151,16 @@ export function useDeleteTour() {
   });
 }
 
+interface TourCompetition {
+  id: number;
+  name: string;
+  date: string;
+  course_id?: number;
+  course_name?: string;
+}
+
 export function useTourCompetitions(id: number) {
-  return useQuery<any[]>({
+  return useQuery<TourCompetition[]>({
     queryKey: ["tour-competitions", id],
     queryFn: async () => {
       const response = await fetch(`${API_BASE_URL}/tours/${id}/competitions`);
@@ -121,5 +170,188 @@ export function useTourCompetitions(id: number) {
       return response.json();
     },
     enabled: !!id,
+  });
+}
+
+// Enrollment Hooks
+export function useTourEnrollments(tourId: number, status?: TourEnrollmentStatus) {
+  return useQuery<TourEnrollment[]>({
+    queryKey: ["tour-enrollments", tourId, status],
+    queryFn: async () => {
+      const url = status
+        ? `${API_BASE_URL}/tours/${tourId}/enrollments?status=${status}`
+        : `${API_BASE_URL}/tours/${tourId}/enrollments`;
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) {
+        throw new Error("Failed to fetch enrollments");
+      }
+      return response.json();
+    },
+    enabled: !!tourId,
+  });
+}
+
+export function useAddEnrollment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ tourId, email }: { tourId: number; email: string }) => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/enrollments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add enrollment");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-enrollments", variables.tourId] });
+    },
+  });
+}
+
+export function useApproveEnrollment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ tourId, enrollmentId }: { tourId: number; enrollmentId: number }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/enrollments/${enrollmentId}/approve`,
+        {
+          method: "PUT",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to approve enrollment");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-enrollments", variables.tourId] });
+    },
+  });
+}
+
+export function useRemoveEnrollment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ tourId, enrollmentId }: { tourId: number; enrollmentId: number }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/enrollments/${enrollmentId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to remove enrollment");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-enrollments", variables.tourId] });
+    },
+  });
+}
+
+export function useRegistrationLink(tourId: number, email: string) {
+  return useQuery<{ registration_path: string }>({
+    queryKey: ["registration-link", tourId, email],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/registration-link?email=${encodeURIComponent(email)}`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to get registration link");
+      }
+      return response.json();
+    },
+    enabled: !!tourId && !!email,
+  });
+}
+
+// Admin Hooks
+export function useTourAdmins(tourId: number) {
+  return useQuery<TourAdmin[]>({
+    queryKey: ["tour-admins", tourId],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/admins`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch tour admins");
+      }
+      return response.json();
+    },
+    enabled: !!tourId,
+  });
+}
+
+export function useAddTourAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ tourId, userId }: { tourId: number; userId: number }) => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/admins`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ userId }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add tour admin");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-admins", variables.tourId] });
+    },
+  });
+}
+
+export function useRemoveTourAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ tourId, userId }: { tourId: number; userId: number }) => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/admins/${userId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to remove tour admin");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-admins", variables.tourId] });
+    },
+  });
+}
+
+// Users hook for admin selection
+export function useUsers() {
+  return useQuery<{ id: number; email: string; role: string }[]>({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch users");
+      }
+      return response.json();
+    },
   });
 }

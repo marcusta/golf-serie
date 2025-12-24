@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-24 (Phase 5 complete)
+> Last updated: 2025-12-24 (Phase 6 complete)
 
 ## Overview
 
@@ -30,8 +30,8 @@ Transform the existing basic Tour infrastructure into a full-featured individual
 - ~~Tour admin service (business logic)~~ ✅ Phase 3
 - ~~API endpoints for enrollments and admins~~ ✅ Phase 4
 - ~~Auto-enrollment logic on registration~~ ✅ Phase 5
+- ~~Frontend UI for tour management~~ ✅ Phase 6
 - Registration flow with email pre-fill (frontend)
-- Frontend UI for tour management
 - Complete tour standings calculation
 
 ---
@@ -324,20 +324,52 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 
 ---
 
-### Phase 6: Frontend - Admin Tour Management
+### Phase 6: Frontend - Admin Tour Management ✅ COMPLETE
 **Goal**: UI for managing tour enrollments and settings
 
 #### Tasks
-- [ ] 6.1 Add tour settings form (enrollment_mode, visibility)
-- [ ] 6.2 Create enrollment management view:
+- [x] 6.1 Add tour settings form (enrollment_mode, visibility)
+- [x] 6.2 Create enrollment management view:
   - List pending/requested/active enrollments
   - Add email form with "Copy Registration Link" button
   - Approve/reject request buttons
-- [ ] 6.3 Create tour admin management view
-- [ ] 6.4 Update tour creation form with new settings
+- [x] 6.3 Create tour admin management view
+- [x] 6.4 Update tour creation form with new settings
 
-#### Notes
-_Space for implementation notes_
+#### Notes (2025-12-24)
+**Files modified:**
+- `frontend/src/api/tours.ts` - Added types and hooks for enrollments and admins
+- `frontend/src/views/admin/Tours.tsx` - Updated create/edit form with visibility and enrollment_mode settings
+- `frontend/src/views/admin/TourDetail.tsx` - Complete rewrite with tabs for Competitions, Enrollments, and Admins
+- `src/services/auth.service.ts` - Added `getAllUsers()` method
+- `src/app.ts` - Added `/api/users` endpoint for admin user selection
+
+**New API types added:**
+- `TourEnrollmentStatus`, `TourEnrollmentMode`, `TourVisibility`
+- `TourEnrollment`, `TourAdmin`, `CreateTourData`, `UpdateTourData`
+- `TourCompetition` interface for typed competition data
+
+**New React Query hooks:**
+- `useTourEnrollments(tourId, status?)` - List enrollments with optional status filter
+- `useAddEnrollment()` - Add pending enrollment by email
+- `useApproveEnrollment()` - Approve requested enrollment
+- `useRemoveEnrollment()` - Remove enrollment
+- `useTourAdmins(tourId)` - List tour admins
+- `useAddTourAdmin()` - Add user as tour admin
+- `useRemoveTourAdmin()` - Remove tour admin
+- `useUsers()` - List all users (for admin selection)
+
+**UI Features implemented:**
+- Tour cards now display visibility (public/private) and enrollment mode (closed/requests) badges
+- Tour create/edit modal includes dropdown selects for visibility and enrollment mode
+- TourDetail view has three tabs: Competitions, Enrollments, Admins
+- Enrollments tab: Add email form, status filter buttons, copy registration link, approve/reject buttons
+- Admins tab: User selector dropdown, list of tour admins with remove button, tour owner displayed
+
+**Verification:**
+- All 145 tour-related tests pass
+- Frontend lint passes for new code (no new errors introduced)
+- No regressions in existing functionality
 
 ---
 
@@ -406,6 +438,17 @@ _Space for implementation notes_
 ---
 
 ## Progress Log
+
+### 2025-12-24 - Phase 6 Complete
+- **Phase 6 completed:**
+  - Added frontend types and React Query hooks for enrollments and admins
+  - Updated `Tours.tsx` with visibility and enrollment_mode settings in create/edit modal
+  - Complete rewrite of `TourDetail.tsx` with tabbed interface (Competitions, Enrollments, Admins)
+  - Added enrollment management: add by email, status filters, copy registration link, approve/reject
+  - Added admin management: user selector, admin list with remove capability
+  - Added `/api/users` endpoint and `getAllUsers()` method to AuthService
+  - All 145 tour-related tests passing
+  - No new lint errors introduced
 
 ### 2025-12-24 - Phase 5 Complete
 - **Phase 5 completed:**

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Trophy, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Trophy, Eye, Lock, Globe, Users } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   useTours,
@@ -7,6 +7,8 @@ import {
   useUpdateTour,
   useDeleteTour,
   type Tour,
+  type TourEnrollmentMode,
+  type TourVisibility,
 } from "../../api/tours";
 
 export default function Tours() {
@@ -20,12 +22,16 @@ export default function Tours() {
   const [editingTour, setEditingTour] = useState<Tour | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [enrollmentMode, setEnrollmentMode] = useState<TourEnrollmentMode>("closed");
+  const [visibility, setVisibility] = useState<TourVisibility>("private");
   const [error, setError] = useState<string | null>(null);
 
   const openCreate = () => {
     setEditingTour(null);
     setName("");
     setDescription("");
+    setEnrollmentMode("closed");
+    setVisibility("private");
     setError(null);
     setShowModal(true);
   };
@@ -34,6 +40,8 @@ export default function Tours() {
     setEditingTour(tour);
     setName(tour.name);
     setDescription(tour.description || "");
+    setEnrollmentMode(tour.enrollment_mode);
+    setVisibility(tour.visibility);
     setError(null);
     setShowModal(true);
   };
@@ -46,12 +54,19 @@ export default function Tours() {
       if (editingTour) {
         await updateMutation.mutateAsync({
           id: editingTour.id,
-          data: { name, description: description || undefined },
+          data: {
+            name,
+            description: description || undefined,
+            enrollment_mode: enrollmentMode,
+            visibility,
+          },
         });
       } else {
         await createMutation.mutateAsync({
           name,
           description: description || undefined,
+          enrollment_mode: enrollmentMode,
+          visibility,
         });
       }
       setShowModal(false);
@@ -101,10 +116,44 @@ export default function Tours() {
             className="bg-rough/30 rounded-xl p-4 border-2 border-rough"
           >
             <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-semibold text-charcoal font-['Inter']">
-                  {tour.name}
-                </h3>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-charcoal font-['Inter']">
+                    {tour.name}
+                  </h3>
+                  <div className="flex gap-1">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                        tour.visibility === "public"
+                          ? "bg-fairway/20 text-fairway"
+                          : "bg-charcoal/10 text-charcoal/70"
+                      }`}
+                      title={tour.visibility === "public" ? "Public tour" : "Private tour"}
+                    >
+                      {tour.visibility === "public" ? (
+                        <Globe className="h-3 w-3" />
+                      ) : (
+                        <Lock className="h-3 w-3" />
+                      )}
+                      {tour.visibility}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                        tour.enrollment_mode === "request"
+                          ? "bg-turf/20 text-turf"
+                          : "bg-charcoal/10 text-charcoal/70"
+                      }`}
+                      title={
+                        tour.enrollment_mode === "request"
+                          ? "Players can request to join"
+                          : "Admin-only enrollment"
+                      }
+                    >
+                      <Users className="h-3 w-3" />
+                      {tour.enrollment_mode === "request" ? "requests" : "closed"}
+                    </span>
+                  </div>
+                </div>
                 {tour.description && (
                   <p className="text-sm text-charcoal/70 mt-1 font-['Inter']">
                     {tour.description}
@@ -179,6 +228,45 @@ export default function Tours() {
                   className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
                   placeholder="A description of this tour..."
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
+                    Visibility
+                  </label>
+                  <select
+                    value={visibility}
+                    onChange={(e) => setVisibility(e.target.value as TourVisibility)}
+                    className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] bg-white"
+                  >
+                    <option value="private">Private</option>
+                    <option value="public">Public</option>
+                  </select>
+                  <p className="text-xs text-charcoal/50 mt-1">
+                    {visibility === "public"
+                      ? "Anyone can view standings"
+                      : "Only enrolled players can view"}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
+                    Enrollment
+                  </label>
+                  <select
+                    value={enrollmentMode}
+                    onChange={(e) => setEnrollmentMode(e.target.value as TourEnrollmentMode)}
+                    className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] bg-white"
+                  >
+                    <option value="closed">Closed (Admin only)</option>
+                    <option value="request">Request-based</option>
+                  </select>
+                  <p className="text-xs text-charcoal/50 mt-1">
+                    {enrollmentMode === "request"
+                      ? "Players can request to join"
+                      : "Only admins can add players"}
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-3 justify-end pt-4">

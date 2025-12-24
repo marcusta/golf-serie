@@ -192,6 +192,12 @@ export class AuthService {
   async logout(sessionId: string) {
     this.db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
   }
+
+  getAllUsers(): Array<{ id: number; email: string; role: string }> {
+    return this.db
+      .prepare("SELECT id, email, role FROM users ORDER BY email")
+      .all() as Array<{ id: number; email: string; role: string }>;
+  }
 }
 
 export function createAuthService(db: Database, deps?: AuthServiceDependencies) {

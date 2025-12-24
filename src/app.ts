@@ -87,6 +87,20 @@ export function createApp(db: Database): Hono {
   // Mount auth API routes
   app.route("/api/auth", authApi);
 
+  // Users endpoint (for admin selection in tour management)
+  app.get("/api/users", (c) => {
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    // Only allow admins to list users
+    if (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    const users = authService.getAllUsers();
+    return c.json(users);
+  });
+
   // Mount players API routes
   app.route("/api/players", playersApi);
 
