@@ -304,3 +304,8 @@ export interface CreateTourEnrollmentDto {
 export interface TourEnrollmentWithPlayer extends TourEnrollment {
   player_name?: string;
 }
+
+export interface TourAdminWithUser extends TourAdmin {
+  email: string;
+  role: string;
+}

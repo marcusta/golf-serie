@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-24 (Phase 2 complete)
+> Last updated: 2025-12-24 (Phase 3 complete)
 
 ## Overview
 
@@ -158,20 +158,46 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 
 ---
 
-### Phase 3: Tour Admin Service
+### Phase 3: Tour Admin Service ✅ COMPLETE
 **Goal**: Manage tour-level admin assignments
 
 #### Tasks
-- [ ] 3.1 Create `TourAdminService` or extend TourService:
+- [x] 3.1 Create `TourAdminService` with core methods:
   - `addTourAdmin(tourId, userId)` - Assign admin to tour
   - `removeTourAdmin(tourId, userId)` - Remove admin from tour
   - `getTourAdmins(tourId)` - List admins for tour
+  - `isTourAdmin(tourId, userId)` - Check if user is tour admin
+  - `getToursForAdmin(userId)` - Get all tours where user is admin
   - `canManageTour(userId, tourId)` - Check if user can manage tour
-- [ ] 3.2 Update authorization logic to respect tour admins
-- [ ] 3.3 Write tests for admin service
+  - `canManageTourAdmins(userId, tourId)` - Check if user can manage tour admins (more restrictive)
+  - `findById(id)` - Find tour admin by ID
+- [x] 3.2 Authorization logic respects tour admins (canManageTour allows SUPER_ADMIN, owner, tour admin)
+- [x] 3.3 Write tests for admin service
 
-#### Notes
-_Space for implementation notes_
+#### Notes (2025-12-24)
+**Files created:**
+- `src/services/tour-admin.service.ts` - Full tour admin service implementation
+
+**Types added to `src/types/index.ts`:**
+- `TourAdminWithUser` - Extends TourAdmin with user email and role
+
+**Service methods implemented:**
+- `addTourAdmin(tourId, userId)` - Validates tour/user exist, checks for duplicates
+- `removeTourAdmin(tourId, userId)` - Removes tour admin assignment
+- `getTourAdmins(tourId)` - Returns admins with user details, ordered by created_at
+- `isTourAdmin(tourId, userId)` - Simple boolean check
+- `getToursForAdmin(userId)` - Returns all tours where user is admin, ordered by name
+- `canManageTour(tourId, userId)` - SUPER_ADMIN, owner, or tour admin can manage
+- `canManageTourAdmins(tourId, userId)` - Only SUPER_ADMIN or owner can manage admins
+- `findById(id)` - Get tour admin by ID
+
+**Tests created:**
+- `tests/tour-admin-service.test.ts` - 33 tests covering all service methods
+
+**Verification:**
+- All 33 new tests pass
+- All 104 tour-related tests pass (schema + API + enrollment + admin service)
+- No regressions in backend tests
 
 ---
 
@@ -297,6 +323,15 @@ _Space for implementation notes_
 
 ## Progress Log
 
+### 2025-12-24 - Phase 3 Complete
+- **Phase 3 completed:**
+  - Created `TourAdminService` with 8 methods
+  - Implemented admin assignment/removal lifecycle
+  - Added `canManageTourAdmins` for more restrictive admin management
+  - Added `TourAdminWithUser` type for listing admins with user details
+  - Created 33 comprehensive tests for the admin service
+  - All 104 tour-related tests passing
+
 ### 2025-12-24 - Phase 2 Complete
 - **Phase 2 completed:**
   - Created `TourEnrollmentService` with 13 methods
@@ -367,6 +402,7 @@ https://domain.com/register?email=player@example.com
 - `src/types/index.ts` - New types ✅
 - `src/services/tour.service.ts` - Extend or split
 - `src/services/tour-enrollment.service.ts` - Enrollment business logic ✅
+- `src/services/tour-admin.service.ts` - Admin management ✅
 - `src/api/tours.ts` - New endpoints
 - `src/services/auth.service.ts` - Auto-enrollment
 - `frontend/src/views/admin/` - Admin UI
