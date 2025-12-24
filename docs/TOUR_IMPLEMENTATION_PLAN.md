@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-24
+> Last updated: 2025-12-24 (Phase 2 complete)
 
 ## Overview
 
@@ -26,7 +26,7 @@ Transform the existing basic Tour infrastructure into a full-featured individual
 - TypeScript types for all tour enrollment entities
 
 ### What's Missing (to be implemented in remaining phases)
-- Tour enrollment service (business logic)
+- ~~Tour enrollment service (business logic)~~ ✅ Phase 2
 - Tour admin service (business logic)
 - API endpoints for enrollments and admins
 - Registration flow with email pre-fill
@@ -114,11 +114,11 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 
 ---
 
-### Phase 2: Tour Enrollment Service
+### Phase 2: Tour Enrollment Service ✅ COMPLETE
 **Goal**: Backend logic for managing enrollments
 
 #### Tasks
-- [ ] 2.1 Create `TourEnrollmentService` with core methods:
+- [x] 2.1 Create `TourEnrollmentService` with core methods:
   - `addPendingEnrollment(tourId, email)` - Admin adds email
   - `requestEnrollment(tourId, playerId)` - Player requests to join
   - `approveEnrollment(enrollmentId)` - Admin approves request
@@ -126,11 +126,35 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
   - `getEnrollments(tourId, status?)` - List enrollments
   - `getEnrollmentByEmail(tourId, email)` - Check if email is enrolled
   - `activateEnrollment(tourId, email, playerId)` - Called when user registers
-- [ ] 2.2 Add method to check if user can view tour (based on visibility + enrollment)
-- [ ] 2.3 Write tests for enrollment service
+- [x] 2.2 Add method to check if user can view tour (based on visibility + enrollment)
+- [x] 2.3 Write tests for enrollment service
 
-#### Notes
-_Space for implementation notes_
+#### Notes (2025-12-24)
+**Files created:**
+- `src/services/tour-enrollment.service.ts` - Full enrollment service implementation
+
+**Service methods implemented:**
+- `addPendingEnrollment(tourId, email)` - Creates pending enrollment with normalized email
+- `requestEnrollment(tourId, playerId)` - Creates requested enrollment (validates tour allows requests)
+- `approveEnrollment(enrollmentId)` - Changes requested → active
+- `rejectEnrollment(enrollmentId)` - Deletes enrollment record
+- `getEnrollments(tourId, status?)` - Lists enrollments with optional status filter
+- `getEnrollmentByEmail(tourId, email)` - Case-insensitive email lookup
+- `findById(id)` - Get enrollment by ID
+- `activateEnrollment(tourId, email, playerId)` - Links player and activates pending enrollment
+- `getPendingEnrollmentsForEmail(email)` - Find all pending enrollments for an email (for auto-enrollment)
+- `canViewTour(tourId, userId)` - Authorization check (public tours, SUPER_ADMIN, owner, tour admin, active enrollee)
+- `canManageTour(tourId, userId)` - Management authorization (SUPER_ADMIN, owner, tour admin)
+- `getEnrollmentsForPlayer(playerId)` - All enrollments for a player
+- `removeEnrollment(tourId, enrollmentId)` - Delete enrollment with tour validation
+
+**Tests created:**
+- `tests/tour-enrollment-service.test.ts` - 44 tests covering all service methods
+
+**Verification:**
+- All 44 new tests pass
+- All 71 tour-related tests pass (schema + API + enrollment service)
+- No regressions in backend tests
 
 ---
 
@@ -273,6 +297,14 @@ _Space for implementation notes_
 
 ## Progress Log
 
+### 2025-12-24 - Phase 2 Complete
+- **Phase 2 completed:**
+  - Created `TourEnrollmentService` with 13 methods
+  - Implemented full enrollment lifecycle (pending → active, requested → active)
+  - Added authorization methods (`canViewTour`, `canManageTour`)
+  - Created 44 comprehensive tests for the enrollment service
+  - All 71 tour-related tests passing
+
 ### 2025-12-24 - Phase 1 Complete
 - Created initial implementation plan
 - Analyzed existing codebase architecture
@@ -331,9 +363,10 @@ https://domain.com/register?email=player@example.com
 ## Technical Notes
 
 ### Key Files to Modify
-- `src/database/migrations/` - New migrations
-- `src/types/index.ts` - New types
+- `src/database/migrations/` - New migrations ✅
+- `src/types/index.ts` - New types ✅
 - `src/services/tour.service.ts` - Extend or split
+- `src/services/tour-enrollment.service.ts` - Enrollment business logic ✅
 - `src/api/tours.ts` - New endpoints
 - `src/services/auth.service.ts` - Auto-enrollment
 - `frontend/src/views/admin/` - Admin UI
