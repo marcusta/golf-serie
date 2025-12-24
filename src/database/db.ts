@@ -18,6 +18,10 @@ import { AddPlayersMigration } from "./migrations/016_add_players";
 import { AddToursAndPointTemplatesMigration } from "./migrations/017_add_tours_and_point_templates";
 import { UpdateExistingTablesMigration } from "./migrations/018_update_existing_tables";
 import { AddStartModeToCompetitionsMigration } from "./migrations/019_add_start_mode_to_competitions";
+import { AddOpenPeriodToCompetitionsMigration } from "./migrations/020_add_open_period_to_competitions";
+import { AddTourEnrollmentsMigration } from "./migrations/021_add_tour_enrollments";
+import { AddTourAdminsMigration } from "./migrations/022_add_tour_admins";
+import { AddTourSettingsMigration } from "./migrations/023_add_tour_settings";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -67,6 +71,10 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddToursAndPointTemplatesMigration(db),
     new UpdateExistingTablesMigration(db),
     new AddStartModeToCompetitionsMigration(db),
+    new AddOpenPeriodToCompetitionsMigration(db),
+    new AddTourEnrollmentsMigration(db),
+    new AddTourAdminsMigration(db),
+    new AddTourSettingsMigration(db),
   ];
 
   // Apply pending migrations

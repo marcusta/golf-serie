@@ -249,3 +249,58 @@ export interface UpdateSeriesDocumentDto {
   title?: string;
   content?: string;
 }
+
+// Tour enrollment types
+export type TourEnrollmentStatus = "pending" | "requested" | "active";
+export type TourEnrollmentMode = "closed" | "request";
+export type TourVisibility = "private" | "public";
+
+export interface Tour {
+  id: number;
+  name: string;
+  description?: string;
+  owner_id: number;
+  enrollment_mode: TourEnrollmentMode;
+  visibility: TourVisibility;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TourEnrollment {
+  id: number;
+  tour_id: number;
+  player_id?: number;
+  email: string;
+  status: TourEnrollmentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TourAdmin {
+  id: number;
+  tour_id: number;
+  user_id: number;
+  created_at: string;
+}
+
+export interface CreateTourDto {
+  name: string;
+  description?: string;
+  enrollment_mode?: TourEnrollmentMode;
+  visibility?: TourVisibility;
+}
+
+export interface UpdateTourDto {
+  name?: string;
+  description?: string;
+  enrollment_mode?: TourEnrollmentMode;
+  visibility?: TourVisibility;
+}
+
+export interface CreateTourEnrollmentDto {
+  email: string;
+}
+
+export interface TourEnrollmentWithPlayer extends TourEnrollment {
+  player_name?: string;
+}
