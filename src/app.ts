@@ -36,12 +36,17 @@ export function createApp(db: Database): Hono {
   const participantService = new ParticipantService(db);
   const seriesService = new SeriesService(db, competitionService);
   const documentService = new DocumentService(db);
-  const authService = createAuthService(db);
   const playerService = createPlayerService(db);
   const pointTemplateService = createPointTemplateService(db);
   const tourService = createTourService(db);
   const tourEnrollmentService = createTourEnrollmentService(db);
   const tourAdminService = createTourAdminService(db);
+
+  // Auth service with auto-enrollment dependencies
+  const authService = createAuthService(db, {
+    tourEnrollmentService,
+    playerService,
+  });
 
   // Initialize APIs
   const coursesApi = createCoursesApi(courseService);

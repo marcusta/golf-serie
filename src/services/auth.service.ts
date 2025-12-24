@@ -1,22 +1,145 @@
 import { Database } from "bun:sqlite";
+import type { TourEnrollmentService } from "./tour-enrollment.service";
+import type { PlayerService } from "./player.service";
+import type { TourEnrollment } from "../types";
+
+export interface RegisterResult {
+  id: number;
+  email: string;
+  role: string;
+}
+
+export interface RegisterResultWithEnrollments extends RegisterResult {
+  player_id?: number;
+  auto_enrollments?: Array<{
+    tour_id: number;
+    tour_name: string;
+    enrollment_id: number;
+  }>;
+}
+
+export interface AuthServiceDependencies {
+  tourEnrollmentService?: TourEnrollmentService;
+  playerService?: PlayerService;
+}
 
 export class AuthService {
-  constructor(private db: Database) {}
+  private tourEnrollmentService?: TourEnrollmentService;
+  private playerService?: PlayerService;
 
-  async register(email: string, password: string, role: string = "PLAYER") {
+  constructor(private db: Database, deps?: AuthServiceDependencies) {
+    this.tourEnrollmentService = deps?.tourEnrollmentService;
+    this.playerService = deps?.playerService;
+  }
+
+  async register(
+    email: string,
+    password: string,
+    role: string = "PLAYER"
+  ): Promise<RegisterResultWithEnrollments> {
     // Check if user exists
-    const existing = this.db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+    const existing = this.db
+      .prepare("SELECT id FROM users WHERE email = ?")
+      .get(email);
     if (existing) {
       throw new Error("User already exists");
     }
 
     const passwordHash = await Bun.password.hash(password);
-    
-    const result = this.db.prepare(
-      "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?) RETURNING id, email, role"
-    ).get(email, passwordHash, role) as { id: number; email: string; role: string };
 
-    return result;
+    const result = this.db
+      .prepare(
+        "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?) RETURNING id, email, role"
+      )
+      .get(email, passwordHash, role) as RegisterResult;
+
+    // Check for pending tour enrollments and auto-enroll if services are available
+    const autoEnrollments = await this.processAutoEnrollments(
+      result.id,
+      email
+    );
+
+    return {
+      ...result,
+      player_id: autoEnrollments.playerId,
+      auto_enrollments: autoEnrollments.enrollments,
+    };
+  }
+
+  /**
+   * Process auto-enrollments for a newly registered user
+   * Checks for pending tour enrollments matching the email and activates them
+   */
+  private async processAutoEnrollments(
+    userId: number,
+    email: string
+  ): Promise<{
+    playerId?: number;
+    enrollments?: Array<{
+      tour_id: number;
+      tour_name: string;
+      enrollment_id: number;
+    }>;
+  }> {
+    // If services aren't available, skip auto-enrollment
+    if (!this.tourEnrollmentService || !this.playerService) {
+      return {};
+    }
+
+    // Check for pending enrollments
+    const pendingEnrollments =
+      this.tourEnrollmentService.getPendingEnrollmentsForEmail(email);
+
+    if (pendingEnrollments.length === 0) {
+      return {};
+    }
+
+    // Create a player profile for this user (using email as name initially)
+    const emailName = email.split("@")[0]; // Use part before @ as initial name
+    const player = this.playerService.create(
+      { name: emailName, user_id: userId },
+      userId
+    );
+
+    // Activate all pending enrollments
+    const activatedEnrollments: Array<{
+      tour_id: number;
+      tour_name: string;
+      enrollment_id: number;
+    }> = [];
+
+    for (const enrollment of pendingEnrollments) {
+      try {
+        const activated = this.tourEnrollmentService.activateEnrollment(
+          enrollment.tour_id,
+          email,
+          player.id
+        );
+
+        // Get tour name for the response
+        const tour = this.db
+          .prepare("SELECT name FROM tours WHERE id = ?")
+          .get(enrollment.tour_id) as { name: string } | null;
+
+        activatedEnrollments.push({
+          tour_id: enrollment.tour_id,
+          tour_name: tour?.name || "Unknown Tour",
+          enrollment_id: activated.id,
+        });
+      } catch (error) {
+        // Log but don't fail registration if an enrollment activation fails
+        console.warn(
+          `Failed to activate enrollment for tour ${enrollment.tour_id}:`,
+          error
+        );
+      }
+    }
+
+    return {
+      playerId: player.id,
+      enrollments:
+        activatedEnrollments.length > 0 ? activatedEnrollments : undefined,
+    };
   }
 
   async login(email: string, password: string) {
@@ -71,6 +194,6 @@ export class AuthService {
   }
 }
 
-export function createAuthService(db: Database) {
-  return new AuthService(db);
+export function createAuthService(db: Database, deps?: AuthServiceDependencies) {
+  return new AuthService(db, deps);
 }

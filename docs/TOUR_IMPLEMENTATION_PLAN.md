@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-24 (Phase 4 complete)
+> Last updated: 2025-12-24 (Phase 5 complete)
 
 ## Overview
 
@@ -29,8 +29,8 @@ Transform the existing basic Tour infrastructure into a full-featured individual
 - ~~Tour enrollment service (business logic)~~ ✅ Phase 2
 - ~~Tour admin service (business logic)~~ ✅ Phase 3
 - ~~API endpoints for enrollments and admins~~ ✅ Phase 4
-- Registration flow with email pre-fill
-- Auto-enrollment logic on registration
+- ~~Auto-enrollment logic on registration~~ ✅ Phase 5
+- Registration flow with email pre-fill (frontend)
 - Frontend UI for tour management
 - Complete tour standings calculation
 
@@ -257,19 +257,70 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 
 ---
 
-### Phase 5: Auto-Enrollment on Registration
+### Phase 5: Auto-Enrollment on Registration ✅ COMPLETE
 **Goal**: Automatically enroll users when they register with a pending email
 
 #### Tasks
-- [ ] 5.1 Modify `AuthService.register()` to:
+- [x] 5.1 Modify `AuthService.register()` to:
   - Check for pending enrollments matching the email
   - Create player profile if needed
   - Activate matching enrollments
-- [ ] 5.2 Return enrollment info in registration response
-- [ ] 5.3 Write tests for auto-enrollment flow
+- [x] 5.2 Return enrollment info in registration response
+- [x] 5.3 Write tests for auto-enrollment flow
 
-#### Notes
-_Space for implementation notes_
+#### Notes (2025-12-24)
+**Files modified:**
+- `src/services/auth.service.ts` - Added auto-enrollment logic and new interfaces
+- `src/app.ts` - Inject TourEnrollmentService and PlayerService into AuthService
+
+**New types/interfaces added to `auth.service.ts`:**
+- `RegisterResult` - Basic registration result (id, email, role)
+- `RegisterResultWithEnrollments` - Extends with player_id and auto_enrollments
+- `AuthServiceDependencies` - Optional services for auto-enrollment
+
+**Implementation details:**
+- `AuthService` now accepts optional `AuthServiceDependencies` with `tourEnrollmentService` and `playerService`
+- `register()` method calls `processAutoEnrollments()` after creating the user
+- `processAutoEnrollments()`:
+  - Checks for pending enrollments via `getPendingEnrollmentsForEmail()`
+  - Creates a player profile using email prefix as initial name
+  - Activates all matching enrollments, linking them to the new player
+  - Returns player_id and list of activated tours
+- Backward compatible: works without services (no auto-enrollment)
+- Error resilient: logs but doesn't fail if individual enrollment activation fails
+
+**Registration response now includes:**
+```json
+{
+  "user": {
+    "id": 1,
+    "email": "player@example.com",
+    "role": "PLAYER",
+    "player_id": 5,
+    "auto_enrollments": [
+      {
+        "tour_id": 1,
+        "tour_name": "Summer Tour 2025",
+        "enrollment_id": 12
+      }
+    ]
+  }
+}
+```
+
+**Tests created:**
+- `tests/auth-auto-enrollment.test.ts` - 15 tests covering:
+  - Registration without pending enrollments
+  - Registration with single pending enrollment
+  - Registration with multiple pending enrollments
+  - Backward compatibility (no services)
+  - Error handling
+  - Edge cases (special characters, case-insensitive matching)
+
+**Verification:**
+- All 15 new tests pass
+- All 160 tour and auth-related tests pass
+- No regressions in existing functionality
 
 ---
 
@@ -355,6 +406,16 @@ _Space for implementation notes_
 ---
 
 ## Progress Log
+
+### 2025-12-24 - Phase 5 Complete
+- **Phase 5 completed:**
+  - Modified `AuthService.register()` to check for pending tour enrollments
+  - Added `AuthServiceDependencies` interface for optional service injection
+  - Implemented `processAutoEnrollments()` for automatic player creation and enrollment activation
+  - Registration response now includes `player_id` and `auto_enrollments` when applicable
+  - Created 15 comprehensive tests in `tests/auth-auto-enrollment.test.ts`
+  - Updated `app.ts` to inject enrollment and player services into auth service
+  - All 160 tour and auth-related tests passing
 
 ### 2025-12-24 - Phase 4 Complete
 - **Phase 4 completed:**
@@ -448,8 +509,8 @@ https://domain.com/register?email=player@example.com
 - `src/services/tour.service.ts` - Extend or split
 - `src/services/tour-enrollment.service.ts` - Enrollment business logic ✅
 - `src/services/tour-admin.service.ts` - Admin management ✅
-- `src/api/tours.ts` - New endpoints
-- `src/services/auth.service.ts` - Auto-enrollment
+- `src/api/tours.ts` - New endpoints ✅
+- `src/services/auth.service.ts` - Auto-enrollment ✅
 - `frontend/src/views/admin/` - Admin UI
 - `frontend/src/views/player/` - Player UI
 

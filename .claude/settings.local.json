@@ -13,7 +13,9 @@
       "Bash(npm run deploy:*)",
       "Bash(bun run:*)",
       "Bash(bun test:*)",
-      "Bash(bunx tsc:*)"
+      "Bash(bunx tsc:*)",
+      "Bash(wc:*)",
+      "Bash(sqlite3:*)"
     ],
     "deny": []
   }
