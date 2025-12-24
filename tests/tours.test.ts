@@ -98,8 +98,8 @@ describe("Tours API", () => {
     });
   });
 
-  describe("GET /api/tours - List Tours (Public)", () => {
-    test("should list all tours without authentication", async () => {
+  describe("GET /api/tours - List Tours", () => {
+    test("should list public tours without authentication", async () => {
       await makeRequest("/api/auth/register", "POST", {
         email: "admin@test.com",
         password: "password123",
@@ -120,6 +120,9 @@ describe("Tours API", () => {
         name: "European Tour 2024",
       });
 
+      // Make tours public for unauthenticated access
+      db.prepare("UPDATE tours SET visibility = 'public'").run();
+
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest("/api/tours");
@@ -127,6 +130,33 @@ describe("Tours API", () => {
       expect(response.status).toBe(200);
       expect(Array.isArray(tours)).toBe(true);
       expect(tours.length).toBe(2);
+    });
+
+    test("should not list private tours without authentication", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      await makeRequest("/api/tours", "POST", {
+        name: "Private Tour",
+      });
+
+      // Tour is private by default
+      await makeRequest("/api/auth/logout", "POST");
+
+      const response = await makeRequest("/api/tours");
+      const tours = await expectJsonResponse(response);
+      expect(response.status).toBe(200);
+      expect(Array.isArray(tours)).toBe(true);
+      expect(tours.length).toBe(0);
     });
 
     test("should return empty array when no tours exist", async () => {
@@ -138,8 +168,8 @@ describe("Tours API", () => {
     });
   });
 
-  describe("GET /api/tours/:id - Get Tour (Public)", () => {
-    test("should get a single tour without authentication", async () => {
+  describe("GET /api/tours/:id - Get Tour", () => {
+    test("should get a public tour without authentication", async () => {
       await makeRequest("/api/auth/register", "POST", {
         email: "admin@test.com",
         password: "password123",
@@ -157,6 +187,9 @@ describe("Tours API", () => {
       });
       const created = await createResponse.json();
 
+      // Make tour public
+      db.prepare("UPDATE tours SET visibility = 'public' WHERE id = ?").run(created.id);
+
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(`/api/tours/${created.id}`);
@@ -164,6 +197,31 @@ describe("Tours API", () => {
       expect(response.status).toBe(200);
       expect(tour.id).toBe(created.id);
       expect(tour.name).toBe("PGA Tour 2024");
+    });
+
+    test("should return 404 for private tour without authentication", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      const createResponse = await makeRequest("/api/tours", "POST", {
+        name: "Private Tour",
+      });
+      const created = await createResponse.json();
+
+      // Tour is private by default
+      await makeRequest("/api/auth/logout", "POST");
+
+      const response = await makeRequest(`/api/tours/${created.id}`);
+      expectErrorResponse(response, 404);
     });
 
     test("should return 404 for non-existent tour", async () => {

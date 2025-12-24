@@ -1,27 +1,46 @@
 import { Hono } from "hono";
-import { requireRole } from "../middleware/auth";
+import { requireAuth, requireRole } from "../middleware/auth";
+import { TourAdminService } from "../services/tour-admin.service";
+import { TourEnrollmentService } from "../services/tour-enrollment.service";
 import { TourService } from "../services/tour.service";
 
-export function createToursApi(tourService: TourService) {
+export function createToursApi(
+  tourService: TourService,
+  enrollmentService: TourEnrollmentService,
+  adminService: TourAdminService
+) {
   const app = new Hono();
 
-  // GET /api/tours - Public: List all tours
+  // GET /api/tours - List tours (filtered by visibility)
   app.get("/", async (c) => {
     try {
+      const user = c.get("user");
       const tours = tourService.findAll();
-      return c.json(tours);
+
+      // Filter tours based on visibility
+      const visibleTours = tours.filter((tour) =>
+        enrollmentService.canViewTour(tour.id, user?.id ?? null)
+      );
+
+      return c.json(visibleTours);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);
     }
   });
 
-  // GET /api/tours/:id - Public: Get tour by ID
+  // GET /api/tours/:id - Get tour by ID (respects visibility)
   app.get("/:id", async (c) => {
     try {
+      const user = c.get("user");
       const id = parseInt(c.req.param("id"));
       const tour = tourService.findById(id);
 
       if (!tour) {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+
+      // Check visibility
+      if (!enrollmentService.canViewTour(id, user?.id ?? null)) {
         return c.json({ error: "Tour not found" }, 404);
       }
 
@@ -31,10 +50,17 @@ export function createToursApi(tourService: TourService) {
     }
   });
 
-  // GET /api/tours/:id/competitions - Public: Get tour's competitions
+  // GET /api/tours/:id/competitions - Get tour's competitions (respects visibility)
   app.get("/:id/competitions", async (c) => {
     try {
+      const user = c.get("user");
       const id = parseInt(c.req.param("id"));
+
+      // Check visibility
+      if (!enrollmentService.canViewTour(id, user?.id ?? null)) {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+
       const competitions = tourService.getCompetitions(id);
       return c.json(competitions);
     } catch (error: any) {
@@ -42,10 +68,17 @@ export function createToursApi(tourService: TourService) {
     }
   });
 
-  // GET /api/tours/:id/standings - Public: Get tour standings
+  // GET /api/tours/:id/standings - Get tour standings (respects visibility)
   app.get("/:id/standings", async (c) => {
     try {
+      const user = c.get("user");
       const id = parseInt(c.req.param("id"));
+
+      // Check visibility
+      if (!enrollmentService.canViewTour(id, user?.id ?? null)) {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+
       const standings = tourService.getStandings(id);
       return c.json(standings);
     } catch (error: any) {
@@ -125,6 +158,212 @@ export function createToursApi(tourService: TourService) {
       return c.json({ success: true });
     } catch (error: any) {
       return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // ==========================================
+  // ENROLLMENT ENDPOINTS
+  // ==========================================
+
+  // GET /api/tours/:id/enrollments - Admin: List enrollments
+  app.get("/:id/enrollments", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const status = c.req.query("status") as
+        | "pending"
+        | "requested"
+        | "active"
+        | undefined;
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const enrollments = enrollmentService.getEnrollments(id, status);
+      return c.json(enrollments);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // POST /api/tours/:id/enrollments - Admin: Add pending enrollment
+  app.post("/:id/enrollments", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const body = await c.req.json();
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      if (!body.email) {
+        return c.json({ error: "Email is required" }, 400);
+      }
+
+      const enrollment = enrollmentService.addPendingEnrollment(id, body.email);
+      return c.json(enrollment, 201);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // POST /api/tours/:id/enrollments/request - Player: Request to join
+  app.post("/:id/enrollments/request", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const body = await c.req.json();
+
+      if (!body.playerId) {
+        return c.json({ error: "Player ID is required" }, 400);
+      }
+
+      const enrollment = enrollmentService.requestEnrollment(id, body.playerId);
+      return c.json(enrollment, 201);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // PUT /api/tours/:id/enrollments/:enrollmentId/approve - Admin: Approve enrollment
+  app.put("/:id/enrollments/:enrollmentId/approve", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const enrollmentId = parseInt(c.req.param("enrollmentId"));
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      // Verify enrollment belongs to this tour
+      const enrollment = enrollmentService.findById(enrollmentId);
+      if (!enrollment || enrollment.tour_id !== id) {
+        return c.json({ error: "Enrollment not found" }, 404);
+      }
+
+      const approved = enrollmentService.approveEnrollment(enrollmentId);
+      return c.json(approved);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // DELETE /api/tours/:id/enrollments/:enrollmentId - Admin: Remove/reject enrollment
+  app.delete("/:id/enrollments/:enrollmentId", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const enrollmentId = parseInt(c.req.param("enrollmentId"));
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      enrollmentService.removeEnrollment(id, enrollmentId);
+      return c.json({ success: true });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // ==========================================
+  // TOUR ADMIN ENDPOINTS
+  // ==========================================
+
+  // GET /api/tours/:id/admins - List tour admins
+  app.get("/:id/admins", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+
+      // Check if user can manage tour (anyone who can manage can view admins)
+      if (!adminService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const admins = adminService.getTourAdmins(id);
+      return c.json(admins);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // POST /api/tours/:id/admins - Add tour admin
+  app.post("/:id/admins", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const body = await c.req.json();
+
+      // Check if user can manage tour admins (more restrictive)
+      if (!adminService.canManageTourAdmins(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      if (!body.userId) {
+        return c.json({ error: "User ID is required" }, 400);
+      }
+
+      const admin = adminService.addTourAdmin(id, body.userId);
+      return c.json(admin, 201);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // DELETE /api/tours/:id/admins/:userId - Remove tour admin
+  app.delete("/:id/admins/:userId", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const userId = parseInt(c.req.param("userId"));
+
+      // Check if user can manage tour admins (more restrictive)
+      if (!adminService.canManageTourAdmins(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      adminService.removeTourAdmin(id, userId);
+      return c.json({ success: true });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // ==========================================
+  // REGISTRATION LINK ENDPOINT
+  // ==========================================
+
+  // GET /api/tours/:id/registration-link - Generate registration link with email
+  app.get("/:id/registration-link", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const email = c.req.query("email");
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      if (!email) {
+        return c.json({ error: "Email is required" }, 400);
+      }
+
+      // Return the registration link format (frontend will construct the full URL)
+      return c.json({
+        email: email.toLowerCase(),
+        path: `/register?email=${encodeURIComponent(email.toLowerCase())}`,
+      });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
     }
   });
 
