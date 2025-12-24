@@ -12,6 +12,18 @@ export interface Tour {
   owner_id: number;
   enrollment_mode: TourEnrollmentMode;
   visibility: TourVisibility;
+  banner_image_url: string | null;
+  landing_document_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TourDocument {
+  id: number;
+  tour_id: number;
+  title: string;
+  content: string;
+  type: string;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +53,7 @@ export interface CreateTourData {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  banner_image_url?: string;
 }
 
 export interface UpdateTourData {
@@ -48,6 +61,20 @@ export interface UpdateTourData {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  banner_image_url?: string | null;
+  landing_document_id?: number | null;
+}
+
+export interface CreateTourDocumentData {
+  title: string;
+  content: string;
+  type?: string;
+}
+
+export interface UpdateTourDocumentData {
+  title?: string;
+  content?: string;
+  type?: string;
 }
 
 export function useTours() {
@@ -398,6 +425,137 @@ export function useUsers() {
         throw new Error("Failed to fetch users");
       }
       return response.json();
+    },
+  });
+}
+
+// Tour Document Hooks
+export function useTourDocuments(tourId: number) {
+  return useQuery<TourDocument[]>({
+    queryKey: ["tour-documents", tourId],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/documents`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch tour documents");
+      }
+      return response.json();
+    },
+    enabled: !!tourId,
+  });
+}
+
+export function useTourDocument(tourId: number, documentId: number) {
+  return useQuery<TourDocument>({
+    queryKey: ["tour-document", tourId, documentId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/documents/${documentId}`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch tour document");
+      }
+      return response.json();
+    },
+    enabled: !!tourId && !!documentId,
+  });
+}
+
+export function useCreateTourDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      data,
+    }: {
+      tourId: number;
+      data: CreateTourDocumentData;
+    }) => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create document");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-documents", variables.tourId] });
+    },
+  });
+}
+
+export function useUpdateTourDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      documentId,
+      data,
+    }: {
+      tourId: number;
+      documentId: number;
+      data: UpdateTourDocumentData;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/documents/${documentId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update document");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-documents", variables.tourId] });
+      queryClient.invalidateQueries({
+        queryKey: ["tour-document", variables.tourId, variables.documentId],
+      });
+    },
+  });
+}
+
+export function useDeleteTourDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      documentId,
+    }: {
+      tourId: number;
+      documentId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/documents/${documentId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete document");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-documents", variables.tourId] });
+      queryClient.invalidateQueries({ queryKey: ["tour", variables.tourId] });
     },
   });
 }

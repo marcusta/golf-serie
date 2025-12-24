@@ -1,13 +1,15 @@
 import { Hono } from "hono";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { TourAdminService } from "../services/tour-admin.service";
+import { TourDocumentService } from "../services/tour-document.service";
 import { TourEnrollmentService } from "../services/tour-enrollment.service";
 import { TourService } from "../services/tour.service";
 
 export function createToursApi(
   tourService: TourService,
   enrollmentService: TourEnrollmentService,
-  adminService: TourAdminService
+  adminService: TourAdminService,
+  documentService: TourDocumentService
 ) {
   const app = new Hono();
 
@@ -100,6 +102,7 @@ export function createToursApi(
         {
           name: body.name,
           description: body.description,
+          banner_image_url: body.banner_image_url,
         },
         user!.id
       );
@@ -130,6 +133,8 @@ export function createToursApi(
       const updated = tourService.update(id, {
         name: body.name,
         description: body.description,
+        banner_image_url: body.banner_image_url,
+        landing_document_id: body.landing_document_id,
       });
 
       return c.json(updated);
@@ -364,6 +369,157 @@ export function createToursApi(
       });
     } catch (error: any) {
       return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // ==========================================
+  // TOUR DOCUMENT ENDPOINTS
+  // ==========================================
+
+  // GET /api/tours/:id/documents/types - List document types for tour (respects visibility)
+  // NOTE: This route must be defined BEFORE /:id/documents/:documentId to avoid matching "types" as documentId
+  app.get("/:id/documents/types", async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+
+      // Check visibility
+      if (!enrollmentService.canViewTour(id, user?.id ?? null)) {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+
+      const types = await documentService.getDocumentTypes(id);
+      return c.json(types);
+    } catch (error: any) {
+      if (error.message === "Tour not found") {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /api/tours/:id/documents - List tour documents (respects visibility)
+  app.get("/:id/documents", async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+
+      // Check visibility
+      if (!enrollmentService.canViewTour(id, user?.id ?? null)) {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+
+      const documents = await documentService.findByTourId(id);
+      return c.json(documents);
+    } catch (error: any) {
+      if (error.message === "Tour not found") {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /api/tours/:id/documents/:documentId - Get single document (respects visibility)
+  app.get("/:id/documents/:documentId", async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const documentId = parseInt(c.req.param("documentId"));
+
+      // Check visibility
+      if (!enrollmentService.canViewTour(id, user?.id ?? null)) {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+
+      const document = await documentService.findById(documentId);
+      if (!document || document.tour_id !== id) {
+        return c.json({ error: "Document not found" }, 404);
+      }
+
+      return c.json(document);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // POST /api/tours/:id/documents - Admin: Create document
+  app.post("/:id/documents", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const body = await c.req.json();
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const document = await documentService.create({
+        title: body.title,
+        content: body.content,
+        type: body.type || "general",
+        tour_id: id,
+      });
+
+      return c.json(document, 201);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // PUT /api/tours/:id/documents/:documentId - Admin: Update document
+  app.put("/:id/documents/:documentId", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const documentId = parseInt(c.req.param("documentId"));
+      const body = await c.req.json();
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      // Verify document belongs to this tour
+      const existingDocument = await documentService.findById(documentId);
+      if (!existingDocument || existingDocument.tour_id !== id) {
+        return c.json({ error: "Document not found" }, 404);
+      }
+
+      const document = await documentService.update(documentId, {
+        title: body.title,
+        content: body.content,
+        type: body.type,
+      });
+
+      return c.json(document);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // DELETE /api/tours/:id/documents/:documentId - Admin: Delete document
+  app.delete("/:id/documents/:documentId", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const documentId = parseInt(c.req.param("documentId"));
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      // Verify document belongs to this tour
+      const existingDocument = await documentService.findById(documentId);
+      if (!existingDocument || existingDocument.tour_id !== id) {
+        return c.json({ error: "Document not found" }, 404);
+      }
+
+      await documentService.delete(documentId);
+      return c.json({ success: true });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
     }
   });
 

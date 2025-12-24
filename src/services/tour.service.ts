@@ -5,6 +5,10 @@ export type Tour = {
   name: string;
   description: string | null;
   owner_id: number;
+  enrollment_mode: string;
+  visibility: string;
+  banner_image_url: string | null;
+  landing_document_id: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -12,11 +16,14 @@ export type Tour = {
 export type CreateTourInput = {
   name: string;
   description?: string;
+  banner_image_url?: string;
 };
 
 export type UpdateTourInput = {
   name?: string;
   description?: string;
+  banner_image_url?: string | null;
+  landing_document_id?: number | null;
 };
 
 export type TourStanding = {
@@ -45,12 +52,17 @@ export class TourService {
     const result = this.db
       .prepare(
         `
-      INSERT INTO tours (name, description, owner_id)
-      VALUES (?, ?, ?)
+      INSERT INTO tours (name, description, owner_id, banner_image_url)
+      VALUES (?, ?, ?, ?)
       RETURNING *
     `
       )
-      .get(data.name, data.description || null, ownerId) as Tour;
+      .get(
+        data.name,
+        data.description || null,
+        ownerId,
+        data.banner_image_url || null
+      ) as Tour;
 
     return result;
   }
@@ -61,8 +73,24 @@ export class TourService {
       throw new Error("Tour not found");
     }
 
+    // Validate landing_document_id if provided
+    if (data.landing_document_id !== undefined && data.landing_document_id !== null) {
+      const documentStmt = this.db.prepare(`
+        SELECT id, tour_id FROM tour_documents WHERE id = ?
+      `);
+      const document = documentStmt.get(data.landing_document_id) as { id: number; tour_id: number } | undefined;
+
+      if (!document) {
+        throw new Error("Landing document not found");
+      }
+
+      if (document.tour_id !== id) {
+        throw new Error("Landing document must belong to the same tour");
+      }
+    }
+
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | null)[] = [];
 
     if (data.name !== undefined) {
       updates.push("name = ?");
@@ -72,6 +100,16 @@ export class TourService {
     if (data.description !== undefined) {
       updates.push("description = ?");
       values.push(data.description);
+    }
+
+    if (data.banner_image_url !== undefined) {
+      updates.push("banner_image_url = ?");
+      values.push(data.banner_image_url);
+    }
+
+    if (data.landing_document_id !== undefined) {
+      updates.push("landing_document_id = ?");
+      values.push(data.landing_document_id);
     }
 
     if (updates.length === 0) {
@@ -84,7 +122,7 @@ export class TourService {
     const result = this.db
       .prepare(
         `
-      UPDATE tours 
+      UPDATE tours
       SET ${updates.join(", ")}
       WHERE id = ?
       RETURNING *

@@ -530,7 +530,9 @@ export default function AdminCompetitions() {
             </div>
           ) : (
             competitions?.map((competition) => {
-              const course = getCourse(competition.course_id);
+              const course = getCourse(competition.course_id ?? 0);
+              // Check if this is a full Competition (not a TourCompetition)
+              const isFullCompetition = "series_id" in competition;
               return (
                 <div
                   key={competition.id}
@@ -546,23 +548,23 @@ export default function AdminCompetitions() {
                           <MapPin className="h-4 w-4" />
                           {course?.name || "Unknown Course"}
                         </div>
-                        {competition.series_id && (
+                        {isFullCompetition && (competition as Competition).series_id && (
                           <div className="flex items-center gap-1 text-blue-600">
                             <Award className="h-4 w-4" />
-                            {series?.find((s) => s.id === competition.series_id)
-                              ?.name || `Series #${competition.series_id}`}
+                            {series?.find((s) => s.id === (competition as Competition).series_id)
+                              ?.name || `Series #${(competition as Competition).series_id}`}
                           </div>
                         )}
-                        {competition.points_multiplier !== 1 && (
+                        {isFullCompetition && (competition as Competition).points_multiplier !== 1 && (
                           <div className="flex items-center gap-1 text-orange-600">
                             <Star className="h-4 w-4" />
-                            {competition.points_multiplier}x Points
+                            {(competition as Competition).points_multiplier}x Points
                           </div>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {competition.start_mode !== "open" && (
+                      {(!isFullCompetition || (competition as Competition).start_mode !== "open") && (
                         <Link
                           to={`/admin/competitions/${competition.id}/tee-times`}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -578,13 +580,15 @@ export default function AdminCompetitions() {
                       >
                         <ClipboardEdit className="h-4 w-4" />
                       </Link>
-                      <button
-                        onClick={() => handleEdit(competition)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit competition"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
+                      {isFullCompetition && (
+                        <button
+                          onClick={() => handleEdit(competition as Competition)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit competition"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(competition.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"

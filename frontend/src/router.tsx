@@ -33,6 +33,10 @@ import SeriesDocuments from "./views/player/SeriesDocuments";
 import SeriesDocumentDetail from "./views/player/SeriesDocumentDetail";
 import SeriesStandings from "./views/player/SeriesStandings";
 import SeriesCompetitions from "./views/player/SeriesCompetitions";
+import TourDetail from "./views/player/TourDetail";
+import TourDocuments from "./views/player/TourDocuments";
+import TourDocumentDetail from "./views/player/TourDocumentDetail";
+import TourCompetitions from "./views/player/TourCompetitions";
 
 // Import Auth views
 import Login from "./views/auth/Login";
@@ -173,6 +177,31 @@ const seriesCompetitionsRoute = new Route({
   component: SeriesCompetitions,
 });
 
+// Tour routes
+const tourDetailRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/tours/$tourId",
+  component: TourDetail,
+});
+
+const tourDocumentsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/tours/$tourId/documents",
+  component: TourDocuments,
+});
+
+const tourDocumentDetailRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/tours/$tourId/documents/$documentId",
+  component: TourDocumentDetail,
+});
+
+const tourCompetitionsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/tours/$tourId/competitions",
+  component: TourCompetitions,
+});
+
 const competitionDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId",
@@ -246,6 +275,10 @@ const routeTree = rootRoute.addChildren([
     seriesDocumentDetailRoute,
     seriesStandingsRoute,
     seriesCompetitionsRoute,
+    tourDetailRoute,
+    tourDocumentsRoute,
+    tourDocumentDetailRoute,
+    tourCompetitionsRoute,
     competitionDetailRoute,
     teeTimeDetailRoute,
   ]),

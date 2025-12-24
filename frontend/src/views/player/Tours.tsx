@@ -258,43 +258,82 @@ function TourCard({
   return (
     <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden hover:shadow-lg hover:-translate-y-1 hover:border-turf transition-all duration-300">
       <div className="relative">
-        <div
-          className="h-24 relative"
-          style={{
-            background: isEnrolled
-              ? "linear-gradient(135deg, var(--turf-green), var(--fairway-green))"
-              : "linear-gradient(135deg, var(--sky-blue), #0ea5e9)",
-          }}
-        >
-          <div className="absolute top-3 left-3 flex items-center gap-2">
-            {tour.visibility === "public" ? (
-              <span
-                className="text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 font-primary"
-                style={{
-                  backgroundColor: "rgba(248, 249, 250, 0.9)",
-                  color: "var(--turf-green)",
-                }}
-              >
-                <Globe className="w-3 h-3" />
-                PUBLIC
-              </span>
-            ) : (
-              <span
-                className="text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 font-primary"
-                style={{
-                  backgroundColor: "rgba(248, 249, 250, 0.9)",
-                  color: "var(--charcoal-text)",
-                }}
-              >
-                <Lock className="w-3 h-3" />
-                PRIVATE
-              </span>
-            )}
+        {tour.banner_image_url ? (
+          <div className="h-32 relative overflow-hidden">
+            <img
+              src={tour.banner_image_url}
+              alt={`${tour.name} banner`}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            <div className="absolute top-3 left-3 flex items-center gap-2">
+              {tour.visibility === "public" ? (
+                <span
+                  className="text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 font-primary"
+                  style={{
+                    backgroundColor: "rgba(248, 249, 250, 0.9)",
+                    color: "var(--turf-green)",
+                  }}
+                >
+                  <Globe className="w-3 h-3" />
+                  PUBLIC
+                </span>
+              ) : (
+                <span
+                  className="text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 font-primary"
+                  style={{
+                    backgroundColor: "rgba(248, 249, 250, 0.9)",
+                    color: "var(--charcoal-text)",
+                  }}
+                >
+                  <Lock className="w-3 h-3" />
+                  PRIVATE
+                </span>
+              )}
+            </div>
+            <div className="absolute bottom-3 left-3 right-3 text-scorecard">
+              <h4 className="text-lg font-bold font-display drop-shadow-md truncate">{tour.name}</h4>
+            </div>
           </div>
-          <div className="absolute bottom-3 left-3 text-scorecard">
-            <h4 className="text-lg font-bold font-display">{tour.name}</h4>
+        ) : (
+          <div
+            className="h-32 relative"
+            style={{
+              background: isEnrolled
+                ? "linear-gradient(135deg, var(--turf-green), var(--fairway-green))"
+                : "linear-gradient(135deg, var(--sky-blue), #0ea5e9)",
+            }}
+          >
+            <div className="absolute top-3 left-3 flex items-center gap-2">
+              {tour.visibility === "public" ? (
+                <span
+                  className="text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 font-primary"
+                  style={{
+                    backgroundColor: "rgba(248, 249, 250, 0.9)",
+                    color: "var(--turf-green)",
+                  }}
+                >
+                  <Globe className="w-3 h-3" />
+                  PUBLIC
+                </span>
+              ) : (
+                <span
+                  className="text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 font-primary"
+                  style={{
+                    backgroundColor: "rgba(248, 249, 250, 0.9)",
+                    color: "var(--charcoal-text)",
+                  }}
+                >
+                  <Lock className="w-3 h-3" />
+                  PRIVATE
+                </span>
+              )}
+            </div>
+            <div className="absolute bottom-3 left-3 right-3 text-scorecard">
+              <h4 className="text-lg font-bold font-display truncate">{tour.name}</h4>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="p-4">

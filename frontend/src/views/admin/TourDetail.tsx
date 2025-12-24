@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   useTour,
+  useUpdateTour,
   useTourCompetitions,
   useTourEnrollments,
   useAddEnrollment,
@@ -10,9 +11,14 @@ import {
   useTourAdmins,
   useAddTourAdmin,
   useRemoveTourAdmin,
+  useTourDocuments,
+  useCreateTourDocument,
+  useUpdateTourDocument,
+  useDeleteTourDocument,
   useUsers,
   type TourEnrollment,
   type TourEnrollmentStatus,
+  type TourDocument,
 } from "../../api/tours";
 import {
   Loader2,
@@ -30,9 +36,13 @@ import {
   UserPlus,
   Globe,
   Lock,
+  FileText,
+  Edit2,
+  Image,
+  Star,
 } from "lucide-react";
 
-type TabType = "competitions" | "enrollments" | "admins";
+type TabType = "competitions" | "enrollments" | "admins" | "documents" | "settings";
 
 export default function TourDetail() {
   const { id } = useParams({ from: "/admin/tours/$id" });
@@ -47,6 +57,18 @@ export default function TourDetail() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [adminError, setAdminError] = useState<string | null>(null);
 
+  // Document state
+  const [showDocumentDialog, setShowDocumentDialog] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<TourDocument | null>(null);
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [documentContent, setDocumentContent] = useState("");
+  const [documentError, setDocumentError] = useState<string | null>(null);
+
+  // Settings state
+  const [bannerImageUrl, setBannerImageUrl] = useState("");
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
   const { data: tour, isLoading: tourLoading } = useTour(tourId);
   const { data: competitions, isLoading: competitionsLoading } = useTourCompetitions(tourId);
   const { data: enrollments, isLoading: enrollmentsLoading } = useTourEnrollments(
@@ -54,13 +76,18 @@ export default function TourDetail() {
     statusFilter === "all" ? undefined : statusFilter
   );
   const { data: admins, isLoading: adminsLoading } = useTourAdmins(tourId);
+  const { data: documents, isLoading: documentsLoading } = useTourDocuments(tourId);
   const { data: users } = useUsers();
 
+  const updateTourMutation = useUpdateTour();
   const addEnrollmentMutation = useAddEnrollment();
   const approveEnrollmentMutation = useApproveEnrollment();
   const removeEnrollmentMutation = useRemoveEnrollment();
   const addAdminMutation = useAddTourAdmin();
   const removeAdminMutation = useRemoveTourAdmin();
+  const createDocumentMutation = useCreateTourDocument();
+  const updateDocumentMutation = useUpdateTourDocument();
+  const deleteDocumentMutation = useDeleteTourDocument();
 
   const handleAddEnrollment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +160,103 @@ export default function TourDetail() {
       }
     }
   };
+
+  // Document handlers
+  const openDocumentDialog = (doc?: TourDocument) => {
+    if (doc) {
+      setEditingDocument(doc);
+      setDocumentTitle(doc.title);
+      setDocumentContent(doc.content);
+    } else {
+      setEditingDocument(null);
+      setDocumentTitle("");
+      setDocumentContent("");
+    }
+    setDocumentError(null);
+    setShowDocumentDialog(true);
+  };
+
+  const closeDocumentDialog = () => {
+    setShowDocumentDialog(false);
+    setEditingDocument(null);
+    setDocumentTitle("");
+    setDocumentContent("");
+    setDocumentError(null);
+  };
+
+  const handleSaveDocument = async () => {
+    setDocumentError(null);
+
+    if (!documentTitle.trim()) {
+      setDocumentError("Title is required");
+      return;
+    }
+    if (!documentContent.trim()) {
+      setDocumentError("Content is required");
+      return;
+    }
+
+    try {
+      if (editingDocument) {
+        await updateDocumentMutation.mutateAsync({
+          tourId,
+          documentId: editingDocument.id,
+          data: { title: documentTitle, content: documentContent },
+        });
+      } else {
+        await createDocumentMutation.mutateAsync({
+          tourId,
+          data: { title: documentTitle, content: documentContent },
+        });
+      }
+      closeDocumentDialog();
+    } catch (err) {
+      setDocumentError(err instanceof Error ? err.message : "Failed to save document");
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: number) => {
+    if (confirm("Are you sure you want to delete this document?")) {
+      try {
+        await deleteDocumentMutation.mutateAsync({ tourId, documentId });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed to delete document");
+      }
+    }
+  };
+
+  const handleSetLandingDocument = async (documentId: number | null) => {
+    try {
+      await updateTourMutation.mutateAsync({
+        id: tourId,
+        data: { landing_document_id: documentId },
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to set landing document");
+    }
+  };
+
+  // Settings handlers
+  const handleSaveSettings = async () => {
+    setSettingsError(null);
+    setSettingsSaved(false);
+
+    try {
+      await updateTourMutation.mutateAsync({
+        id: tourId,
+        data: { banner_image_url: bannerImageUrl || null },
+      });
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 3000);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Failed to save settings");
+    }
+  };
+
+  // Initialize banner URL when tour loads
+  if (tour && bannerImageUrl === "" && tour.banner_image_url) {
+    setBannerImageUrl(tour.banner_image_url);
+  }
 
   const getStatusBadge = (status: TourEnrollmentStatus) => {
     switch (status) {
@@ -259,6 +383,33 @@ export default function TourDetail() {
           >
             <Shield className="w-4 h-4" />
             Admins
+          </button>
+          <button
+            onClick={() => setActiveTab("documents")}
+            className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === "documents"
+                ? "border-turf text-turf"
+                : "border-transparent text-charcoal/60 hover:text-charcoal"
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Documents
+            {documents && documents.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-charcoal/10 rounded-full">
+                {documents.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === "settings"
+                ? "border-turf text-turf"
+                : "border-transparent text-charcoal/60 hover:text-charcoal"
+            }`}
+          >
+            <Image className="w-4 h-4" />
+            Settings
           </button>
         </nav>
       </div>
@@ -535,6 +686,235 @@ export default function TourDetail() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "documents" && (
+        <div className="space-y-6">
+          {/* Landing Document Settings */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-charcoal mb-4">Landing Document</h3>
+            <p className="text-sm text-charcoal/60 mb-4">
+              Select a document to display as the main content when players view this tour.
+            </p>
+            <select
+              value={tour?.landing_document_id || ""}
+              onChange={(e) =>
+                handleSetLandingDocument(e.target.value ? parseInt(e.target.value) : null)
+              }
+              className="w-full max-w-md px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors bg-white"
+            >
+              <option value="">No landing document (show description)</option>
+              {documents?.map((doc) => (
+                <option key={doc.id} value={doc.id}>
+                  {doc.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Documents List */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-charcoal">Tour Documents</h3>
+              <button
+                onClick={() => openDocumentDialog()}
+                className="flex items-center gap-2 px-4 py-2 bg-fairway text-white rounded-lg hover:bg-turf transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Document
+              </button>
+            </div>
+
+            {documentsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-fairway" />
+              </div>
+            ) : documents && documents.length > 0 ? (
+              <div className="space-y-3">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="border border-soft-grey rounded-lg p-4 hover:bg-light-rough/30 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-charcoal">{doc.title}</h4>
+                          {tour?.landing_document_id === doc.id && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-turf/20 text-turf">
+                              <Star className="w-3 h-3" />
+                              Landing Page
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-charcoal/60 mt-1 line-clamp-2">
+                          {doc.content.substring(0, 150)}
+                          {doc.content.length > 150 && "..."}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <button
+                          onClick={() => openDocumentDialog(doc)}
+                          className="p-2 text-charcoal/60 hover:text-turf transition-colors"
+                          title="Edit document"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          disabled={deleteDocumentMutation.isPending}
+                          className="p-2 text-charcoal/60 hover:text-coral transition-colors"
+                          title="Delete document"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-charcoal/60">
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>No documents yet.</p>
+                <p className="text-sm mt-2">Add tour rules, information, or other content.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "settings" && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-charcoal mb-6">Tour Settings</h3>
+
+          <div className="space-y-6 max-w-2xl">
+            {/* Banner Image URL */}
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">
+                Banner Image URL
+              </label>
+              <input
+                type="url"
+                value={bannerImageUrl}
+                onChange={(e) => setBannerImageUrl(e.target.value)}
+                placeholder="https://example.com/banner.jpg"
+                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors"
+              />
+              <p className="text-sm text-charcoal/50 mt-1">
+                URL to an image that will be displayed as the tour hero banner.
+              </p>
+
+              {/* Preview */}
+              {bannerImageUrl && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-charcoal mb-2">Preview:</p>
+                  <div className="relative h-32 rounded-lg overflow-hidden border border-soft-grey">
+                    <img
+                      src={bannerImageUrl}
+                      alt="Banner preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = "";
+                        e.currentTarget.alt = "Failed to load image";
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {settingsError && (
+              <p className="text-coral text-sm">{settingsError}</p>
+            )}
+
+            {settingsSaved && (
+              <p className="text-fairway text-sm flex items-center gap-1">
+                <Check className="w-4 h-4" />
+                Settings saved successfully!
+              </p>
+            )}
+
+            <button
+              onClick={handleSaveSettings}
+              disabled={updateTourMutation.isPending}
+              className="flex items-center gap-2 px-6 py-2.5 bg-turf text-white rounded-xl hover:bg-fairway transition-colors disabled:opacity-50"
+            >
+              {updateTourMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              Save Settings
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Document Dialog */}
+      {showDocumentDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-soft-grey">
+              <h2 className="text-xl font-semibold text-charcoal">
+                {editingDocument ? "Edit Document" : "Create Document"}
+              </h2>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={documentTitle}
+                  onChange={(e) => setDocumentTitle(e.target.value)}
+                  placeholder="Document title"
+                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-2">
+                  Content (Markdown supported)
+                </label>
+                <textarea
+                  value={documentContent}
+                  onChange={(e) => setDocumentContent(e.target.value)}
+                  placeholder="Write your document content here. Markdown is supported."
+                  rows={12}
+                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors resize-none font-mono text-sm"
+                />
+              </div>
+
+              {documentError && (
+                <p className="text-coral text-sm">{documentError}</p>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-soft-grey flex justify-end gap-3">
+              <button
+                onClick={closeDocumentDialog}
+                className="px-4 py-2 text-charcoal/70 hover:text-charcoal transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveDocument}
+                disabled={createDocumentMutation.isPending || updateDocumentMutation.isPending}
+                className="flex items-center gap-2 px-6 py-2 bg-turf text-white rounded-lg hover:bg-fairway transition-colors disabled:opacity-50"
+              >
+                {(createDocumentMutation.isPending || updateDocumentMutation.isPending) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                {editingDocument ? "Save Changes" : "Create Document"}
+              </button>
+            </div>
           </div>
         </div>
       )}

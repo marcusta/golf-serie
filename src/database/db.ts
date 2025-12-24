@@ -22,6 +22,8 @@ import { AddOpenPeriodToCompetitionsMigration } from "./migrations/020_add_open_
 import { AddTourEnrollmentsMigration } from "./migrations/021_add_tour_enrollments";
 import { AddTourAdminsMigration } from "./migrations/022_add_tour_admins";
 import { AddTourSettingsMigration } from "./migrations/023_add_tour_settings";
+import { AddTourFieldsMigration } from "./migrations/024_add_tour_fields";
+import { AddTourDocumentsMigration } from "./migrations/025_add_tour_documents";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -75,6 +77,8 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddTourEnrollmentsMigration(db),
     new AddTourAdminsMigration(db),
     new AddTourSettingsMigration(db),
+    new AddTourFieldsMigration(db),
+    new AddTourDocumentsMigration(db),
   ];
 
   // Apply pending migrations

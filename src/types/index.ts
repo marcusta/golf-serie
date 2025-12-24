@@ -262,6 +262,8 @@ export interface Tour {
   owner_id: number;
   enrollment_mode: TourEnrollmentMode;
   visibility: TourVisibility;
+  banner_image_url?: string;
+  landing_document_id?: number;
   created_at: string;
   updated_at: string;
 }
@@ -288,6 +290,7 @@ export interface CreateTourDto {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  banner_image_url?: string;
 }
 
 export interface UpdateTourDto {
@@ -295,6 +298,8 @@ export interface UpdateTourDto {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  banner_image_url?: string;
+  landing_document_id?: number | null;
 }
 
 export interface CreateTourEnrollmentDto {
@@ -308,4 +313,28 @@ export interface TourEnrollmentWithPlayer extends TourEnrollment {
 export interface TourAdminWithUser extends TourAdmin {
   email: string;
   role: string;
+}
+
+// Tour document types
+export interface TourDocument {
+  id: number;
+  title: string;
+  content: string;
+  type: string;
+  tour_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTourDocumentDto {
+  title: string;
+  content: string;
+  type?: string;
+  tour_id: number;
+}
+
+export interface UpdateTourDocumentDto {
+  title?: string;
+  content?: string;
+  type?: string;
 }
