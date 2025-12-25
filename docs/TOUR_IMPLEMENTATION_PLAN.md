@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-25 (Phase 14 complete)
+> Last updated: 2025-12-25 (Phase 15 planned)
 
 ## Overview
 
@@ -1218,7 +1218,367 @@ Phase 11 added `scoring_mode` ('gross', 'net', 'both') to tours and Phase 12 add
 
 ---
 
-### Phase 15: Future Enhancements (Backlog)
+### Phase 15: Open Start - Player Self-Registration & Group Formation
+**Goal**: Enable tour-enrolled players to self-register for open competitions, form playing groups, and enter "play mode"
+
+#### Background
+
+For open-start competitions in Tours, players need to:
+1. Self-register for an open competition (no admin intervention)
+2. Optionally form playing groups with other enrolled players
+3. Enter "play mode" to score their round with easy leaderboard access
+
+Currently, open-start mode exists in the database but lacks player-facing functionality. The Start List is hidden for open competitions with no alternative way to access score entry.
+
+#### Key Design Decisions
+
+**Streamlined Group Formation:**
+- One player creates a group and directly adds other enrolled players
+- No invite codes visible to users, no accept/decline flow
+- Added players simply see "You're in a group" and can join the game
+- "Looking for Group" (LFG) status lets players signal availability
+
+**Registration Options:**
+| Option | Description |
+|--------|-------------|
+| Play Solo | Register alone, start immediately |
+| Create Group | See enrolled players, tap to add them |
+| Looking for Group | Signal availability, appear highlighted to group creators |
+
+**Player Status Flow:**
+```
+looking_for_group ──┐
+                    ├──► registered ──► playing ──► finished
+(join competition) ─┘         │            │
+                              └── withdrawn ┘
+```
+
+#### Database Schema
+
+```sql
+-- Track player registration for open competitions
+CREATE TABLE tour_competition_registrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  competition_id INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
+  player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  enrollment_id INTEGER NOT NULL REFERENCES tour_enrollments(id) ON DELETE CASCADE,
+
+  -- Group membership (players in same tee_time are in same group)
+  tee_time_id INTEGER REFERENCES tee_times(id) ON DELETE SET NULL,
+  participant_id INTEGER REFERENCES participants(id) ON DELETE SET NULL,
+
+  -- Status tracking
+  status TEXT NOT NULL DEFAULT 'registered',
+    -- 'looking_for_group' - Wants to be added by others
+    -- 'registered'        - Solo or in a group, ready to play
+    -- 'playing'           - Currently on course
+    -- 'finished'          - Scorecard locked
+    -- 'withdrawn'         - Left the competition
+
+  -- Group info
+  group_created_by INTEGER REFERENCES players(id),
+
+  -- Timestamps
+  registered_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  started_at TEXT,
+  finished_at TEXT,
+
+  UNIQUE(competition_id, player_id)
+);
+
+CREATE INDEX idx_tcr_competition_status ON tour_competition_registrations(competition_id, status);
+CREATE INDEX idx_tcr_tee_time ON tour_competition_registrations(tee_time_id);
+CREATE INDEX idx_tcr_player ON tour_competition_registrations(player_id);
+```
+
+#### Tasks
+
+##### Phase 15A: Database & Core Registration Service
+- [ ] 15A.1 Create migration 034 for `tour_competition_registrations` table
+- [ ] 15A.2 Add TypeScript types:
+  - `TourCompetitionRegistration` interface
+  - `RegistrationStatus` = 'looking_for_group' | 'registered' | 'playing' | 'finished' | 'withdrawn'
+  - `CreateRegistrationDto`, `AvailablePlayer` interfaces
+- [ ] 15A.3 Create `TourCompetitionRegistrationService`:
+  - `register(competitionId, playerId, mode)` - Register with solo/lfg/create_group mode
+  - `withdraw(competitionId, playerId)` - Remove registration
+  - `getRegistration(competitionId, playerId)` - Get player's registration
+  - `getRegistrationsForCompetition(competitionId)` - List all registrations
+  - `getAvailablePlayers(competitionId)` - Enrolled players with status (lfg, available, in_group, playing)
+  - `startPlaying(competitionId, playerId)` - Mark as playing, record start time
+  - `finishPlaying(competitionId, playerId)` - Mark as finished
+  - `getActiveRounds(playerId)` - Get all active rounds for player
+- [ ] 15A.4 Handle "Individual Players" team creation for tour (reuse or create per tour)
+- [ ] 15A.5 Auto-create tee_time and participant when registering
+- [ ] 15A.6 Write tests for registration service
+
+##### Phase 15B: Group Formation Service
+- [ ] 15B.1 Extend `TourCompetitionRegistrationService` with group methods:
+  - `addToGroup(competitionId, groupCreatorPlayerId, playerIdToAdd)` - Add player to group
+  - `removeFromGroup(competitionId, groupCreatorPlayerId, playerIdToRemove)` - Remove from group
+  - `leaveGroup(competitionId, playerId)` - Leave group, become solo
+  - `getGroupMembers(teeTimeId)` - Get all players in a group
+  - `isGroupFull(teeTimeId)` - Check if at max capacity (4)
+- [ ] 15B.2 When adding player to group:
+  - Move their participant to the group's tee_time
+  - Delete their solo tee_time if empty
+  - Update their registration with tee_time_id
+- [ ] 15B.3 When player leaves group:
+  - Create new solo tee_time for them
+  - Move their participant to new tee_time
+- [ ] 15B.4 Validate player can be added (enrolled, not already in group, not playing)
+- [ ] 15B.5 Write tests for group formation
+
+##### Phase 15C: Registration API Endpoints
+- [ ] 15C.1 Add registration endpoints to competitions API:
+  - `POST /api/competitions/:id/register` - Register for competition
+  - `DELETE /api/competitions/:id/register` - Withdraw from competition
+  - `GET /api/competitions/:id/my-registration` - Get my registration status
+  - `GET /api/competitions/:id/available-players` - List players for group formation
+- [ ] 15C.2 Add group management endpoints:
+  - `POST /api/competitions/:id/group/add` - Add player(s) to my group
+  - `POST /api/competitions/:id/group/remove` - Remove player from my group
+  - `POST /api/competitions/:id/group/leave` - Leave current group
+  - `GET /api/competitions/:id/group` - Get my current group members
+- [ ] 15C.3 Add play mode endpoints:
+  - `POST /api/competitions/:id/start-playing` - Mark as playing
+  - `GET /api/player/active-rounds` - Get all active rounds across tours
+- [ ] 15C.4 Authorization: Only enrolled players can register for tour competitions
+- [ ] 15C.5 Write API tests
+
+##### Phase 15D: Frontend - Registration Flow
+- [ ] 15D.1 Add React Query hooks for registration:
+  - `useMyRegistration(competitionId)`
+  - `useRegisterForCompetition()`
+  - `useWithdrawFromCompetition()`
+  - `useAvailablePlayers(competitionId)`
+- [ ] 15D.2 Create `JoinCompetitionFlow` component:
+  - Three options: Solo, Create Group, Looking for Group
+  - Shows handicap info and course handicap preview
+- [ ] 15D.3 Create `AddPlayersToGroup` component:
+  - List enrolled players with status indicators
+  - LFG players highlighted at top
+  - Tap to add, show current group
+- [ ] 15D.4 Create `GroupStatusCard` component:
+  - Shows "You're in a group with..."
+  - Join Game / Leave Group buttons
+- [ ] 15D.5 Update `TourDetail.tsx`:
+  - Show registration status for open competitions
+  - "Join Round" button when not registered
+  - Group status when registered
+- [ ] 15D.6 Update `TourCompetitions.tsx`:
+  - Show registration status per competition
+  - Quick join actions
+
+##### Phase 15E: Frontend - Group Management
+- [ ] 15E.1 Add React Query hooks for group management:
+  - `useAddToGroup()`
+  - `useRemoveFromGroup()`
+  - `useLeaveGroup()`
+  - `useGroupMembers(competitionId)`
+- [ ] 15E.2 Player list status indicators:
+  - 🟢 Looking for Group (highlighted)
+  - ⚪ Available (can be added)
+  - 🔵 In a group (show which group)
+  - 🎯 Playing (on course)
+  - ✓ Finished
+- [ ] 15E.3 Group capacity indicator (2/4 players)
+- [ ] 15E.4 Search/filter players by name
+
+##### Phase 15F: Frontend - Play Mode & Active Rounds
+- [ ] 15F.1 Add `useActiveRounds()` hook
+- [ ] 15F.2 Create `ActiveRoundBanner` component:
+  - Shows on TourDetail when player has active round
+  - "Continue Playing" button
+  - Current hole, score, group members
+- [ ] 15F.3 Update `TeeTimeDetail.tsx` for tour play mode:
+  - "View Leaderboard" button always visible
+  - Show player handicap strokes per hole (if net scoring)
+  - Mobile-optimized for on-course use
+- [ ] 15F.4 Add "My Rounds" section to player home/tour detail
+- [ ] 15F.5 Navigation from group status → score entry
+
+##### Phase 15G: Edge Cases & Polish
+- [ ] 15G.1 Handle competition closing:
+  - Auto-convert LFG players to solo registration
+  - Block new registrations after close
+- [ ] 15G.2 Handle player withdrawal:
+  - Remove from group, reassign if needed
+  - Mark scores appropriately
+- [ ] 15G.3 Group creator leaves:
+  - Group persists, no special handling needed
+- [ ] 15G.4 Max 4 players per group enforcement
+- [ ] 15G.5 Cleanup empty tee_times when groups merge/leave
+- [ ] 15G.6 Real-time updates (optional: WebSocket or polling)
+
+#### UI Mockups
+
+**Join Competition Flow:**
+```
+┌────────────────────────────────────┐
+│ Join Round 5                       │
+│ Landeryd GK • Open until 18:00     │
+│                                    │
+│ How do you want to play?           │
+│                                    │
+│ ┌────────────────────────────────┐ │
+│ │ 🎯 Play Solo                   │ │
+│ │    Start your round now        │ │
+│ └────────────────────────────────┘ │
+│                                    │
+│ ┌────────────────────────────────┐ │
+│ │ 👥 Play with Others            │ │
+│ │    Add players to your group   │ │
+│ └────────────────────────────────┘ │
+│                                    │
+│ ┌────────────────────────────────┐ │
+│ │ 🔍 Looking for Group           │ │
+│ │    Let others add you          │ │
+│ └────────────────────────────────┘ │
+└────────────────────────────────────┘
+```
+
+**Add Players to Group:**
+```
+┌────────────────────────────────────┐
+│ ← Back           Your Group (1/4)  │
+├────────────────────────────────────┤
+│ 🔍 Search players...               │
+├────────────────────────────────────┤
+│ Looking for Group                  │
+│ ┌────────────────────────────────┐ │
+│ │ 🟢 Johan S.    HCP 12.1   [+]  │ │
+│ │ 🟢 Maria L.    HCP 18.3   [+]  │ │
+│ └────────────────────────────────┘ │
+│                                    │
+│ Other Enrolled Players             │
+│ ┌────────────────────────────────┐ │
+│ │ ⚪ Erik B.     HCP 8.2    [+]  │ │
+│ │ 🔵 Anna K.     In a group      │ │
+│ │ 🎯 Peter M.    Playing         │ │
+│ └────────────────────────────────┘ │
+├────────────────────────────────────┤
+│ Your Group:                        │
+│ You (Marcus T.) • HCP 15.4         │
+│                                    │
+│ [Continue Solo]    [Start Round]   │
+└────────────────────────────────────┘
+```
+
+**Group Status (when added by someone):**
+```
+┌────────────────────────────────────┐
+│  👥 You're in a group!             │
+│                                    │
+│  Marcus T. added you to play:      │
+│    • Marcus T. (15.4)              │
+│    • You (12.1)                    │
+│    • Maria L. (18.3)               │
+│                                    │
+│  [Join Game]        [Leave Group]  │
+└────────────────────────────────────┘
+```
+
+**Active Round Banner:**
+```
+┌────────────────────────────────────┐
+│  🔴 LIVE                           │
+│  Round 5 • Hole 12 • +2            │
+│  With: Johan S., Maria L.          │
+│                                    │
+│  [Continue Playing]                │
+└────────────────────────────────────┘
+```
+
+#### API Examples
+
+```json
+// POST /api/competitions/123/register
+// Body: { "mode": "create_group" }
+// Response:
+{
+  "registration": {
+    "id": 456,
+    "competition_id": 123,
+    "player_id": 789,
+    "status": "registered",
+    "participant_id": 1001,
+    "tee_time_id": 555
+  },
+  "group": {
+    "tee_time_id": 555,
+    "players": [
+      { "player_id": 789, "name": "Marcus T.", "handicap": 15.4, "is_you": true }
+    ],
+    "max_players": 4
+  }
+}
+
+// GET /api/competitions/123/available-players
+{
+  "players": [
+    { "player_id": 101, "name": "Johan S.", "handicap": 12.1, "status": "looking_for_group" },
+    { "player_id": 102, "name": "Maria L.", "handicap": 18.3, "status": "looking_for_group" },
+    { "player_id": 103, "name": "Erik B.", "handicap": 8.2, "status": "available" },
+    { "player_id": 104, "name": "Anna K.", "handicap": 14.7, "status": "in_group", "group_tee_time_id": 556 },
+    { "player_id": 105, "name": "Peter M.", "handicap": 10.0, "status": "playing" }
+  ]
+}
+
+// POST /api/competitions/123/group/add
+// Body: { "player_ids": [101, 102] }
+{
+  "group": {
+    "tee_time_id": 555,
+    "players": [
+      { "player_id": 789, "name": "Marcus T.", "handicap": 15.4, "is_you": true },
+      { "player_id": 101, "name": "Johan S.", "handicap": 12.1 },
+      { "player_id": 102, "name": "Maria L.", "handicap": 18.3 }
+    ],
+    "max_players": 4
+  }
+}
+
+// GET /api/player/active-rounds
+{
+  "active_rounds": [
+    {
+      "tour_id": 1,
+      "tour_name": "Summer Tour 2025",
+      "competition_id": 123,
+      "competition_name": "Round 5",
+      "course_name": "Landeryd GK",
+      "tee_time_id": 555,
+      "participant_id": 1001,
+      "holes_played": 12,
+      "current_score": "+2",
+      "group": ["Marcus T.", "Johan S.", "Maria L."],
+      "open_until": "2025-12-26T18:00:00Z"
+    }
+  ]
+}
+```
+
+#### Technical Notes
+
+**Team Handling:**
+- Create a system team per tour called "Tour Players" or similar
+- All individual tour participants use this team
+- Alternatively, create team per player (player name as team name)
+
+**Tee Time Creation:**
+- When player registers, create tee_time with `teetime = ''` (open start, no specific time)
+- When adding to group, move participant to existing tee_time
+- Clean up empty tee_times when players leave
+
+**Participant Linking:**
+- Set `participant.player_id` to link to player record
+- This enables standings calculation (existing logic)
+- Use player's handicap from enrollment or profile
+
+---
+
+### Phase 16: Future Enhancements (Backlog)
 **Goal**: Track potential future improvements
 
 #### Potential Features
@@ -1232,10 +1592,33 @@ Phase 11 added `scoring_mode` ('gross', 'net', 'both') to tours and Phase 12 add
 - [ ] World Handicap System (WHS) integration
 - [ ] Multiple rounds per competition (36-hole events)
 - [ ] Cut line after round 1 for multi-round events
+- [ ] Real-time group updates via WebSocket
 
 ---
 
 ## Progress Log
+
+### 2025-12-25 - Phase 15 Planned
+- **Phase 15 planned (Open Start - Player Self-Registration & Group Formation):**
+  - Analyzed current open start mode implementation (database schema exists, UI incomplete)
+  - Designed streamlined group formation flow:
+    - One player creates group and directly adds other enrolled players
+    - No invite codes visible to users, no accept/decline flow
+    - Added players see "You're in a group" and can join the game
+    - "Looking for Group" (LFG) status lets players signal availability
+  - Defined database schema: `tour_competition_registrations` table
+  - Defined registration statuses: looking_for_group, registered, playing, finished, withdrawn
+  - Planned 7 sub-phases (15A-15G) covering:
+    - Database & Core Registration Service
+    - Group Formation Service
+    - Registration API Endpoints
+    - Frontend Registration Flow
+    - Frontend Group Management
+    - Frontend Play Mode & Active Rounds
+    - Edge Cases & Polish
+  - Created UI mockups for join flow, group management, and active round banner
+  - Documented API examples for all endpoints
+  - Renumbered "Future Enhancements" to Phase 16
 
 ### 2025-12-25 - Phase 14 Complete
 - **Phase 14 completed (Fix Categories & Net Scores Display):**
