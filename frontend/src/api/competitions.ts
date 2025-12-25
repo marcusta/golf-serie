@@ -27,11 +27,34 @@ export interface EnhancedCompetition extends Competition {
 }
 
 export interface LeaderboardEntry {
-  participant: TeeTimeParticipant;
+  participant: TeeTimeParticipant & { player_id?: number; handicap_index?: number };
   totalShots: number;
   holesPlayed: number;
   relativeToPar: number;
   startTime: string; // Start time from tee time data
+  // Net score fields (only present for tours with net/both scoring mode)
+  netTotalShots?: number;
+  netRelativeToPar?: number;
+  courseHandicap?: number;
+  handicapStrokesPerHole?: number[];
+}
+
+export type TourScoringMode = "gross" | "net" | "both";
+
+export interface TeeInfo {
+  id: number;
+  name: string;
+  color?: string;
+  courseRating: number;
+  slopeRating: number;
+  strokeIndex?: number[];
+}
+
+export interface LeaderboardResponse {
+  entries: LeaderboardEntry[];
+  competitionId: number;
+  scoringMode?: TourScoringMode;
+  tee?: TeeInfo;
 }
 
 // New interface for team leaderboard entries
@@ -99,6 +122,25 @@ export function useCompetitionLeaderboard(competitionId: number) {
     queryFn: async () => {
       const response = await fetch(
         `${API_BASE_URL}/competitions/${competitionId}/leaderboard`
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: competitionId > 0,
+  });
+}
+
+/**
+ * Fetch leaderboard with full details including tee info and net scores
+ */
+export function useCompetitionLeaderboardWithDetails(competitionId: number) {
+  return useQuery<LeaderboardResponse>({
+    queryKey: ["competition", competitionId, "leaderboard", "details"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/leaderboard/details`
       );
       if (!response.ok) {
         throw new Error("Network response was not ok");

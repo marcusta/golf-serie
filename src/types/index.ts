@@ -202,11 +202,32 @@ export interface UpdateParticipantDto {
 }
 
 export interface LeaderboardEntry {
-  participant: Participant & { team_name: string };
+  participant: Participant & { team_name: string; player_id?: number; handicap_index?: number };
   totalShots: number;
   holesPlayed: number;
   relativeToPar: number;
   startTime: string;
+  // Net score fields (only present for tours with net/both scoring mode)
+  netTotalShots?: number;
+  netRelativeToPar?: number;
+  courseHandicap?: number;
+  handicapStrokesPerHole?: number[];
+}
+
+export interface LeaderboardResponse {
+  entries: LeaderboardEntry[];
+  // Competition info
+  competitionId: number;
+  scoringMode?: TourScoringMode;
+  // Tee info (when competition has a tee assigned)
+  tee?: {
+    id: number;
+    name: string;
+    color?: string;
+    courseRating: number;
+    slopeRating: number;
+    strokeIndex?: number[];
+  };
 }
 
 export interface TeamLeaderboardEntry {

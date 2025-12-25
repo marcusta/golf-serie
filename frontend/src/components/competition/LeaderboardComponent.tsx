@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
-import type { LeaderboardEntry } from "../../api/competitions";
+import type { LeaderboardEntry, TourScoringMode, TeeInfo } from "../../api/competitions";
 
 interface LeaderboardComponentProps {
   leaderboard: LeaderboardEntry[] | undefined;
@@ -10,6 +10,10 @@ interface LeaderboardComponentProps {
   isRoundView?: boolean;
   // For Tour competitions - hide team/position info
   isTourCompetition?: boolean;
+  // Scoring mode from tour
+  scoringMode?: TourScoringMode;
+  // Tee info for display
+  teeInfo?: TeeInfo;
 }
 
 export function LeaderboardComponent({
@@ -18,9 +22,18 @@ export function LeaderboardComponent({
   onParticipantClick,
   isRoundView = false,
   isTourCompetition = false,
+  scoringMode,
+  teeInfo,
 }: LeaderboardComponentProps) {
   // Filter state
   const [filter, setFilter] = useState<"all" | "finished">("all");
+  // Sort mode for when scoring_mode is 'both' - defaults to 'net' for net-aware modes
+  const [sortBy, setSortBy] = useState<"gross" | "net">(
+    scoringMode === "net" || scoringMode === "both" ? "net" : "gross"
+  );
+
+  // Check if we should show net scores
+  const showNetScores = scoringMode === "net" || scoringMode === "both";
 
   // Helper function to determine player status
   const getPlayerStatus = (entry: LeaderboardEntry) => {
@@ -78,8 +91,12 @@ export function LeaderboardComponent({
         if (aHasInvalidScore && bNotStarted) return -1;
         if (aNotStarted && bHasInvalidScore) return 1;
 
-        // Within valid scores category: sort by relativeToPar (best score first)
+        // Within valid scores category: sort by score (best score first)
         if (aHasValidScore && bHasValidScore) {
+          // Use net score for sorting if sorting by net and net scores are available
+          if (sortBy === "net" && a.netRelativeToPar !== undefined && b.netRelativeToPar !== undefined) {
+            return a.netRelativeToPar - b.netRelativeToPar;
+          }
           return a.relativeToPar - b.relativeToPar;
         }
 
@@ -140,16 +157,28 @@ export function LeaderboardComponent({
   const content = (
     <div className="space-y-3 md:space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg md:text-xl font-semibold text-fairway font-display">
-          Leaderboard
-        </h2>
+        <div>
+          <h2 className="text-lg md:text-xl font-semibold text-fairway font-display">
+            Leaderboard
+          </h2>
+          {/* Show tee info if available */}
+          {teeInfo && (
+            <div className="text-xs text-turf font-primary mt-1">
+              <span
+                className="inline-block w-3 h-3 rounded-full mr-1.5 align-middle"
+                style={{ backgroundColor: teeInfo.color || '#666' }}
+              />
+              {teeInfo.name} Tees (CR: {teeInfo.courseRating.toFixed(1)}, SR: {teeInfo.slopeRating})
+            </div>
+          )}
+        </div>
         <div className="text-xs md:text-sm text-turf font-primary">
           Live scoring
         </div>
       </div>
 
       {/* Filter Controls */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setFilter("all")}
           className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -170,6 +199,32 @@ export function LeaderboardComponent({
         >
           Only Finished
         </button>
+
+        {/* Gross/Net toggle when scoring mode is 'both' */}
+        {scoringMode === "both" && (
+          <div className="ml-auto flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setSortBy("gross")}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                sortBy === "gross"
+                  ? "bg-scorecard text-charcoal shadow-sm"
+                  : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              Gross
+            </button>
+            <button
+              onClick={() => setSortBy("net")}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                sortBy === "net"
+                  ? "bg-scorecard text-charcoal shadow-sm"
+                  : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              Net
+            </button>
+          </div>
+        )}
       </div>
 
       {leaderboardLoading ? (
@@ -242,7 +297,7 @@ export function LeaderboardComponent({
                     </div>
 
                     {/* Score Section - Hole and Score side by side */}
-                    <div className="flex items-center space-x-4 text-right ml-auto">
+                    <div className="flex items-center space-x-3 text-right ml-auto">
                       {status === "NOT_STARTED" ? (
                         <div className="text-center">
                           <div className="text-xs text-gray-500">
@@ -262,9 +317,11 @@ export function LeaderboardComponent({
                             </div>
                           </div>
 
-                          {/* Score */}
+                          {/* Gross Score */}
                           <div className="text-center">
-                            <div className="text-xs text-gray-500">To Par</div>
+                            <div className="text-xs text-gray-500">
+                              {showNetScores ? "Gross" : "To Par"}
+                            </div>
                             <div
                               className={`text-xl font-bold ${
                                 isRoundInvalid
@@ -277,6 +334,24 @@ export function LeaderboardComponent({
                                 : formatToPar(entry.relativeToPar)}
                             </div>
                           </div>
+
+                          {/* Net Score - only show when scoring mode includes net */}
+                          {showNetScores && (
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">Net</div>
+                              <div
+                                className={`text-xl font-bold ${
+                                  isRoundInvalid || entry.netRelativeToPar === undefined
+                                    ? "text-gray-500"
+                                    : getToParColor(entry.netRelativeToPar)
+                                }`}
+                              >
+                                {isRoundInvalid || entry.netRelativeToPar === undefined
+                                  ? "-"
+                                  : formatToPar(entry.netRelativeToPar)}
+                              </div>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -378,11 +453,11 @@ export function LeaderboardComponent({
                                 </div>
                               </div>
 
-                              {/* Score */}
+                              {/* Gross Score */}
                               {status === "FINISHED" ? (
                                 <div className="text-center">
                                   <div className="text-xs text-gray-500">
-                                    Total
+                                    {showNetScores ? "Gross" : "Total"}
                                   </div>
                                   <div className="text-xl font-bold text-charcoal font-display">
                                     {isRoundInvalid ? "-" : entry.totalShots}
@@ -391,7 +466,7 @@ export function LeaderboardComponent({
                               ) : (
                                 <div className="text-center">
                                   <div className="text-xs text-gray-500">
-                                    To Par
+                                    {showNetScores ? "Gross" : "To Par"}
                                   </div>
                                   <div
                                     className={`text-xl font-bold font-display ${
@@ -405,6 +480,35 @@ export function LeaderboardComponent({
                                       : formatToPar(entry.relativeToPar)}
                                   </div>
                                 </div>
+                              )}
+
+                              {/* Net Score - only show when scoring mode includes net */}
+                              {showNetScores && (
+                                status === "FINISHED" ? (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">Net</div>
+                                    <div className="text-xl font-bold text-charcoal font-display">
+                                      {isRoundInvalid || entry.netTotalShots === undefined
+                                        ? "-"
+                                        : entry.netTotalShots}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">Net</div>
+                                    <div
+                                      className={`text-xl font-bold font-display ${
+                                        isRoundInvalid || entry.netRelativeToPar === undefined
+                                          ? "text-gray-500"
+                                          : getToParColor(entry.netRelativeToPar)
+                                      }`}
+                                    >
+                                      {isRoundInvalid || entry.netRelativeToPar === undefined
+                                        ? "-"
+                                        : formatToPar(entry.netRelativeToPar)}
+                                    </div>
+                                  </div>
+                                )
                               )}
                             </div>
                           )}

@@ -278,6 +278,12 @@ export function createApp(db: Database): Hono {
     return await competitionsApi.getLeaderboard(competitionId);
   });
 
+  // Leaderboard with full details (tee info, net scores)
+  app.get("/api/competitions/:competitionId/leaderboard/details", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await competitionsApi.getLeaderboardWithDetails(competitionId);
+  });
+
   app.get("/api/competitions/:competitionId/team-leaderboard", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));
     return await competitionsApi.getTeamLeaderboard(competitionId);

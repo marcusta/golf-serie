@@ -3,10 +3,17 @@ import type {
     Competition,
     CreateCompetitionDto,
     LeaderboardEntry,
+    LeaderboardResponse,
     Participant,
     TeamLeaderboardEntry,
+    TourScoringMode,
     UpdateCompetitionDto,
 } from "../types";
+import {
+    calculateCourseHandicap,
+    distributeHandicapStrokes,
+    getDefaultStrokeIndex,
+} from "../utils/handicap";
 
 function isValidYYYYMMDD(date: string): boolean {
   const parsed = Date.parse(date);
@@ -300,6 +307,14 @@ export class CompetitionService {
   }
 
   async getLeaderboard(competitionId: number): Promise<LeaderboardEntry[]> {
+    const response = await this.getLeaderboardWithDetails(competitionId);
+    return response.entries;
+  }
+
+  /**
+   * Get leaderboard with full details including tee info and net scores
+   */
+  async getLeaderboardWithDetails(competitionId: number): Promise<LeaderboardResponse> {
     // Verify competition exists and get course info
     const competitionStmt = this.db.prepare(`
       SELECT c.*, co.pars
@@ -313,10 +328,93 @@ export class CompetitionService {
     if (!competition) {
       throw new Error("Competition not found");
     }
-    console.log("competition leaderboard 1");
+
+    // Get tour scoring mode if this is a tour competition
+    let scoringMode: TourScoringMode | undefined;
+    if (competition.tour_id) {
+      const tourStmt = this.db.prepare("SELECT scoring_mode FROM tours WHERE id = ?");
+      const tour = tourStmt.get(competition.tour_id) as { scoring_mode: string } | null;
+      scoringMode = tour?.scoring_mode as TourScoringMode | undefined;
+    }
+
+    // Get tee info if competition has a tee assigned
+    let teeInfo: LeaderboardResponse["tee"] | undefined;
+    let strokeIndex: number[] = getDefaultStrokeIndex();
+    let courseRating = 72; // Default CR
+    let slopeRating = 113; // Default SR (standard)
+
+    if (competition.tee_id) {
+      const teeStmt = this.db.prepare(`
+        SELECT ct.*,
+               (SELECT json_group_array(json_object('gender', ctr.gender, 'course_rating', ctr.course_rating, 'slope_rating', ctr.slope_rating))
+                FROM course_tee_ratings ctr WHERE ctr.tee_id = ct.id) as ratings_json
+        FROM course_tees ct
+        WHERE ct.id = ?
+      `);
+      const tee = teeStmt.get(competition.tee_id) as any;
+
+      if (tee) {
+        // Parse stroke index if available
+        if (tee.stroke_index) {
+          try {
+            strokeIndex = typeof tee.stroke_index === "string"
+              ? JSON.parse(tee.stroke_index)
+              : tee.stroke_index;
+          } catch {
+            strokeIndex = getDefaultStrokeIndex();
+          }
+        }
+
+        // Get course rating and slope (use men's rating as default for now)
+        // TODO: In future, get player gender and use appropriate rating
+        courseRating = tee.course_rating || 72;
+        slopeRating = tee.slope_rating || 113;
+
+        // Try to get men's rating from ratings table
+        if (tee.ratings_json) {
+          try {
+            const ratings = JSON.parse(tee.ratings_json);
+            const menRating = ratings.find((r: any) => r.gender === "men");
+            if (menRating) {
+              courseRating = menRating.course_rating;
+              slopeRating = menRating.slope_rating;
+            }
+          } catch {
+            // Use legacy values
+          }
+        }
+
+        teeInfo = {
+          id: tee.id,
+          name: tee.name,
+          color: tee.color,
+          courseRating,
+          slopeRating,
+          strokeIndex,
+        };
+      }
+    }
+
+    // Get player handicaps from tour enrollments if this is a tour competition
+    const playerHandicaps = new Map<number, number>();
+    if (competition.tour_id && scoringMode && scoringMode !== "gross") {
+      const handicapsStmt = this.db.prepare(`
+        SELECT te.player_id, COALESCE(te.playing_handicap, p.handicap) as handicap_index
+        FROM tour_enrollments te
+        JOIN players p ON te.player_id = p.id
+        WHERE te.tour_id = ? AND te.player_id IS NOT NULL AND te.status = 'active'
+      `);
+      const handicaps = handicapsStmt.all(competition.tour_id) as { player_id: number; handicap_index: number | null }[];
+      for (const h of handicaps) {
+        if (h.handicap_index !== null) {
+          playerHandicaps.set(h.player_id, h.handicap_index);
+        }
+      }
+    }
+
     // Get all participants for this competition
     const participantsStmt = this.db.prepare(`
-      SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime
+      SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime, p.player_id
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN teams tm ON p.team_id = tm.id
@@ -327,13 +425,17 @@ export class CompetitionService {
       team_name: string;
       team_id: number;
       teetime: string;
+      player_id: number | null;
     })[];
+
     // Parse course pars
     const coursePars = JSON.parse(competition.pars);
     if (!coursePars || coursePars.length === 0) {
       throw new Error("Invalid course pars data structure, no pars found");
     }
     const pars = coursePars;
+    const totalPar = pars.reduce((sum: number, par: number) => sum + par, 0);
+
     // Calculate leaderboard entries
     const leaderboard: LeaderboardEntry[] = participants.map((participant) => {
       // Parse the score field
@@ -344,6 +446,20 @@ export class CompetitionService {
           ? participant.score
           : [];
 
+      // Get player handicap if available
+      const handicapIndex = participant.player_id
+        ? playerHandicaps.get(participant.player_id)
+        : undefined;
+
+      // Calculate course handicap and stroke distribution
+      let courseHandicap: number | undefined;
+      let handicapStrokesPerHole: number[] | undefined;
+
+      if (handicapIndex !== undefined && scoringMode && scoringMode !== "gross") {
+        courseHandicap = calculateCourseHandicap(handicapIndex, slopeRating, courseRating, totalPar);
+        handicapStrokesPerHole = distributeHandicapStrokes(courseHandicap, strokeIndex);
+      }
+
       // Check if participant has manual scores
       if (
         participant.manual_score_total !== null &&
@@ -352,67 +468,84 @@ export class CompetitionService {
         // Use manual scores
         const totalShots = participant.manual_score_total;
         const holesPlayed = 18; // Manual scores represent a full round
-
-        // Calculate relative to par based on manual total
-        const totalPar = pars.reduce(
-          (sum: number, par: number) => sum + par,
-          0
-        );
         const relativeToPar = totalShots - totalPar;
 
-        return {
-          participant: {
-            ...participant,
-            score,
-          },
-          totalShots,
-          holesPlayed,
-          relativeToPar,
-          startTime: participant.teetime,
-        };
-      } else {
-        // Use existing logic for hole-by-hole scores
-        // Count holes played: positive scores and -1 (gave up) count as played
-        // 0 means unreported/cleared, so it doesn't count as played
-        const holesPlayed = score.filter(
-          (s: number) => s > 0 || s === -1
-        ).length;
-
-        // Calculate total shots: only count positive scores
-        // -1 (gave up) and 0 (unreported) don't count towards total
-        const totalShots = score.reduce(
-          (sum: number, shots: number) => sum + (shots > 0 ? shots : 0),
-          0
-        );
-
-        // Calculate relative to par: only count positive scores
-        let relativeToPar = 0;
-        try {
-          for (let i = 0; i < score.length; i++) {
-            if (score[i] > 0 && pars[i] !== undefined) {
-              relativeToPar += score[i] - pars[i];
-            }
-            // Note: -1 (gave up) and 0 (unreported) don't contribute to par calculation
-          }
-        } catch (error) {
-          console.error("Error calculating relative to par", error);
-          throw error;
+        // Calculate net scores
+        let netTotalShots: number | undefined;
+        let netRelativeToPar: number | undefined;
+        if (courseHandicap !== undefined) {
+          netTotalShots = totalShots - courseHandicap;
+          netRelativeToPar = netTotalShots - totalPar;
         }
 
         return {
           participant: {
             ...participant,
             score,
+            handicap_index: handicapIndex,
           },
           totalShots,
           holesPlayed,
           relativeToPar,
           startTime: participant.teetime,
+          netTotalShots,
+          netRelativeToPar,
+          courseHandicap,
+          handicapStrokesPerHole,
+        };
+      } else {
+        // Use existing logic for hole-by-hole scores
+        const holesPlayed = score.filter(
+          (s: number) => s > 0 || s === -1
+        ).length;
+
+        const totalShots = score.reduce(
+          (sum: number, shots: number) => sum + (shots > 0 ? shots : 0),
+          0
+        );
+
+        let relativeToPar = 0;
+        for (let i = 0; i < score.length; i++) {
+          if (score[i] > 0 && pars[i] !== undefined) {
+            relativeToPar += score[i] - pars[i];
+          }
+        }
+
+        // Calculate net scores
+        let netTotalShots: number | undefined;
+        let netRelativeToPar: number | undefined;
+        if (courseHandicap !== undefined && holesPlayed === 18 && !score.includes(-1)) {
+          netTotalShots = totalShots - courseHandicap;
+          netRelativeToPar = netTotalShots - totalPar;
+        }
+
+        return {
+          participant: {
+            ...participant,
+            score,
+            handicap_index: handicapIndex,
+          },
+          totalShots,
+          holesPlayed,
+          relativeToPar,
+          startTime: participant.teetime,
+          netTotalShots,
+          netRelativeToPar,
+          courseHandicap,
+          handicapStrokesPerHole,
         };
       }
     });
+
     // Sort by relative to par (ascending)
-    return leaderboard.sort((a, b) => a.relativeToPar - b.relativeToPar);
+    const sortedLeaderboard = leaderboard.sort((a, b) => a.relativeToPar - b.relativeToPar);
+
+    return {
+      entries: sortedLeaderboard,
+      competitionId,
+      scoringMode,
+      tee: teeInfo,
+    };
   }
 
   async getTeamLeaderboard(

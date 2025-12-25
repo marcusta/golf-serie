@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import {
   useCompetition,
-  useCompetitionLeaderboard,
+  useCompetitionLeaderboardWithDetails,
   useCompetitionTeamLeaderboard,
 } from "../../api/competitions";
 import { useCourse } from "../../api/courses";
@@ -67,10 +67,15 @@ export default function CompetitionDetail() {
     refetch: refetchTeeTimes,
   } = useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
   const {
-    data: leaderboard,
+    data: leaderboardResponse,
     isLoading: leaderboardLoading,
     refetch: refetchLeaderboard,
-  } = useCompetitionLeaderboard(competitionId ? parseInt(competitionId) : 0);
+  } = useCompetitionLeaderboardWithDetails(competitionId ? parseInt(competitionId) : 0);
+
+  // Extract leaderboard entries and metadata
+  const leaderboard = leaderboardResponse?.entries;
+  const scoringMode = leaderboardResponse?.scoringMode;
+  const teeInfo = leaderboardResponse?.tee;
 
   const {
     data: teamLeaderboard,
@@ -359,6 +364,8 @@ export default function CompetitionDetail() {
             leaderboardLoading={leaderboardLoading}
             onParticipantClick={handleParticipantClick}
             isTourCompetition={!!competition?.tour_id}
+            scoringMode={scoringMode}
+            teeInfo={teeInfo}
           />
         )}
 

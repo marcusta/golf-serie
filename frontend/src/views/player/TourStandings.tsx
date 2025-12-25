@@ -467,9 +467,17 @@ export default function TourStandings() {
 
                     {/* Player Info */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-charcoal leading-tight mb-1">
-                        {standing.player_name}
-                      </h3>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-base font-semibold text-charcoal leading-tight">
+                          {standing.player_name}
+                        </h3>
+                        {/* Show category badge if player has a category and we're viewing "All Players" */}
+                        {standing.category_name && selectedCategoryId === undefined && (
+                          <span className="text-xs px-2 py-0.5 bg-turf/10 text-turf rounded-full font-medium">
+                            {standing.category_name}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-slate-500 leading-tight">
                         {standing.competitions_played} of{" "}
                         {standings.total_competitions} competitions
