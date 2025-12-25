@@ -9,6 +9,7 @@ export interface Competition {
   date: string;
   course_id: number;
   series_id?: number;
+  tour_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";

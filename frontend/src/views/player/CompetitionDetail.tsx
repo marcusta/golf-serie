@@ -316,27 +316,30 @@ export default function CompetitionDetail() {
               <Trophy className="h-3 w-3 md:h-4 md:w-4" />
               Leaderboard
             </button>
-            <button
-              onClick={() => {
-                setActiveTab("teamresult");
-                window.location.hash = "teamresult";
-                // Immediately fetch fresh data when switching to team results
-                console.log("Syncing data for team results view...");
-                refetchLeaderboard();
-                refetchTeamLeaderboard();
-                refetchTeeTimes();
-              }}
-              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
-                ${
-                  activeTab === "teamresult"
-                    ? "border-coral text-coral"
-                    : "border-transparent text-charcoal hover:text-turf hover:border-rough"
-                }
-              `}
-            >
-              <Medal className="h-3 w-3 md:h-4 md:w-4" />
-              Team Result
-            </button>
+            {/* Only show Team Result tab for Series competitions (not Tour competitions) */}
+            {!competition?.tour_id && (
+              <button
+                onClick={() => {
+                  setActiveTab("teamresult");
+                  window.location.hash = "teamresult";
+                  // Immediately fetch fresh data when switching to team results
+                  console.log("Syncing data for team results view...");
+                  refetchLeaderboard();
+                  refetchTeamLeaderboard();
+                  refetchTeeTimes();
+                }}
+                className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
+                  ${
+                    activeTab === "teamresult"
+                      ? "border-coral text-coral"
+                      : "border-transparent text-charcoal hover:text-turf hover:border-rough"
+                  }
+                `}
+              >
+                <Medal className="h-3 w-3 md:h-4 md:w-4" />
+                Team Result
+              </button>
+            )}
           </nav>
         </div>
 
@@ -355,6 +358,7 @@ export default function CompetitionDetail() {
             leaderboard={leaderboard}
             leaderboardLoading={leaderboardLoading}
             onParticipantClick={handleParticipantClick}
+            isTourCompetition={!!competition?.tour_id}
           />
         )}
 
@@ -374,6 +378,7 @@ export default function CompetitionDetail() {
         participant={scorecardParticipantData}
         course={scorecardCourseData}
         onClose={handleCloseScorecardModal}
+        isTourCompetition={!!competition?.tour_id}
       />
     </PlayerPageLayout>
   );

@@ -207,12 +207,16 @@ export function useDeleteTour() {
   });
 }
 
-interface TourCompetition {
+export interface TourCompetition {
   id: number;
   name: string;
   date: string;
   course_id?: number;
   course_name?: string;
+  // Open mode fields for detecting currently active rounds
+  start_mode?: "scheduled" | "open";
+  open_start?: string;
+  open_end?: string;
 }
 
 export function useTourCompetitions(id: number) {

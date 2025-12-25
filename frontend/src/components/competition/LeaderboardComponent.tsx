@@ -8,6 +8,8 @@ interface LeaderboardComponentProps {
   onParticipantClick: (participantId: number) => void;
   // For CompetitionRound context
   isRoundView?: boolean;
+  // For Tour competitions - hide team/position info
+  isTourCompetition?: boolean;
 }
 
 export function LeaderboardComponent({
@@ -15,6 +17,7 @@ export function LeaderboardComponent({
   leaderboardLoading,
   onParticipantClick,
   isRoundView = false,
+  isTourCompetition = false,
 }: LeaderboardComponentProps) {
   // Filter state
   const [filter, setFilter] = useState<"all" | "finished">("all");
@@ -217,17 +220,21 @@ export function LeaderboardComponent({
                             <h3 className="text-body-lg font-semibold text-charcoal font-display">
                               {entry.participant.player_names}
                             </h3>
-                            <p className="text-label-sm text-turf font-primary">
-                              {entry.participant.team_name}{" "}
-                              {entry.participant.position_name}
-                            </p>
+                            {/* Hide team/position for Tour competitions */}
+                            {!isTourCompetition && (
+                              <p className="text-label-sm text-turf font-primary">
+                                {entry.participant.team_name}{" "}
+                                {entry.participant.position_name}
+                              </p>
+                            )}
                           </>
                         ) : (
-                          // No player name - show team name + position
+                          // No player name - show team name + position (unless Tour competition)
                           <>
                             <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                              {entry.participant.team_name}{" "}
-                              {entry.participant.position_name}
+                              {isTourCompetition
+                                ? entry.participant.position_name
+                                : `${entry.participant.team_name} ${entry.participant.position_name}`}
                             </h3>
                           </>
                         )}
@@ -289,7 +296,7 @@ export function LeaderboardComponent({
                       Pos
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-charcoal font-display">
-                      Player/Team
+                      {isTourCompetition ? "Player" : "Player/Team"}
                     </th>
                     <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
                       Hole & Score
@@ -329,17 +336,21 @@ export function LeaderboardComponent({
                                 <div className="text-body-md font-semibold text-charcoal font-display">
                                   {entry.participant.player_names}
                                 </div>
-                                <div className="text-label-sm text-turf font-primary">
-                                  {entry.participant.team_name}{" "}
-                                  {entry.participant.position_name}
-                                </div>
+                                {/* Hide team/position for Tour competitions */}
+                                {!isTourCompetition && (
+                                  <div className="text-label-sm text-turf font-primary">
+                                    {entry.participant.team_name}{" "}
+                                    {entry.participant.position_name}
+                                  </div>
+                                )}
                               </>
                             ) : (
-                              // No player name - show team name + position
+                              // No player name - show team name + position (unless Tour competition)
                               <>
                                 <div className="text-body-md font-semibold text-charcoal font-display">
-                                  {entry.participant.team_name}{" "}
-                                  {entry.participant.position_name}
+                                  {isTourCompetition
+                                    ? entry.participant.position_name
+                                    : `${entry.participant.team_name} ${entry.participant.position_name}`}
                                 </div>
                               </>
                             )}

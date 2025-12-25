@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-24 (Phase 9 complete, Phases 10-12 planned)
+> Last updated: 2025-12-24 (Phase 10 complete, Phases 11-12 planned)
 
 ## Overview
 
@@ -35,6 +35,8 @@ Transform the existing basic Tour infrastructure into a full-featured individual
 - ~~Frontend UI for tour management~~ ✅ Phase 6
 - ~~Registration flow with email pre-fill (frontend)~~ ✅ Phase 7
 - ~~Complete tour standings calculation~~ ✅ Phase 9
+- ~~Fix Series/Team leakage in Tour UI~~ ✅ Phase 10
+- ~~Add current round quick access~~ ✅ Phase 10
 
 ---
 
@@ -550,7 +552,7 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 
 ---
 
-### Phase 10: UI Polish & Bug Fixes
+### Phase 10: UI Polish & Bug Fixes ✅ COMPLETE
 **Goal**: Fix Series/Team leakage in Tour UI and improve UX
 
 #### Bug Fixes
@@ -565,10 +567,10 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 - `frontend/src/views/player/CompetitionDetail.tsx`
 
 **Changes:**
-- [ ] 10.1.1 Add `tour_id` to frontend Competition type (already in backend)
-- [ ] 10.1.2 Hide "Team Result" tab when `competition.tour_id` is set
-- [ ] 10.1.3 Change column header from "Player/Team" to "Player" for Tour competitions
-- [ ] 10.1.4 Hide team_name display under player name for Tour competitions
+- [x] 10.1.1 Add `tour_id` to frontend Competition type (already in backend)
+- [x] 10.1.2 Hide "Team Result" tab when `competition.tour_id` is set
+- [x] 10.1.3 Change column header from "Player/Team" to "Player" for Tour competitions
+- [x] 10.1.4 Hide team_name display under player name for Tour competitions
 
 ##### 10.2 Scorecard Modal - Team/Position Leakage
 **Problem**: Scorecard shows "Individual Players, Individual" instead of clean player display
@@ -578,9 +580,9 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 - `frontend/src/components/scorecard/Scorecard.tsx`
 
 **Changes:**
-- [ ] 10.2.1 Pass `isTourCompetition` flag to scorecard components
-- [ ] 10.2.2 When tour competition, don't show team_name/position_name
-- [ ] 10.2.3 Only show player name in scorecard header for Tour participants
+- [x] 10.2.1 Pass `isTourCompetition` flag to scorecard components
+- [x] 10.2.2 When tour competition, don't show team_name/position_name
+- [x] 10.2.3 Only show player name in scorecard header for Tour participants
 
 ##### 10.3 Current Round Quick Access
 **Problem**: No easy way to quickly access the currently open round from Tour detail page
@@ -590,20 +592,32 @@ ALTER TABLE tours ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private';
 - `frontend/src/views/player/TourCompetitions.tsx`
 
 **Changes:**
-- [ ] 10.3.1 Add "Play Now" card/button on TourDetail when a round is currently open
-- [ ] 10.3.2 Highlight current open round in competitions list with visual indicator
-- [ ] 10.3.3 Show "Open until [date]" badge on current competition
-- [ ] 10.3.4 Add "Current Round" filter/jump button in TourCompetitions
+- [x] 10.3.1 Add "Play Now" card/button on TourDetail when a round is currently open
+- [x] 10.3.2 Highlight current open round in competitions list with visual indicator
+- [x] 10.3.3 Show "Open until [date]" badge on current competition
+- [x] 10.3.4 Add "Current Round" filter/jump button in TourCompetitions
 
-#### Edge Cases (deferred from original Phase 10)
+#### Edge Cases (deferred)
 - [ ] 10.4 Handle player deletion (what happens to enrollments?)
 - [ ] 10.5 Handle tour deletion (cascade enrollments)
 - [ ] 10.6 Add email validation in enrollment
 - [ ] 10.7 Add pagination for large enrollment lists
 - [ ] 10.8 E2E tests for critical flows
 
-#### Notes
-_Space for implementation notes_
+#### Notes (2025-12-24)
+**Files modified:**
+- `frontend/src/api/competitions.ts` - Added `tour_id` to Competition interface
+- `frontend/src/api/tours.ts` - Updated TourCompetition interface with open mode fields (start_mode, open_start, open_end)
+- `frontend/src/views/player/CompetitionDetail.tsx` - Hide Team Result tab for Tour competitions, pass isTourCompetition to LeaderboardComponent and ParticipantScorecard
+- `frontend/src/components/competition/LeaderboardComponent.tsx` - Added isTourCompetition prop, conditional column header "Player" vs "Player/Team", hide team/position info for Tour competitions
+- `frontend/src/components/scorecard/ParticipantScorecard.tsx` - Added isTourCompetition prop, conditionally hide type info in scorecard
+- `frontend/src/views/player/TourDetail.tsx` - Added "Play Now" card with LIVE indicator for currently open rounds
+- `frontend/src/views/player/TourCompetitions.tsx` - Added "Open Now" filter button, highlight open competitions with coral border/ring, LIVE badge, and "Open until" date display
+
+**Verification:**
+- Frontend TypeScript compilation passes
+- All lint errors are pre-existing (not related to Phase 10 changes)
+- No new regressions introduced
 
 ---
 
@@ -898,6 +912,28 @@ _Space for implementation notes_
 ---
 
 ## Progress Log
+
+### 2025-12-24 - Phase 10 Complete
+- **Phase 10 completed (UI Polish & Bug Fixes):**
+  - **10.1 Competition Leaderboard - Series/Team Leakage:**
+    - Added `tour_id` to frontend Competition interface
+    - "Team Result" tab now hidden for Tour competitions
+    - Column header shows "Player" instead of "Player/Team" for Tours
+    - Team/position info hidden under player names for Tour competitions
+  - **10.2 Scorecard Modal - Team/Position Leakage:**
+    - Added `isTourCompetition` prop to ParticipantScorecard
+    - Scorecard header now shows only player name for Tour participants
+    - Team/position "type" display hidden for Tour competitions
+  - **10.3 Current Round Quick Access:**
+    - Added "Play Now" card on TourDetail with LIVE indicator for open rounds
+    - Shows "Open until [date]" with formatted end time
+    - Added `TourCompetition` interface with open mode fields (start_mode, open_start, open_end)
+    - Added "Open Now" filter button in TourCompetitions (only shows when there are open competitions)
+    - Open competitions highlighted with coral border, ring, and LIVE badge
+    - Competition cards show "OPEN NOW" badge and "Open until [date]" text
+  - Edge cases (10.4-10.8) deferred for future implementation
+  - All frontend TypeScript compilation passes
+  - No new regressions introduced
 
 ### 2025-12-24 - Phases 10-12 Planned
 - **Identified UI bugs from manual testing:**

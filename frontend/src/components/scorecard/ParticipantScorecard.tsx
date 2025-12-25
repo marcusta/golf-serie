@@ -24,6 +24,8 @@ interface ParticipantScorecardProps {
   participant: ParticipantData | null;
   course: CourseData | null;
   onClose: () => void;
+  // For Tour competitions - hide team/position info in scorecard header
+  isTourCompetition?: boolean;
 }
 
 export function ParticipantScorecard({
@@ -31,6 +33,7 @@ export function ParticipantScorecard({
   participant,
   course,
   onClose,
+  isTourCompetition = false,
 }: ParticipantScorecardProps) {
   if (!visible || !participant || !course) return null;
 
@@ -57,7 +60,10 @@ export function ParticipantScorecard({
               participant={{
                 id: participant.id.toString(),
                 name: participant.player_names || participant.position_name,
-                type: participant.player_names
+                // Hide team/position info for Tour competitions
+                type: isTourCompetition
+                  ? undefined
+                  : participant.player_names
                   ? `${participant.team_name}, ${participant.position_name}`
                   : participant.team_name,
                 scores: participant.score,

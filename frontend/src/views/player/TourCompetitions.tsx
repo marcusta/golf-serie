@@ -1,5 +1,5 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { useTour, useTourCompetitions } from "@/api/tours";
+import { useTour, useTourCompetitions, type TourCompetition } from "@/api/tours";
 import {
   Calendar,
   ChevronRight,
@@ -7,8 +7,9 @@ import {
   RefreshCw,
   Search,
   MapPin,
+  Play,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 
@@ -69,9 +70,20 @@ function ErrorState({
 export default function TourCompetitions() {
   const { tourId } = useParams({ from: "/player/tours/$tourId/competitions" });
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "upcoming" | "past">("all");
+  const [filter, setFilter] = useState<"all" | "open" | "upcoming" | "past">("all");
 
   const id = parseInt(tourId);
+
+  // Helper function to check if a competition is currently open
+  const isCompetitionOpen = useCallback((comp: TourCompetition): boolean => {
+    if (comp.start_mode !== "open" || !comp.open_start || !comp.open_end) {
+      return false;
+    }
+    const now = new Date();
+    const openStart = new Date(comp.open_start);
+    const openEnd = new Date(comp.open_end);
+    return now >= openStart && now <= openEnd;
+  }, []);
   const {
     data: tour,
     isLoading: tourLoading,
@@ -108,15 +120,22 @@ export default function TourCompetitions() {
       compDate.setHours(0, 0, 0, 0);
       const isUpcoming = compDate >= today;
       const isPast = compDate < today;
+      const isOpen = isCompetitionOpen(comp);
 
       const matchesFilter =
         filter === "all" ||
+        (filter === "open" && isOpen) ||
         (filter === "upcoming" && isUpcoming) ||
         (filter === "past" && isPast);
 
       return matchesSearch && matchesFilter;
     });
-  }, [competitions, searchQuery, filter, today]);
+  }, [competitions, searchQuery, filter, today, isCompetitionOpen]);
+
+  // Check if there are any open competitions (for showing "Open" filter button)
+  const hasOpenCompetitions = useMemo(() => {
+    return competitions?.some(isCompetitionOpen) || false;
+  }, [competitions, isCompetitionOpen]);
 
   // Group by month
   const groupedCompetitions = useMemo(() => {
@@ -200,7 +219,21 @@ export default function TourCompetitions() {
               className="w-full pl-10 pr-4 py-3 border border-soft-grey rounded-xl bg-scorecard text-charcoal placeholder-charcoal/50 focus:outline-none focus:ring-2 focus:ring-turf focus:border-turf transition-colors"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Show "Open" filter prominently if there are open competitions */}
+            {hasOpenCompetitions && (
+              <button
+                onClick={() => setFilter("open")}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  filter === "open"
+                    ? "bg-coral text-scorecard"
+                    : "bg-coral/10 text-coral hover:bg-coral/20 border border-coral/30"
+                }`}
+              >
+                <Play className="h-4 w-4" />
+                Open Now
+              </button>
+            )}
             {(["all", "upcoming", "past"] as const).map((f) => (
               <button
                 key={f}
@@ -268,40 +301,61 @@ export default function TourCompetitions() {
                     compDate.setHours(0, 0, 0, 0);
                     const isUpcoming = compDate >= today;
                     const isToday = compDate.getTime() === today.getTime();
+                    const isOpen = isCompetitionOpen(competition);
 
                     return (
                       <Link
                         key={competition.id}
                         to="/player/competitions/$competitionId"
                         params={{ competitionId: competition.id.toString() }}
-                        className="block p-4 rounded-xl border border-soft-grey hover:border-turf hover:shadow-md transition-all duration-200 group bg-scorecard"
+                        className={`block p-4 rounded-xl border transition-all duration-200 group bg-scorecard ${
+                          isOpen
+                            ? "border-coral shadow-md ring-2 ring-coral/20 hover:border-coral hover:shadow-lg"
+                            : "border-soft-grey hover:border-turf hover:shadow-md"
+                        }`}
                       >
                         <div className="flex items-center gap-4">
                           {/* Date Badge */}
                           <div
                             className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${
-                              isToday
+                              isOpen
+                                ? "bg-coral text-scorecard"
+                                : isToday
                                 ? "bg-coral text-scorecard"
                                 : isUpcoming
                                 ? "bg-turf/10 text-turf"
                                 : "bg-rough text-charcoal/60"
                             }`}
                           >
-                            <span className="text-xs font-medium uppercase">
-                              {new Date(competition.date).toLocaleDateString(
-                                "en-US",
-                                { month: "short" }
-                              )}
-                            </span>
-                            <span className="text-xl font-bold">
-                              {new Date(competition.date).getDate()}
-                            </span>
+                            {isOpen ? (
+                              <>
+                                <Play className="h-6 w-6" />
+                                <span className="text-[10px] font-semibold">LIVE</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-xs font-medium uppercase">
+                                  {new Date(competition.date).toLocaleDateString(
+                                    "en-US",
+                                    { month: "short" }
+                                  )}
+                                </span>
+                                <span className="text-xl font-bold">
+                                  {new Date(competition.date).getDate()}
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           {/* Competition Details */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {isToday && (
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {isOpen && (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-scorecard animate-pulse">
+                                  OPEN NOW
+                                </span>
+                              )}
+                              {isToday && !isOpen && (
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-scorecard">
                                   TODAY
                                 </span>
@@ -310,14 +364,30 @@ export default function TourCompetitions() {
                                 {competition.name}
                               </h4>
                             </div>
-                            {competition.course_name && (
-                              <div className="flex items-center gap-1 text-body-sm text-charcoal/70">
-                                <MapPin className="h-3 w-3" />
-                                <span className="truncate">
-                                  {competition.course_name}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {competition.course_name && (
+                                <div className="flex items-center gap-1 text-body-sm text-charcoal/70">
+                                  <MapPin className="h-3 w-3" />
+                                  <span className="truncate">
+                                    {competition.course_name}
+                                  </span>
+                                </div>
+                              )}
+                              {isOpen && competition.open_end && (
+                                <span className="text-xs text-coral font-medium">
+                                  Open until{" "}
+                                  {new Date(competition.open_end).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    }
+                                  )}
                                 </span>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
 
                           <ChevronRight className="h-5 w-5 text-charcoal/30 flex-shrink-0 group-hover:text-turf transition-colors" />

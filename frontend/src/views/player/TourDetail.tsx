@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import {
   useTour,
@@ -6,6 +6,7 @@ import {
   useTourDocuments,
   usePlayerEnrollments,
   useRequestEnrollment,
+  type TourCompetition,
 } from "@/api/tours";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -22,6 +23,7 @@ import {
   Globe,
   ChevronRight,
   Trophy,
+  Play,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -139,6 +141,17 @@ export default function TourDetail() {
   // Calculate key metrics for info bar
   const totalCompetitions = competitions?.length || 0;
 
+  // Helper function to check if a competition is currently open
+  const isCompetitionOpen = useCallback((comp: TourCompetition): boolean => {
+    if (comp.start_mode !== "open" || !comp.open_start || !comp.open_end) {
+      return false;
+    }
+    const now = new Date();
+    const openStart = new Date(comp.open_start);
+    const openEnd = new Date(comp.open_end);
+    return now >= openStart && now <= openEnd;
+  }, []);
+
   // Find upcoming competitions
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -147,6 +160,11 @@ export default function TourDetail() {
     compDate.setHours(0, 0, 0, 0);
     return compDate >= today;
   }) || [];
+
+  // Find currently open round (for "Play Now" feature)
+  const currentOpenRound = useMemo(() => {
+    return competitions?.find(isCompetitionOpen) || null;
+  }, [competitions, isCompetitionOpen]);
 
   // Find the landing document
   const landingDocument = tour?.landing_document_id
@@ -255,6 +273,46 @@ export default function TourDetail() {
               </Link>
             )}
           </div>
+        )}
+
+        {/* Play Now Card - Show when there's a currently open round */}
+        {currentOpenRound && (
+          <Link
+            to="/player/competitions/$competitionId"
+            params={{ competitionId: currentOpenRound.id.toString() }}
+            className="block bg-gradient-to-r from-turf to-fairway rounded-xl p-6 text-scorecard shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-scorecard/20 rounded-full flex items-center justify-center">
+                  <Play className="h-7 w-7 text-scorecard" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-scorecard/20 text-scorecard animate-pulse">
+                      LIVE NOW
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-display font-semibold">
+                    {currentOpenRound.name}
+                  </h3>
+                  <p className="text-scorecard/80 text-sm font-primary mt-1">
+                    Open until{" "}
+                    {new Date(currentOpenRound.open_end!).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              </div>
+              <div className="bg-scorecard text-turf px-4 py-2 rounded-lg font-semibold text-sm">
+                Play Now
+              </div>
+            </div>
+          </Link>
         )}
 
         {/* Primary Content Area - Landing Document */}
