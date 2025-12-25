@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-25 (Phase 15 planned)
+> Last updated: 2025-12-25 (Phase 15A complete)
 
 ## Overview
 
@@ -1293,13 +1293,13 @@ CREATE INDEX idx_tcr_player ON tour_competition_registrations(player_id);
 
 #### Tasks
 
-##### Phase 15A: Database & Core Registration Service
-- [ ] 15A.1 Create migration 034 for `tour_competition_registrations` table
-- [ ] 15A.2 Add TypeScript types:
+##### Phase 15A: Database & Core Registration Service ✅ COMPLETE
+- [x] 15A.1 Create migration 034 for `tour_competition_registrations` table
+- [x] 15A.2 Add TypeScript types:
   - `TourCompetitionRegistration` interface
   - `RegistrationStatus` = 'looking_for_group' | 'registered' | 'playing' | 'finished' | 'withdrawn'
   - `CreateRegistrationDto`, `AvailablePlayer` interfaces
-- [ ] 15A.3 Create `TourCompetitionRegistrationService`:
+- [x] 15A.3 Create `TourCompetitionRegistrationService`:
   - `register(competitionId, playerId, mode)` - Register with solo/lfg/create_group mode
   - `withdraw(competitionId, playerId)` - Remove registration
   - `getRegistration(competitionId, playerId)` - Get player's registration
@@ -1308,26 +1308,45 @@ CREATE INDEX idx_tcr_player ON tour_competition_registrations(player_id);
   - `startPlaying(competitionId, playerId)` - Mark as playing, record start time
   - `finishPlaying(competitionId, playerId)` - Mark as finished
   - `getActiveRounds(playerId)` - Get all active rounds for player
-- [ ] 15A.4 Handle "Individual Players" team creation for tour (reuse or create per tour)
-- [ ] 15A.5 Auto-create tee_time and participant when registering
-- [ ] 15A.6 Write tests for registration service
+- [x] 15A.4 Handle "Individual Players" team creation for tour (reuse or create per tour)
+- [x] 15A.5 Auto-create tee_time and participant when registering
+- [x] 15A.6 Write tests for registration service
 
-##### Phase 15B: Group Formation Service
-- [ ] 15B.1 Extend `TourCompetitionRegistrationService` with group methods:
+**Notes (2025-12-25):**
+- Created migration 034 for `tour_competition_registrations` table with indexes
+- Added 10 new TypeScript types to `src/types/index.ts`:
+  - `RegistrationStatus`, `RegistrationMode`
+  - `TourCompetitionRegistration`, `TourCompetitionRegistrationWithDetails`
+  - `CreateRegistrationDto`, `AvailablePlayer`, `PlayingGroup`
+  - `RegistrationResponse`, `ActiveRound`
+- Created `TourCompetitionRegistrationService` with 15 methods:
+  - Core: register, withdraw, getRegistration, getRegistrationsForCompetition
+  - Group: addToGroup, removeFromGroup, leaveGroup, getGroupByTeeTime, getGroupMemberCount
+  - Play: startPlaying, finishPlaying, getActiveRounds
+  - Available players list with status mapping
+- Team handling: Creates "Tour {id} Players" team per tour, reused across registrations
+- Auto-creates tee_time (empty teetime for open start) and participant with player_id linked
+- Written 25 comprehensive tests covering all functionality
+- All 283 tour-related tests pass
+
+##### Phase 15B: Group Formation Service ✅ COMPLETE (merged into 15A)
+- [x] 15B.1 Extend `TourCompetitionRegistrationService` with group methods:
   - `addToGroup(competitionId, groupCreatorPlayerId, playerIdToAdd)` - Add player to group
   - `removeFromGroup(competitionId, groupCreatorPlayerId, playerIdToRemove)` - Remove from group
   - `leaveGroup(competitionId, playerId)` - Leave group, become solo
   - `getGroupMembers(teeTimeId)` - Get all players in a group
   - `isGroupFull(teeTimeId)` - Check if at max capacity (4)
-- [ ] 15B.2 When adding player to group:
+- [x] 15B.2 When adding player to group:
   - Move their participant to the group's tee_time
   - Delete their solo tee_time if empty
   - Update their registration with tee_time_id
-- [ ] 15B.3 When player leaves group:
+- [x] 15B.3 When player leaves group:
   - Create new solo tee_time for them
   - Move their participant to new tee_time
-- [ ] 15B.4 Validate player can be added (enrolled, not already in group, not playing)
-- [ ] 15B.5 Write tests for group formation
+- [x] 15B.4 Validate player can be added (enrolled, not already in group, not playing)
+- [x] 15B.5 Write tests for group formation
+
+**Note:** Group formation methods were implemented as part of Phase 15A in `TourCompetitionRegistrationService`.
 
 ##### Phase 15C: Registration API Endpoints
 - [ ] 15C.1 Add registration endpoints to competitions API:
@@ -1597,6 +1616,23 @@ CREATE INDEX idx_tcr_player ON tour_competition_registrations(player_id);
 ---
 
 ## Progress Log
+
+### 2025-12-25 - Phase 15A Complete
+- **Phase 15A completed (Database & Core Registration Service):**
+  - Created migration 034 for `tour_competition_registrations` table with 3 indexes
+  - Added 10 new TypeScript types to `src/types/index.ts`:
+    - `RegistrationStatus`, `RegistrationMode`, `TourCompetitionRegistration`
+    - `TourCompetitionRegistrationWithDetails`, `CreateRegistrationDto`
+    - `AvailablePlayer`, `PlayingGroup`, `RegistrationResponse`, `ActiveRound`
+  - Created `TourCompetitionRegistrationService` with 15 methods including:
+    - Core: register, withdraw, getRegistration, getRegistrationsForCompetition
+    - Group formation: addToGroup, removeFromGroup, leaveGroup, getGroupByTeeTime
+    - Play tracking: startPlaying, finishPlaying, getActiveRounds
+    - Helper: getAvailablePlayers (shows enrolled players with status)
+  - Team handling: Creates "Tour {id} Players" team per tour, reused across registrations
+  - Auto-creates tee_time (empty teetime for open start) and participant with player_id
+  - Written 25 comprehensive tests covering all functionality
+  - All 283 tour-related tests pass
 
 ### 2025-12-25 - Phase 15 Planned
 - **Phase 15 planned (Open Start - Player Self-Registration & Group Formation):**

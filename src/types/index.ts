@@ -511,3 +511,76 @@ export interface TourStandings {
   categories?: TourCategory[];
   selected_category_id?: number;
 }
+
+// Tour competition registration types (for open-start competitions)
+export type RegistrationStatus =
+  | "looking_for_group"
+  | "registered"
+  | "playing"
+  | "finished"
+  | "withdrawn";
+
+export type RegistrationMode = "solo" | "looking_for_group" | "create_group";
+
+export interface TourCompetitionRegistration {
+  id: number;
+  competition_id: number;
+  player_id: number;
+  enrollment_id: number;
+  tee_time_id?: number;
+  participant_id?: number;
+  status: RegistrationStatus;
+  group_created_by?: number;
+  registered_at: string;
+  started_at?: string;
+  finished_at?: string;
+}
+
+export interface TourCompetitionRegistrationWithDetails
+  extends TourCompetitionRegistration {
+  player_name: string;
+  handicap?: number;
+  category_name?: string;
+}
+
+export interface CreateRegistrationDto {
+  mode: RegistrationMode;
+}
+
+export interface AvailablePlayer {
+  player_id: number;
+  name: string;
+  handicap?: number;
+  status: "looking_for_group" | "available" | "in_group" | "playing" | "finished";
+  group_tee_time_id?: number;
+}
+
+export interface PlayingGroup {
+  tee_time_id: number;
+  players: {
+    player_id: number;
+    name: string;
+    handicap?: number;
+    is_you?: boolean;
+  }[];
+  max_players: number;
+}
+
+export interface RegistrationResponse {
+  registration: TourCompetitionRegistration;
+  group?: PlayingGroup;
+}
+
+export interface ActiveRound {
+  tour_id: number;
+  tour_name: string;
+  competition_id: number;
+  competition_name: string;
+  course_name: string;
+  tee_time_id: number;
+  participant_id: number;
+  holes_played: number;
+  current_score: string;
+  group: string[];
+  open_until?: string;
+}
