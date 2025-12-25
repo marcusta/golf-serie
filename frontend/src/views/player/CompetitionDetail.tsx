@@ -7,6 +7,8 @@ import {
 } from "../../api/competitions";
 import { useCourse } from "../../api/courses";
 import { useTeeTimesForCompetition, useParticipant } from "../../api/tee-times";
+import { usePlayerEnrollments } from "../../api/tours";
+import { useMyRegistration } from "../../api/tour-registration";
 import {
   Calendar,
   MapPin,
@@ -15,6 +17,7 @@ import {
   Trophy,
   Medal,
   Edit3,
+  Play,
 } from "lucide-react";
 import { ParticipantScorecard } from "../../components/scorecard";
 import type { ParticipantData, CourseData } from "../../components/scorecard";
@@ -28,6 +31,7 @@ import { calculateTotalParticipants } from "../../utils/scoreCalculations";
 import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import { useSeriesTeams } from "../../api/series";
 import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
+import { JoinCompetitionFlow, GroupStatusCard } from "../../components/tour";
 
 type TabType = "startlist" | "leaderboard" | "teamresult";
 
@@ -84,6 +88,31 @@ export default function CompetitionDetail() {
   } = useCompetitionTeamLeaderboard(
     competitionId ? parseInt(competitionId) : 0
   );
+
+  // Registration state for tour competitions with open-start mode
+  const [showJoinFlow, setShowJoinFlow] = useState(false);
+
+  // Check enrollment status for tour competitions
+  const { data: playerEnrollments } = usePlayerEnrollments();
+  const tourId = competition?.tour_id;
+  const enrollment = playerEnrollments?.find((e) => e.tour_id === tourId);
+  const isEnrolled = enrollment?.status === "active";
+
+  // Get registration status for open-start tour competitions
+  const isOpenStartTourCompetition =
+    competition?.tour_id && competition?.start_mode === "open";
+  const { data: registrationData, refetch: refetchRegistration } = useMyRegistration(
+    isOpenStartTourCompetition ? parseInt(competitionId || "0") : 0
+  );
+
+  // Check if competition is currently open
+  const isCompetitionOpen = useCallback(() => {
+    if (!competition?.open_start || !competition?.open_end) return false;
+    const now = new Date();
+    const openStart = new Date(competition.open_start);
+    const openEnd = new Date(competition.open_end);
+    return now >= openStart && now <= openEnd;
+  }, [competition?.open_start, competition?.open_end]);
 
   // Fetch selected participant data for scorecard
   const { data: selectedParticipant } = useParticipant(
@@ -281,6 +310,63 @@ export default function CompetitionDetail() {
           />
         )}
 
+        {/* Registration Section for Open-Start Tour Competitions */}
+        {isOpenStartTourCompetition && isCompetitionOpen() && (
+          <div className="space-y-4">
+            {/* Open status banner */}
+            <div className="bg-coral/10 border border-coral/30 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-coral/20 rounded-full flex items-center justify-center">
+                  <Play className="h-5 w-5 text-coral" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-scorecard animate-pulse">
+                      OPEN NOW
+                    </span>
+                  </div>
+                  <p className="text-body-sm text-charcoal/70">
+                    Open until{" "}
+                    {new Date(competition.open_end!).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Registration status / Join button */}
+            {isEnrolled && registrationData?.registered && registrationData.registration ? (
+              <GroupStatusCard
+                competitionId={parseInt(competitionId || "0")}
+                registration={registrationData.registration}
+                group={registrationData.group}
+                teeTimeId={registrationData.registration.tee_time_id}
+                participantId={registrationData.registration.participant_id}
+                onUpdate={() => refetchRegistration()}
+              />
+            ) : isEnrolled ? (
+              <button
+                onClick={() => setShowJoinFlow(true)}
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-turf hover:bg-fairway text-scorecard rounded-xl font-semibold text-lg transition-colors"
+              >
+                <Play className="h-5 w-5" />
+                Join This Round
+              </button>
+            ) : (
+              <div className="bg-rough/50 border border-soft-grey rounded-xl p-4 text-center">
+                <p className="text-body-md text-charcoal/70">
+                  You must be enrolled in this tour to join rounds
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tabs with TapScore Styling */}
         <div className="border-b border-soft-grey">
           <nav className="flex space-x-4 md:space-x-8">
@@ -387,6 +473,19 @@ export default function CompetitionDetail() {
         onClose={handleCloseScorecardModal}
         isTourCompetition={!!competition?.tour_id}
       />
+
+      {/* Join Competition Flow Modal */}
+      {isOpenStartTourCompetition && (
+        <JoinCompetitionFlow
+          isOpen={showJoinFlow}
+          onClose={() => setShowJoinFlow(false)}
+          competitionId={parseInt(competitionId || "0")}
+          competitionName={competition?.name || ""}
+          courseName={course?.name}
+          openUntil={competition?.open_end}
+          onSuccess={() => refetchRegistration()}
+        />
+      )}
     </PlayerPageLayout>
   );
 }

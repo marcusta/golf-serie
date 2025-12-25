@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-25 (Phase 15C complete)
+> Last updated: 2025-12-25 (Phase 15D complete)
 
 ## Overview
 
@@ -1390,62 +1390,79 @@ This is useful for:
 - Live view: Which groups are on course, finished, etc.
 → Added as Phase 15H below
 
-##### Phase 15H: Competition Groups Overview (API + Frontend)
-- [ ] 15H.1 Add API endpoints:
-  - `GET /api/competitions/:id/registrations` - List all registrations with player details
-  - `GET /api/competitions/:id/groups` - List all groups with members, grouped by tee_time
-- [ ] 15H.2 Add React Query hooks:
-  - `useCompetitionRegistrations(competitionId)`
-  - `useCompetitionGroups(competitionId)`
-- [ ] 15H.3 Create `CompetitionGroupsView` component:
-  - Shows all groups playing/registered for a competition
-  - Status indicators: Registered, On Course, Finished
-  - Group members with handicaps
-  - Current hole/score for active groups (if available)
-- [ ] 15H.4 Add to admin competition detail view
-- [ ] 15H.5 Add player-facing "Who's Playing" view (optional: restrict to enrolled players)
 
-##### Phase 15D: Frontend - Registration Flow
-- [ ] 15D.1 Add React Query hooks for registration:
+##### Phase 15D: Frontend - Registration Flow ✅ COMPLETE
+- [x] 15D.1 Add React Query hooks for registration:
   - `useMyRegistration(competitionId)`
   - `useRegisterForCompetition()`
   - `useWithdrawFromCompetition()`
   - `useAvailablePlayers(competitionId)`
-- [ ] 15D.2 Create `JoinCompetitionFlow` component:
+- [x] 15D.2 Create `JoinCompetitionFlow` component:
   - Three options: Solo, Create Group, Looking for Group
   - Shows handicap info and course handicap preview
-- [ ] 15D.3 Create `AddPlayersToGroup` component:
+- [x] 15D.3 Create `AddPlayersToGroup` component:
   - List enrolled players with status indicators
   - LFG players highlighted at top
   - Tap to add, show current group
-- [ ] 15D.4 Create `GroupStatusCard` component:
+- [x] 15D.4 Create `GroupStatusCard` component:
   - Shows "You're in a group with..."
   - Join Game / Leave Group buttons
-- [ ] 15D.5 Update `TourDetail.tsx`:
+- [x] 15D.5 Update `TourDetail.tsx`:
   - Show registration status for open competitions
   - "Join Round" button when not registered
   - Group status when registered
-- [ ] 15D.6 Update `TourCompetitions.tsx`:
+- [x] 15D.6 Update `TourCompetitions.tsx`:
   - Show registration status per competition
   - Quick join actions
 
-##### Phase 15E: Frontend - Group Management
-- [ ] 15E.1 Add React Query hooks for group management:
+**Notes (2025-12-25):**
+- Created `frontend/src/api/tour-registration.ts` with all registration hooks:
+  - Registration: `useMyRegistration`, `useRegisterForCompetition`, `useWithdrawFromCompetition`
+  - Players: `useAvailablePlayers`
+  - Groups: `useAddToGroup`, `useRemoveFromGroup`, `useLeaveGroup`, `useMyGroup`
+  - Play mode: `useStartPlaying`, `useActiveRounds`
+- Created `frontend/src/components/tour/` with three components:
+  - `JoinCompetitionFlow`: Bottom sheet with Solo/Create Group/LFG options
+  - `AddPlayersToGroup`: Player list with status badges, search, multi-select
+  - `GroupStatusCard`: Shows group status, members, and action buttons
+- Updated `TourDetail.tsx`:
+  - Shows registration status for open competitions
+  - Integrated GroupStatusCard when registered
+  - "Join This Round" button when enrolled but not registered
+- Updated `TourCompetitions.tsx`:
+  - Added "JOINED" badge for registered competitions
+  - "Join This Round" button for open competitions (enrolled players)
+- Updated `CompetitionDetail.tsx`:
+  - Registration section for open-start tour competitions
+  - GroupStatusCard integration
+  - JoinCompetitionFlow modal
+- All components use the unified topbar architecture (PlayerPageLayout)
+- Frontend builds successfully
+
+##### Phase 15E: Frontend - Group Management ✅ COMPLETE (merged into 15D)
+- [x] 15E.1 Add React Query hooks for group management:
   - `useAddToGroup()`
   - `useRemoveFromGroup()`
   - `useLeaveGroup()`
-  - `useGroupMembers(competitionId)`
-- [ ] 15E.2 Player list status indicators:
+  - `useGroupMembers(competitionId)` → implemented as `useMyGroup()`
+- [x] 15E.2 Player list status indicators:
   - 🟢 Looking for Group (highlighted)
   - ⚪ Available (can be added)
   - 🔵 In a group (show which group)
   - 🎯 Playing (on course)
   - ✓ Finished
-- [ ] 15E.3 Group capacity indicator (2/4 players)
-- [ ] 15E.4 Search/filter players by name
+- [x] 15E.3 Group capacity indicator (2/4 players)
+- [x] 15E.4 Search/filter players by name
+
+**Notes (2025-12-25):**
+All Phase 15E functionality was implemented as part of Phase 15D:
+- Group management hooks are in `frontend/src/api/tour-registration.ts`
+- Player status indicators implemented in `AddPlayersToGroup` component
+- Group capacity shown in `GroupStatusCard` and `AddPlayersToGroup`
+- Search functionality in `AddPlayersToGroup` component
 
 ##### Phase 15F: Frontend - Play Mode & Active Rounds
-- [ ] 15F.1 Add `useActiveRounds()` hook
+- [x] 15F.1 Add `useActiveRounds()` hook (implemented in tour-registration.ts)
 - [ ] 15F.2 Create `ActiveRoundBanner` component:
   - Shows on TourDetail when player has active round
   - "Continue Playing" button
@@ -1469,6 +1486,21 @@ This is useful for:
 - [ ] 15G.4 Max 4 players per group enforcement
 - [ ] 15G.5 Cleanup empty tee_times when groups merge/leave
 - [ ] 15G.6 Real-time updates (optional: WebSocket or polling)
+
+##### Phase 15H: Competition Groups Overview (API + Frontend)
+- [ ] 15H.1 Add API endpoints:
+  - `GET /api/competitions/:id/registrations` - List all registrations with player details
+  - `GET /api/competitions/:id/groups` - List all groups with members, grouped by tee_time
+- [ ] 15H.2 Add React Query hooks:
+  - `useCompetitionRegistrations(competitionId)`
+  - `useCompetitionGroups(competitionId)`
+- [ ] 15H.3 Create `CompetitionGroupsView` component:
+  - Shows all groups playing/registered for a competition
+  - Status indicators: Registered, On Course, Finished
+  - Group members with handicaps
+  - Current hole/score for active groups (if available)
+- [ ] 15H.4 Add to admin competition detail view
+- [ ] 15H.5 Add player-facing "Who's Playing" view (optional: restrict to enrolled players)
 
 #### UI Mockups
 
@@ -1656,6 +1688,31 @@ This is useful for:
 ---
 
 ## Progress Log
+
+### 2025-12-25 - Phase 15D Complete
+- **Phase 15D completed (Frontend - Registration Flow):**
+  - Created `frontend/src/api/tour-registration.ts` with React Query hooks:
+    - Registration: `useMyRegistration`, `useRegisterForCompetition`, `useWithdrawFromCompetition`
+    - Players: `useAvailablePlayers`
+    - Groups: `useAddToGroup`, `useRemoveFromGroup`, `useLeaveGroup`, `useMyGroup`
+    - Play mode: `useStartPlaying`, `useActiveRounds`
+  - Created `frontend/src/components/tour/` directory with 3 components:
+    - `JoinCompetitionFlow`: Bottom sheet modal with Solo/Create Group/LFG options
+    - `AddPlayersToGroup`: Player list with status badges, search, multi-select functionality
+    - `GroupStatusCard`: Shows registration status, group members, and action buttons
+  - Updated `TourDetail.tsx`:
+    - "Play Now" section shows registration status for open competitions
+    - GroupStatusCard displayed when registered
+    - "Join This Round" button for enrolled but not registered players
+  - Updated `TourCompetitions.tsx`:
+    - "JOINED" badge next to registered competitions
+    - "Join This Round" quick action button for open competitions
+    - JoinCompetitionFlow modal integration
+  - Updated `CompetitionDetail.tsx`:
+    - Registration section for open-start tour competitions
+    - GroupStatusCard and JoinCompetitionFlow integration
+  - All components follow unified topbar architecture (PlayerPageLayout)
+  - Frontend builds successfully with no TypeScript errors
 
 ### 2025-12-25 - Phase 15C Complete
 - **Phase 15C completed (Registration API Endpoints):**

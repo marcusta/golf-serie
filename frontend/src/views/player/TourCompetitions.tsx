@@ -1,5 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { useTour, useTourCompetitions, type TourCompetition } from "@/api/tours";
+import { useTour, useTourCompetitions, usePlayerEnrollments, type TourCompetition } from "@/api/tours";
+import { useMyRegistration } from "@/api/tour-registration";
 import {
   Calendar,
   ChevronRight,
@@ -8,10 +9,13 @@ import {
   Search,
   MapPin,
   Play,
+  UserCheck,
+  Users,
 } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
+import { JoinCompetitionFlow } from "@/components/tour";
 
 function LoadingSkeleton() {
   return (
@@ -71,6 +75,7 @@ export default function TourCompetitions() {
   const { tourId } = useParams({ from: "/player/tours/$tourId/competitions" });
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "open" | "upcoming" | "past">("all");
+  const [joinCompetition, setJoinCompetition] = useState<TourCompetition | null>(null);
 
   const id = parseInt(tourId);
 
@@ -96,6 +101,21 @@ export default function TourCompetitions() {
     error: competitionsError,
     refetch: refetchCompetitions,
   } = useTourCompetitions(id);
+
+  // Get enrollment status
+  const { data: playerEnrollments } = usePlayerEnrollments();
+  const enrollment = playerEnrollments?.find((e) => e.tour_id === id);
+  const isEnrolled = enrollment?.status === "active";
+
+  // Find the first open competition for registration status query
+  const firstOpenCompetition = useMemo(() => {
+    return competitions?.find(isCompetitionOpen) || null;
+  }, [competitions, isCompetitionOpen]);
+
+  // Get registration status for the first open competition
+  const { data: registrationData, refetch: refetchRegistration } = useMyRegistration(
+    firstOpenCompetition?.id || 0
+  );
 
   // Memoize today's date to avoid recreating on each render
   const today = useMemo(() => {
@@ -303,18 +323,26 @@ export default function TourCompetitions() {
                     const isToday = compDate.getTime() === today.getTime();
                     const isOpen = isCompetitionOpen(competition);
 
+                    // Check registration status for this competition (only for the first open one)
+                    const isThisCompetitionRegistered =
+                      isOpen &&
+                      firstOpenCompetition?.id === competition.id &&
+                      registrationData?.registered;
+
                     return (
-                      <Link
+                      <div
                         key={competition.id}
-                        to="/player/competitions/$competitionId"
-                        params={{ competitionId: competition.id.toString() }}
-                        className={`block p-4 rounded-xl border transition-all duration-200 group bg-scorecard ${
+                        className={`p-4 rounded-xl border transition-all duration-200 bg-scorecard ${
                           isOpen
-                            ? "border-coral shadow-md ring-2 ring-coral/20 hover:border-coral hover:shadow-lg"
+                            ? "border-coral shadow-md ring-2 ring-coral/20"
                             : "border-soft-grey hover:border-turf hover:shadow-md"
                         }`}
                       >
-                        <div className="flex items-center gap-4">
+                        <Link
+                          to="/player/competitions/$competitionId"
+                          params={{ competitionId: competition.id.toString() }}
+                          className="flex items-center gap-4 group"
+                        >
                           {/* Date Badge */}
                           <div
                             className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${
@@ -355,6 +383,12 @@ export default function TourCompetitions() {
                                   OPEN NOW
                                 </span>
                               )}
+                              {isThisCompetitionRegistered && (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-turf text-scorecard flex items-center gap-1">
+                                  <UserCheck className="h-3 w-3" />
+                                  JOINED
+                                </span>
+                              )}
                               {isToday && !isOpen && (
                                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-scorecard">
                                   TODAY
@@ -391,8 +425,24 @@ export default function TourCompetitions() {
                           </div>
 
                           <ChevronRight className="h-5 w-5 text-charcoal/30 flex-shrink-0 group-hover:text-turf transition-colors" />
-                        </div>
-                      </Link>
+                        </Link>
+
+                        {/* Quick Join button for open competitions */}
+                        {isOpen && isEnrolled && !isThisCompetitionRegistered && (
+                          <div className="mt-3 pt-3 border-t border-soft-grey">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setJoinCompetition(competition);
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-turf hover:bg-fairway text-scorecard rounded-lg font-medium text-sm transition-colors"
+                            >
+                              <Users className="h-4 w-4" />
+                              Join This Round
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -401,6 +451,22 @@ export default function TourCompetitions() {
           </div>
         )}
       </main>
+
+      {/* Join Competition Flow Modal */}
+      {joinCompetition && (
+        <JoinCompetitionFlow
+          isOpen={!!joinCompetition}
+          onClose={() => setJoinCompetition(null)}
+          competitionId={joinCompetition.id}
+          competitionName={joinCompetition.name}
+          courseName={joinCompetition.course_name}
+          openUntil={joinCompetition.open_end}
+          onSuccess={() => {
+            refetchRegistration();
+            refetchCompetitions();
+          }}
+        />
+      )}
     </PlayerPageLayout>
   );
 }
