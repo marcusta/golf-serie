@@ -16,6 +16,7 @@ import { createAuthMiddleware } from "./middleware/auth";
 import { createAuthService } from "./services/auth.service";
 import { CompetitionService } from "./services/competition-service";
 import { CourseService } from "./services/course-service";
+import { CourseTeeService } from "./services/course-tee.service";
 import { DocumentService } from "./services/document-service";
 import { ParticipantService } from "./services/participant-service";
 import { createPlayerService } from "./services/player.service";
@@ -31,6 +32,7 @@ import { createTourService } from "./services/tour.service";
 export function createApp(db: Database): Hono {
   // Initialize services
   const courseService = new CourseService(db);
+  const courseTeeService = new CourseTeeService(db);
   const teamService = new TeamService(db);
   const competitionService = new CompetitionService(db);
   const teeTimeService = new TeeTimeService(db);
@@ -51,7 +53,7 @@ export function createApp(db: Database): Hono {
   });
 
   // Initialize APIs
-  const coursesApi = createCoursesApi(courseService);
+  const coursesApi = createCoursesApi(courseService, courseTeeService);
   const teamsApi = createTeamsApi(teamService);
   const competitionsApi = createCompetitionsApi(competitionService);
   const teeTimesApi = createTeeTimesApi(teeTimeService);
@@ -156,6 +158,35 @@ export function createApp(db: Database): Hono {
   app.put("/api/courses/:id/holes", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await coursesApi.updateHoles(c.req.raw, id);
+  });
+
+  // Course Tee routes
+  app.get("/api/courses/:courseId/tees", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    return await coursesApi.getTees(courseId);
+  });
+
+  app.get("/api/courses/:courseId/tees/:teeId", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    return await coursesApi.getTee(courseId, teeId);
+  });
+
+  app.post("/api/courses/:courseId/tees", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    return await coursesApi.createTee(c.req.raw, courseId);
+  });
+
+  app.put("/api/courses/:courseId/tees/:teeId", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    return await coursesApi.updateTee(c.req.raw, courseId, teeId);
+  });
+
+  app.delete("/api/courses/:courseId/tees/:teeId", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    return await coursesApi.deleteTee(courseId, teeId);
   });
 
   // Team routes

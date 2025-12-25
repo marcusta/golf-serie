@@ -55,9 +55,21 @@ export class CompetitionService {
       }
     }
 
+    // Verify tee exists and belongs to the course if provided
+    if (data.tee_id) {
+      const teeStmt = this.db.prepare("SELECT id, course_id FROM course_tees WHERE id = ?");
+      const tee = teeStmt.get(data.tee_id) as { id: number; course_id: number } | null;
+      if (!tee) {
+        throw new Error("Tee not found");
+      }
+      if (tee.course_id !== data.course_id) {
+        throw new Error("Tee must belong to the competition's course");
+      }
+    }
+
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
 
@@ -67,6 +79,7 @@ export class CompetitionService {
       data.course_id,
       data.series_id || null,
       data.tour_id || null,
+      data.tee_id || null,
       data.manual_entry_format || "out_in_total",
       data.points_multiplier ?? 1,
       data.venue_type || "outdoor",
@@ -173,6 +186,20 @@ export class CompetitionService {
       }
     }
 
+    // Verify tee exists and belongs to the course if provided
+    if (data.tee_id !== undefined && data.tee_id !== null) {
+      const teeStmt = this.db.prepare("SELECT id, course_id FROM course_tees WHERE id = ?");
+      const tee = teeStmt.get(data.tee_id) as { id: number; course_id: number } | null;
+      if (!tee) {
+        throw new Error("Tee not found");
+      }
+      // Check against the current or new course_id
+      const effectiveCourseId = data.course_id ?? competition.course_id;
+      if (tee.course_id !== effectiveCourseId) {
+        throw new Error("Tee must belong to the competition's course");
+      }
+    }
+
     const updates: string[] = [];
     const values: any[] = [];
 
@@ -199,6 +226,11 @@ export class CompetitionService {
     if (data.tour_id !== undefined) {
       updates.push("tour_id = ?");
       values.push(data.tour_id);
+    }
+
+    if (data.tee_id !== undefined) {
+      updates.push("tee_id = ?");
+      values.push(data.tee_id);
     }
 
     if (data.manual_entry_format) {

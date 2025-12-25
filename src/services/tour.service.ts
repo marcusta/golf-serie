@@ -8,6 +8,7 @@ export type Tour = {
   owner_id: number;
   enrollment_mode: string;
   visibility: string;
+  scoring_mode: string;
   banner_image_url: string | null;
   landing_document_id: number | null;
   point_template_id: number | null;
@@ -20,6 +21,7 @@ export type CreateTourInput = {
   description?: string;
   banner_image_url?: string;
   point_template_id?: number;
+  scoring_mode?: string;
 };
 
 export type UpdateTourInput = {
@@ -28,6 +30,7 @@ export type UpdateTourInput = {
   banner_image_url?: string | null;
   landing_document_id?: number | null;
   point_template_id?: number | null;
+  scoring_mode?: string;
 };
 
 export type TourStanding = {
@@ -79,11 +82,18 @@ export class TourService {
       }
     }
 
+    // Validate scoring_mode if provided
+    const validScoringModes = ["gross", "net", "both"];
+    const scoringMode = data.scoring_mode || "gross";
+    if (!validScoringModes.includes(scoringMode)) {
+      throw new Error("Invalid scoring mode. Must be 'gross', 'net', or 'both'");
+    }
+
     const result = this.db
       .prepare(
         `
-      INSERT INTO tours (name, description, owner_id, banner_image_url, point_template_id)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO tours (name, description, owner_id, banner_image_url, point_template_id, scoring_mode)
+      VALUES (?, ?, ?, ?, ?, ?)
       RETURNING *
     `
       )
@@ -92,7 +102,8 @@ export class TourService {
         data.description || null,
         ownerId,
         data.banner_image_url || null,
-        data.point_template_id || null
+        data.point_template_id || null,
+        scoringMode
       ) as Tour;
 
     return result;
@@ -130,6 +141,14 @@ export class TourService {
       }
     }
 
+    // Validate scoring_mode if provided
+    if (data.scoring_mode !== undefined) {
+      const validScoringModes = ["gross", "net", "both"];
+      if (!validScoringModes.includes(data.scoring_mode)) {
+        throw new Error("Invalid scoring mode. Must be 'gross', 'net', or 'both'");
+      }
+    }
+
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
 
@@ -156,6 +175,11 @@ export class TourService {
     if (data.point_template_id !== undefined) {
       updates.push("point_template_id = ?");
       values.push(data.point_template_id);
+    }
+
+    if (data.scoring_mode !== undefined) {
+      updates.push("scoring_mode = ?");
+      values.push(data.scoring_mode);
     }
 
     if (updates.length === 0) {
@@ -217,6 +241,7 @@ export class TourService {
         tour: tour as unknown as TourType,
         player_standings: [],
         total_competitions: 0,
+        scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
         point_template: undefined,
       };
     }
@@ -327,6 +352,7 @@ export class TourService {
       tour: tour as unknown as TourType,
       player_standings: sortedStandings,
       total_competitions: competitions.length,
+      scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
       point_template: pointTemplate ? { id: pointTemplate.id, name: pointTemplate.name } : undefined,
     };
   }

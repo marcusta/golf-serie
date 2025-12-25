@@ -38,6 +38,7 @@ export interface Competition {
   course_id: number;
   series_id?: number;
   tour_id?: number;
+  tee_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";
@@ -106,6 +107,7 @@ export interface CreateCompetitionDto {
   course_id: number;
   series_id?: number;
   tour_id?: number;
+  tee_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
@@ -120,6 +122,7 @@ export interface UpdateCompetitionDto {
   course_id?: number;
   series_id?: number;
   tour_id?: number;
+  tee_id?: number | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
@@ -254,6 +257,54 @@ export interface UpdateSeriesDocumentDto {
 export type TourEnrollmentStatus = "pending" | "requested" | "active";
 export type TourEnrollmentMode = "closed" | "request";
 export type TourVisibility = "private" | "public";
+export type TourScoringMode = "gross" | "net" | "both";
+
+// Course tee types
+export interface CourseTee {
+  id: number;
+  course_id: number;
+  name: string;
+  color?: string;
+  course_rating: number;
+  slope_rating: number;
+  stroke_index?: number[];
+  pars?: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCourseTeeDto {
+  name: string;
+  color?: string;
+  course_rating: number;
+  slope_rating?: number;
+  stroke_index?: number[];
+  pars?: number[];
+}
+
+export interface UpdateCourseTeeDto {
+  name?: string;
+  color?: string;
+  course_rating?: number;
+  slope_rating?: number;
+  stroke_index?: number[];
+  pars?: number[];
+}
+
+// Handicap calculation types
+export interface HandicapCalculation {
+  handicap_index: number;
+  course_handicap: number;
+  strokes_per_hole: number[];
+}
+
+export interface NetScoreResult {
+  gross_scores: number[];
+  net_scores: number[];
+  gross_total: number;
+  net_total: number;
+  course_handicap: number;
+}
 
 export interface Tour {
   id: number;
@@ -262,6 +313,7 @@ export interface Tour {
   owner_id: number;
   enrollment_mode: TourEnrollmentMode;
   visibility: TourVisibility;
+  scoring_mode: TourScoringMode;
   banner_image_url?: string;
   landing_document_id?: number;
   point_template_id?: number;
@@ -275,6 +327,7 @@ export interface TourEnrollment {
   player_id?: number;
   email: string;
   status: TourEnrollmentStatus;
+  playing_handicap?: number;
   created_at: string;
   updated_at: string;
 }
@@ -291,6 +344,7 @@ export interface CreateTourDto {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  scoring_mode?: TourScoringMode;
   banner_image_url?: string;
   point_template_id?: number;
 }
@@ -300,6 +354,7 @@ export interface UpdateTourDto {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  scoring_mode?: TourScoringMode;
   banner_image_url?: string;
   landing_document_id?: number | null;
   point_template_id?: number | null;
@@ -346,6 +401,7 @@ export interface UpdateTourDocumentDto {
 export interface TourPlayerStanding {
   player_id: number;
   player_name: string;
+  handicap_index?: number;
   total_points: number;
   competitions_played: number;
   position: number;
@@ -356,6 +412,8 @@ export interface TourPlayerStanding {
     points: number;
     position: number;
     score_relative_to_par: number;
+    net_score_relative_to_par?: number;
+    course_handicap?: number;
   }[];
 }
 
@@ -363,6 +421,7 @@ export interface TourStandings {
   tour: Tour;
   player_standings: TourPlayerStanding[];
   total_competitions: number;
+  scoring_mode: TourScoringMode;
   point_template?: {
     id: number;
     name: string;

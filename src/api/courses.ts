@@ -1,7 +1,8 @@
 import { CourseService } from "../services/course-service";
-import type { CreateCourseDto, UpdateCourseDto } from "../types";
+import { CourseTeeService } from "../services/course-tee.service";
+import type { CreateCourseDto, UpdateCourseDto, CreateCourseTeeDto, UpdateCourseTeeDto } from "../types";
 
-export function createCoursesApi(courseService: CourseService) {
+export function createCoursesApi(courseService: CourseService, courseTeeService?: CourseTeeService) {
   return {
     async create(req: Request): Promise<Response> {
       try {
@@ -128,6 +129,176 @@ export function createCoursesApi(courseService: CourseService) {
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
             status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    // Course Tee endpoints
+    async getTees(courseId: number): Promise<Response> {
+      if (!courseTeeService) {
+        return new Response(JSON.stringify({ error: "Tee service not available" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const tees = courseTeeService.findByCourse(courseId);
+        return new Response(JSON.stringify(tees), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async getTee(courseId: number, teeId: number): Promise<Response> {
+      if (!courseTeeService) {
+        return new Response(JSON.stringify({ error: "Tee service not available" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const tee = courseTeeService.findById(teeId);
+        if (!tee || tee.course_id !== courseId) {
+          return new Response(JSON.stringify({ error: "Tee not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify(tee), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async createTee(req: Request, courseId: number): Promise<Response> {
+      if (!courseTeeService) {
+        return new Response(JSON.stringify({ error: "Tee service not available" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const data = (await req.json()) as CreateCourseTeeDto;
+        const tee = courseTeeService.create(courseId, data);
+        return new Response(JSON.stringify(tee), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message.includes("not found") ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async updateTee(req: Request, courseId: number, teeId: number): Promise<Response> {
+      if (!courseTeeService) {
+        return new Response(JSON.stringify({ error: "Tee service not available" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        // Verify the tee belongs to the course
+        const existingTee = courseTeeService.findById(teeId);
+        if (!existingTee || existingTee.course_id !== courseId) {
+          return new Response(JSON.stringify({ error: "Tee not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        const data = (await req.json()) as UpdateCourseTeeDto;
+        const tee = courseTeeService.update(teeId, data);
+        return new Response(JSON.stringify(tee), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message.includes("not found") ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async deleteTee(courseId: number, teeId: number): Promise<Response> {
+      if (!courseTeeService) {
+        return new Response(JSON.stringify({ error: "Tee service not available" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        // Verify the tee belongs to the course
+        const existingTee = courseTeeService.findById(teeId);
+        if (!existingTee || existingTee.course_id !== courseId) {
+          return new Response(JSON.stringify({ error: "Tee not found" }), {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        courseTeeService.delete(teeId);
+        return new Response(null, { status: 204 });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message.includes("not found") ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status,
             headers: { "Content-Type": "application/json" },
           });
         }

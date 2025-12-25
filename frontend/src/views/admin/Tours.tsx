@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Trophy, Eye, Lock, Globe, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Trophy, Eye, Lock, Globe, Users, Calculator } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   useTours,
@@ -9,6 +9,7 @@ import {
   type Tour,
   type TourEnrollmentMode,
   type TourVisibility,
+  type TourScoringMode,
 } from "../../api/tours";
 
 export default function Tours() {
@@ -24,6 +25,7 @@ export default function Tours() {
   const [description, setDescription] = useState("");
   const [enrollmentMode, setEnrollmentMode] = useState<TourEnrollmentMode>("closed");
   const [visibility, setVisibility] = useState<TourVisibility>("private");
+  const [scoringMode, setScoringMode] = useState<TourScoringMode>("gross");
   const [error, setError] = useState<string | null>(null);
 
   const openCreate = () => {
@@ -32,6 +34,7 @@ export default function Tours() {
     setDescription("");
     setEnrollmentMode("closed");
     setVisibility("private");
+    setScoringMode("gross");
     setError(null);
     setShowModal(true);
   };
@@ -42,6 +45,7 @@ export default function Tours() {
     setDescription(tour.description || "");
     setEnrollmentMode(tour.enrollment_mode);
     setVisibility(tour.visibility);
+    setScoringMode(tour.scoring_mode);
     setError(null);
     setShowModal(true);
   };
@@ -59,6 +63,7 @@ export default function Tours() {
             description: description || undefined,
             enrollment_mode: enrollmentMode,
             visibility,
+            scoring_mode: scoringMode,
           },
         });
       } else {
@@ -67,6 +72,7 @@ export default function Tours() {
           description: description || undefined,
           enrollment_mode: enrollmentMode,
           visibility,
+          scoring_mode: scoringMode,
         });
       }
       setShowModal(false);
@@ -152,6 +158,19 @@ export default function Tours() {
                       <Users className="h-3 w-3" />
                       {tour.enrollment_mode === "request" ? "requests" : "closed"}
                     </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                        tour.scoring_mode === "net"
+                          ? "bg-amber-100 text-amber-700"
+                          : tour.scoring_mode === "both"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-charcoal/10 text-charcoal/70"
+                      }`}
+                      title={`Scoring mode: ${tour.scoring_mode}`}
+                    >
+                      <Calculator className="h-3 w-3" />
+                      {tour.scoring_mode}
+                    </span>
                   </div>
                 </div>
                 {tour.description && (
@@ -230,7 +249,7 @@ export default function Tours() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
                     Visibility
@@ -245,8 +264,8 @@ export default function Tours() {
                   </select>
                   <p className="text-xs text-charcoal/50 mt-1">
                     {visibility === "public"
-                      ? "Anyone can view standings"
-                      : "Only enrolled players can view"}
+                      ? "Anyone can view"
+                      : "Enrolled only"}
                   </p>
                 </div>
                 <div>
@@ -258,13 +277,34 @@ export default function Tours() {
                     onChange={(e) => setEnrollmentMode(e.target.value as TourEnrollmentMode)}
                     className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] bg-white"
                   >
-                    <option value="closed">Closed (Admin only)</option>
-                    <option value="request">Request-based</option>
+                    <option value="closed">Admin only</option>
+                    <option value="request">Requests</option>
                   </select>
                   <p className="text-xs text-charcoal/50 mt-1">
                     {enrollmentMode === "request"
-                      ? "Players can request to join"
-                      : "Only admins can add players"}
+                      ? "Players can request"
+                      : "Admin adds players"}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
+                    Scoring
+                  </label>
+                  <select
+                    value={scoringMode}
+                    onChange={(e) => setScoringMode(e.target.value as TourScoringMode)}
+                    className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] bg-white"
+                  >
+                    <option value="gross">Gross</option>
+                    <option value="net">Net</option>
+                    <option value="both">Both</option>
+                  </select>
+                  <p className="text-xs text-charcoal/50 mt-1">
+                    {scoringMode === "net"
+                      ? "Handicap-adjusted"
+                      : scoringMode === "both"
+                      ? "Show gross & net"
+                      : "Raw scores only"}
                   </p>
                 </div>
               </div>

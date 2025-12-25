@@ -111,3 +111,140 @@ export function useDeleteCourse() {
     },
   });
 }
+
+// Course Tee Types
+export interface CourseTee {
+  id: number;
+  course_id: number;
+  name: string;
+  color?: string;
+  course_rating: number;
+  slope_rating: number;
+  stroke_index?: number[];
+  pars?: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCourseTeeData {
+  name: string;
+  color?: string;
+  course_rating: number;
+  slope_rating?: number;
+  stroke_index?: number[];
+  pars?: number[];
+}
+
+export interface UpdateCourseTeeData {
+  name?: string;
+  color?: string;
+  course_rating?: number;
+  slope_rating?: number;
+  stroke_index?: number[];
+  pars?: number[];
+}
+
+// Course Tee Hooks
+export function useCourseTees(courseId: number) {
+  return useQuery<CourseTee[]>({
+    queryKey: ["course-tees", courseId],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/tees`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch course tees");
+      }
+      return response.json();
+    },
+    enabled: !!courseId,
+  });
+}
+
+export function useCourseTee(courseId: number, teeId: number) {
+  return useQuery<CourseTee>({
+    queryKey: ["course-tee", courseId, teeId],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/tees/${teeId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch course tee");
+      }
+      return response.json();
+    },
+    enabled: !!courseId && !!teeId,
+  });
+}
+
+export function useCreateCourseTee() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ courseId, data }: { courseId: number; data: CreateCourseTeeData }) => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/tees`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create course tee");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["course-tees", variables.courseId] });
+    },
+  });
+}
+
+export function useUpdateCourseTee() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      courseId,
+      teeId,
+      data,
+    }: {
+      courseId: number;
+      teeId: number;
+      data: UpdateCourseTeeData;
+    }) => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/tees/${teeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update course tee");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["course-tees", variables.courseId] });
+      queryClient.invalidateQueries({ queryKey: ["course-tee", variables.courseId, variables.teeId] });
+    },
+  });
+}
+
+export function useDeleteCourseTee() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ courseId, teeId }: { courseId: number; teeId: number }) => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/tees/${teeId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete course tee");
+      }
+      return response.status === 204 ? null : response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["course-tees", variables.courseId] });
+    },
+  });
+}

@@ -19,6 +19,7 @@ import {
   type TourEnrollment,
   type TourEnrollmentStatus,
   type TourDocument,
+  type TourScoringMode,
 } from "../../api/tours";
 import {
   Loader2,
@@ -40,6 +41,7 @@ import {
   Edit2,
   Image,
   Star,
+  Calculator,
 } from "lucide-react";
 
 type TabType = "competitions" | "enrollments" | "admins" | "documents" | "settings";
@@ -66,6 +68,7 @@ export default function TourDetail() {
 
   // Settings state
   const [bannerImageUrl, setBannerImageUrl] = useState("");
+  const [scoringMode, setScoringMode] = useState<TourScoringMode>("gross");
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
@@ -244,7 +247,10 @@ export default function TourDetail() {
     try {
       await updateTourMutation.mutateAsync({
         id: tourId,
-        data: { banner_image_url: bannerImageUrl || null },
+        data: {
+          banner_image_url: bannerImageUrl || null,
+          scoring_mode: scoringMode,
+        },
       });
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 3000);
@@ -253,9 +259,12 @@ export default function TourDetail() {
     }
   };
 
-  // Initialize banner URL when tour loads
+  // Initialize settings state when tour loads
   if (tour && bannerImageUrl === "" && tour.banner_image_url) {
     setBannerImageUrl(tour.banner_image_url);
+  }
+  if (tour && scoringMode !== tour.scoring_mode && tour.scoring_mode) {
+    setScoringMode(tour.scoring_mode);
   }
 
   const getStatusBadge = (status: TourEnrollmentStatus) => {
@@ -335,6 +344,19 @@ export default function TourDetail() {
                     <Lock className="h-3 w-3" />
                   )}
                   {tour.visibility}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                    tour.scoring_mode === "net"
+                      ? "bg-amber-100 text-amber-700"
+                      : tour.scoring_mode === "both"
+                      ? "bg-purple-100 text-purple-700"
+                      : "bg-charcoal/10 text-charcoal/70"
+                  }`}
+                  title={`Scoring: ${tour.scoring_mode}`}
+                >
+                  <Calculator className="h-3 w-3" />
+                  {tour.scoring_mode}
                 </span>
               </div>
             </div>
@@ -824,6 +846,30 @@ export default function TourDetail() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Scoring Mode */}
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-4 h-4" />
+                  Scoring Mode
+                </div>
+              </label>
+              <select
+                value={scoringMode}
+                onChange={(e) => setScoringMode(e.target.value as TourScoringMode)}
+                className="w-full max-w-md px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors bg-white"
+              >
+                <option value="gross">Gross (Raw Scores)</option>
+                <option value="net">Net (Handicap-Adjusted)</option>
+                <option value="both">Both (Gross & Net)</option>
+              </select>
+              <p className="text-sm text-charcoal/50 mt-1">
+                {scoringMode === "gross" && "Standings based on raw scores without handicap adjustments."}
+                {scoringMode === "net" && "Standings based on handicap-adjusted net scores."}
+                {scoringMode === "both" && "Display both gross and net scores in standings."}
+              </p>
             </div>
 
             {settingsError && (

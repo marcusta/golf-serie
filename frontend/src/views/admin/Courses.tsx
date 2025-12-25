@@ -4,12 +4,17 @@ import {
   useCreateCourse,
   useUpdateCourseHoles,
   useDeleteCourse,
+  useCourseTees,
+  useCreateCourseTee,
+  useUpdateCourseTee,
+  useDeleteCourseTee,
   type Course,
+  type CourseTee,
 } from "@/api/courses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Map, Target, TrendingUp, Plus, Edit, Trash2 } from "lucide-react";
+import { Map, Target, TrendingUp, Plus, Edit, Trash2, Settings, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -83,6 +88,21 @@ export default function Courses() {
   const [pars, setPars] = useState<number[]>(Array(18).fill(3));
   const [step, setStep] = useState<"name" | "pars">("name");
 
+  // Tee management state
+  const [showTeeDialog, setShowTeeDialog] = useState(false);
+  const [selectedCourseForTees, setSelectedCourseForTees] = useState<Course | null>(null);
+  const [editingTee, setEditingTee] = useState<CourseTee | null>(null);
+  const [teeName, setTeeName] = useState("");
+  const [teeColor, setTeeColor] = useState("");
+  const [courseRating, setCourseRating] = useState("");
+  const [slopeRating, setSlopeRating] = useState("113");
+  const [teeError, setTeeError] = useState<string | null>(null);
+
+  const { data: courseTees, isLoading: teesLoading } = useCourseTees(selectedCourseForTees?.id || 0);
+  const createTee = useCreateCourseTee();
+  const updateTee = useUpdateCourseTee();
+  const deleteTee = useDeleteCourseTee();
+
   const handleCreate = () => {
     setEditingCourse(null);
     setCourseName("");
@@ -108,6 +128,96 @@ export default function Courses() {
       } catch (error) {
         console.error("Failed to delete course:", error);
         alert("Failed to delete course. Please try again.");
+      }
+    }
+  };
+
+  // Tee management handlers
+  const openTeeDialog = (course: Course) => {
+    setSelectedCourseForTees(course);
+    setEditingTee(null);
+    resetTeeForm();
+    setShowTeeDialog(true);
+  };
+
+  const resetTeeForm = () => {
+    setTeeName("");
+    setTeeColor("");
+    setCourseRating("");
+    setSlopeRating("113");
+    setTeeError(null);
+    setEditingTee(null);
+  };
+
+  const handleEditTee = (tee: CourseTee) => {
+    setEditingTee(tee);
+    setTeeName(tee.name);
+    setTeeColor(tee.color || "");
+    setCourseRating(tee.course_rating.toString());
+    setSlopeRating(tee.slope_rating.toString());
+    setTeeError(null);
+  };
+
+  const handleSaveTee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTeeError(null);
+
+    if (!selectedCourseForTees) return;
+
+    const cr = parseFloat(courseRating);
+    const sr = parseInt(slopeRating);
+
+    if (isNaN(cr) || cr < 50 || cr > 90) {
+      setTeeError("Course rating must be between 50 and 90");
+      return;
+    }
+    if (isNaN(sr) || sr < 55 || sr > 155) {
+      setTeeError("Slope rating must be between 55 and 155");
+      return;
+    }
+
+    try {
+      if (editingTee) {
+        await updateTee.mutateAsync({
+          courseId: selectedCourseForTees.id,
+          teeId: editingTee.id,
+          data: {
+            name: teeName,
+            color: teeColor || undefined,
+            course_rating: cr,
+            slope_rating: sr,
+          },
+        });
+      } else {
+        await createTee.mutateAsync({
+          courseId: selectedCourseForTees.id,
+          data: {
+            name: teeName,
+            color: teeColor || undefined,
+            course_rating: cr,
+            slope_rating: sr,
+          },
+        });
+      }
+      resetTeeForm();
+    } catch (err) {
+      setTeeError(err instanceof Error ? err.message : "Failed to save tee");
+    }
+  };
+
+  const handleDeleteTee = async (tee: CourseTee) => {
+    if (!selectedCourseForTees) return;
+    if (window.confirm(`Are you sure you want to delete tee "${tee.name}"?`)) {
+      try {
+        await deleteTee.mutateAsync({
+          courseId: selectedCourseForTees.id,
+          teeId: tee.id,
+        });
+        if (editingTee?.id === tee.id) {
+          resetTeeForm();
+        }
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed to delete tee");
       }
     }
   };
@@ -221,6 +331,7 @@ export default function Courses() {
               index={index}
               handleEdit={handleEdit}
               handleDelete={handleDelete}
+              handleManageTees={openTeeDialog}
             />
           ))}
         </div>
@@ -325,6 +436,202 @@ export default function Courses() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Tee Management Dialog */}
+      <Dialog open={showTeeDialog} onOpenChange={(open) => {
+        setShowTeeDialog(open);
+        if (!open) {
+          setSelectedCourseForTees(null);
+          resetTeeForm();
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Manage Tees - {selectedCourseForTees?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Tee Form */}
+            <form onSubmit={handleSaveTee} className="space-y-4 p-4 bg-gray-50 rounded-lg">
+              <h4 className="font-medium text-gray-900">
+                {editingTee ? "Edit Tee" : "Add New Tee"}
+              </h4>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="teeName" className="text-sm font-medium">
+                    Tee Name *
+                  </label>
+                  <Input
+                    id="teeName"
+                    value={teeName}
+                    onChange={(e) => setTeeName(e.target.value)}
+                    placeholder="e.g., Men, Ladies, Championship"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="teeColor" className="text-sm font-medium">
+                    Color (optional)
+                  </label>
+                  <Input
+                    id="teeColor"
+                    value={teeColor}
+                    onChange={(e) => setTeeColor(e.target.value)}
+                    placeholder="e.g., white, yellow, red"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="courseRating" className="text-sm font-medium">
+                    Course Rating (CR) *
+                  </label>
+                  <Input
+                    id="courseRating"
+                    type="number"
+                    step="0.1"
+                    min="50"
+                    max="90"
+                    value={courseRating}
+                    onChange={(e) => setCourseRating(e.target.value)}
+                    placeholder="e.g., 72.3"
+                    required
+                  />
+                  <p className="text-xs text-gray-500">Range: 50.0 - 90.0</p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="slopeRating" className="text-sm font-medium">
+                    Slope Rating (SR) *
+                  </label>
+                  <Input
+                    id="slopeRating"
+                    type="number"
+                    min="55"
+                    max="155"
+                    value={slopeRating}
+                    onChange={(e) => setSlopeRating(e.target.value)}
+                    placeholder="e.g., 113"
+                    required
+                  />
+                  <p className="text-xs text-gray-500">Range: 55 - 155 (standard: 113)</p>
+                </div>
+              </div>
+
+              {teeError && (
+                <p className="text-sm text-red-600">{teeError}</p>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  disabled={createTee.isPending || updateTee.isPending}
+                  className="flex items-center gap-2"
+                >
+                  {(createTee.isPending || updateTee.isPending) ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  {editingTee ? "Update Tee" : "Add Tee"}
+                </Button>
+                {editingTee && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetTeeForm}
+                  >
+                    Cancel Edit
+                  </Button>
+                )}
+              </div>
+            </form>
+
+            {/* Existing Tees List */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-900">Existing Tees</h4>
+
+              {teesLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                </div>
+              ) : !courseTees || courseTees.length === 0 ? (
+                <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg">
+                  <p>No tees defined for this course yet.</p>
+                  <p className="text-sm mt-1">Add your first tee above to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {courseTees.map((tee) => (
+                    <div
+                      key={tee.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        editingTee?.id === tee.id
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {tee.color && (
+                          <div
+                            className="w-4 h-4 rounded-full border border-gray-300"
+                            style={{ backgroundColor: tee.color }}
+                            title={tee.color}
+                          />
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900">{tee.name}</p>
+                          <p className="text-sm text-gray-500">
+                            CR: {tee.course_rating} | SR: {tee.slope_rating}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditTee(tee)}
+                          className="h-8 w-8"
+                          title="Edit Tee"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteTee(tee)}
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Delete Tee"
+                          disabled={deleteTee.isPending}
+                        >
+                          {deleteTee.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowTeeDialog(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -334,11 +641,13 @@ function CourseCard({
   index,
   handleEdit,
   handleDelete,
+  handleManageTees,
 }: {
   course: Course;
   index: number;
   handleEdit: (course: Course) => void;
   handleDelete: (course: Course) => void;
+  handleManageTees: (course: Course) => void;
 }) {
   const colors = getCourseColor(index);
   return (
@@ -361,8 +670,18 @@ function CourseCard({
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => handleManageTees(course)}
+              className="h-8 w-8"
+              title="Manage Tees"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => handleEdit(course)}
               className="h-8 w-8"
+              title="Edit Pars"
             >
               <Edit className="h-4 w-4" />
             </Button>
@@ -371,6 +690,7 @@ function CourseCard({
               size="icon"
               onClick={() => handleDelete(course)}
               className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="Delete Course"
             >
               <Trash2 className="h-4 w-4" />
             </Button>

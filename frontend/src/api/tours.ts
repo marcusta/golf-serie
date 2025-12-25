@@ -4,6 +4,7 @@ import { API_BASE_URL } from "./config";
 export type TourEnrollmentStatus = "pending" | "requested" | "active";
 export type TourEnrollmentMode = "closed" | "request";
 export type TourVisibility = "private" | "public";
+export type TourScoringMode = "gross" | "net" | "both";
 
 export interface Tour {
   id: number;
@@ -12,6 +13,7 @@ export interface Tour {
   owner_id: number;
   enrollment_mode: TourEnrollmentMode;
   visibility: TourVisibility;
+  scoring_mode: TourScoringMode;
   banner_image_url: string | null;
   landing_document_id: number | null;
   created_at: string;
@@ -51,6 +53,7 @@ export interface TourStandings {
   tour: Tour;
   player_standings: TourPlayerStanding[];
   total_competitions: number;
+  scoring_mode: TourScoringMode;
   point_template?: {
     id: number;
     name: string;
@@ -82,6 +85,7 @@ export interface CreateTourData {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  scoring_mode?: TourScoringMode;
   banner_image_url?: string;
 }
 
@@ -90,6 +94,7 @@ export interface UpdateTourData {
   description?: string;
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
+  scoring_mode?: TourScoringMode;
   banner_image_url?: string | null;
   landing_document_id?: number | null;
 }
