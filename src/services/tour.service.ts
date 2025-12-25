@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import type { TourPlayerStanding, TourStandings, Tour as TourType } from "../types";
+import type { TourCategory, TourPlayerStanding, TourStandings, Tour as TourType } from "../types";
 
 export type Tour = {
   id: number;
@@ -226,11 +226,25 @@ export class TourService {
 
   /**
    * Get full standings for a tour with detailed competition breakdown
+   * Optionally filter by category
    */
-  getFullStandings(tourId: number): TourStandings {
+  getFullStandings(tourId: number, categoryId?: number): TourStandings {
     const tour = this.findById(tourId);
     if (!tour) {
       throw new Error("Tour not found");
+    }
+
+    // Get all categories for this tour
+    const categories = this.db
+      .prepare("SELECT * FROM tour_categories WHERE tour_id = ? ORDER BY sort_order ASC, name ASC")
+      .all(tourId) as TourCategory[];
+
+    // If categoryId provided, validate it exists
+    if (categoryId !== undefined) {
+      const categoryExists = categories.some(c => c.id === categoryId);
+      if (!categoryExists) {
+        throw new Error("Category not found");
+      }
     }
 
     // Get all competitions in this tour
@@ -243,6 +257,8 @@ export class TourService {
         total_competitions: 0,
         scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
         point_template: undefined,
+        categories,
+        selected_category_id: categoryId,
       };
     }
 
@@ -255,10 +271,35 @@ export class TourService {
     }
 
     // Get number of active enrollments for default points calculation
+    // When filtering by category, use category enrollment count for points
+    let enrollmentQuery = "SELECT COUNT(*) as count FROM tour_enrollments WHERE tour_id = ? AND status = 'active'";
+    const enrollmentParams: any[] = [tourId];
+    if (categoryId !== undefined) {
+      enrollmentQuery += " AND category_id = ?";
+      enrollmentParams.push(categoryId);
+    }
     const enrollmentCount = this.db
-      .prepare("SELECT COUNT(*) as count FROM tour_enrollments WHERE tour_id = ? AND status = 'active'")
-      .get(tourId) as { count: number };
+      .prepare(enrollmentQuery)
+      .get(...enrollmentParams) as { count: number };
     const numberOfPlayers = enrollmentCount.count;
+
+    // Get player to category mapping
+    const playerCategories = new Map<number, { category_id: number | null; category_name: string | null }>();
+    const enrollments = this.db
+      .prepare(`
+        SELECT te.player_id, te.category_id, tc.name as category_name
+        FROM tour_enrollments te
+        LEFT JOIN tour_categories tc ON te.category_id = tc.id
+        WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
+      `)
+      .all(tourId) as { player_id: number; category_id: number | null; category_name: string | null }[];
+
+    for (const enrollment of enrollments) {
+      playerCategories.set(enrollment.player_id, {
+        category_id: enrollment.category_id,
+        category_name: enrollment.category_name,
+      });
+    }
 
     // Track player standings
     const playerStandings: Map<number, TourPlayerStanding> = new Map();
@@ -287,6 +328,14 @@ export class TourService {
 
       // Calculate points for each player
       for (const result of rankedResults) {
+        // Filter by category if specified
+        const playerCategory = playerCategories.get(result.player_id);
+        if (categoryId !== undefined) {
+          if (!playerCategory || playerCategory.category_id !== categoryId) {
+            continue;
+          }
+        }
+
         const points = this.calculatePlayerPoints(
           result.position,
           numberOfPlayers,
@@ -298,6 +347,8 @@ export class TourService {
           playerStandings.set(result.player_id, {
             player_id: result.player_id,
             player_name: result.player_name,
+            category_id: playerCategory?.category_id ?? undefined,
+            category_name: playerCategory?.category_name ?? undefined,
             total_points: 0,
             competitions_played: 0,
             position: 0,
@@ -354,6 +405,8 @@ export class TourService {
       total_competitions: competitions.length,
       scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
       point_template: pointTemplate ? { id: pointTemplate.id, name: pointTemplate.name } : undefined,
+      categories,
+      selected_category_id: categoryId,
     };
   }
 

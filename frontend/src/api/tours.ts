@@ -46,6 +46,8 @@ export interface TourPlayerStanding {
   total_points: number;
   competitions_played: number;
   position: number;
+  category_id?: number;
+  category_name?: string;
   competitions: TourPlayerCompetition[];
 }
 
@@ -58,6 +60,8 @@ export interface TourStandings {
     id: number;
     name: string;
   };
+  categories?: TourCategory[];
+  selected_category_id?: number;
 }
 
 export interface TourEnrollment {
@@ -67,8 +71,32 @@ export interface TourEnrollment {
   email: string;
   status: TourEnrollmentStatus;
   player_name?: string;
+  category_id?: number;
+  category_name?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TourCategory {
+  id: number;
+  tour_id: number;
+  name: string;
+  description?: string;
+  sort_order: number;
+  enrollment_count: number;
+  created_at: string;
+}
+
+export interface CreateTourCategoryData {
+  name: string;
+  description?: string;
+  sort_order?: number;
+}
+
+export interface UpdateTourCategoryData {
+  name?: string;
+  description?: string;
+  sort_order?: number;
 }
 
 export interface TourAdmin {
@@ -238,11 +266,14 @@ export function useTourCompetitions(id: number) {
   });
 }
 
-export function useTourStandings(id: number) {
+export function useTourStandings(id: number, categoryId?: number) {
   return useQuery<TourStandings>({
-    queryKey: ["tour-standings", id],
+    queryKey: ["tour-standings", id, categoryId],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/tours/${id}/standings`);
+      const url = categoryId
+        ? `${API_BASE_URL}/tours/${id}/standings?category=${categoryId}`
+        : `${API_BASE_URL}/tours/${id}/standings`;
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch tour standings");
       }
@@ -608,6 +639,219 @@ export function useDeleteTourDocument() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tour-documents", variables.tourId] });
       queryClient.invalidateQueries({ queryKey: ["tour", variables.tourId] });
+    },
+  });
+}
+
+// Category Hooks
+export function useTourCategories(tourId: number) {
+  return useQuery<TourCategory[]>({
+    queryKey: ["tour-categories", tourId],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/categories`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch tour categories");
+      }
+      return response.json();
+    },
+    enabled: !!tourId,
+  });
+}
+
+export function useCreateTourCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      data,
+    }: {
+      tourId: number;
+      data: CreateTourCategoryData;
+    }) => {
+      const response = await fetch(`${API_BASE_URL}/tours/${tourId}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create category");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-categories", variables.tourId] });
+    },
+  });
+}
+
+export function useUpdateTourCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      categoryId,
+      data,
+    }: {
+      tourId: number;
+      categoryId: number;
+      data: UpdateTourCategoryData;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/categories/${categoryId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update category");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-categories", variables.tourId] });
+    },
+  });
+}
+
+export function useDeleteTourCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      categoryId,
+    }: {
+      tourId: number;
+      categoryId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/categories/${categoryId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete category");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-categories", variables.tourId] });
+      queryClient.invalidateQueries({ queryKey: ["tour-enrollments", variables.tourId] });
+    },
+  });
+}
+
+export function useReorderTourCategories() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      categoryIds,
+    }: {
+      tourId: number;
+      categoryIds: number[];
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/categories/reorder`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ categoryIds }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to reorder categories");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-categories", variables.tourId] });
+    },
+  });
+}
+
+export function useAssignEnrollmentCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      enrollmentId,
+      categoryId,
+    }: {
+      tourId: number;
+      enrollmentId: number;
+      categoryId: number | null;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/enrollments/${enrollmentId}/category`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ categoryId }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to assign category");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-enrollments", variables.tourId] });
+      queryClient.invalidateQueries({ queryKey: ["tour-categories", variables.tourId] });
+    },
+  });
+}
+
+export function useBulkAssignCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      enrollmentIds,
+      categoryId,
+    }: {
+      tourId: number;
+      enrollmentIds: number[];
+      categoryId: number | null;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/enrollments/bulk-category`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ enrollmentIds, categoryId }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to bulk assign category");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tour-enrollments", variables.tourId] });
+      queryClient.invalidateQueries({ queryKey: ["tour-categories", variables.tourId] });
     },
   });
 }

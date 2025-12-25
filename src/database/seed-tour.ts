@@ -845,10 +845,400 @@ Good luck and stay warm! ⛳🏔️`,
   }
 }
 
+async function seedLanderydTour() {
+  console.log("\n🏌️‍♀️ Seeding Landeryd Mixed Tour data...\n");
+
+  const db = createDatabase();
+  await initializeDatabase(db);
+
+  try {
+    db.run("BEGIN TRANSACTION");
+
+    // Clean existing Landeryd tour data if --clean flag
+    if (shouldClean) {
+      console.log("🧹 Cleaning existing Landeryd tour data...");
+
+      db.run(`
+        DELETE FROM participants WHERE tee_time_id IN (
+          SELECT t.id FROM tee_times t
+          JOIN competitions c ON t.competition_id = c.id
+          JOIN tours tour ON c.tour_id = tour.id
+          WHERE tour.name = 'Landeryd Mixed Tour 2025'
+        )
+      `);
+      db.run(`
+        DELETE FROM tee_times WHERE competition_id IN (
+          SELECT c.id FROM competitions c
+          JOIN tours tour ON c.tour_id = tour.id
+          WHERE tour.name = 'Landeryd Mixed Tour 2025'
+        )
+      `);
+      db.run(`
+        DELETE FROM competitions WHERE tour_id IN (
+          SELECT id FROM tours WHERE name = 'Landeryd Mixed Tour 2025'
+        )
+      `);
+      db.run(`DELETE FROM tour_categories WHERE tour_id IN (SELECT id FROM tours WHERE name = 'Landeryd Mixed Tour 2025')`);
+      db.run(`DELETE FROM tour_documents WHERE tour_id IN (SELECT id FROM tours WHERE name = 'Landeryd Mixed Tour 2025')`);
+      db.run(`DELETE FROM tour_enrollments WHERE tour_id IN (SELECT id FROM tours WHERE name = 'Landeryd Mixed Tour 2025')`);
+      db.run(`DELETE FROM tour_admins WHERE tour_id IN (SELECT id FROM tours WHERE name = 'Landeryd Mixed Tour 2025')`);
+      db.run(`DELETE FROM tours WHERE name = 'Landeryd Mixed Tour 2025'`);
+
+      // Delete Landeryd tour players
+      db.run("DELETE FROM players WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%@landeryd.se')");
+      db.run("DELETE FROM users WHERE email LIKE '%@landeryd.se'");
+
+      console.log("  ✓ Cleaned existing Landeryd tour data\n");
+    }
+
+    // 1. Find or create admin user
+    let admin = db.prepare(`SELECT id FROM users WHERE email = 'tour-admin@example.com'`).get() as { id: number } | null;
+    if (!admin) {
+      const adminPassword = await Bun.password.hash("admin123", "bcrypt");
+      admin = db.prepare(`
+        INSERT INTO users (email, password_hash, role)
+        VALUES (?, ?, ?)
+        RETURNING id
+      `).get("tour-admin@example.com", adminPassword, "SUPER_ADMIN") as { id: number };
+    }
+    console.log(`Using admin user (id: ${admin.id})`);
+
+    // 2. Find the Landeryd courses
+    const classicCourse = db.prepare(`SELECT id, name FROM courses WHERE name = 'Landeryd Classic'`).get() as { id: number; name: string } | null;
+    const mastersCourse = db.prepare(`SELECT id, name FROM courses WHERE name = 'Landeryd Masters'`).get() as { id: number; name: string } | null;
+
+    if (!classicCourse || !mastersCourse) {
+      console.log("⚠️  Landeryd courses not found in database!");
+      console.log("   Please ensure 'Landeryd Classic' and 'Landeryd Masters' courses exist.");
+      console.log("   Aborting Landeryd Tour seed.");
+      db.run("ROLLBACK");
+      return;
+    }
+    console.log(`Found courses: ${classicCourse.name} (id: ${classicCourse.id}), ${mastersCourse.name} (id: ${mastersCourse.id})`);
+
+    // 3. Find the real user
+    const realUser = db.prepare(`SELECT id FROM users WHERE email = ?`).get("marcus.andersson1975@gmail.com") as { id: number } | null;
+    if (realUser) {
+      console.log(`Found real user (id: ${realUser.id})`);
+    }
+
+    // 4. Get or create point template
+    let pointTemplate = db.prepare(`SELECT id FROM point_templates WHERE name = 'Standard Tour Points'`).get() as { id: number } | null;
+    if (!pointTemplate) {
+      pointTemplate = db.prepare(`
+        INSERT INTO point_templates (name, points_structure, created_by)
+        VALUES (?, ?, ?)
+        RETURNING id
+      `).get(
+        "Standard Tour Points",
+        JSON.stringify({ "1": 100, "2": 80, "3": 65, "4": 55, "5": 50, "6": 45, "7": 40, "8": 36, "9": 32, "10": 29, "default": 5 }),
+        admin.id
+      ) as { id: number };
+    }
+
+    // 5. Create Landeryd Mixed Tour with scoring_mode = 'both'
+    console.log("\nCreating Landeryd Mixed Tour...");
+    const tour = db.prepare(`
+      INSERT INTO tours (name, description, owner_id, enrollment_mode, visibility, point_template_id, banner_image_url, scoring_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING id
+    `).get(
+      "Landeryd Mixed Tour 2025",
+      "Mixed tour with separate Men's and Women's categories. Both gross and net scores tracked. Alternating between Landeryd Classic and Landeryd Masters.",
+      admin.id,
+      "closed",
+      "public",
+      pointTemplate.id,
+      "https://images.unsplash.com/photo-1593111774240-d529f12cf4bb?w=1200",
+      "both"  // Gross and Net scoring
+    ) as { id: number };
+    console.log(`  ✓ Tour created (id: ${tour.id}) with scoring_mode: both`);
+
+    // 6. Create categories
+    console.log("\nCreating categories...");
+    const mensCategory = db.prepare(`
+      INSERT INTO tour_categories (tour_id, name, description, sort_order)
+      VALUES (?, ?, ?, ?)
+      RETURNING id
+    `).get(tour.id, "Mens", "Men's division", 0) as { id: number };
+    console.log(`  ✓ Mens category created (id: ${mensCategory.id})`);
+
+    const womensCategory = db.prepare(`
+      INSERT INTO tour_categories (tour_id, name, description, sort_order)
+      VALUES (?, ?, ?, ?)
+      RETURNING id
+    `).get(tour.id, "Womens", "Women's division", 1) as { id: number };
+    console.log(`  ✓ Womens category created (id: ${womensCategory.id})`);
+
+    // 7. Create tour landing document
+    const landingDoc = db.prepare(`
+      INSERT INTO tour_documents (title, content, type, tour_id)
+      VALUES (?, ?, ?, ?)
+      RETURNING id
+    `).get(
+      "Welcome to Landeryd Mixed Tour 2025",
+      `# Landeryd Mixed Tour 2025
+
+Welcome to the Landeryd Mixed Tour! A unique competition featuring both men's and women's divisions.
+
+## Format
+
+- **Scoring**: Both Gross and Net scores tracked
+- **Categories**: Separate standings for Men and Women
+- **Courses**: Alternating weekly between Landeryd Classic and Landeryd Masters
+- **Period**: November 2025 through April 2026
+
+## Schedule
+
+| Round | Course | Dates |
+|-------|--------|-------|
+| Round 1 | Landeryd Classic | Nov 3 - Nov 16 |
+| Round 2 | Landeryd Masters | Nov 17 - Nov 30 |
+| Round 3 | Landeryd Classic | Dec 1 - Dec 14 |
+| Round 4 | Landeryd Masters | Dec 15 - Dec 28 |
+| Round 5 | Landeryd Classic | Dec 29 - Jan 11 |
+| Round 6 | Landeryd Masters | Jan 12 - Jan 25 |
+| Round 7 | Landeryd Classic | Jan 26 - Feb 8 |
+| Round 8 | Landeryd Masters | Feb 9 - Feb 22 |
+| Round 9 | Landeryd Classic | Feb 23 - Mar 8 |
+| Round 10 | Landeryd Masters | Mar 9 - Mar 22 |
+| Round 11 | Landeryd Classic | Mar 23 - Apr 5 |
+| Round 12 | Landeryd Masters | Apr 6 - Apr 19 |
+
+## Standings
+
+Results are calculated separately for:
+- **Overall** - All players combined
+- **Mens** - Men's division only
+- **Womens** - Women's division only
+
+Both **Gross** and **Net** scores are tracked for handicap-adjusted competition.
+
+Good luck! ⛳`,
+      "landing",
+      tour.id
+    ) as { id: number };
+    db.prepare(`UPDATE tours SET landing_document_id = ? WHERE id = ?`).run(landingDoc.id, tour.id);
+    console.log(`  ✓ Landing document created`);
+
+    // 8. Create or get team
+    let team = db.prepare(`SELECT id FROM teams WHERE name = ?`).get("Individual Players") as { id: number } | null;
+    if (!team) {
+      team = db.prepare(`INSERT INTO teams (name) VALUES (?) RETURNING id`).get("Individual Players") as { id: number };
+    }
+
+    // 9. Create players - 10 men and 10 women
+    console.log("\nCreating/enrolling players...");
+    const landerydPlayers: { id: number; name: string; handicap: number; categoryId: number; isRealUser: boolean }[] = [];
+
+    // Men's names
+    const menFirstNames = ["Erik", "Johan", "Anders", "Lars", "Magnus", "Henrik", "Per", "Fredrik", "Karl", "Mikael"];
+    const menLastNames = ["Lindberg", "Bergström", "Holmgren", "Ekberg", "Sjöström", "Wallén", "Norberg", "Åsberg", "Eklund", "Blomqvist"];
+
+    // Women's names
+    const womenFirstNames = ["Anna", "Maria", "Eva", "Karin", "Sara", "Emma", "Linda", "Sofia", "Elin", "Hanna"];
+    const womenLastNames = ["Lindqvist", "Bergman", "Nyström", "Holmberg", "Ekström", "Sjöberg", "Wallin", "Engström", "Nordin", "Lundqvist"];
+
+    // First, enroll the real user in Men's category
+    if (realUser) {
+      let realPlayer = db.prepare(`SELECT id, name, handicap FROM players WHERE user_id = ?`).get(realUser.id) as { id: number; name: string; handicap: number } | null;
+      if (!realPlayer) {
+        realPlayer = db.prepare(`
+          INSERT INTO players (name, handicap, user_id, created_by)
+          VALUES (?, ?, ?, ?)
+          RETURNING id, name, handicap
+        `).get("Marcus Andersson", 15, realUser.id, admin.id) as { id: number; name: string; handicap: number };
+      }
+      landerydPlayers.push({ id: realPlayer.id, name: realPlayer.name, handicap: realPlayer.handicap, categoryId: mensCategory.id, isRealUser: true });
+
+      db.prepare(`
+        INSERT INTO tour_enrollments (tour_id, player_id, email, status, category_id)
+        VALUES (?, ?, ?, 'active', ?)
+      `).run(tour.id, realPlayer.id, "marcus.andersson1975@gmail.com", mensCategory.id);
+      console.log(`  ✓ Enrolled real user: ${realPlayer.name} (Mens)`);
+    }
+
+    // Create 10 men
+    for (let i = 0; i < 10; i++) {
+      const firstName = menFirstNames[i];
+      const lastName = menLastNames[i];
+      const name = `${firstName} ${lastName}`;
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@landeryd.se`;
+      const handicap = Math.floor(Math.random() * 20) + 5; // 5-24
+
+      const password = await Bun.password.hash("landeryd123", "bcrypt");
+      const user = db.prepare(`
+        INSERT INTO users (email, password_hash, role)
+        VALUES (?, ?, ?)
+        RETURNING id
+      `).get(email, password, "PLAYER") as { id: number };
+
+      const player = db.prepare(`
+        INSERT INTO players (name, handicap, user_id, created_by)
+        VALUES (?, ?, ?, ?)
+        RETURNING id
+      `).get(name, handicap, user.id, admin.id) as { id: number };
+
+      landerydPlayers.push({ id: player.id, name, handicap, categoryId: mensCategory.id, isRealUser: false });
+
+      db.prepare(`
+        INSERT INTO tour_enrollments (tour_id, player_id, email, status, category_id)
+        VALUES (?, ?, ?, 'active', ?)
+      `).run(tour.id, player.id, email, mensCategory.id);
+    }
+    console.log(`  ✓ Created 10 men enrolled in Mens category`);
+
+    // Create 10 women
+    for (let i = 0; i < 10; i++) {
+      const firstName = womenFirstNames[i];
+      const lastName = womenLastNames[i];
+      const name = `${firstName} ${lastName}`;
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@landeryd.se`;
+      const handicap = Math.floor(Math.random() * 25) + 8; // 8-32
+
+      const password = await Bun.password.hash("landeryd123", "bcrypt");
+      const user = db.prepare(`
+        INSERT INTO users (email, password_hash, role)
+        VALUES (?, ?, ?)
+        RETURNING id
+      `).get(email, password, "PLAYER") as { id: number };
+
+      const player = db.prepare(`
+        INSERT INTO players (name, handicap, user_id, created_by)
+        VALUES (?, ?, ?, ?)
+        RETURNING id
+      `).get(name, handicap, user.id, admin.id) as { id: number };
+
+      landerydPlayers.push({ id: player.id, name, handicap, categoryId: womensCategory.id, isRealUser: false });
+
+      db.prepare(`
+        INSERT INTO tour_enrollments (tour_id, player_id, email, status, category_id)
+        VALUES (?, ?, ?, 'active', ?)
+      `).run(tour.id, player.id, email, womensCategory.id);
+    }
+    console.log(`  ✓ Created 10 women enrolled in Womens category`);
+    console.log(`  Total: ${landerydPlayers.length} enrolled players`);
+
+    // 10. Create competitions (12 rounds, alternating courses)
+    console.log("\nCreating competitions...");
+
+    const schedule = [
+      { round: 1, start: "2025-11-03", end: "2025-11-16", status: "completed", course: classicCourse },
+      { round: 2, start: "2025-11-17", end: "2025-11-30", status: "completed", course: mastersCourse },
+      { round: 3, start: "2025-12-01", end: "2025-12-14", status: "completed", course: classicCourse },
+      { round: 4, start: "2025-12-15", end: "2025-12-28", status: "current", course: mastersCourse },
+      { round: 5, start: "2025-12-29", end: "2026-01-11", status: "future", course: classicCourse },
+      { round: 6, start: "2026-01-12", end: "2026-01-25", status: "future", course: mastersCourse },
+      { round: 7, start: "2026-01-26", end: "2026-02-08", status: "future", course: classicCourse },
+      { round: 8, start: "2026-02-09", end: "2026-02-22", status: "future", course: mastersCourse },
+      { round: 9, start: "2026-02-23", end: "2026-03-08", status: "future", course: classicCourse },
+      { round: 10, start: "2026-03-09", end: "2026-03-22", status: "future", course: mastersCourse },
+      { round: 11, start: "2026-03-23", end: "2026-04-05", status: "future", course: classicCourse },
+      { round: 12, start: "2026-04-06", end: "2026-04-19", status: "future", course: mastersCourse },
+    ];
+
+    const competitions: { id: number; round: number; status: string; courseName: string }[] = [];
+
+    for (const comp of schedule) {
+      const competition = db.prepare(`
+        INSERT INTO competitions (name, date, course_id, tour_id, start_mode, open_start, open_end)
+        VALUES (?, ?, ?, ?, 'open', ?, ?)
+        RETURNING id
+      `).get(
+        `Round ${comp.round} - ${comp.course.name}`,
+        comp.start,
+        comp.course.id,
+        tour.id,
+        comp.start,
+        comp.end
+      ) as { id: number };
+
+      competitions.push({ id: competition.id, round: comp.round, status: comp.status, courseName: comp.course.name });
+    }
+    console.log(`  ✓ Created ${competitions.length} competitions (alternating courses)`);
+
+    // 11. Add results for completed competitions
+    console.log("\nAdding results...");
+
+    for (const competition of competitions) {
+      if (competition.status === "completed") {
+        for (const player of landerydPlayers) {
+          const teeTime = db.prepare(`
+            INSERT INTO tee_times (teetime, competition_id, start_hole)
+            VALUES (?, ?, 1)
+            RETURNING id
+          `).get("10:00", competition.id) as { id: number };
+
+          const scores = generateScore(player.handicap);
+          db.prepare(`
+            INSERT INTO participants (tee_order, team_id, tee_time_id, position_name, player_id, player_names, score, is_locked)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+          `).run(1, team.id, teeTime.id, "Individual", player.id, player.name, JSON.stringify(scores));
+        }
+        console.log(`  ✓ Round ${competition.round} (${competition.courseName}): All ${landerydPlayers.length} players completed`);
+
+      } else if (competition.status === "current") {
+        const playedCount = Math.floor(landerydPlayers.length * 0.5); // 50% have played
+        let playedSoFar = 0;
+
+        for (const player of landerydPlayers) {
+          if (player.isRealUser) {
+            console.log(`  • ${player.name} (YOU): Not yet played - waiting for you!`);
+            continue;
+          }
+
+          if (playedSoFar < playedCount - 1) {
+            const teeTime = db.prepare(`
+              INSERT INTO tee_times (teetime, competition_id, start_hole)
+              VALUES (?, ?, 1)
+              RETURNING id
+            `).get("10:00", competition.id) as { id: number };
+
+            const scores = generateScore(player.handicap);
+            db.prepare(`
+              INSERT INTO participants (tee_order, team_id, tee_time_id, position_name, player_id, player_names, score, is_locked)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+            `).run(1, team.id, teeTime.id, "Individual", player.id, player.name, JSON.stringify(scores));
+            playedSoFar++;
+          }
+        }
+        console.log(`  ⏳ Round ${competition.round} (${competition.courseName}) CURRENT: ${playedSoFar}/${landerydPlayers.length} players have submitted`);
+        console.log(`     Open until: 2025-12-28`);
+      }
+    }
+
+    db.run("COMMIT");
+
+    console.log("\n✅ Landeryd Mixed Tour seed data created successfully!");
+    console.log("\n📊 Summary:");
+    console.log(`   - Tour: ${tour.id} (Landeryd Mixed Tour 2025)`);
+    console.log(`   - Scoring Mode: both (Gross + Net)`);
+    console.log(`   - Categories: Mens (${mensCategory.id}), Womens (${womensCategory.id})`);
+    console.log(`   - Courses: Landeryd Classic & Landeryd Masters (alternating)`);
+    console.log(`   - Players: ${landerydPlayers.length} (11 men incl. you, 10 women)`);
+    console.log(`   - Competitions: 12 rounds (2-week periods)`);
+    console.log(`   - Completed: Rounds 1-3`);
+    console.log(`   - Current: Round 4 (Dec 15-28) at Landeryd Masters - PLAY NOW!`);
+    console.log(`   - Upcoming: Rounds 5-12`);
+    console.log("\n🔑 Your enrollment:");
+    console.log("   Email: marcus.andersson1975@gmail.com");
+    console.log("   Category: Mens");
+    console.log("   Status: Active - ready to play Round 4!");
+
+  } catch (error) {
+    db.run("ROLLBACK");
+    console.error("❌ Error seeding Landeryd tour:", error);
+    throw error;
+  } finally {
+    db.close();
+  }
+}
+
 // Run if executed directly
 async function main() {
   await seedTour();
   await seedWinterTour();
+  await seedLanderydTour();
 }
 
 main().catch(console.error);

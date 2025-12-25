@@ -25,6 +25,7 @@ import { SeriesService } from "./services/series-service";
 import { TeamService } from "./services/team-service";
 import { TeeTimeService } from "./services/tee-time-service";
 import { createTourAdminService } from "./services/tour-admin.service";
+import { createTourCategoryService } from "./services/tour-category.service";
 import { TourDocumentService } from "./services/tour-document.service";
 import { createTourEnrollmentService } from "./services/tour-enrollment.service";
 import { createTourService } from "./services/tour.service";
@@ -45,6 +46,7 @@ export function createApp(db: Database): Hono {
   const tourEnrollmentService = createTourEnrollmentService(db);
   const tourAdminService = createTourAdminService(db);
   const tourDocumentService = new TourDocumentService(db);
+  const tourCategoryService = createTourCategoryService(db);
 
   // Auth service with auto-enrollment dependencies
   const authService = createAuthService(db, {
@@ -63,7 +65,7 @@ export function createApp(db: Database): Hono {
   const authApi = createAuthApi(authService);
   const playersApi = createPlayersApi(playerService);
   const pointTemplatesApi = createPointTemplatesApi(pointTemplateService);
-  const toursApi = createToursApi(tourService, tourEnrollmentService, tourAdminService, tourDocumentService);
+  const toursApi = createToursApi(tourService, tourEnrollmentService, tourAdminService, tourDocumentService, tourCategoryService);
 
   // Create Hono app
   const app = new Hono();

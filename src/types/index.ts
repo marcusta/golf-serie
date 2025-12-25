@@ -328,8 +328,35 @@ export interface TourEnrollment {
   email: string;
   status: TourEnrollmentStatus;
   playing_handicap?: number;
+  category_id?: number;
   created_at: string;
   updated_at: string;
+}
+
+// Tour category types
+export interface TourCategory {
+  id: number;
+  tour_id: number;
+  name: string;
+  description?: string;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface CreateTourCategoryDto {
+  name: string;
+  description?: string;
+  sort_order?: number;
+}
+
+export interface UpdateTourCategoryDto {
+  name?: string;
+  description?: string;
+  sort_order?: number;
+}
+
+export interface TourCategoryWithCount extends TourCategory {
+  enrollment_count: number;
 }
 
 export interface TourAdmin {
@@ -366,6 +393,7 @@ export interface CreateTourEnrollmentDto {
 
 export interface TourEnrollmentWithPlayer extends TourEnrollment {
   player_name?: string;
+  category_name?: string;
 }
 
 export interface TourAdminWithUser extends TourAdmin {
@@ -402,6 +430,8 @@ export interface TourPlayerStanding {
   player_id: number;
   player_name: string;
   handicap_index?: number;
+  category_id?: number;
+  category_name?: string;
   total_points: number;
   competitions_played: number;
   position: number;
@@ -426,4 +456,6 @@ export interface TourStandings {
     id: number;
     name: string;
   };
+  categories?: TourCategory[];
+  selected_category_id?: number;
 }

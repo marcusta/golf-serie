@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-25 (Phase 11 in progress, Phases 12-13 planned)
+> Last updated: 2025-12-25 (Phase 12 complete, Phases 13-14 planned)
 
 ## Overview
 
@@ -820,7 +820,7 @@ Course Handicap = (Handicap Index × Slope Rating / 113) + (Course Rating - Par)
 
 ---
 
-### Phase 12: Player Categories/Classes
+### Phase 12: Player Categories/Classes ✅ COMPLETE
 **Goal**: Support different player groups within a tour, each with separate standings
 
 #### Background
@@ -862,43 +862,46 @@ ALTER TABLE tour_enrollments ADD COLUMN category_id INTEGER REFERENCES tour_cate
 #### Tasks
 
 ##### Backend
-- [ ] 12.1 Create migration 030 for `tour_categories` table
-- [ ] 12.2 Create migration 031 for `category_id` on tour_enrollments
-- [ ] 12.3 Add TypeScript types: `TourCategory`, `CreateTourCategoryDto`
-- [ ] 12.4 Create `TourCategoryService`:
+- [x] 12.1 Create migration 031 for `tour_categories` table
+- [x] 12.2 Create migration 032 for `category_id` on tour_enrollments
+- [x] 12.3 Add TypeScript types: `TourCategory`, `CreateTourCategoryDto`
+- [x] 12.4 Create `TourCategoryService`:
   - `create(tourId, data)` - Create category
   - `update(id, data)` - Update category
   - `delete(id)` - Delete category (set enrollments to null)
   - `findByTour(tourId)` - List categories for tour
   - `findById(id)` - Get single category
   - `reorder(tourId, categoryIds)` - Update sort order
-- [ ] 12.5 Add category API endpoints:
+- [x] 12.5 Add category API endpoints:
   - `GET /api/tours/:id/categories` - List categories
   - `POST /api/tours/:id/categories` - Create category
   - `PUT /api/tours/:id/categories/:categoryId` - Update category
   - `DELETE /api/tours/:id/categories/:categoryId` - Delete category
-- [ ] 12.6 Update enrollment endpoints to accept/return category_id
-- [ ] 12.7 Update `TourService.getFullStandings()`:
+  - `PUT /api/tours/:id/categories/reorder` - Reorder categories
+- [x] 12.6 Update enrollment endpoints to accept/return category_id:
+  - `PUT /api/tours/:id/enrollments/:enrollmentId/category` - Assign category
+  - `PUT /api/tours/:id/enrollments/bulk-category` - Bulk assign category
+- [x] 12.7 Update `TourService.getFullStandings()`:
   - Accept optional `categoryId` filter
   - Return category info with standings
   - When no filter, return all players (overall standings)
-- [ ] 12.8 Update standings API: `GET /api/tours/:id/standings?category=:categoryId`
-- [ ] 12.9 Write tests for category service and API
+- [x] 12.8 Update standings API: `GET /api/tours/:id/standings?category=:categoryId`
+- [x] 12.9 Write tests for category service and API (46 tests total)
 
 ##### Frontend Admin
-- [ ] 12.10 Add Categories tab in tour admin detail
-- [ ] 12.11 Category management UI:
+- [x] 12.10 Add Categories tab in tour admin detail
+- [x] 12.11 Category management UI:
   - Create/edit/delete categories
-  - Drag-drop reordering
+  - Up/down reordering buttons
   - Show enrollment count per category
-- [ ] 12.12 Add category selector in enrollment management
-- [ ] 12.13 Bulk category assignment tool
+- [x] 12.12 Add category selector in enrollment management
+- [x] 12.13 Bulk category assignment via dropdown in enrollment list
 
 ##### Frontend Player
-- [ ] 12.14 Update TourStandings with category tabs/filter
-- [ ] 12.15 Show category name on player cards in standings
-- [ ] 12.16 Update TourDetail to show categories overview
-- [ ] 12.17 Competition leaderboard category filter (optional)
+- [x] 12.14 Update TourStandings with category tabs/filter
+- [ ] 12.15 Show category name on player cards in standings (deferred)
+- [ ] 12.16 Update TourDetail to show categories overview (deferred)
+- [ ] 12.17 Competition leaderboard category filter (deferred)
 
 #### Design Decisions
 
@@ -929,12 +932,175 @@ Tour Standings
   - (A) Sum category points (players compete within their category)
   - (B) Calculate globally (all players compete together) - **Default for MVP**
 
+#### Notes (2025-12-25)
+**Database migrations created:**
+- `src/database/migrations/031_add_tour_categories.ts` - Creates `tour_categories` table with indexes
+- `src/database/migrations/032_add_enrollment_category.ts` - Adds `category_id` to `tour_enrollments`
+
+**Backend files created/modified:**
+- `src/services/tour-category.service.ts` - Full CRUD service with:
+  - `create(tourId, data)` - Create category with auto sort_order
+  - `update(id, data)` - Update name/description
+  - `delete(id)` - Delete category, clears enrollment category_id
+  - `findById(id)` - Get single category
+  - `findByTour(tourId)` - List with enrollment counts
+  - `reorder(tourId, categoryIds)` - Update sort order
+  - `assignToEnrollment(enrollmentId, categoryId)` - Single assignment
+  - `bulkAssign(enrollmentIds, categoryId)` - Bulk assignment
+  - `getEnrollmentsByCategory(categoryId)` - List enrollments in category
+- `src/api/tours.ts` - Added 7 new category endpoints:
+  - GET/POST `/api/tours/:id/categories`
+  - PUT/DELETE `/api/tours/:id/categories/:categoryId`
+  - PUT `/api/tours/:id/categories/reorder`
+  - PUT `/api/tours/:id/enrollments/:enrollmentId/category`
+  - PUT `/api/tours/:id/enrollments/bulk-category`
+- `src/services/tour-enrollment.service.ts` - Updated to include category_name via JOIN
+- `src/services/tour.service.ts` - Updated `getFullStandings()` to accept categoryId filter
+- `src/types/index.ts` - Added TourCategory, CreateTourCategoryDto, UpdateTourCategoryDto, TourCategoryWithCount
+
+**Backend tests created:**
+- `tests/tour-category-service.test.ts` - 27 tests for TourCategoryService
+- `tests/tour-api-categories.test.ts` - 19 tests for category API endpoints
+
+**Frontend files modified:**
+- `frontend/src/api/tours.ts` - Added category types and 8 React Query hooks:
+  - `useTourCategories`, `useCreateTourCategory`, `useUpdateTourCategory`, `useDeleteTourCategory`
+  - `useReorderTourCategories`, `useAssignEnrollmentCategory`, `useBulkAssignCategory`
+  - Updated `useTourStandings` to accept optional categoryId parameter
+- `frontend/src/views/admin/TourDetail.tsx` - Added Categories tab with:
+  - Create/edit/delete category dialog
+  - Up/down reorder buttons with sort_order
+  - Enrollment count display per category
+  - Category selector dropdown in enrollment list
+- `frontend/src/views/player/TourStandings.tsx` - Added category filter tabs:
+  - "All Players" tab for overall standings
+  - Category tabs when categories exist
+  - Persists filter selection in query
+
+**Key implementation details:**
+- Route ordering fix: `/categories/reorder` route defined before `/:categoryId` parameterized routes
+- Category deletion sets `category_id` to NULL on enrollments via service (no FK cascade)
+- Standings endpoint returns `categories` array with `selected_category_id` for UI sync
+- Player standings include `category_id` and `category_name` when available
+
+**Verification:**
+- All 46 new category tests pass (27 service + 19 API)
+- All 550+ backend tests pass
+- Frontend TypeScript compilation passes
+- No regressions in existing functionality
+
+---
+
+### Phase 13: Tee Box Gender-Specific Ratings
+**Goal**: Fix data model to support gender-specific course ratings per tee box
+
+#### Background
+The current `course_tees` table has a single `course_rating` and `slope_rating` per tee box. However, in the World Handicap System (WHS), the **same physical tee box** has different ratings depending on the gender of the player:
+
+**Example - Landeryd Classic Yellow Tees:**
+| Gender | Course Rating | Slope Rating |
+|--------|---------------|--------------|
+| Men | 67.2 | 118 |
+| Women | 69.5 | 122 |
+
+This is because women typically have shorter driving distances, making the same course relatively longer/harder for them.
+
+#### Current Problem
+```sql
+-- Current schema (incorrect for WHS)
+CREATE TABLE course_tees (
+  id INTEGER PRIMARY KEY,
+  course_id INTEGER NOT NULL,
+  name TEXT NOT NULL,           -- "Yellow", "Red", etc.
+  color TEXT,
+  course_rating REAL NOT NULL,  -- Only ONE rating!
+  slope_rating INTEGER NOT NULL, -- Only ONE slope!
+  stroke_index TEXT,
+  ...
+);
+```
+
+#### Proposed Schema Change
+```sql
+-- Option A: Add gender-specific columns
+ALTER TABLE course_tees ADD COLUMN course_rating_women REAL;
+ALTER TABLE course_tees ADD COLUMN slope_rating_women INTEGER;
+-- Rename existing columns for clarity
+-- course_rating -> course_rating_men
+-- slope_rating -> slope_rating_men
+
+-- Option B: Separate ratings table (more flexible)
+CREATE TABLE course_tee_ratings (
+  id INTEGER PRIMARY KEY,
+  tee_id INTEGER NOT NULL REFERENCES course_tees(id) ON DELETE CASCADE,
+  gender TEXT NOT NULL,          -- 'men', 'women'
+  course_rating REAL NOT NULL,
+  slope_rating INTEGER NOT NULL,
+  UNIQUE(tee_id, gender)
+);
+```
+
+#### Tasks
+- [ ] 13.1 Decide on schema approach (Option A vs B)
+- [ ] 13.2 Create migration to update course_tees or add course_tee_ratings
+- [ ] 13.3 Update CourseTeeService to handle gender-specific ratings
+- [ ] 13.4 Update tee box API endpoints
+- [ ] 13.5 Update handicap calculation to use correct gender-based CR/SR
+- [ ] 13.6 Update frontend tee box management UI for dual ratings
+- [ ] 13.7 Update existing tee box data with correct gender-specific ratings
+- [ ] 13.8 Write tests for gender-specific handicap calculations
+
 #### Notes
 _Space for implementation notes_
 
 ---
 
-### Phase 13: Future Enhancements (Backlog)
+### Phase 14: Fix Categories & Net Scores Display
+**Goal**: Debug and fix missing category and net score display in leaderboards/standings
+
+#### Background
+Phase 11 added `scoring_mode` ('gross', 'net', 'both') to tours and Phase 12 added player categories. However, when viewing a tour with these features enabled:
+- Category filter tabs may not be showing in standings
+- Net scores are not displayed in leaderboards
+- Competition results don't show both gross and net rankings
+- Category-filtered standings may not be calculating correctly
+
+#### Known Issues
+1. **Standings page**: Category tabs added but may not be receiving categories from API
+2. **Leaderboard**: No net score column even when tour.scoring_mode is 'net' or 'both'
+3. **Competition detail**: No indication of which tee box was used
+4. **Scorecard**: No handicap stroke indicators per hole
+5. **Player standings**: Category name not displayed on player cards
+
+#### Tasks
+
+##### Backend Investigation
+- [ ] 14.1 Verify standings API returns categories array correctly
+- [ ] 14.2 Verify category filtering in getFullStandings() works
+- [ ] 14.3 Add net score calculation to competition leaderboard API
+- [ ] 14.4 Ensure competition has tee_id linked for handicap calculation
+
+##### Frontend - Standings
+- [ ] 14.5 Debug category tabs not appearing in TourStandings
+- [ ] 14.6 Add category name display on player standing cards
+- [ ] 14.7 Show both gross and net points when scoring_mode is 'both'
+
+##### Frontend - Leaderboard
+- [ ] 14.8 Add Net column to LeaderboardComponent when applicable
+- [ ] 14.9 Show tee box info (name, CR, SR) on competition detail
+- [ ] 14.10 Add toggle between Gross/Net ranking when mode is 'both'
+
+##### Frontend - Scorecard
+- [ ] 14.11 Display handicap strokes per hole (dots/indicators)
+- [ ] 14.12 Show net score per hole alongside gross
+- [ ] 14.13 Display player's course handicap for the competition
+
+#### Notes
+_Space for implementation notes_
+
+---
+
+### Phase 15: Future Enhancements (Backlog)
 **Goal**: Track potential future improvements
 
 #### Potential Features
@@ -952,6 +1118,21 @@ _Space for implementation notes_
 ---
 
 ## Progress Log
+
+### 2025-12-25 - Phase 12 Complete
+- **Phase 12 completed (Player Categories/Classes):**
+  - Created 2 database migrations (031, 032) for tour_categories table and category_id on enrollments
+  - Created `TourCategoryService` with full CRUD, reorder, and enrollment assignment
+  - Added 7 category API endpoints to tours.ts
+  - Updated `TourEnrollmentService` to include category_name via JOIN
+  - Updated `TourService.getFullStandings()` with category filtering
+  - Created 46 comprehensive tests (27 service + 19 API)
+  - Added Categories tab in admin TourDetail with create/edit/delete/reorder UI
+  - Added category selector dropdown in enrollment management
+  - Updated player TourStandings with category filter tabs
+  - Added 8 React Query hooks for categories
+  - All 550+ backend tests pass
+  - Frontend TypeScript compilation passes
 
 ### 2025-12-25 - Phase 11 In Progress
 - **Phase 11 backend implementation complete:**

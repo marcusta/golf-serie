@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { useTour, useTourStandings, useTourCompetitions } from "@/api/tours";
-import type { TourPlayerCompetition } from "@/api/tours";
+import type { TourPlayerCompetition, TourCategory } from "@/api/tours";
 import {
   Trophy,
   AlertCircle,
@@ -90,6 +90,7 @@ export default function TourStandings() {
   const [expandedPlayers, setExpandedPlayers] = useState<Set<number>>(
     new Set()
   );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
 
   const {
     data: tour,
@@ -102,7 +103,7 @@ export default function TourStandings() {
     isLoading: standingsLoading,
     error: standingsError,
     refetch: refetchStandings,
-  } = useTourStandings(id);
+  } = useTourStandings(id, selectedCategoryId);
 
   const {
     data: allCompetitions,
@@ -328,6 +329,35 @@ export default function TourStandings() {
               </Button>
             </div>
           </div>
+
+          {/* Category Filter Tabs */}
+          {standings.categories && standings.categories.length > 0 && (
+            <div className="flex gap-2 pb-4 overflow-x-auto scrollbar-hide">
+              <button
+                onClick={() => setSelectedCategoryId(undefined)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedCategoryId === undefined
+                    ? "bg-turf text-scorecard"
+                    : "bg-rough/30 text-charcoal hover:bg-rough/50"
+                }`}
+              >
+                All Players
+              </button>
+              {standings.categories.map((category: TourCategory) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategoryId(category.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                    selectedCategoryId === category.id
+                      ? "bg-turf text-scorecard"
+                      : "bg-rough/30 text-charcoal hover:bg-rough/50"
+                  }`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
