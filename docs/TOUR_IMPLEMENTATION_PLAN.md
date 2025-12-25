@@ -1474,20 +1474,7 @@ All Phase 15E functionality was implemented as part of Phase 15D:
 - [ ] 15F.4 Add "My Rounds" section to player home/tour detail
 - [ ] 15F.5 Navigation from group status → score entry
 
-##### Phase 15G: Edge Cases & Polish
-- [ ] 15G.1 Handle competition closing:
-  - Auto-convert LFG players to solo registration
-  - Block new registrations after close
-- [ ] 15G.2 Handle player withdrawal:
-  - Remove from group, reassign if needed
-  - Mark scores appropriately
-- [ ] 15G.3 Group creator leaves:
-  - Group persists, no special handling needed
-- [ ] 15G.4 Max 4 players per group enforcement
-- [ ] 15G.5 Cleanup empty tee_times when groups merge/leave
-- [ ] 15G.6 Real-time updates (optional: WebSocket or polling)
-
-##### Phase 15H: Competition Groups Overview (API + Frontend)
+##### Phase 15G: Competition Groups Overview (API + Frontend)
 - [ ] 15H.1 Add API endpoints:
   - `GET /api/competitions/:id/registrations` - List all registrations with player details
   - `GET /api/competitions/:id/groups` - List all groups with members, grouped by tee_time
@@ -1501,6 +1488,20 @@ All Phase 15E functionality was implemented as part of Phase 15D:
   - Current hole/score for active groups (if available)
 - [ ] 15H.4 Add to admin competition detail view
 - [ ] 15H.5 Add player-facing "Who's Playing" view (optional: restrict to enrolled players)
+
+##### Phase 15H: Edge Cases & Polish
+- [ ] 15G.1 Handle competition closing:
+  - Auto-convert LFG players to solo registration
+  - Block new registrations after close
+- [ ] 15G.2 Handle player withdrawal:
+  - Remove from group, reassign if needed
+  - Mark scores appropriately
+- [ ] 15G.3 Group creator leaves:
+  - Group persists, no special handling needed
+- [ ] 15G.4 Max 4 players per group enforcement
+- [ ] 15G.5 Cleanup empty tee_times when groups merge/leave
+- [ ] 15G.6 Real-time updates (optional: WebSocket or polling)
+
 
 #### UI Mockups
 
