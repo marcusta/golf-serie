@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-25 (Phase 15A complete)
+> Last updated: 2025-12-25 (Phase 15C complete)
 
 ## Overview
 
@@ -1348,22 +1348,62 @@ CREATE INDEX idx_tcr_player ON tour_competition_registrations(player_id);
 
 **Note:** Group formation methods were implemented as part of Phase 15A in `TourCompetitionRegistrationService`.
 
-##### Phase 15C: Registration API Endpoints
-- [ ] 15C.1 Add registration endpoints to competitions API:
+##### Phase 15C: Registration API Endpoints ✅ COMPLETE
+- [x] 15C.1 Add registration endpoints to competitions API:
   - `POST /api/competitions/:id/register` - Register for competition
   - `DELETE /api/competitions/:id/register` - Withdraw from competition
   - `GET /api/competitions/:id/my-registration` - Get my registration status
   - `GET /api/competitions/:id/available-players` - List players for group formation
-- [ ] 15C.2 Add group management endpoints:
+- [x] 15C.2 Add group management endpoints:
   - `POST /api/competitions/:id/group/add` - Add player(s) to my group
   - `POST /api/competitions/:id/group/remove` - Remove player from my group
   - `POST /api/competitions/:id/group/leave` - Leave current group
   - `GET /api/competitions/:id/group` - Get my current group members
-- [ ] 15C.3 Add play mode endpoints:
+- [x] 15C.3 Add play mode endpoints:
   - `POST /api/competitions/:id/start-playing` - Mark as playing
   - `GET /api/player/active-rounds` - Get all active rounds across tours
-- [ ] 15C.4 Authorization: Only enrolled players can register for tour competitions
-- [ ] 15C.5 Write API tests
+- [x] 15C.4 Authorization: Only enrolled players can register for tour competitions
+- [x] 15C.5 Write API tests
+
+**Notes (2025-12-25):**
+- Created `src/api/tour-competition-registration.ts` with Hono-based API factory
+- All endpoints use `requireAuth()` middleware for authentication
+- Player lookup via `playerService.findByUserId()` to map user → player
+- Authorization is handled in the service layer (enrollment check)
+- Mounted on `/api/competitions` route in `app.ts`
+- Added `/api/player/active-rounds` endpoint for cross-tour active round queries
+- Written 30 comprehensive API tests covering:
+  - Registration (solo, LFG, create_group modes)
+  - Withdrawal
+  - Group management (add, remove, leave)
+  - Play mode transitions
+  - Authorization and error handling
+
+**Known Gap - Competition Groups Overview:**
+The service has `getRegistrationsForCompetition()` but no API endpoint exposes it.
+Need endpoints for viewing all groups/registrations in a competition:
+- `GET /api/competitions/:id/registrations` - All registrations with status
+- `GET /api/competitions/:id/groups` - All groups with members and status
+This is useful for:
+- Admin: See all registered players and their group status
+- Players: See who else is playing, follow the competition
+- Live view: Which groups are on course, finished, etc.
+→ Added as Phase 15H below
+
+##### Phase 15H: Competition Groups Overview (API + Frontend)
+- [ ] 15H.1 Add API endpoints:
+  - `GET /api/competitions/:id/registrations` - List all registrations with player details
+  - `GET /api/competitions/:id/groups` - List all groups with members, grouped by tee_time
+- [ ] 15H.2 Add React Query hooks:
+  - `useCompetitionRegistrations(competitionId)`
+  - `useCompetitionGroups(competitionId)`
+- [ ] 15H.3 Create `CompetitionGroupsView` component:
+  - Shows all groups playing/registered for a competition
+  - Status indicators: Registered, On Course, Finished
+  - Group members with handicaps
+  - Current hole/score for active groups (if available)
+- [ ] 15H.4 Add to admin competition detail view
+- [ ] 15H.5 Add player-facing "Who's Playing" view (optional: restrict to enrolled players)
 
 ##### Phase 15D: Frontend - Registration Flow
 - [ ] 15D.1 Add React Query hooks for registration:
@@ -1616,6 +1656,26 @@ CREATE INDEX idx_tcr_player ON tour_competition_registrations(player_id);
 ---
 
 ## Progress Log
+
+### 2025-12-25 - Phase 15C Complete
+- **Phase 15C completed (Registration API Endpoints):**
+  - Created `src/api/tour-competition-registration.ts` with Hono-based API factory
+  - Implemented registration endpoints:
+    - `POST /api/competitions/:id/register` - Register with solo/lfg/create_group mode
+    - `DELETE /api/competitions/:id/register` - Withdraw from competition
+    - `GET /api/competitions/:id/my-registration` - Get player's registration status + group
+    - `GET /api/competitions/:id/available-players` - List enrolled players with status
+  - Implemented group management endpoints:
+    - `POST /api/competitions/:id/group/add` - Add player(s) to group
+    - `POST /api/competitions/:id/group/remove` - Remove player from group
+    - `POST /api/competitions/:id/group/leave` - Leave current group
+    - `GET /api/competitions/:id/group` - Get current group members
+  - Implemented play mode endpoints:
+    - `POST /api/competitions/:id/start-playing` - Mark registration as playing
+    - `GET /api/player/active-rounds` - Get all active rounds across tours
+  - All endpoints require authentication via `requireAuth()` middleware
+  - Authorization handled in service layer (enrollment verification)
+  - Written 30 comprehensive API tests, all passing
 
 ### 2025-12-25 - Phase 15A Complete
 - **Phase 15A completed (Database & Core Registration Service):**

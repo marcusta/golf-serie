@@ -28,7 +28,9 @@ import { createTourAdminService } from "./services/tour-admin.service";
 import { createTourCategoryService } from "./services/tour-category.service";
 import { TourDocumentService } from "./services/tour-document.service";
 import { createTourEnrollmentService } from "./services/tour-enrollment.service";
+import { createTourCompetitionRegistrationService } from "./services/tour-competition-registration.service";
 import { createTourService } from "./services/tour.service";
+import { createTourCompetitionRegistrationApi } from "./api/tour-competition-registration";
 
 export function createApp(db: Database): Hono {
   // Initialize services
@@ -47,6 +49,7 @@ export function createApp(db: Database): Hono {
   const tourAdminService = createTourAdminService(db);
   const tourDocumentService = new TourDocumentService(db);
   const tourCategoryService = createTourCategoryService(db);
+  const tourCompetitionRegistrationService = createTourCompetitionRegistrationService(db);
 
   // Auth service with auto-enrollment dependencies
   const authService = createAuthService(db, {
@@ -66,6 +69,11 @@ export function createApp(db: Database): Hono {
   const playersApi = createPlayersApi(playerService);
   const pointTemplatesApi = createPointTemplatesApi(pointTemplateService);
   const toursApi = createToursApi(tourService, tourEnrollmentService, tourAdminService, tourDocumentService, tourCategoryService);
+  const tourCompetitionRegistrationApi = createTourCompetitionRegistrationApi(
+    tourCompetitionRegistrationService,
+    tourEnrollmentService,
+    playerService
+  );
 
   // Create Hono app
   const app = new Hono();
@@ -116,6 +124,9 @@ export function createApp(db: Database): Hono {
   // Mount tours API routes
   app.route("/api/tours", toursApi);
 
+  // Mount tour competition registration API routes (for /api/competitions/:id/register etc.)
+  app.route("/api/competitions", tourCompetitionRegistrationApi);
+
   // Player enrollments endpoint - get current player's tour enrollments
   app.get("/api/player/enrollments", async (c) => {
     const user = c.get("user");
@@ -131,6 +142,28 @@ export function createApp(db: Database): Hono {
 
     const enrollments = tourEnrollmentService.getEnrollmentsForPlayer(player.id);
     return c.json(enrollments);
+  });
+
+  // Player active rounds endpoint - get all active rounds across tours (15C.3)
+  app.get("/api/player/active-rounds", async (c) => {
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    // Get the player ID associated with this user
+    const player = playerService.findByUserId(user.id);
+    if (!player) {
+      return c.json([]);
+    }
+
+    try {
+      const activeRounds = await tourCompetitionRegistrationService.getActiveRounds(player.id);
+      return c.json(activeRounds);
+    } catch (error: any) {
+      console.error("Active rounds error:", error);
+      return c.json({ error: error.message || "Internal server error" }, 500);
+    }
   });
 
   // Course routes
