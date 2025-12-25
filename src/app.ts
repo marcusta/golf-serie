@@ -191,6 +191,40 @@ export function createApp(db: Database): Hono {
     return await coursesApi.deleteTee(courseId, teeId);
   });
 
+  // Course Tee Rating routes
+  app.get("/api/courses/:courseId/tees/:teeId/ratings", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    return await coursesApi.getTeeRatings(courseId, teeId);
+  });
+
+  app.get("/api/courses/:courseId/tees/:teeId/ratings/:gender", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    const gender = c.req.param("gender");
+    return await coursesApi.getTeeRatingByGender(courseId, teeId, gender);
+  });
+
+  app.post("/api/courses/:courseId/tees/:teeId/ratings", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    return await coursesApi.upsertTeeRating(c.req.raw, courseId, teeId);
+  });
+
+  app.put("/api/courses/:courseId/tees/:teeId/ratings/:ratingId", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    const ratingId = parseInt(c.req.param("ratingId"));
+    return await coursesApi.updateTeeRating(c.req.raw, courseId, teeId, ratingId);
+  });
+
+  app.delete("/api/courses/:courseId/tees/:teeId/ratings/:gender", async (c) => {
+    const courseId = parseInt(c.req.param("courseId"));
+    const teeId = parseInt(c.req.param("teeId"));
+    const gender = c.req.param("gender");
+    return await coursesApi.deleteTeeRating(courseId, teeId, gender);
+  });
+
   // Team routes
   app.post("/api/teams", async (c) => {
     return await teamsApi.create(c.req.raw);

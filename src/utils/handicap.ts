@@ -267,3 +267,106 @@ export function formatHandicapIndex(handicapIndex: number): string {
   }
   return handicapIndex.toFixed(1);
 }
+
+/**
+ * Gender type for rating lookups
+ */
+export type HandicapGender = "men" | "women";
+
+/**
+ * Rating data structure
+ */
+export interface RatingData {
+  gender: HandicapGender;
+  course_rating: number;
+  slope_rating: number;
+}
+
+/**
+ * Get rating for a specific gender from a ratings array
+ * Falls back to the first available rating if the requested gender is not found
+ *
+ * @param ratings - Array of gender-specific ratings
+ * @param gender - The gender to look up
+ * @param fallbackCourseRating - Optional fallback course rating if no ratings exist
+ * @param fallbackSlopeRating - Optional fallback slope rating if no ratings exist
+ * @returns Rating data for the specified gender
+ */
+export function getRatingForGender(
+  ratings: RatingData[] | undefined,
+  gender: HandicapGender,
+  fallbackCourseRating?: number,
+  fallbackSlopeRating?: number
+): { course_rating: number; slope_rating: number } {
+  // Try to find the rating for the specified gender
+  if (ratings && ratings.length > 0) {
+    const genderRating = ratings.find((r) => r.gender === gender);
+    if (genderRating) {
+      return {
+        course_rating: genderRating.course_rating,
+        slope_rating: genderRating.slope_rating,
+      };
+    }
+
+    // Fall back to first available rating
+    const firstRating = ratings[0];
+    return {
+      course_rating: firstRating.course_rating,
+      slope_rating: firstRating.slope_rating,
+    };
+  }
+
+  // Use fallbacks if provided
+  if (fallbackCourseRating !== undefined) {
+    return {
+      course_rating: fallbackCourseRating,
+      slope_rating: fallbackSlopeRating ?? 113,
+    };
+  }
+
+  // Default fallback (shouldn't normally happen)
+  return {
+    course_rating: 72,
+    slope_rating: 113,
+  };
+}
+
+/**
+ * Calculate full handicap using gender-specific ratings
+ *
+ * @param handicapIndex - Player's handicap index
+ * @param ratings - Array of gender-specific ratings
+ * @param gender - Player's gender
+ * @param par - Course par
+ * @param strokeIndex - Stroke index array
+ * @param grossScores - Optional gross scores
+ * @param fallbackCourseRating - Fallback course rating if no ratings exist
+ * @param fallbackSlopeRating - Fallback slope rating if no ratings exist
+ * @returns Full handicap calculation details
+ */
+export function calculateFullHandicapWithGender(
+  handicapIndex: number,
+  ratings: RatingData[] | undefined,
+  gender: HandicapGender,
+  par: number,
+  strokeIndex: number[],
+  grossScores?: number[],
+  fallbackCourseRating?: number,
+  fallbackSlopeRating?: number
+): FullHandicapCalculation {
+  const { course_rating, slope_rating } = getRatingForGender(
+    ratings,
+    gender,
+    fallbackCourseRating,
+    fallbackSlopeRating
+  );
+
+  return calculateFullHandicap(
+    handicapIndex,
+    course_rating,
+    slope_rating,
+    par,
+    strokeIndex,
+    grossScores
+  );
+}

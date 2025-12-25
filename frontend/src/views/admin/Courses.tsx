@@ -8,6 +8,7 @@ import {
   useCreateCourseTee,
   useUpdateCourseTee,
   useDeleteCourseTee,
+  useUpsertCourseTeeRating,
   type Course,
   type CourseTee,
 } from "@/api/courses";
@@ -94,14 +95,19 @@ export default function Courses() {
   const [editingTee, setEditingTee] = useState<CourseTee | null>(null);
   const [teeName, setTeeName] = useState("");
   const [teeColor, setTeeColor] = useState("");
-  const [courseRating, setCourseRating] = useState("");
-  const [slopeRating, setSlopeRating] = useState("113");
+  // Gender-specific ratings
+  const [mensCourseRating, setMensCourseRating] = useState("");
+  const [mensSlopeRating, setMensSlopeRating] = useState("113");
+  const [womensCourseRating, setWomensCourseRating] = useState("");
+  const [womensSlopeRating, setWomensSlopeRating] = useState("113");
+  const [hasWomensRating, setHasWomensRating] = useState(false);
   const [teeError, setTeeError] = useState<string | null>(null);
 
   const { data: courseTees, isLoading: teesLoading } = useCourseTees(selectedCourseForTees?.id || 0);
   const createTee = useCreateCourseTee();
   const updateTee = useUpdateCourseTee();
   const deleteTee = useDeleteCourseTee();
+  const upsertRating = useUpsertCourseTeeRating();
 
   const handleCreate = () => {
     setEditingCourse(null);
@@ -143,8 +149,11 @@ export default function Courses() {
   const resetTeeForm = () => {
     setTeeName("");
     setTeeColor("");
-    setCourseRating("");
-    setSlopeRating("113");
+    setMensCourseRating("");
+    setMensSlopeRating("113");
+    setWomensCourseRating("");
+    setWomensSlopeRating("113");
+    setHasWomensRating(false);
     setTeeError(null);
     setEditingTee(null);
   };
@@ -153,8 +162,30 @@ export default function Courses() {
     setEditingTee(tee);
     setTeeName(tee.name);
     setTeeColor(tee.color || "");
-    setCourseRating(tee.course_rating.toString());
-    setSlopeRating(tee.slope_rating.toString());
+
+    // Load men's rating
+    const mensRating = tee.ratings?.find(r => r.gender === "men");
+    if (mensRating) {
+      setMensCourseRating(mensRating.course_rating.toString());
+      setMensSlopeRating(mensRating.slope_rating.toString());
+    } else {
+      // Fall back to legacy fields
+      setMensCourseRating(tee.course_rating.toString());
+      setMensSlopeRating(tee.slope_rating.toString());
+    }
+
+    // Load women's rating if exists
+    const womensRating = tee.ratings?.find(r => r.gender === "women");
+    if (womensRating) {
+      setWomensCourseRating(womensRating.course_rating.toString());
+      setWomensSlopeRating(womensRating.slope_rating.toString());
+      setHasWomensRating(true);
+    } else {
+      setWomensCourseRating("");
+      setWomensSlopeRating("113");
+      setHasWomensRating(false);
+    }
+
     setTeeError(null);
   };
 
@@ -164,38 +195,87 @@ export default function Courses() {
 
     if (!selectedCourseForTees) return;
 
-    const cr = parseFloat(courseRating);
-    const sr = parseInt(slopeRating);
+    // Validate men's rating (required)
+    const mensCR = parseFloat(mensCourseRating);
+    const mensSR = parseInt(mensSlopeRating);
 
-    if (isNaN(cr) || cr < 50 || cr > 90) {
-      setTeeError("Course rating must be between 50 and 90");
+    if (isNaN(mensCR) || mensCR < 50 || mensCR > 90) {
+      setTeeError("Men's course rating must be between 50 and 90");
       return;
     }
-    if (isNaN(sr) || sr < 55 || sr > 155) {
-      setTeeError("Slope rating must be between 55 and 155");
+    if (isNaN(mensSR) || mensSR < 55 || mensSR > 155) {
+      setTeeError("Men's slope rating must be between 55 and 155");
       return;
+    }
+
+    // Validate women's rating if enabled
+    let womensCR: number | undefined;
+    let womensSR: number | undefined;
+    if (hasWomensRating && womensCourseRating) {
+      womensCR = parseFloat(womensCourseRating);
+      womensSR = parseInt(womensSlopeRating);
+
+      if (isNaN(womensCR) || womensCR < 50 || womensCR > 90) {
+        setTeeError("Women's course rating must be between 50 and 90");
+        return;
+      }
+      if (isNaN(womensSR) || womensSR < 55 || womensSR > 155) {
+        setTeeError("Women's slope rating must be between 55 and 155");
+        return;
+      }
     }
 
     try {
       if (editingTee) {
+        // Update tee name and color
         await updateTee.mutateAsync({
           courseId: selectedCourseForTees.id,
           teeId: editingTee.id,
           data: {
             name: teeName,
             color: teeColor || undefined,
-            course_rating: cr,
-            slope_rating: sr,
           },
         });
+
+        // Update men's rating
+        await upsertRating.mutateAsync({
+          courseId: selectedCourseForTees.id,
+          teeId: editingTee.id,
+          data: {
+            gender: "men",
+            course_rating: mensCR,
+            slope_rating: mensSR,
+          },
+        });
+
+        // Update women's rating if enabled
+        if (hasWomensRating && womensCR !== undefined) {
+          await upsertRating.mutateAsync({
+            courseId: selectedCourseForTees.id,
+            teeId: editingTee.id,
+            data: {
+              gender: "women",
+              course_rating: womensCR,
+              slope_rating: womensSR,
+            },
+          });
+        }
       } else {
+        // Create new tee with ratings
+        const ratings: Array<{ gender: "men" | "women"; course_rating: number; slope_rating: number }> = [
+          { gender: "men", course_rating: mensCR, slope_rating: mensSR },
+        ];
+
+        if (hasWomensRating && womensCR !== undefined && womensSR !== undefined) {
+          ratings.push({ gender: "women", course_rating: womensCR, slope_rating: womensSR });
+        }
+
         await createTee.mutateAsync({
           courseId: selectedCourseForTees.id,
           data: {
             name: teeName,
             color: teeColor || undefined,
-            course_rating: cr,
-            slope_rating: sr,
+            ratings,
           },
         });
       }
@@ -469,7 +549,7 @@ export default function Courses() {
                     id="teeName"
                     value={teeName}
                     onChange={(e) => setTeeName(e.target.value)}
-                    placeholder="e.g., Men, Ladies, Championship"
+                    placeholder="e.g., Yellow, White, Red"
                     required
                   />
                 </div>
@@ -486,41 +566,101 @@ export default function Courses() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="courseRating" className="text-sm font-medium">
-                    Course Rating (CR) *
-                  </label>
-                  <Input
-                    id="courseRating"
-                    type="number"
-                    step="0.1"
-                    min="50"
-                    max="90"
-                    value={courseRating}
-                    onChange={(e) => setCourseRating(e.target.value)}
-                    placeholder="e.g., 72.3"
-                    required
-                  />
-                  <p className="text-xs text-gray-500">Range: 50.0 - 90.0</p>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="slopeRating" className="text-sm font-medium">
-                    Slope Rating (SR) *
-                  </label>
-                  <Input
-                    id="slopeRating"
-                    type="number"
-                    min="55"
-                    max="155"
-                    value={slopeRating}
-                    onChange={(e) => setSlopeRating(e.target.value)}
-                    placeholder="e.g., 113"
-                    required
-                  />
-                  <p className="text-xs text-gray-500">Range: 55 - 155 (standard: 113)</p>
+              {/* Men's Rating */}
+              <div className="p-3 border border-blue-200 rounded-lg bg-blue-50/50">
+                <h5 className="text-sm font-medium text-blue-800 mb-3">Men's Rating</h5>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="mensCourseRating" className="text-sm font-medium">
+                      Course Rating (CR) *
+                    </label>
+                    <Input
+                      id="mensCourseRating"
+                      type="number"
+                      step="0.1"
+                      min="50"
+                      max="90"
+                      value={mensCourseRating}
+                      onChange={(e) => setMensCourseRating(e.target.value)}
+                      placeholder="e.g., 72.3"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="mensSlopeRating" className="text-sm font-medium">
+                      Slope Rating (SR) *
+                    </label>
+                    <Input
+                      id="mensSlopeRating"
+                      type="number"
+                      min="55"
+                      max="155"
+                      value={mensSlopeRating}
+                      onChange={(e) => setMensSlopeRating(e.target.value)}
+                      placeholder="e.g., 113"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Women's Rating Toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="hasWomensRating"
+                  checked={hasWomensRating}
+                  onChange={(e) => setHasWomensRating(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <label htmlFor="hasWomensRating" className="text-sm font-medium text-gray-700">
+                  Add Women's Rating (different CR/SR for women)
+                </label>
+              </div>
+
+              {/* Women's Rating */}
+              {hasWomensRating && (
+                <div className="p-3 border border-pink-200 rounded-lg bg-pink-50/50">
+                  <h5 className="text-sm font-medium text-pink-800 mb-3">Women's Rating</h5>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label htmlFor="womensCourseRating" className="text-sm font-medium">
+                        Course Rating (CR) *
+                      </label>
+                      <Input
+                        id="womensCourseRating"
+                        type="number"
+                        step="0.1"
+                        min="50"
+                        max="90"
+                        value={womensCourseRating}
+                        onChange={(e) => setWomensCourseRating(e.target.value)}
+                        placeholder="e.g., 74.5"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="womensSlopeRating" className="text-sm font-medium">
+                        Slope Rating (SR) *
+                      </label>
+                      <Input
+                        id="womensSlopeRating"
+                        type="number"
+                        min="55"
+                        max="155"
+                        value={womensSlopeRating}
+                        onChange={(e) => setWomensSlopeRating(e.target.value)}
+                        placeholder="e.g., 118"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500">
+                CR: 50.0-90.0 | SR: 55-155 (standard: 113)
+              </p>
 
               {teeError && (
                 <p className="text-sm text-red-600">{teeError}</p>
@@ -529,10 +669,10 @@ export default function Courses() {
               <div className="flex gap-2">
                 <Button
                   type="submit"
-                  disabled={createTee.isPending || updateTee.isPending}
+                  disabled={createTee.isPending || updateTee.isPending || upsertRating.isPending}
                   className="flex items-center gap-2"
                 >
-                  {(createTee.isPending || updateTee.isPending) ? (
+                  {(createTee.isPending || updateTee.isPending || upsertRating.isPending) ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Plus className="h-4 w-4" />
@@ -585,9 +725,20 @@ export default function Courses() {
                         )}
                         <div>
                           <p className="font-medium text-gray-900">{tee.name}</p>
-                          <p className="text-sm text-gray-500">
-                            CR: {tee.course_rating} | SR: {tee.slope_rating}
-                          </p>
+                          <div className="text-sm text-gray-500 space-y-0.5">
+                            {tee.ratings && tee.ratings.length > 0 ? (
+                              tee.ratings.map((rating) => (
+                                <p key={rating.id} className="flex items-center gap-1">
+                                  <span className={`inline-block w-12 ${rating.gender === 'men' ? 'text-blue-600' : 'text-pink-600'}`}>
+                                    {rating.gender === 'men' ? 'Men:' : 'Women:'}
+                                  </span>
+                                  CR {rating.course_rating} | SR {rating.slope_rating}
+                                </p>
+                              ))
+                            ) : (
+                              <p>CR: {tee.course_rating} | SR: {tee.slope_rating}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">

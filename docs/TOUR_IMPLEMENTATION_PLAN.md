@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-25 (Phase 12 complete, Phases 13-14 planned)
+> Last updated: 2025-12-25 (Phase 13 complete, Phase 14 planned)
 
 ## Overview
 
@@ -991,7 +991,7 @@ Tour Standings
 
 ---
 
-### Phase 13: Tee Box Gender-Specific Ratings
+### Phase 13: Tee Box Gender-Specific Ratings ✅ COMPLETE
 **Goal**: Fix data model to support gender-specific course ratings per tee box
 
 #### Background
@@ -1029,7 +1029,7 @@ ALTER TABLE course_tees ADD COLUMN slope_rating_women INTEGER;
 -- course_rating -> course_rating_men
 -- slope_rating -> slope_rating_men
 
--- Option B: Separate ratings table (more flexible)
+-- Option B: Separate ratings table (more flexible) ✅ CHOSEN
 CREATE TABLE course_tee_ratings (
   id INTEGER PRIMARY KEY,
   tee_id INTEGER NOT NULL REFERENCES course_tees(id) ON DELETE CASCADE,
@@ -1041,17 +1041,89 @@ CREATE TABLE course_tee_ratings (
 ```
 
 #### Tasks
-- [ ] 13.1 Decide on schema approach (Option A vs B)
-- [ ] 13.2 Create migration to update course_tees or add course_tee_ratings
-- [ ] 13.3 Update CourseTeeService to handle gender-specific ratings
-- [ ] 13.4 Update tee box API endpoints
-- [ ] 13.5 Update handicap calculation to use correct gender-based CR/SR
-- [ ] 13.6 Update frontend tee box management UI for dual ratings
-- [ ] 13.7 Update existing tee box data with correct gender-specific ratings
-- [ ] 13.8 Write tests for gender-specific handicap calculations
+- [x] 13.1 Decide on schema approach (Option A vs B) - **Chose Option B (separate ratings table)**
+- [x] 13.2 Create migration to update course_tees or add course_tee_ratings
+- [x] 13.3 Update CourseTeeService to handle gender-specific ratings
+- [x] 13.4 Update tee box API endpoints
+- [x] 13.5 Update handicap calculation to use correct gender-based CR/SR
+- [x] 13.6 Update frontend tee box management UI for dual ratings
+- [x] 13.7 Update existing tee box data with correct gender-specific ratings (via migration)
+- [x] 13.8 Write tests for gender-specific handicap calculations
 
-#### Notes
-_Space for implementation notes_
+#### Notes (2025-12-25)
+**Schema Decision: Option B (Separate Ratings Table)**
+Chose Option B for several reasons:
+- More normalized database design
+- Extensible for future categories (juniors, seniors, etc.)
+- No need to rename existing columns
+- Cleaner queries with JOIN on gender
+- Better data integrity with UNIQUE constraint
+
+**Database migration created:**
+- `src/database/migrations/033_add_course_tee_ratings.ts` - Creates `course_tee_ratings` table
+  - Migrates existing tee data to men's ratings automatically
+  - Preserves legacy `course_rating`/`slope_rating` columns for backward compatibility
+
+**Backend files modified:**
+- `src/services/course-tee.service.ts` - Added rating methods:
+  - `getRatingsForTee(teeId)` - Get all ratings for a tee
+  - `getRatingByGender(teeId, gender)` - Get rating by gender
+  - `getRatingById(id)` - Get rating by ID
+  - `upsertRating(teeId, data)` - Create or update rating (INSERT OR REPLACE)
+  - `updateRating(id, data)` - Update existing rating
+  - `deleteRating(id)` - Delete rating by ID
+  - `deleteRatingByGender(teeId, gender)` - Delete rating by gender
+  - Updated `create()` to accept ratings array and create gender-specific ratings
+  - Updated `parseRow()` to include ratings when fetching tees
+- `src/api/courses.ts` - Added 5 new rating endpoints:
+  - `GET /api/courses/:courseId/tees/:teeId/ratings` - List all ratings
+  - `GET /api/courses/:courseId/tees/:teeId/ratings/:gender` - Get by gender
+  - `POST /api/courses/:courseId/tees/:teeId/ratings` - Upsert rating
+  - `PUT /api/courses/:courseId/tees/:teeId/ratings/:ratingId` - Update rating
+  - `DELETE /api/courses/:courseId/tees/:teeId/ratings/:gender` - Delete by gender
+- `src/utils/handicap.ts` - Added gender-based calculation utilities:
+  - `getRatingForGender(ratings, gender, fallbackCR?, fallbackSR?)` - Get correct rating for gender
+  - `calculateFullHandicapWithGender(handicapIndex, ratings, gender, par, strokeIndex, ...)` - Full calculation with gender
+- `src/types/index.ts` - Added types:
+  - `TeeRatingGender = "men" | "women"`
+  - `CourseTeeRating` interface
+  - `CreateCourseTeeRatingDto`, `UpdateCourseTeeRatingDto`
+
+**Backend tests created:**
+- `tests/course-tee-ratings.test.ts` - 24 tests for service and handicap utilities:
+  - CourseTeeService rating methods (create, upsert, update, delete, cascade delete)
+  - Validation (course rating 50-90, slope rating 55-155, valid gender)
+  - `getRatingForGender` utility with fallbacks
+  - `calculateFullHandicapWithGender` with real-world examples
+- `tests/course-tee-ratings-api.test.ts` - 18 tests for API endpoints:
+  - GET ratings list and by gender
+  - POST upsert (create new, update existing)
+  - PUT update individual rating
+  - DELETE by gender
+  - Tees with ratings included in response
+  - Create tee with ratings array
+
+**Frontend files modified:**
+- `frontend/src/api/courses.ts` - Added types and hooks:
+  - `TeeRatingGender`, `CourseTeeRating`, `CreateCourseTeeRatingData`, `UpdateCourseTeeRatingData`
+  - `useCourseTeeRatings(courseId, teeId)` - Fetch ratings for tee
+  - `useUpsertCourseTeeRating()` - Create/update rating
+  - `useDeleteCourseTeeRating()` - Delete rating by gender
+  - Updated `CourseTee` interface to include `ratings?: CourseTeeRating[]`
+  - Updated `CreateCourseTeeData` to accept `ratings` array
+- `frontend/src/views/admin/Courses.tsx` - Updated tee management UI:
+  - Added separate Men's and Women's rating sections
+  - Course Rating and Slope Rating inputs for each gender
+  - Checkbox toggle to include women's rating
+  - Displays both ratings in tee list (Men: CR/SR, Women: CR/SR)
+  - Create/edit forms support ratings array
+
+**Verification:**
+- All 42 new tests pass (24 service + 18 API)
+- All 30 existing course tee tests pass
+- Frontend TypeScript compilation passes
+- No regressions in existing functionality
+- Backward compatible: legacy `course_rating`/`slope_rating` fields preserved
 
 ---
 
@@ -1118,6 +1190,19 @@ _Space for implementation notes_
 ---
 
 ## Progress Log
+
+### 2025-12-25 - Phase 13 Complete
+- **Phase 13 completed (Tee Box Gender-Specific Ratings):**
+  - Chose Option B (separate `course_tee_ratings` table) for flexibility and normalization
+  - Created migration 033 for `course_tee_ratings` table with automatic data migration
+  - Updated `CourseTeeService` with 7 new rating methods (getRatings, upsert, update, delete)
+  - Added 5 new API endpoints for rating management
+  - Updated handicap utilities with gender-aware calculation functions
+  - Added `TeeRatingGender`, `CourseTeeRating` types to backend and frontend
+  - Updated frontend tee management UI with Men's and Women's rating sections
+  - Created 42 comprehensive tests (24 service + 18 API)
+  - All tests pass, frontend builds successfully
+  - Backward compatible with legacy `course_rating`/`slope_rating` fields preserved
 
 ### 2025-12-25 - Phase 12 Complete
 - **Phase 12 completed (Player Categories/Classes):**

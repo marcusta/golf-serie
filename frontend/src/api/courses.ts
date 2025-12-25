@@ -112,16 +112,43 @@ export function useDeleteCourse() {
   });
 }
 
+// Course Tee Rating Types
+export type TeeRatingGender = "men" | "women";
+
+export interface CourseTeeRating {
+  id: number;
+  tee_id: number;
+  gender: TeeRatingGender;
+  course_rating: number;
+  slope_rating: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCourseTeeRatingData {
+  gender: TeeRatingGender;
+  course_rating: number;
+  slope_rating?: number;
+}
+
+export interface UpdateCourseTeeRatingData {
+  course_rating?: number;
+  slope_rating?: number;
+}
+
 // Course Tee Types
 export interface CourseTee {
   id: number;
   course_id: number;
   name: string;
   color?: string;
+  // Legacy fields (kept for backward compatibility)
   course_rating: number;
   slope_rating: number;
   stroke_index?: number[];
   pars?: number[];
+  // Gender-specific ratings (new)
+  ratings?: CourseTeeRating[];
   created_at: string;
   updated_at: string;
 }
@@ -129,10 +156,13 @@ export interface CourseTee {
 export interface CreateCourseTeeData {
   name: string;
   color?: string;
-  course_rating: number;
+  // Legacy fields (optional if ratings provided)
+  course_rating?: number;
   slope_rating?: number;
   stroke_index?: number[];
   pars?: number[];
+  // Gender-specific ratings (preferred)
+  ratings?: CreateCourseTeeRatingData[];
 }
 
 export interface UpdateCourseTeeData {
@@ -245,6 +275,88 @@ export function useDeleteCourseTee() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["course-tees", variables.courseId] });
+    },
+  });
+}
+
+// Course Tee Rating Hooks
+export function useCourseTeeRatings(courseId: number, teeId: number) {
+  return useQuery<CourseTeeRating[]>({
+    queryKey: ["course-tee-ratings", courseId, teeId],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/tees/${teeId}/ratings`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch course tee ratings");
+      }
+      return response.json();
+    },
+    enabled: !!courseId && !!teeId,
+  });
+}
+
+export function useUpsertCourseTeeRating() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      courseId,
+      teeId,
+      data,
+    }: {
+      courseId: number;
+      teeId: number;
+      data: CreateCourseTeeRatingData;
+    }) => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/tees/${teeId}/ratings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update course tee rating");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["course-tees", variables.courseId] });
+      queryClient.invalidateQueries({ queryKey: ["course-tee", variables.courseId, variables.teeId] });
+      queryClient.invalidateQueries({ queryKey: ["course-tee-ratings", variables.courseId, variables.teeId] });
+    },
+  });
+}
+
+export function useDeleteCourseTeeRating() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      courseId,
+      teeId,
+      gender,
+    }: {
+      courseId: number;
+      teeId: number;
+      gender: TeeRatingGender;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/courses/${courseId}/tees/${teeId}/ratings/${gender}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete course tee rating");
+      }
+      return response.status === 204 ? null : response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["course-tees", variables.courseId] });
+      queryClient.invalidateQueries({ queryKey: ["course-tee", variables.courseId, variables.teeId] });
+      queryClient.invalidateQueries({ queryKey: ["course-tee-ratings", variables.courseId, variables.teeId] });
     },
   });
 }

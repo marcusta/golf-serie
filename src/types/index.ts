@@ -260,15 +260,41 @@ export type TourVisibility = "private" | "public";
 export type TourScoringMode = "gross" | "net" | "both";
 
 // Course tee types
+export type TeeRatingGender = "men" | "women";
+
+export interface CourseTeeRating {
+  id: number;
+  tee_id: number;
+  gender: TeeRatingGender;
+  course_rating: number;
+  slope_rating: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCourseTeeRatingDto {
+  gender: TeeRatingGender;
+  course_rating: number;
+  slope_rating?: number;
+}
+
+export interface UpdateCourseTeeRatingDto {
+  course_rating?: number;
+  slope_rating?: number;
+}
+
 export interface CourseTee {
   id: number;
   course_id: number;
   name: string;
   color?: string;
+  // Legacy fields (kept for backward compatibility, use ratings array instead)
   course_rating: number;
   slope_rating: number;
   stroke_index?: number[];
   pars?: number[];
+  // Gender-specific ratings (preferred for new code)
+  ratings?: CourseTeeRating[];
   created_at: string;
   updated_at: string;
 }
@@ -276,19 +302,24 @@ export interface CourseTee {
 export interface CreateCourseTeeDto {
   name: string;
   color?: string;
-  course_rating: number;
+  // Legacy fields (optional if ratings provided)
+  course_rating?: number;
   slope_rating?: number;
   stroke_index?: number[];
   pars?: number[];
+  // Gender-specific ratings (preferred)
+  ratings?: CreateCourseTeeRatingDto[];
 }
 
 export interface UpdateCourseTeeDto {
   name?: string;
   color?: string;
+  // Legacy fields
   course_rating?: number;
   slope_rating?: number;
   stroke_index?: number[];
   pars?: number[];
+  // Gender-specific ratings can be updated via separate endpoints
 }
 
 // Handicap calculation types
