@@ -74,7 +74,7 @@ export function GroupStatusCard({
   registration,
   group,
   teeTimeId,
-  participantId,
+  // participantId is kept for backward compatibility but no longer used for navigation
   onUpdate,
 }: GroupStatusCardProps) {
   const [showAddPlayers, setShowAddPlayers] = useState(false);
@@ -229,12 +229,12 @@ export function GroupStatusCard({
       {/* Actions */}
       <div className="p-4 space-y-3">
         {/* Playing/Continue button */}
-        {isPlaying && teeTimeId && participantId ? (
+        {isPlaying && teeTimeId ? (
           <Link
-            to="/player/tee-times/$teeTimeId/$participantId"
+            to="/player/competitions/$competitionId/tee-times/$teeTimeId"
             params={{
+              competitionId: competitionId.toString(),
               teeTimeId: teeTimeId.toString(),
-              participantId: participantId.toString(),
             }}
             className="block"
           >

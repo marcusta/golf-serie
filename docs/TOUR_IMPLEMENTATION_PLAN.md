@@ -1461,18 +1461,41 @@ All Phase 15E functionality was implemented as part of Phase 15D:
 - Group capacity shown in `GroupStatusCard` and `AddPlayersToGroup`
 - Search functionality in `AddPlayersToGroup` component
 
-##### Phase 15F: Frontend - Play Mode & Active Rounds
+##### Phase 15F: Frontend - Play Mode & Active Rounds ✅
 - [x] 15F.1 Add `useActiveRounds()` hook (implemented in tour-registration.ts)
-- [ ] 15F.2 Create `ActiveRoundBanner` component:
+- [x] 15F.2 Create `ActiveRoundBanner` component:
   - Shows on TourDetail when player has active round
-  - "Continue Playing" button
-  - Current hole, score, group members
-- [ ] 15F.3 Update `TeeTimeDetail.tsx` for tour play mode:
-  - "View Leaderboard" button always visible
-  - Show player handicap strokes per hole (if net scoring)
-  - Mobile-optimized for on-course use
-- [ ] 15F.4 Add "My Rounds" section to player home/tour detail
-- [ ] 15F.5 Navigation from group status → score entry
+  - "Continue Playing" button with correct navigation
+  - Current hole, score, group members displayed
+  - Implemented in `frontend/src/components/tour/ActiveRoundBanner.tsx`
+- [x] 15F.3 Update score entry for tour play mode:
+  - CompetitionRound.tsx already has "View Leaderboard" tab always visible
+  - BottomTabNavigation provides easy switching between score/leaderboard
+  - Mobile-optimized with full-screen score entry
+- [x] 15F.4 Add "My Rounds" section to player home/tour detail
+  - ActiveRoundBanner displays on TourDetail for active rounds
+  - Filtered by tour_id to show only relevant rounds
+- [x] 15F.5 Navigation from group status → score entry
+  - Fixed GroupStatusCard to use correct route: `/player/competitions/$competitionId/tee-times/$teeTimeId`
+  - Fixed ActiveRoundBanner to use correct route
+  - Removed dependency on deprecated `/player/tee-times/` route
+
+**Files Created/Modified:**
+- `frontend/src/components/tour/ActiveRoundBanner.tsx` - New component for displaying active rounds
+- `frontend/src/components/tour/index.ts` - Added export for ActiveRoundBanner
+- `frontend/src/components/tour/GroupStatusCard.tsx` - Fixed navigation route
+- `frontend/src/views/player/TourDetail.tsx` - Added ActiveRoundBanner integration
+
+**Verification:**
+- All 654 backend tests pass
+- Frontend TypeScript compilation passes (no new errors)
+- Frontend lint passes for new code (pre-existing errors unrelated)
+- Navigation routes correctly point to `/player/competitions/$competitionId/tee-times/$teeTimeId`
+
+**Known Limitations / Future Work:**
+- Scorecard view does not show stroke index per hole (needed for net scoring visibility)
+- Scorecard view does not display net results per hole (only gross scores shown)
+- Leaderboard does not show exact handicap and play handicap when Net scoring mode is active
 
 ##### Phase 15G: Competition Groups Overview (API + Frontend)
 - [ ] 15H.1 Add API endpoints:

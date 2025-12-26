@@ -8,7 +8,7 @@ import {
   useRequestEnrollment,
   type TourCompetition,
 } from "@/api/tours";
-import { useMyRegistration } from "@/api/tour-registration";
+import { useMyRegistration, useActiveRounds } from "@/api/tour-registration";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Calendar,
@@ -31,7 +31,7 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
-import { JoinCompetitionFlow, GroupStatusCard } from "@/components/tour";
+import { JoinCompetitionFlow, GroupStatusCard, ActiveRoundBanner } from "@/components/tour";
 
 // Loading skeleton components
 function LoadingSkeleton() {
@@ -132,6 +132,12 @@ export default function TourDetail() {
   const { data: playerEnrollments } = usePlayerEnrollments();
   const { isAuthenticated } = useAuth();
   const requestEnrollmentMutation = useRequestEnrollment();
+
+  // Get active rounds for this tour (15F.1 + 15F.4)
+  const { data: activeRounds } = useActiveRounds();
+  const tourActiveRounds = useMemo(() => {
+    return activeRounds?.filter((round) => round.tour_id === id) || [];
+  }, [activeRounds, id]);
 
   // Find enrollment status for this tour
   const enrollment = playerEnrollments?.find((e) => e.tour_id === id);
@@ -255,6 +261,15 @@ export default function TourDetail() {
               </span>
             </div>
           </div>
+        )}
+
+        {/* Active Round Banner - show when player has an in-progress round (15F.2) */}
+        {tourActiveRounds.length > 0 && (
+          <section className="space-y-4">
+            {tourActiveRounds.map((round) => (
+              <ActiveRoundBanner key={round.competition_id} activeRound={round} />
+            ))}
+          </section>
         )}
 
         {/* Join Tour CTA for non-enrolled users */}
