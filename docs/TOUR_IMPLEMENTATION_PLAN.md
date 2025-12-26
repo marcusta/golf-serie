@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-26 (Phase 15G complete)
+> Last updated: 2025-12-26 (Phase 15I complete)
 
 ## Overview
 
@@ -89,17 +89,20 @@ Detailed implementation notes for completed phases are archived in `docs/tour-im
 - [ ] 15H.5 Cleanup empty tee_times when groups merge/leave
 - [ ] 15H.6 Real-time updates (optional: WebSocket or polling)
 
-### Phase 15I: Net Scoring & Handicap Display Fixes
-- [ ] 15I.1 Scorecard view: Show stroke index per hole
-  - Display SI value for each hole in scorecard
-  - Indicate which holes receive strokes based on player's play handicap
-- [ ] 15I.2 Scorecard view: Display net results per hole
-  - Show net score alongside gross score
-  - Visual indicator for holes where strokes are received
-- [ ] 15I.3 Leaderboard: Show handicap information in Net scoring mode
-  - Display player's exact handicap (e.g., "12.4")
-  - Display play handicap used for the round (e.g., "PH: 14")
+### Phase 15I: Net Scoring & Handicap Display Fixes - COMPLETE
+- [x] 15I.1 Scorecard view: Show stroke index per hole
+  - Display SI value for each hole in scorecard (SI row added)
+  - Indicate which holes receive strokes based on player's play handicap (highlighted in coral)
+- [x] 15I.2 Scorecard view: Display net results per hole
+  - Show net score alongside gross score (Net row added)
+  - Visual indicator for holes where strokes are received (coral dot)
+  - Net totals shown in totals section with "to par" display
+  - Handicap info displayed in player header (HCP index + PH)
+- [x] 15I.3 Leaderboard: Show handicap information in Net scoring mode
+  - Display player's exact handicap (e.g., "HCP 12.4")
+  - Display play handicap used for the round (e.g., "PH 14")
   - Only show when competition scoring_mode includes 'net'
+  - Added to both mobile and desktop views
 
 ---
 

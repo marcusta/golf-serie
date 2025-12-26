@@ -19,6 +19,14 @@ export interface CourseData {
   }[];
 }
 
+// Net scoring data passed from leaderboard
+export interface NetScoringData {
+  strokeIndex?: number[];
+  handicapStrokesPerHole?: number[];
+  courseHandicap?: number;
+  handicapIndex?: number;
+}
+
 interface ParticipantScorecardProps {
   visible: boolean;
   participant: ParticipantData | null;
@@ -26,6 +34,8 @@ interface ParticipantScorecardProps {
   onClose: () => void;
   // For Tour competitions - hide team/position info in scorecard header
   isTourCompetition?: boolean;
+  // Net scoring data for displaying stroke index and net scores
+  netScoringData?: NetScoringData;
 }
 
 export function ParticipantScorecard({
@@ -34,6 +44,7 @@ export function ParticipantScorecard({
   course,
   onClose,
   isTourCompetition = false,
+  netScoringData,
 }: ParticipantScorecardProps) {
   if (!visible || !participant || !course) return null;
 
@@ -69,6 +80,10 @@ export function ParticipantScorecard({
                 scores: participant.score,
               }}
               course={course}
+              strokeIndex={netScoringData?.strokeIndex}
+              handicapStrokesPerHole={netScoringData?.handicapStrokesPerHole}
+              courseHandicap={netScoringData?.courseHandicap}
+              handicapIndex={netScoringData?.handicapIndex}
             />
           </div>
         </div>

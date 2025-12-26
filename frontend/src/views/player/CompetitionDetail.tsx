@@ -21,7 +21,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { ParticipantScorecard } from "../../components/scorecard";
-import type { ParticipantData, CourseData } from "../../components/scorecard";
+import type { ParticipantData, CourseData, NetScoringData } from "../../components/scorecard";
 import {
   ParticipantsListComponent,
   LeaderboardComponent,
@@ -166,6 +166,21 @@ export default function CompetitionDetail() {
         tee_time_id: selectedParticipant.tee_time_id,
       }
     : null;
+
+  // Get net scoring data for selected participant from leaderboard
+  const netScoringData: NetScoringData | undefined = (() => {
+    if (!selectedParticipantId || !leaderboard || !teeInfo?.strokeIndex) return undefined;
+
+    const entry = leaderboard.find(e => e.participant.id === selectedParticipantId);
+    if (!entry || entry.courseHandicap === undefined || !entry.handicapStrokesPerHole) return undefined;
+
+    return {
+      strokeIndex: teeInfo.strokeIndex,
+      handicapStrokesPerHole: entry.handicapStrokesPerHole,
+      courseHandicap: entry.courseHandicap,
+      handicapIndex: entry.participant.handicap_index,
+    };
+  })();
 
   // ... existing useEffect for hash changes ...
   useEffect(() => {
@@ -507,6 +522,7 @@ export default function CompetitionDetail() {
         course={scorecardCourseData}
         onClose={handleCloseScorecardModal}
         isTourCompetition={!!competition?.tour_id}
+        netScoringData={netScoringData}
       />
 
       {/* Join Competition Flow Modal */}

@@ -293,6 +293,19 @@ export function LeaderboardComponent({
                             </h3>
                           </>
                         )}
+                        {/* Show handicap info when net scoring enabled */}
+                        {showNetScores && entry.participant.handicap_index !== undefined && (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-turf font-primary">
+                              HCP {entry.participant.handicap_index.toFixed(1)}
+                            </span>
+                            {entry.courseHandicap !== undefined && (
+                              <span className="text-xs bg-coral/20 text-coral px-1.5 py-0.5 rounded font-medium font-primary">
+                                PH {entry.courseHandicap}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -428,6 +441,19 @@ export function LeaderboardComponent({
                                     : `${entry.participant.team_name} ${entry.participant.position_name}`}
                                 </div>
                               </>
+                            )}
+                            {/* Show handicap info when net scoring enabled */}
+                            {showNetScores && entry.participant.handicap_index !== undefined && (
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-turf font-primary">
+                                  HCP {entry.participant.handicap_index.toFixed(1)}
+                                </span>
+                                {entry.courseHandicap !== undefined && (
+                                  <span className="text-xs bg-coral/20 text-coral px-1.5 py-0.5 rounded font-medium font-primary">
+                                    PH {entry.courseHandicap}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>
