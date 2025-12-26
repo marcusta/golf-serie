@@ -335,14 +335,21 @@ export function useMyGroup(competitionId: number) {
 // HOOKS - Play Mode (15D for 15F prep)
 // ==========================================
 
+// Start playing response includes tee_time_id for navigation
+export interface StartPlayingResponse {
+  success: boolean;
+  tee_time_id: number;
+}
+
 /**
  * Start playing (transition from registered to playing)
+ * Returns tee_time_id for navigation to scorecard
  */
 export function useStartPlaying() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (competitionId: number) => {
+    mutationFn: async (competitionId: number): Promise<StartPlayingResponse> => {
       const response = await fetch(
         `${API_BASE_URL}/competitions/${competitionId}/start-playing`,
         {

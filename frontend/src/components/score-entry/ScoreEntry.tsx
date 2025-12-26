@@ -7,7 +7,7 @@ import {
   getToParColor,
   formatScoreEntryDisplay,
 } from "../../utils/scoreCalculations";
-import { FullScorecardModal } from "./FullScorecardModal";
+import { FullScorecardModal, type PlayerNetScoringData } from "./FullScorecardModal";
 import { BarChart3, Pencil } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
 
@@ -59,7 +59,12 @@ interface ScoreEntryProps {
     id: number;
     series_id?: number;
     series_name?: string;
+    tour_id?: number;
   };
+  /** When true, hides team terminology (team name, position) in individual tour competitions */
+  isTourCompetition?: boolean;
+  /** Net scoring data for tour competitions with handicap scoring */
+  netScoringData?: Map<string, PlayerNetScoringData>;
 }
 
 export function ScoreEntry({
@@ -74,6 +79,8 @@ export function ScoreEntry({
   onFinalize,
   isLocked = false,
   competition,
+  isTourCompetition = false,
+  netScoringData,
 }: ScoreEntryProps) {
   // Helper function to find the latest incomplete hole
   const findLatestIncompleteHole = (): number => {
@@ -316,7 +323,36 @@ export function ScoreEntry({
         {/* Hole Header - full width bar */}
         <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
           <div className="flex items-center justify-between">
-            <div className="flex-1">{/* Empty space for alignment */}</div>
+            {/* SI indicator for current hole (when net scoring enabled) */}
+            <div className="flex-1">
+              {netScoringData && netScoringData.size > 0 && (() => {
+                // Get stroke index from first player's data
+                const firstPlayerData = netScoringData.values().next().value;
+                const strokeIndex = firstPlayerData?.strokeIndex?.[currentHole - 1];
+                const receivesStroke = firstPlayerData?.handicapStrokesPerHole?.[currentHole - 1];
+
+                if (strokeIndex !== undefined) {
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "text-xs font-medium px-2 py-0.5 rounded",
+                        receivesStroke
+                          ? "bg-coral/20 text-coral"
+                          : "bg-soft-grey/30 text-charcoal/60"
+                      )}>
+                        SI {strokeIndex}
+                      </span>
+                      {receivesStroke && (
+                        <span className="text-xs text-coral font-primary">
+                          +{receivesStroke} stroke{receivesStroke > 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
 
             <div className="flex items-center space-x-4 relative left-[50px]">
               {/* Previous hole (only when on hole 2+) */}
@@ -375,17 +411,31 @@ export function ScoreEntry({
                       className="text-left w-full hover:bg-rough/10 rounded-md p-1 -m-1 transition-colors"
                     >
                       {player.playerNames ? (
-                        // Player has a name - show player name prominently, team name + position below
+                        // Player has a name - show player name prominently
                         <>
                           <h3 className="text-body-lg font-semibold text-charcoal font-display">
                             {abbreviateName(player.playerNames)}
                           </h3>
-                          <p className="text-label-sm text-turf font-primary">
-                            {player.participantName} {player.participantType}
-                          </p>
+                          {/* Only show team/position for series competitions, not tour */}
+                          {!isTourCompetition && (
+                            <p className="text-label-sm text-turf font-primary">
+                              {player.participantName} {player.participantType}
+                            </p>
+                          )}
+                        </>
+                      ) : isTourCompetition ? (
+                        // Tour competition without player name - just show prompt
+                        <>
+                          <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                            Player
+                          </h3>
+                          <div className="flex items-center gap-1 text-label-sm text-soft-grey font-primary">
+                            <Pencil className="w-3 h-3" />
+                            <span>+ Add player name</span>
+                          </div>
                         </>
                       ) : (
-                        // No player name - show team name + position prominently, add player prompt below
+                        // Series competition - show team name + position prominently
                         <>
                           <h3 className="text-body-lg font-semibold text-charcoal font-display">
                             {player.participantName} {player.participantType}
@@ -552,7 +602,9 @@ export function ScoreEntry({
           course={course}
           playerName={
             currentPlayer?.playerNames ||
-            `${currentPlayer?.participantName} ${currentPlayer?.participantType}`
+            (isTourCompetition
+              ? "Player"
+              : `${currentPlayer?.participantName} ${currentPlayer?.participantType}`)
           }
         />
       )}
@@ -570,6 +622,7 @@ export function ScoreEntry({
           setCurrentPlayerIndex(0);
           setFullScorecardVisible(false);
         }}
+        netScoringData={netScoringData}
       />
       {/* Native Keyboard Modal with TapScore Styling */}
       {nativeKeyboardVisible && (

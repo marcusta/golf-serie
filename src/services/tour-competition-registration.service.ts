@@ -440,8 +440,9 @@ export class TourCompetitionRegistrationService {
 
   /**
    * Start playing - mark registration as playing
+   * Returns the tee_time_id for navigation to scorecard
    */
-  async startPlaying(competitionId: number, playerId: number): Promise<void> {
+  async startPlaying(competitionId: number, playerId: number): Promise<{ tee_time_id: number }> {
     const registration = await this.getRegistration(competitionId, playerId);
     if (!registration) {
       throw new Error("Registration not found");
@@ -460,8 +461,8 @@ export class TourCompetitionRegistrationService {
       )
       .run(registration.id);
 
-    // If was LFG, also update to registered first (they're now committed)
-    // The status update above handles this
+    // Return tee_time_id for navigation
+    return { tee_time_id: registration.tee_time_id! };
   }
 
   /**

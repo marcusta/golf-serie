@@ -26,6 +26,15 @@ interface Course {
   }[];
 }
 
+// Net scoring data per player for tour competitions
+export interface PlayerNetScoringData {
+  participantId: string;
+  strokeIndex?: number[];
+  handicapStrokesPerHole?: number[];
+  courseHandicap?: number;
+  handicapIndex?: number;
+}
+
 interface FullScorecardModalProps {
   visible: boolean;
   teeTimeGroup: TeeTimeGroup;
@@ -34,6 +43,8 @@ interface FullScorecardModalProps {
   onClose: () => void;
   onContinueEntry: (hole?: number) => void;
   onLockRound?: () => void;
+  /** Net scoring data per player (keyed by participantId) */
+  netScoringData?: Map<string, PlayerNetScoringData>;
 }
 
 export function FullScorecardModal({
@@ -44,6 +55,7 @@ export function FullScorecardModal({
   onClose,
   onContinueEntry,
   onLockRound,
+  netScoringData,
 }: FullScorecardModalProps) {
   const [showConfirmation, setShowConfirmation] = useState(false);
 
@@ -79,20 +91,29 @@ export function FullScorecardModal({
         {/* Scrollable content area */}
         <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
           <div className="px-2 py-4 space-y-6">
-            {teeTimeGroup.players.map((player) => (
-              <Scorecard
-                key={player.participantId}
-                participant={{
-                  id: player.participantId,
-                  name: player.participantName,
-                  type: player.participantType,
-                  isMultiPlayer: player.isMultiPlayer,
-                  scores: player.scores,
-                }}
-                course={course}
-                currentHole={currentHole}
-              />
-            ))}
+            {teeTimeGroup.players.map((player) => {
+              // Get net scoring data for this player if available
+              const playerNetData = netScoringData?.get(player.participantId);
+
+              return (
+                <Scorecard
+                  key={player.participantId}
+                  participant={{
+                    id: player.participantId,
+                    name: player.playerNames || player.participantName,
+                    type: player.participantType,
+                    isMultiPlayer: player.isMultiPlayer,
+                    scores: player.scores,
+                  }}
+                  course={course}
+                  currentHole={currentHole}
+                  strokeIndex={playerNetData?.strokeIndex}
+                  handicapStrokesPerHole={playerNetData?.handicapStrokesPerHole}
+                  courseHandicap={playerNetData?.courseHandicap}
+                  handicapIndex={playerNetData?.handicapIndex}
+                />
+              );
+            })}
           </div>
         </div>
 

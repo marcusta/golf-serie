@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Users,
   UserPlus,
@@ -78,6 +78,7 @@ export function GroupStatusCard({
   onUpdate,
 }: GroupStatusCardProps) {
   const [showAddPlayers, setShowAddPlayers] = useState(false);
+  const navigate = useNavigate();
 
   const leaveGroupMutation = useLeaveGroup();
   const startPlayingMutation = useStartPlaying();
@@ -104,8 +105,19 @@ export function GroupStatusCard({
 
   const handleStartPlaying = async () => {
     try {
-      await startPlayingMutation.mutateAsync(competitionId);
+      const result = await startPlayingMutation.mutateAsync(competitionId);
       onUpdate?.();
+
+      // Navigate to the scorecard view after starting to play
+      if (result.tee_time_id) {
+        navigate({
+          to: "/player/competitions/$competitionId/tee-times/$teeTimeId",
+          params: {
+            competitionId: competitionId.toString(),
+            teeTimeId: result.tee_time_id.toString(),
+          },
+        });
+      }
     } catch (error) {
       console.error("Failed to start playing:", error);
     }
@@ -146,6 +158,25 @@ export function GroupStatusCard({
             </div>
           </div>
           <StatusBadge status={registration.status} />
+        </div>
+
+        {/* Start Playing Solo - for LFG players who want to start without waiting */}
+        <div className="space-y-2">
+          <Button
+            onClick={handleStartPlaying}
+            disabled={startPlayingMutation.isPending}
+            className="w-full bg-turf hover:bg-fairway text-scorecard"
+          >
+            {startPlayingMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            Start Playing Solo
+          </Button>
+          <p className="text-body-xs text-charcoal/50 text-center">
+            Start your round now instead of waiting for a group
+          </p>
         </div>
 
         <div className="flex gap-2">

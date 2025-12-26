@@ -26,6 +26,8 @@ interface ParticipantsListComponentProps {
   currentTeeTime?: TeeTime;
   showCurrentGroup?: boolean;
   totalParticipants?: number;
+  /** When true, hides team terminology (team name, position) for tour competitions */
+  isTourCompetition?: boolean;
 }
 
 export function ParticipantsListComponent({
@@ -37,7 +39,19 @@ export function ParticipantsListComponent({
   currentTeeTime,
   showCurrentGroup = false,
   totalParticipants = 0,
+  isTourCompetition = false,
 }: ParticipantsListComponentProps) {
+  // Helper function to format participant display name
+  const formatParticipantDisplay = (participant: TeeTimeParticipant) => {
+    if (isTourCompetition) {
+      // For tour competitions, just show player name
+      return participant.player_names || "Player";
+    }
+    // For series competitions, show player name with team/position info
+    return participant.player_names
+      ? `${participant.player_names}, ${participant.team_name} ${formatParticipantTypeDisplay(participant.position_name)}`
+      : `${participant.team_name} ${formatParticipantTypeDisplay(participant.position_name)}`;
+  };
   // For CompetitionDetail.tsx - simple start list view
   if (!showCurrentGroup) {
     return (
@@ -97,17 +111,7 @@ export function ParticipantsListComponent({
                       >
                         <div className="flex-1">
                           <h5 className="text-sm md:text-base font-medium text-fairway font-primary">
-                            {participant.player_names
-                              ? `${participant.player_names}, ${
-                                  participant.team_name
-                                } ${formatParticipantTypeDisplay(
-                                  participant.position_name
-                                )}`
-                              : `${
-                                  participant.team_name
-                                } ${formatParticipantTypeDisplay(
-                                  participant.position_name
-                                )}`}
+                            {formatParticipantDisplay(participant)}
                           </h5>
                         </div>
                         <div className="text-xs text-turf">
@@ -165,17 +169,7 @@ export function ParticipantsListComponent({
                   >
                     <div className="flex-1">
                       <h4 className="text-sm md:text-base font-medium text-fairway font-primary">
-                        {participant.player_names
-                          ? `${participant.player_names}, ${
-                              participant.team_name
-                            } ${formatParticipantTypeDisplay(
-                              participant.position_name
-                            )}`
-                          : `${
-                              participant.team_name
-                            } ${formatParticipantTypeDisplay(
-                              participant.position_name
-                            )}`}
+                        {formatParticipantDisplay(participant)}
                       </h4>
                     </div>
                     <div className="text-xs text-turf">
@@ -231,17 +225,7 @@ export function ParticipantsListComponent({
                           >
                             <div className="flex-1">
                               <h5 className="text-xs md:text-sm font-medium text-fairway font-primary">
-                                {participant.player_names
-                                  ? `${participant.player_names}, ${
-                                      participant.team_name
-                                    } ${formatParticipantTypeDisplay(
-                                      participant.position_name
-                                    )}`
-                                  : `${
-                                      participant.team_name
-                                    } ${formatParticipantTypeDisplay(
-                                      participant.position_name
-                                    )}`}
+                                {formatParticipantDisplay(participant)}
                               </h5>
                             </div>
                             <div className="text-xs text-turf">

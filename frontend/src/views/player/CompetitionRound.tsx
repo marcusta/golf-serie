@@ -1,12 +1,14 @@
 // src/views/player/CompetitionRound.tsx
 
 import { useParams, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   useLockParticipant,
   useUpdateParticipant,
 } from "../../api/participants";
 import { useSeriesTeams } from "../../api/series";
+import { useCompetitionLeaderboardWithDetails } from "../../api/competitions";
+import type { PlayerNetScoringData } from "../../components/score-entry/FullScorecardModal";
 import { isRoundComplete } from "../../utils/scoreCalculations";
 import { HoleNavigation } from "../../components/navigation/HoleNavigation";
 import { BottomTabNavigation } from "../../components/navigation/BottomTabNavigation";
@@ -132,6 +134,39 @@ export default function CompetitionRound() {
 
   // Keep series teams for potential future use
   useSeriesTeams(competition?.series_id || 0);
+
+  // Fetch leaderboard with details for net scoring (tour competitions)
+  const { data: leaderboardWithDetails } = useCompetitionLeaderboardWithDetails(
+    competitionId ? parseInt(competitionId) : 0
+  );
+
+  // Build net scoring data map for tour competitions
+  const netScoringData = useMemo(() => {
+    if (!leaderboardWithDetails?.tee?.strokeIndex || !leaderboardWithDetails?.scoringMode) {
+      return undefined;
+    }
+
+    const { scoringMode } = leaderboardWithDetails;
+    if (scoringMode !== "net" && scoringMode !== "both") {
+      return undefined;
+    }
+
+    const strokeIndex = leaderboardWithDetails.tee.strokeIndex;
+    const dataMap = new Map<string, PlayerNetScoringData>();
+
+    leaderboardWithDetails.entries.forEach((entry) => {
+      const participantId = entry.participant.id.toString();
+      dataMap.set(participantId, {
+        participantId,
+        strokeIndex,
+        handicapStrokesPerHole: entry.handicapStrokesPerHole,
+        courseHandicap: entry.courseHandicap,
+        handicapIndex: entry.participant.handicap_index,
+      });
+    });
+
+    return dataMap;
+  }, [leaderboardWithDetails]);
 
   // API mutation for updating participant
   const updateParticipantMutation = useUpdateParticipant();
@@ -356,7 +391,10 @@ export default function CompetitionRound() {
                   id: competition.id,
                   series_id: competition.series_id,
                   series_name: competition.series_name,
+                  tour_id: competition.tour_id,
                 }}
+                isTourCompetition={!!competition.tour_id}
+                netScoringData={netScoringData}
               />
             </div>
           </div>
@@ -394,6 +432,7 @@ export default function CompetitionRound() {
             currentTeeTime={teeTime}
             showCurrentGroup={true}
             totalParticipants={totalParticipants}
+            isTourCompetition={!!competition?.tour_id}
           />
         );
 
@@ -465,6 +504,7 @@ export default function CompetitionRound() {
         onClose={() => setIsFullScorecardModalOpen(false)}
         onContinueEntry={() => setIsFullScorecardModalOpen(false)}
         onLockRound={handleLockRound}
+        netScoringData={netScoringData}
       />
     </PlayerPageLayout>
   );

@@ -347,8 +347,8 @@ export function createTourCompetitionRegistrationApi(
         return c.json({ error: "No player profile found" }, 400);
       }
 
-      await registrationService.startPlaying(competitionId, playerId);
-      return c.json({ success: true });
+      const result = await registrationService.startPlaying(competitionId, playerId);
+      return c.json({ success: true, tee_time_id: result.tee_time_id });
     } catch (error: any) {
       if (
         error.message === "Registration not found" ||
