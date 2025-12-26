@@ -8,7 +8,7 @@ import {
 import { useCourse } from "../../api/courses";
 import { useTeeTimesForCompetition, useParticipant } from "../../api/tee-times";
 import { usePlayerEnrollments } from "../../api/tours";
-import { useMyRegistration } from "../../api/tour-registration";
+import { useMyRegistration, useCompetitionGroups } from "../../api/tour-registration";
 import {
   Calendar,
   MapPin,
@@ -18,6 +18,7 @@ import {
   Medal,
   Edit3,
   Play,
+  UserCheck,
 } from "lucide-react";
 import { ParticipantScorecard } from "../../components/scorecard";
 import type { ParticipantData, CourseData } from "../../components/scorecard";
@@ -25,6 +26,7 @@ import {
   ParticipantsListComponent,
   LeaderboardComponent,
   TeamResultComponent,
+  WhosPlayingComponent,
 } from "../../components/competition";
 import { calculateTotalParticipants } from "../../utils/scoreCalculations";
 
@@ -33,7 +35,7 @@ import { useSeriesTeams } from "../../api/series";
 import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
 import { JoinCompetitionFlow, GroupStatusCard } from "../../components/tour";
 
-type TabType = "startlist" | "leaderboard" | "teamresult";
+type TabType = "startlist" | "leaderboard" | "teamresult" | "whosplaying";
 
 export default function CompetitionDetail() {
   const { competitionId } = useParams({ strict: false });
@@ -105,6 +107,11 @@ export default function CompetitionDetail() {
     isOpenStartTourCompetition ? parseInt(competitionId || "0") : 0
   );
 
+  // Get groups for open-start competitions (Who's Playing tab)
+  const { data: competitionGroups, isLoading: groupsLoading } = useCompetitionGroups(
+    isOpenStartTourCompetition ? parseInt(competitionId || "0") : 0
+  );
+
   // Check if competition is currently open
   const isCompetitionOpen = useCallback(() => {
     if (!competition?.open_start || !competition?.open_end) return false;
@@ -166,6 +173,7 @@ export default function CompetitionDetail() {
       const hash = window.location.hash.replace("#", "");
       if (hash === "leaderboard") setActiveTab("leaderboard");
       else if (hash === "teamresult") setActiveTab("teamresult");
+      else if (hash === "whosplaying") setActiveTab("whosplaying");
       else if (competition?.start_mode !== "open") setActiveTab("startlist");
       else setActiveTab("leaderboard"); // Default to leaderboard for open mode
     };
@@ -407,6 +415,26 @@ export default function CompetitionDetail() {
               <Trophy className="h-3 w-3 md:h-4 md:w-4" />
               Leaderboard
             </button>
+            {/* Show Who's Playing tab for open-start tour competitions */}
+            {isOpenStartTourCompetition && (
+              <button
+                onClick={() => {
+                  setActiveTab("whosplaying");
+                  window.location.hash = "whosplaying";
+                }}
+                className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
+                  ${
+                    activeTab === "whosplaying"
+                      ? "border-coral text-coral"
+                      : "border-transparent text-charcoal hover:text-turf hover:border-rough"
+                  }
+                `}
+              >
+                <UserCheck className="h-3 w-3 md:h-4 md:w-4" />
+                <span className="hidden sm:inline">Who's Playing</span>
+                <span className="sm:hidden">Groups</span>
+              </button>
+            )}
             {/* Only show Team Result tab for Series competitions (not Tour competitions) */}
             {!competition?.tour_id && (
               <button
@@ -461,6 +489,13 @@ export default function CompetitionDetail() {
             leaderboardLoading={teamLeaderboardLoading}
             individualResults={leaderboard}
             onParticipantClick={handleParticipantClick}
+          />
+        )}
+
+        {activeTab === "whosplaying" && (
+          <WhosPlayingComponent
+            groups={competitionGroups}
+            isLoading={groupsLoading}
           />
         )}
       </div>

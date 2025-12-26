@@ -584,3 +584,25 @@ export interface ActiveRound {
   group: string[];
   open_until?: string;
 }
+
+// Competition group types (Phase 15G)
+export type CompetitionGroupStatus = "registered" | "on_course" | "finished";
+
+export interface CompetitionGroupMember {
+  player_id: number;
+  name: string;
+  handicap?: number;
+  category_name?: string;
+  registration_status: RegistrationStatus;
+  holes_played: number;
+  current_score: string; // e.g., "+2", "-1", "E"
+}
+
+export interface CompetitionGroup {
+  tee_time_id: number;
+  status: CompetitionGroupStatus;
+  members: CompetitionGroupMember[];
+  // Aggregate info for the group
+  started_at?: string;
+  finished_at?: string;
+}

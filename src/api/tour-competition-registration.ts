@@ -361,5 +361,39 @@ export function createTourCompetitionRegistrationApi(
     }
   });
 
+  // ==========================================
+  // GROUPS OVERVIEW ENDPOINTS (15G)
+  // ==========================================
+
+  // GET /api/competitions/:id/registrations - List all registrations with player details
+  app.get("/:id/registrations", requireAuth(), async (c) => {
+    try {
+      const competitionId = parseInt(c.req.param("id"));
+
+      const registrations =
+        await registrationService.getRegistrationsForCompetition(competitionId);
+      return c.json(registrations);
+    } catch (error: any) {
+      console.error("Get registrations error:", error);
+      return c.json({ error: error.message || "Internal server error" }, 500);
+    }
+  });
+
+  // GET /api/competitions/:id/groups - List all groups with members
+  app.get("/:id/groups", requireAuth(), async (c) => {
+    try {
+      const competitionId = parseInt(c.req.param("id"));
+
+      const groups = await registrationService.getCompetitionGroups(competitionId);
+      return c.json(groups);
+    } catch (error: any) {
+      if (error.message === "Competition not found") {
+        return c.json({ error: error.message }, 404);
+      }
+      console.error("Get groups error:", error);
+      return c.json({ error: error.message || "Internal server error" }, 500);
+    }
+  });
+
   return app;
 }

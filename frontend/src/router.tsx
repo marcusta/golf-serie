@@ -16,6 +16,7 @@ import AdminTeams from "./views/admin/Teams";
 import AdminCourses from "./views/admin/Courses";
 import AdminCompetitions from "./views/admin/Competitions";
 import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
+import AdminCompetitionGroups from "./views/admin/AdminCompetitionGroups";
 import AdminManualScoreEntry from "./views/admin/AdminManualScoreEntry";
 import AdminPointTemplates from "./views/admin/PointTemplates";
 import AdminTours from "./views/admin/Tours";
@@ -96,6 +97,12 @@ const adminManualScoreEntryRoute = new Route({
   getParentRoute: () => adminRoute,
   path: "/competitions/$competitionId/manual-scores",
   component: AdminManualScoreEntry,
+});
+
+const adminCompetitionGroupsRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/competitions/$competitionId/groups",
+  component: AdminCompetitionGroups,
 });
 
 const adminPointTemplatesRoute = new Route({
@@ -268,6 +275,7 @@ const routeTree = rootRoute.addChildren([
     adminCompetitionsRoute,
     adminCompetitionTeeTimesRoute,
     adminManualScoreEntryRoute,
+    adminCompetitionGroupsRoute,
     adminPointTemplatesRoute,
     adminToursRoute,
     adminTourDetailRoute,

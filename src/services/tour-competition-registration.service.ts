@@ -8,6 +8,9 @@ import type {
   PlayingGroup,
   RegistrationResponse,
   ActiveRound,
+  CompetitionGroup,
+  CompetitionGroupStatus,
+  CompetitionGroupMember,
 } from "../types";
 
 const MAX_GROUP_SIZE = 4;
@@ -573,6 +576,161 @@ export class TourCompetitionRegistrationService {
     }
 
     return activeRounds;
+  }
+
+  /**
+   * Get all groups for a competition with their members and status
+   * Used for "Who's Playing" / Groups Overview views
+   */
+  async getCompetitionGroups(competitionId: number): Promise<CompetitionGroup[]> {
+    // Get course pars for score calculation
+    const courseInfo = this.db
+      .prepare(
+        `SELECT co.pars
+         FROM competitions c
+         JOIN courses co ON c.course_id = co.id
+         WHERE c.id = ?`
+      )
+      .get(competitionId) as { pars: string } | null;
+
+    if (!courseInfo) {
+      throw new Error("Competition not found");
+    }
+
+    const pars = JSON.parse(courseInfo.pars) as number[];
+
+    // Get all registrations grouped by tee_time
+    const registrations = this.db
+      .prepare(
+        `SELECT
+          r.id,
+          r.tee_time_id,
+          r.player_id,
+          r.status,
+          r.started_at,
+          r.finished_at,
+          p.name as player_name,
+          COALESCE(te.playing_handicap, p.handicap) as handicap,
+          tc.name as category_name,
+          par.score
+         FROM tour_competition_registrations r
+         JOIN players p ON r.player_id = p.id
+         JOIN tour_enrollments te ON r.enrollment_id = te.id
+         LEFT JOIN tour_categories tc ON te.category_id = tc.id
+         LEFT JOIN participants par ON r.participant_id = par.id
+         WHERE r.competition_id = ? AND r.tee_time_id IS NOT NULL
+         ORDER BY r.tee_time_id, r.registered_at`
+      )
+      .all(competitionId) as {
+      id: number;
+      tee_time_id: number;
+      player_id: number;
+      status: RegistrationStatus;
+      started_at: string | null;
+      finished_at: string | null;
+      player_name: string;
+      handicap: number | null;
+      category_name: string | null;
+      score: string | null;
+    }[];
+
+    // Group registrations by tee_time_id
+    const groupMap = new Map<number, typeof registrations>();
+    for (const reg of registrations) {
+      if (!groupMap.has(reg.tee_time_id)) {
+        groupMap.set(reg.tee_time_id, []);
+      }
+      groupMap.get(reg.tee_time_id)!.push(reg);
+    }
+
+    // Build CompetitionGroup array
+    const groups: CompetitionGroup[] = [];
+
+    for (const [teeTimeId, members] of groupMap) {
+      // Determine group status based on members
+      let groupStatus: CompetitionGroupStatus = "registered";
+      let hasPlaying = false;
+      let allFinished = true;
+      let earliestStarted: string | undefined;
+      let latestFinished: string | undefined;
+
+      const groupMembers: CompetitionGroupMember[] = members.map((m) => {
+        // Calculate holes played and score
+        const scores = JSON.parse(m.score || "[]") as number[];
+        const holesPlayed = scores.filter((s) => s > 0).length;
+
+        let relativeToPar = 0;
+        for (let i = 0; i < scores.length; i++) {
+          if (scores[i] > 0 && pars[i]) {
+            relativeToPar += scores[i] - pars[i];
+          }
+        }
+
+        const currentScore =
+          holesPlayed === 0
+            ? "-"
+            : relativeToPar === 0
+              ? "E"
+              : relativeToPar > 0
+                ? `+${relativeToPar}`
+                : `${relativeToPar}`;
+
+        // Track group status
+        if (m.status === "playing") {
+          hasPlaying = true;
+          allFinished = false;
+        } else if (m.status === "finished") {
+          // finished
+        } else {
+          allFinished = false;
+        }
+
+        if (m.started_at && (!earliestStarted || m.started_at < earliestStarted)) {
+          earliestStarted = m.started_at;
+        }
+        if (m.finished_at && (!latestFinished || m.finished_at > latestFinished)) {
+          latestFinished = m.finished_at;
+        }
+
+        return {
+          player_id: m.player_id,
+          name: m.player_name,
+          handicap: m.handicap ?? undefined,
+          category_name: m.category_name ?? undefined,
+          registration_status: m.status,
+          holes_played: holesPlayed,
+          current_score: currentScore,
+        };
+      });
+
+      // Determine final group status
+      if (allFinished && members.length > 0) {
+        groupStatus = "finished";
+      } else if (hasPlaying) {
+        groupStatus = "on_course";
+      } else {
+        groupStatus = "registered";
+      }
+
+      groups.push({
+        tee_time_id: teeTimeId,
+        status: groupStatus,
+        members: groupMembers,
+        started_at: earliestStarted,
+        finished_at: latestFinished,
+      });
+    }
+
+    // Sort groups: on_course first, then registered, then finished
+    const statusOrder: Record<CompetitionGroupStatus, number> = {
+      on_course: 0,
+      registered: 1,
+      finished: 2,
+    };
+
+    groups.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+
+    return groups;
   }
 
   // ============ Private Helper Methods ============

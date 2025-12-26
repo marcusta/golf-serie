@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   ClipboardEdit,
   Star,
+  Users,
 } from "lucide-react";
 import { Link, useSearch } from "@tanstack/react-router";
 
@@ -571,6 +572,15 @@ export default function AdminCompetitions() {
                           title="Manage tee times"
                         >
                           <Clock className="h-4 w-4" />
+                        </Link>
+                      )}
+                      {isFullCompetition && (competition as Competition).start_mode === "open" && (
+                        <Link
+                          to={`/admin/competitions/${competition.id}/groups`}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="View playing groups"
+                        >
+                          <Users className="h-4 w-4" />
                         </Link>
                       )}
                       <Link

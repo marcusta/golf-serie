@@ -385,3 +385,83 @@ export function useActiveRounds() {
     },
   });
 }
+
+// ==========================================
+// HOOKS - Groups Overview (15G)
+// ==========================================
+
+// Registration with full details
+export interface RegistrationWithDetails extends Registration {
+  player_name: string;
+  handicap?: number;
+  category_name?: string;
+}
+
+// Competition group types
+export type CompetitionGroupStatus = "registered" | "on_course" | "finished";
+
+export interface CompetitionGroupMember {
+  player_id: number;
+  name: string;
+  handicap?: number;
+  category_name?: string;
+  registration_status: RegistrationStatus;
+  holes_played: number;
+  current_score: string;
+}
+
+export interface CompetitionGroup {
+  tee_time_id: number;
+  status: CompetitionGroupStatus;
+  members: CompetitionGroupMember[];
+  started_at?: string;
+  finished_at?: string;
+}
+
+/**
+ * Get all registrations for a competition
+ */
+export function useCompetitionRegistrations(competitionId: number) {
+  return useQuery<RegistrationWithDetails[]>({
+    queryKey: ["competition-registrations", competitionId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/registrations`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        if (response.status === 401) {
+          return [];
+        }
+        throw new Error("Failed to fetch competition registrations");
+      }
+      return response.json();
+    },
+    enabled: !!competitionId,
+  });
+}
+
+/**
+ * Get all groups for a competition with their members and status
+ */
+export function useCompetitionGroups(competitionId: number) {
+  return useQuery<CompetitionGroup[]>({
+    queryKey: ["competition-groups", competitionId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/groups`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        if (response.status === 401) {
+          return [];
+        }
+        throw new Error("Failed to fetch competition groups");
+      }
+      return response.json();
+    },
+    enabled: !!competitionId,
+    // Refresh more frequently for live updates
+    refetchInterval: 30000, // 30 seconds
+  });
+}

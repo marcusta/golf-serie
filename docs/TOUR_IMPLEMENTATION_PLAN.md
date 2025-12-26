@@ -1,7 +1,7 @@
 # Tour System Implementation Plan
 
 > Living document for tracking the implementation of the full Tour feature set.
-> Last updated: 2025-12-26 (Phase 15F complete)
+> Last updated: 2025-12-26 (Phase 15G complete)
 
 ## Overview
 
@@ -57,20 +57,24 @@ Detailed implementation notes for completed phases are archived in `docs/tour-im
 
 ## Remaining Implementation Phases
 
-### Phase 15G: Competition Groups Overview (API + Frontend)
-- [ ] 15G.1 Add API endpoints:
+### Phase 15G: Competition Groups Overview (API + Frontend) - COMPLETE
+- [x] 15G.1 Add API endpoints:
   - `GET /api/competitions/:id/registrations` - List all registrations with player details
   - `GET /api/competitions/:id/groups` - List all groups with members, grouped by tee_time
-- [ ] 15G.2 Add React Query hooks:
+- [x] 15G.2 Add React Query hooks:
   - `useCompetitionRegistrations(competitionId)`
   - `useCompetitionGroups(competitionId)`
-- [ ] 15G.3 Create `CompetitionGroupsView` component:
+- [x] 15G.3 Create `CompetitionGroupsView` component:
   - Shows all groups playing/registered for a competition
   - Status indicators: Registered, On Course, Finished
   - Group members with handicaps
   - Current hole/score for active groups (if available)
-- [ ] 15G.4 Add to admin competition detail view
-- [ ] 15G.5 Add player-facing "Who's Playing" view (optional: restrict to enrolled players)
+- [x] 15G.4 Add to admin competition detail view
+  - Added `/admin/competitions/:id/groups` route
+  - Added Users icon link in admin competitions list for open-start competitions
+- [x] 15G.5 Add player-facing "Who's Playing" view
+  - Added "Who's Playing" tab in competition detail view for open-start tour competitions
+  - Shows groups with status, members, handicaps, and scores
 
 ### Phase 15H: Edge Cases & Polish
 - [ ] 15H.1 Handle competition closing:
