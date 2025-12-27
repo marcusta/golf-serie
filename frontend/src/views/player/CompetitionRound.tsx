@@ -401,12 +401,20 @@ export default function CompetitionRound() {
         );
 
       case "leaderboard":
+        // Use leaderboard with details for tour competitions (has net scores)
+        // Fall back to basic leaderboard for series competitions
+        const leaderboardData = competition?.tour_id
+          ? leaderboardWithDetails?.entries
+          : leaderboard;
         return (
           <LeaderboardComponent
-            leaderboard={leaderboard}
+            leaderboard={leaderboardData}
             leaderboardLoading={leaderboardLoading}
             onParticipantClick={handleParticipantClick}
             isRoundView={true}
+            isTourCompetition={!!competition?.tour_id}
+            scoringMode={leaderboardWithDetails?.scoringMode}
+            teeInfo={leaderboardWithDetails?.tee}
           />
         );
 
@@ -433,6 +441,7 @@ export default function CompetitionRound() {
             showCurrentGroup={true}
             totalParticipants={totalParticipants}
             isTourCompetition={!!competition?.tour_id}
+            isOpenStart={competition?.start_mode === "open"}
           />
         );
 
@@ -469,6 +478,8 @@ export default function CompetitionRound() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         className="flex-shrink-0"
+        hiddenTabs={competition?.tour_id ? ["teams"] : []}
+        participantsLabel={competition?.tour_id ? "Groups" : undefined}
       />
 
       {/* Competition Info Footer - Always visible and sticky */}

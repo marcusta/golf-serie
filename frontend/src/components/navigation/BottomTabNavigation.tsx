@@ -1,20 +1,26 @@
 import { cn } from "@/lib/utils";
 import { Edit3, Trophy, Medal, Users } from "lucide-react";
 
+type TabId = "score" | "leaderboard" | "teams" | "participants";
+
 interface BottomTabNavigationProps {
-  activeTab: "score" | "leaderboard" | "teams" | "participants";
-  onTabChange: (
-    tab: "score" | "leaderboard" | "teams" | "participants"
-  ) => void;
+  activeTab: TabId;
+  onTabChange: (tab: TabId) => void;
   className?: string;
+  /** Hide specific tabs (e.g., for tour competitions, hide "teams") */
+  hiddenTabs?: TabId[];
+  /** Custom label for participants tab */
+  participantsLabel?: string;
 }
 
 export function BottomTabNavigation({
   activeTab,
   onTabChange,
   className,
+  hiddenTabs = [],
+  participantsLabel,
 }: BottomTabNavigationProps) {
-  const tabs = [
+  const allTabs = [
     {
       id: "score" as const,
       label: "Score Entry",
@@ -38,12 +44,18 @@ export function BottomTabNavigation({
     },
     {
       id: "participants" as const,
-      label: "Participants",
-      shortLabel: "Start List",
+      label: participantsLabel || "Participants",
+      shortLabel: participantsLabel || "Groups",
       icon: Users,
       disabled: false,
     },
   ];
+
+  // Filter out hidden tabs
+  const tabs = allTabs.filter((tab) => !hiddenTabs.includes(tab.id));
+
+  // Calculate grid columns based on visible tabs
+  const gridCols = tabs.length === 3 ? "grid-cols-3" : "grid-cols-4";
 
   return (
     <div
@@ -52,7 +64,7 @@ export function BottomTabNavigation({
         className
       )}
     >
-      <div className="grid grid-cols-4 max-w-lg mx-auto">
+      <div className={cn("grid max-w-lg mx-auto", gridCols)}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;

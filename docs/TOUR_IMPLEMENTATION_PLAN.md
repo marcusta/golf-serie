@@ -239,6 +239,28 @@ Comprehensive UX review of open start flows, scoring experience, and scorecard d
   - For tour: show player name only; for series: show player + team/position
   - Files: `ParticipantsListComponent.tsx`, `CompetitionRound.tsx`
 
+### Phase 15L: Tour Scoring UI Cleanup - COMPLETE
+
+- [x] 15L.1 **Hide Team Results tab for tour competitions**
+  - Added `hiddenTabs` and `participantsLabel` props to BottomTabNavigation
+  - For tour competitions: hide "teams" tab, rename participants to "Groups"
+  - Dynamic grid layout based on visible tab count
+  - Files: `BottomTabNavigation.tsx`, `CompetitionRound.tsx`
+
+- [x] 15L.2 **Fix Participants tab for open start competitions**
+  - Added `isOpenStart` prop to ParticipantsListComponent
+  - Hide scheduled tee times for open start competitions
+  - Show "Group" and "Your Group" instead of "10:00" times
+  - Files: `ParticipantsListComponent.tsx`, `CompetitionRound.tsx`
+
+- [x] 15L.3 **Fix Leaderboard for tour competitions**
+  - Pass `isTourCompetition`, `scoringMode`, `teeInfo` to LeaderboardComponent
+  - Use leaderboard with details (has net scores) for tour competitions
+  - Column header shows "Player" instead of "Player/Team"
+  - Hide team name under player names
+  - Show Gross/Net scores when scoring mode includes net
+  - File: `CompetitionRound.tsx`
+
 ### Phase 15K: Score Entry Net Scoring Display - COMPLETE
 
 - [x] 15K.1 **Wire up net scoring in FullScorecardModal**

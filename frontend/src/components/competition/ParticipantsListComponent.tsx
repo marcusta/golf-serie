@@ -28,6 +28,8 @@ interface ParticipantsListComponentProps {
   totalParticipants?: number;
   /** When true, hides team terminology (team name, position) for tour competitions */
   isTourCompetition?: boolean;
+  /** When true, hides scheduled tee times (for open start competitions) */
+  isOpenStart?: boolean;
 }
 
 export function ParticipantsListComponent({
@@ -40,6 +42,7 @@ export function ParticipantsListComponent({
   showCurrentGroup = false,
   totalParticipants = 0,
   isTourCompetition = false,
+  isOpenStart = false,
 }: ParticipantsListComponentProps) {
   // Helper function to format participant display name
   const formatParticipantDisplay = (participant: TeeTimeParticipant) => {
@@ -149,7 +152,7 @@ export function ParticipantsListComponent({
           <div className="bg-rough bg-opacity-20 rounded-xl border border-turf p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
-                Your Group - {currentTeeTime.teetime}
+                {isOpenStart ? "Your Group" : `Your Group - ${currentTeeTime.teetime}`}
                 <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
                   {venueType === "indoor" && currentTeeTime.hitting_bay
                     ? `Bay ${currentTeeTime.hitting_bay}`
@@ -208,7 +211,13 @@ export function ParticipantsListComponent({
                   >
                     <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
                       <h4 className="text-sm md:text-base font-semibold text-fairway font-display flex items-center gap-2">
-                        {teeTimeGroup.teetime}
+                        {isOpenStart ? (
+                          // For open start, just show "Group" or hole info
+                          <span>Group</span>
+                        ) : (
+                          // For scheduled competitions, show tee time
+                          teeTimeGroup.teetime
+                        )}
                         <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
                           {venueType === "indoor" && teeTimeGroup.hitting_bay
                             ? `Bay ${teeTimeGroup.hitting_bay}`
