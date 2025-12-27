@@ -22,6 +22,20 @@ export function TeamResultComponent({
 }: TeamResultComponentProps) {
   // Filter state
   const [filter, setFilter] = useState<"all" | "finished">("all");
+  // Track which teams are expanded to show players
+  const [expandedTeams, setExpandedTeams] = useState<Set<number>>(new Set());
+
+  const toggleTeamExpanded = (teamId: number) => {
+    setExpandedTeams(prev => {
+      const next = new Set(prev);
+      if (next.has(teamId)) {
+        next.delete(teamId);
+      } else {
+        next.add(teamId);
+      }
+      return next;
+    });
+  };
 
   // Apply filter
   const filteredTeamResults = teamResults?.filter((team) => {
@@ -104,18 +118,9 @@ export function TeamResultComponent({
     <div className="space-y-4 md:space-y-6">
       {/* Header Section */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-fairway font-display">
-            Team Results
-          </h2>
-          <p className="text-sm md:text-base text-turf font-primary mt-1">
-            Team standings with individual player results
-          </p>
-        </div>
-        <div className="text-center text-xs md:text-sm text-turf font-primary bg-rough/20 px-3 py-2 rounded-full border border-soft-grey">
-          {teamResults?.filter((t) => t.status !== "NOT_STARTED").length || 0}{" "}
-          teams scored
-        </div>
+        <h2 className="text-xl md:text-2xl font-bold text-fairway font-display">
+          Team Results
+        </h2>
       </div>
 
       {/* Filter Controls */}
@@ -152,290 +157,191 @@ export function TeamResultComponent({
           </div>
         </div>
       ) : !teamResults || teamResults.length === 0 ? (
-        <div className="text-center py-8 md:py-12 bg-rough/10 rounded-xl border border-soft-grey">
-          <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-soft-grey/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg
-                className="w-8 h-8 text-soft-grey"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-charcoal font-display mb-2">
-              No Results Yet
-            </h3>
-            <p className="text-soft-grey font-primary">
-              Team results will appear here once scores are submitted.
-            </p>
-          </div>
+        <div className="text-center py-8 md:py-12">
+          <h3 className="text-lg font-semibold text-charcoal font-display mb-2">
+            No Results Yet
+          </h3>
+          <p className="text-soft-grey font-primary">
+            Team results will appear here once scores are submitted.
+          </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filteredTeamResults?.map((team, index) => {
-            const isLeading = index === 0 && team.status !== "NOT_STARTED";
-            const isPodium = index <= 2 && team.status !== "NOT_STARTED";
-            const hasValidResults = team.status !== "NOT_STARTED";
-            const teamPlayers = getTeamPlayers(team.teamName);
+        <div>
+          {/* Column Headers - shown once */}
+          <div className="flex items-center justify-between pb-2 mb-2 pr-3 border-b border-soft-grey text-xs text-charcoal/50 uppercase tracking-wide">
+            <div className="flex-1">Team</div>
+            <div className="flex items-center gap-4 text-right">
+              <div className="w-14">To Par</div>
+              <div className="w-10">Pts</div>
+            </div>
+          </div>
 
-            return (
-              <div
-                key={team.teamId}
-                className={`relative bg-scorecard rounded-xl p-4 shadow-sm border transition-all duration-300 hover:shadow-md ${
-                  isLeading
-                    ? "border-coral/30 shadow-lg ring-2 ring-coral/20 bg-gradient-to-br from-scorecard to-coral/5"
-                    : isPodium
-                    ? "border-turf/30 shadow-md ring-1 ring-turf/20 bg-gradient-to-br from-scorecard to-turf/5"
-                    : hasValidResults
-                    ? "border-soft-grey hover:border-turf/40"
-                    : "border-soft-grey/50 opacity-75 bg-scorecard/50"
-                }`}
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      {/* Position Badge */}
-                      <div
-                        className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-bold shadow-md ${
+          {/* Team List */}
+          <div className="divide-y divide-soft-grey">
+            {filteredTeamResults?.map((team, index) => {
+              const isLeading = index === 0 && team.status !== "NOT_STARTED";
+              const isPodium = index <= 2 && team.status !== "NOT_STARTED";
+              const hasValidResults = team.status !== "NOT_STARTED";
+              const teamPlayers = getTeamPlayers(team.teamName);
+              const isExpanded = expandedTeams.has(team.teamId);
+
+              // Determine left border color
+              const leftBorderClass = isLeading
+                ? "border-l-4 border-l-coral bg-coral/5"
+                : isPodium
+                ? "border-l-4 border-l-turf"
+                : hasValidResults
+                ? "border-l-4 border-l-charcoal/20"
+                : "";
+
+              return (
+                <div
+                  key={team.teamId}
+                  className={`${leftBorderClass} ${!hasValidResults ? "opacity-60" : ""}`}
+                >
+                  {/* Team Header Row - Clickable to expand */}
+                  <button
+                    onClick={() => hasValidResults && teamPlayers.length > 0 && toggleTeamExpanded(team.teamId)}
+                    className={`w-full flex items-center justify-between py-3 pr-3 text-left ${
+                      hasValidResults && teamPlayers.length > 0 ? "hover:bg-gray-50/50 cursor-pointer" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {/* Expand indicator */}
+                      {hasValidResults && teamPlayers.length > 0 ? (
+                        <svg
+                          className={`w-4 h-4 text-charcoal/30 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      ) : (
+                        <div className="w-4" />
+                      )}
+                      {/* Position Number */}
+                      <span
+                        className={`text-base font-bold w-5 flex-shrink-0 ${
                           isLeading
-                            ? "bg-scorecard text-coral border-coral"
+                            ? "text-coral"
                             : isPodium
-                            ? "bg-scorecard text-turf border-turf"
+                            ? "text-turf"
                             : hasValidResults
-                            ? "bg-scorecard text-charcoal border-charcoal"
-                            : "bg-scorecard text-soft-grey border-soft-grey"
+                            ? "text-charcoal"
+                            : "text-soft-grey"
                         }`}
                       >
-                        #{index + 1}
-                      </div>
-
-                      <div>
-                        <h3 className="text-lg md:text-xl font-bold text-charcoal font-display">
-                          {team.teamName}
-                        </h3>
-                        {isLeading && (
-                          <div className="flex items-center gap-1 bg-coral/20 text-coral px-2 py-1 rounded-full text-xs font-medium mt-1">
-                            <svg
-                              className="w-3 h-3"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 2L13.09 8.26L20 9L15 13.74L16.18 20.66L10 17.27L3.82 20.66L5 13.74L0 9L6.91 8.26L10 2Z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            Leader
-                          </div>
-                        )}
-                      </div>
+                        {index + 1}
+                      </span>
+                      <span className="text-base font-semibold text-charcoal font-display truncate">
+                        {team.teamName}
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm text-turf font-primary">
-                      <span>{teamPlayers.length} players</span>
-                    </div>
-                  </div>
-
-                  {/* Right side - Team summary based on status */}
-                  <div className="text-right flex flex-col items-end gap-2">
-                    {team.status === "NOT_STARTED" ? (
-                      <div className="text-center">
-                        <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                          Status
-                        </div>
-                        <div className="text-lg font-medium text-soft-grey bg-soft-grey/10 px-3 py-1 rounded-lg">
-                          Not Started
-                        </div>
-                      </div>
-                    ) : team.status === "IN_PROGRESS" ? (
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                            Score
-                          </div>
+                    {/* Team Stats - just To Par and Points */}
+                    <div className="flex items-center gap-4 text-right flex-shrink-0">
+                      {team.status === "NOT_STARTED" ? (
+                        <span className="text-sm text-soft-grey">—</span>
+                      ) : (
+                        <>
                           <div
-                            className={`text-xl font-bold font-display px-3 py-1 rounded-lg ${
+                            className={`w-14 text-base font-bold font-display ${
                               team.totalRelativeScore !== null
                                 ? getToParColor(team.totalRelativeScore)
-                                : "bg-charcoal/10 text-charcoal"
+                                : "text-charcoal"
                             }`}
                           >
                             {team.totalRelativeScore !== null
                               ? formatToPar(team.totalRelativeScore)
                               : "-"}
                           </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                            Points
-                          </div>
-                          <div className="text-xl font-bold font-display px-3 py-1 rounded-lg bg-charcoal/10 text-charcoal">
-                            {team.teamPoints}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      // FINISHED status
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                            Total Shots
-                          </div>
-                          <div className="text-2xl font-bold text-charcoal font-display px-3 py-1 rounded-lg bg-charcoal/10">
-                            {team.totalShots || "-"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                            To Par
-                          </div>
                           <div
-                            className={`text-xl font-bold font-display px-3 py-1 rounded-lg ${
-                              team.totalRelativeScore !== null
-                                ? getToParColor(team.totalRelativeScore)
-                                : "bg-charcoal/10 text-charcoal"
+                            className={`w-10 text-base font-bold font-display ${
+                              isLeading ? "text-coral" : isPodium ? "text-turf" : "text-charcoal"
                             }`}
                           >
-                            {team.totalRelativeScore !== null
-                              ? formatToPar(team.totalRelativeScore)
-                              : "-"}
+                            {team.teamPoints ?? "-"}
                           </div>
+                        </>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Individual Players Section - Expandable */}
+                  {isExpanded && teamPlayers.length > 0 && (
+                    <div className="pl-7 pr-4 pb-3 bg-gray-50/50">
+                      {/* Total shots shown when expanded */}
+                      {team.totalShots && (
+                        <div className="text-xs text-charcoal/50 mb-2">
+                          Total: {team.totalShots} shots
                         </div>
-                        {team.teamPoints !== null && (
-                          <div>
-                            <div className="text-xs font-medium text-turf mb-1 uppercase tracking-wide">
-                              Points
-                            </div>
-                            <div
-                              className={`text-xl font-bold font-display px-3 py-1 rounded-lg shadow-md ${
-                                isLeading
-                                  ? "bg-coral text-scorecard"
-                                  : isPodium
-                                  ? "bg-turf text-scorecard"
-                                  : "bg-charcoal/10 text-charcoal"
+                      )}
+                      <div className="divide-y divide-soft-grey/30">
+                        {teamPlayers.map((player, idx) => {
+                          const playerStatus = getPlayerStatus(player);
+                          const playerProgress = getPlayerDisplayProgress(player);
+                          const isRoundInvalid = player.participant.score.includes(-1);
+
+                          return (
+                            <button
+                              key={player.participant.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onParticipantClick?.(player.participant.id);
+                              }}
+                              className={`w-full flex items-center justify-between py-2 transition-colors text-left ${
+                                playerStatus !== "NOT_STARTED" && onParticipantClick
+                                  ? "hover:bg-gray-50 cursor-pointer"
+                                  : "cursor-default"
                               }`}
+                              disabled={!onParticipantClick || playerStatus === "NOT_STARTED"}
                             >
-                              {team.teamPoints}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Individual Players Section */}
-                <div className="border-t border-soft-grey/30 pt-3">
-                  <h5 className="text-sm font-semibold text-fairway mb-2 font-primary uppercase tracking-wide">
-                    Individual Players
-                  </h5>
-                  <div className="space-y-1">
-                    {teamPlayers.map((player, idx) => {
-                      const playerStatus = getPlayerStatus(player);
-                      const playerProgress = getPlayerDisplayProgress(player);
-                      const isRoundInvalid =
-                        player.participant.score.includes(-1);
-
-                      return (
-                        <button
-                          key={player.participant.id}
-                          onClick={() =>
-                            onParticipantClick?.(player.participant.id)
-                          }
-                          className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-colors text-left ${
-                            playerStatus !== "NOT_STARTED"
-                              ? "bg-rough/10 hover:bg-rough/20 cursor-pointer"
-                              : "bg-soft-grey/5 cursor-default"
-                          } ${onParticipantClick ? "hover:shadow-sm" : ""}`}
-                          disabled={
-                            !onParticipantClick ||
-                            playerStatus === "NOT_STARTED"
-                          }
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <div
-                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                                playerStatus !== "NOT_STARTED"
-                                  ? "bg-turf/20 text-turf"
-                                  : "bg-soft-grey/20 text-soft-grey"
-                              }`}
-                            >
-                              {idx + 1}
-                            </div>
-                            <div className="flex-1">
-                              <span
-                                className={`font-medium font-primary text-sm ${
-                                  playerStatus !== "NOT_STARTED"
-                                    ? "text-charcoal"
-                                    : "text-soft-grey"
-                                }`}
-                              >
-                                {player.participant.player_names
-                                  ? `${player.participant.player_names} (${player.participant.position_name})`
-                                  : player.participant.position_name}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Score Section - matching LeaderboardComponent layout */}
-                          <div className="flex items-center gap-3">
-                            {playerStatus === "NOT_STARTED" ? (
-                              <div className="text-center">
-                                <div className="text-xs text-gray-500">
-                                  Start Time
-                                </div>
-                                <div className="text-sm font-medium text-gray-500">
-                                  {playerProgress}
-                                </div>
+                              <div className="flex items-center gap-2 flex-1">
+                                <span className="text-xs text-charcoal/30 w-4">
+                                  {idx + 1}
+                                </span>
+                                <span
+                                  className={`font-medium font-primary text-sm ${
+                                    playerStatus !== "NOT_STARTED" ? "text-charcoal" : "text-soft-grey"
+                                  }`}
+                                >
+                                  {player.participant.player_names
+                                    ? `${player.participant.player_names} (${player.participant.position_name})`
+                                    : player.participant.position_name}
+                                </span>
                               </div>
-                            ) : (
-                              <>
-                                {/* Hole Number */}
-                                <div className="text-center">
-                                  <div className="text-xs text-gray-500">
-                                    Thru
-                                  </div>
-                                  <div className="text-sm font-bold text-gray-800">
-                                    {playerProgress}
-                                  </div>
-                                </div>
 
-                                {/* Score */}
-                                <div className="text-center">
-                                  <div className="text-xs text-gray-500">
-                                    To Par
-                                  </div>
-                                  <div
-                                    className={`text-sm font-bold ${
-                                      isRoundInvalid
-                                        ? "text-gray-500"
-                                        : getToParColor(player.relativeToPar)
-                                    }`}
-                                  >
-                                    {isRoundInvalid
-                                      ? "-"
-                                      : formatToPar(player.relativeToPar)}
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                              <div className="flex items-center gap-4 text-sm">
+                                {playerStatus === "NOT_STARTED" ? (
+                                  <span className="text-charcoal/40">{playerProgress}</span>
+                                ) : (
+                                  <>
+                                    <span className="text-charcoal/60 w-6 text-center">
+                                      {playerProgress}
+                                    </span>
+                                    <span
+                                      className={`font-bold w-8 text-right ${
+                                        isRoundInvalid
+                                          ? "text-charcoal/40"
+                                          : getToParColor(player.relativeToPar)
+                                      }`}
+                                    >
+                                      {isRoundInvalid ? "-" : formatToPar(player.relativeToPar)}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
