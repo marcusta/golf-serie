@@ -466,6 +466,14 @@ export default function CompetitionRound() {
         <HoleNavigation
           currentHole={currentHole}
           holePar={currentHoleData.par}
+          holeHcp={(() => {
+            // Get stroke index from first player's net scoring data
+            if (netScoringData && netScoringData.size > 0) {
+              const firstPlayerData = netScoringData.values().next().value;
+              return firstPlayerData?.strokeIndex?.[currentHole - 1];
+            }
+            return undefined;
+          })()}
           onPrevious={() => handleHoleChange(Math.max(1, currentHole - 1))}
           onNext={() => handleHoleChange(Math.min(18, currentHole + 1))}
           canGoPrevious={currentHole > 1}

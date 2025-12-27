@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { CustomKeyboard } from "./CustomKeyboard";
+import { ScoreInputModal } from "./ScoreInputModal";
 import {
   formatToPar,
   getToParColor,
@@ -322,39 +322,8 @@ export function ScoreEntry({
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         {/* Hole Header - full width bar */}
         <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
-          <div className="flex items-center justify-between">
-            {/* SI indicator for current hole (when net scoring enabled) */}
-            <div className="flex-1">
-              {netScoringData && netScoringData.size > 0 && (() => {
-                // Get stroke index from first player's data
-                const firstPlayerData = netScoringData.values().next().value;
-                const strokeIndex = firstPlayerData?.strokeIndex?.[currentHole - 1];
-                const receivesStroke = firstPlayerData?.handicapStrokesPerHole?.[currentHole - 1];
-
-                if (strokeIndex !== undefined) {
-                  return (
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "text-xs font-medium px-2 py-0.5 rounded",
-                        receivesStroke
-                          ? "bg-coral/20 text-coral"
-                          : "bg-soft-grey/30 text-charcoal/60"
-                      )}>
-                        SI {strokeIndex}
-                      </span>
-                      {receivesStroke && (
-                        <span className="text-xs text-coral font-primary">
-                          +{receivesStroke} stroke{receivesStroke > 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-            </div>
-
-            <div className="flex items-center space-x-4 relative left-[50px]">
+          <div className="flex items-center justify-end pr-2">
+            <div className="flex items-center space-x-4">
               {/* Previous hole (only when on hole 2+) */}
               {currentHole > 1 && (
                 <div className="text-center w-12">
@@ -378,9 +347,6 @@ export function ScoreEntry({
                   Par {currentHoleData?.par || 4}
                 </div>
               </div>
-
-              {/* Placeholder for alignment */}
-              <div className="w-12 h-6 opacity-0"></div>
             </div>
           </div>
         </div>
@@ -487,9 +453,22 @@ export function ScoreEntry({
                   <div className="flex items-center space-x-4">
                     {/* Previous hole score (only when on hole 2+) */}
                     {currentHole > 1 && (
-                      <div className="text-center w-12">
-                        <div className="text-lg font-bold text-fairway font-display">
+                      <div className="text-center w-12 relative">
+                        <div className={cn(
+                          "text-xl font-bold font-display inline-block relative",
+                          previousScore && previousScore > 0 ? "text-fairway" : "text-charcoal/40"
+                        )}>
                           {formatScoreEntryDisplay(previousScore || 0)}
+                          {/* Subscript net score for previous hole - only when score > 0 */}
+                          {netScoringData && previousScore !== null && previousScore > 0 ? (() => {
+                            const prevHoleStrokes = playerNetData?.handicapStrokesPerHole?.[currentHole - 2] ?? 0;
+                            const prevNetScore = previousScore - prevHoleStrokes;
+                            return (
+                              <span className="absolute -bottom-0.5 -right-2.5 text-xs font-medium text-charcoal/60 font-primary">
+                                {prevNetScore}
+                              </span>
+                            );
+                          })() : null}
                         </div>
                       </div>
                     )}
@@ -500,26 +479,32 @@ export function ScoreEntry({
                         onClick={() => handleScoreFieldClick(index)}
                         disabled={isLocked}
                         className={cn(
-                          "w-12 h-12 rounded-full border-2 flex items-center justify-center text-label-sm font-medium touch-manipulation transition-colors",
+                          "w-12 h-12 rounded-full border-2 flex items-center justify-center touch-manipulation transition-colors relative",
                           isLocked
                             ? "border-soft-grey bg-soft-grey/20 cursor-not-allowed"
-                            : "border-soft-grey bg-rough/10 text-turf hover:bg-rough/20"
+                            : "border-soft-grey bg-rough/10 hover:bg-rough/20"
                         )}
                       >
-                        <span className="text-lg font-bold text-fairway font-display">
+                        {/* Main score display */}
+                        <span className={cn(
+                          "text-xl font-bold font-display",
+                          currentScore > 0 ? "text-fairway" : "text-charcoal/40"
+                        )}>
                           {currentScore > 0
                             ? currentScore
                             : currentScore === -1
                             ? "−"
+                            : netScoringData && strokesOnThisHole > 0
+                            ? `-${strokesOnThisHole}`
                             : "0"}
                         </span>
+                        {/* Subscript net score - only show when score entered */}
+                        {netScoringData && currentScore > 0 && (
+                          <span className="absolute bottom-1 right-1.5 text-xs font-medium text-charcoal/60 font-primary">
+                            {netScore}
+                          </span>
+                        )}
                       </button>
-                      {/* Net score when strokes received */}
-                      {netScore !== null && strokesOnThisHole > 0 && (
-                        <span className="text-xs text-coral font-medium mt-0.5 font-primary">
-                          net {netScore}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -623,23 +608,20 @@ export function ScoreEntry({
         </div>
       </div>
 
-      {/* Enhanced Custom Keyboard with Previous Hole Display */}
+      {/* Dark Score Input Modal */}
       {!isLocked && (
-        <CustomKeyboard
+        <ScoreInputModal
           visible={keyboardVisible}
-          onNumberPress={handleNumberPress}
-          onSpecialPress={handleSpecialPress}
-          holePar={currentHoleData?.par || 4}
+          players={teeTimeGroup.players}
+          currentPlayerIndex={currentPlayerIndex}
           currentHole={currentHole}
-          onDismiss={handleKeyboardDismiss}
-          teeTimeGroup={teeTimeGroup}
-          course={course}
-          playerName={
-            currentPlayer?.playerNames ||
-            (isTourCompetition
-              ? "Player"
-              : `${currentPlayer?.participantName} ${currentPlayer?.participantType}`)
-          }
+          holePar={currentHoleData?.par || 4}
+          netScoringData={netScoringData}
+          onScoreSelect={handleNumberPress}
+          onPlayerSelect={(index) => setCurrentPlayerIndex(index)}
+          onClose={handleKeyboardDismiss}
+          onSpecialAction={handleSpecialPress}
+          isTourCompetition={isTourCompetition}
         />
       )}
       {/* Completion Actions Bar - Show when ready to finalize and not locked */}

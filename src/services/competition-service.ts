@@ -395,6 +395,17 @@ export class CompetitionService {
       }
     }
 
+    // If no tee but net scoring is enabled, still return strokeIndex for UI
+    if (!teeInfo && scoringMode && scoringMode !== "gross") {
+      teeInfo = {
+        id: 0,
+        name: "Default",
+        courseRating,
+        slopeRating,
+        strokeIndex,
+      };
+    }
+
     // Get player handicaps from tour enrollments if this is a tour competition
     const playerHandicaps = new Map<number, number>();
     if (competition.tour_id && scoringMode && scoringMode !== "gross") {

@@ -64,7 +64,7 @@ export function HoleNavigation({
           {holeHcp !== undefined && (
             <div className="text-center">
               <span className="text-label-sm font-medium text-charcoal">
-                HCP
+                SI
               </span>
               <div className="text-display-sm font-bold text-charcoal font-display">
                 {holeHcp}
