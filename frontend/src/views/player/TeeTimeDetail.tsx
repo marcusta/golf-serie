@@ -69,7 +69,8 @@ export default function TeeTimeDetail() {
 
   return (
     <PlayerPageLayout
-      title="Score Entry"
+      title={`Tee ${teeTime.teetime}`}
+      subtitle={teeTime.course_name}
       onBackClick={() => window.history.back()}
       className="h-screen flex flex-col"
     >

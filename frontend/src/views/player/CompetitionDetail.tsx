@@ -263,8 +263,9 @@ export default function CompetitionDetail() {
   const sortedTeamResults = teamLeaderboard || [];
 
   return (
-    <PlayerPageLayout 
+    <PlayerPageLayout
       title={competition.name}
+      subtitle={course?.name}
       onBackClick={handleBackNavigation}
       seriesId={competition.series_id}
       seriesName={competition.series_name}

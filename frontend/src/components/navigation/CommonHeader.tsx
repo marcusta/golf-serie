@@ -3,10 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Trophy } from "lucide-react";
 import TapScoreLogo from "../ui/TapScoreLogo";
 import { HamburgerMenu } from "./HamburgerMenu";
-import { AuthButtons } from "../auth/AuthButtons";
 
 interface CommonHeaderProps {
   title?: string;
+  subtitle?: string;
   showBackButton?: boolean;
   onBackClick?: () => void;
   children?: React.ReactNode;
@@ -19,6 +19,7 @@ interface CommonHeaderProps {
 
 export function CommonHeader({
   title,
+  subtitle,
   showBackButton = true,
   onBackClick,
   children,
@@ -40,26 +41,37 @@ export function CommonHeader({
   return (
     <header className={`bg-fairway text-scorecard shadow-lg ${className}`}>
       <div className="container mx-auto px-4">
-        <div className="flex items-center gap-4 h-16">
+        <div className="flex items-center gap-3 h-14 md:h-16">
           {showBackButton && (
             <button
               onClick={handleBackClick}
-              className="p-2 hover:bg-turf rounded-lg transition-colors"
+              className="p-2 hover:bg-turf rounded-lg transition-colors flex-shrink-0"
               aria-label="Go back"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
 
-          <TapScoreLogo size="md" variant="color" layout="horizontal" />
+          {/* Logo - hidden on mobile, shown on desktop */}
+          <div className="hidden md:block">
+            <TapScoreLogo size="md" variant="color" layout="horizontal" />
+          </div>
 
           {title && (
             <>
-              <div className="w-px h-6 bg-scorecard/30" />
+              {/* Divider - only shown on desktop when logo is visible */}
+              <div className="hidden md:block w-px h-6 bg-scorecard/30" />
               <div className="min-w-0 flex-1 flex items-center gap-2">
-                <h1 className="text-body-lg font-semibold text-scorecard font-display truncate">
-                  {title}
-                </h1>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-sm md:text-body-lg font-semibold text-scorecard font-display truncate leading-tight">
+                    {title}
+                  </h1>
+                  {subtitle && (
+                    <p className="text-xs md:text-sm text-scorecard/70 font-display truncate leading-tight">
+                      {subtitle}
+                    </p>
+                  )}
+                </div>
                 {/* Render series link if seriesId exists */}
                 {seriesId && (
                   <Link
@@ -76,10 +88,9 @@ export function CommonHeader({
           )}
 
           <div className="ml-auto flex items-center gap-2">
-            <AuthButtons />
             {customActions}
             {children}
-            {showHamburgerMenu && <HamburgerMenu />}
+            {showHamburgerMenu && <HamburgerMenu seriesId={seriesId} seriesName={seriesName} />}
           </div>
         </div>
       </div>

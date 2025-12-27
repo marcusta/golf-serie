@@ -454,6 +454,7 @@ export default function CompetitionRound() {
   return (
     <PlayerPageLayout
       title={competition.name}
+      subtitle={course?.name}
       seriesId={competition.series_id}
       seriesName={competition.series_name}
       className="h-screen flex flex-col"

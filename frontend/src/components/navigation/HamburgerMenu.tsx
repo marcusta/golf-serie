@@ -10,12 +10,21 @@ import {
   Home,
   LayoutDashboard,
   Loader2,
+  User,
+  LogOut,
+  LogIn,
+  UserPlus,
+  Settings,
 } from "lucide-react";
 import { useCompetition } from "@/api/competitions";
 import { useSingleSeries } from "@/api/series";
+import { useAuth } from "@/hooks/useAuth";
+import TapScoreLogo from "../ui/TapScoreLogo";
 
 interface HamburgerMenuProps {
   className?: string;
+  seriesId?: number;
+  seriesName?: string;
 }
 
 interface MenuLink {
@@ -25,13 +34,19 @@ interface MenuLink {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-export function HamburgerMenu({ className }: HamburgerMenuProps) {
+export function HamburgerMenu({
+  className,
+  seriesId: propSeriesId,
+  seriesName: propSeriesName
+}: HamburgerMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [seriesId, setSeriesId] = useState<number | undefined>();
-  const [seriesName, setSeriesName] = useState<string | undefined>();
+  const [resolvedSeriesId, setResolvedSeriesId] = useState<number | undefined>(propSeriesId);
+  const [resolvedSeriesName, setResolvedSeriesName] = useState<string | undefined>(propSeriesName);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Use router params to get context
+  const { user, isAuthenticated, logout } = useAuth();
+
+  // Use router params to get context only if not passed via props
   const params = useParams({
     strict: false,
   }) as { competitionId?: string; serieId?: string };
@@ -41,41 +56,57 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
     : undefined;
   const serieIdNum = params.serieId ? parseInt(params.serieId) : undefined;
 
+  // Only fetch if we don't have props and need to resolve from route
+  const needsFetch = !propSeriesId && (competitionIdNum || serieIdNum);
+
   const { data: competitionData, isLoading: competitionLoading } =
-    useCompetition(competitionIdNum || 0);
+    useCompetition(needsFetch ? competitionIdNum || 0 : 0);
   const { data: seriesData, isLoading: seriesLoading } = useSingleSeries(
-    serieIdNum || competitionData?.series_id || 0
+    needsFetch ? (serieIdNum || competitionData?.series_id || 0) : 0
   );
 
   useEffect(() => {
+    // If props are provided, use them directly
+    if (propSeriesId !== undefined) {
+      setResolvedSeriesId(propSeriesId);
+      setResolvedSeriesName(propSeriesName);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(competitionLoading || seriesLoading);
 
     if (seriesData) {
-      setSeriesId(seriesData.id);
-      setSeriesName(seriesData.name);
+      setResolvedSeriesId(seriesData.id);
+      setResolvedSeriesName(seriesData.name);
     } else if (competitionData?.series_id) {
-      setSeriesId(competitionData.series_id);
-      setSeriesName(competitionData.series_name);
+      setResolvedSeriesId(competitionData.series_id);
+      setResolvedSeriesName(competitionData.series_name);
     } else {
-      setSeriesId(undefined);
-      setSeriesName(undefined);
+      setResolvedSeriesId(undefined);
+      setResolvedSeriesName(undefined);
     }
-  }, [competitionData, seriesData, competitionLoading, seriesLoading]);
+  }, [competitionData, seriesData, competitionLoading, seriesLoading, propSeriesId, propSeriesName]);
 
   const closeMenu = () => setIsOpen(false);
 
+  const handleLogout = async () => {
+    await logout();
+    closeMenu();
+  };
+
   const contextualLinks =
-    seriesId && seriesName
+    resolvedSeriesId && resolvedSeriesName
       ? [
           {
             to: "/player/series/$serieId",
-            params: { serieId: seriesId.toString() },
+            params: { serieId: resolvedSeriesId.toString() },
             label: "View Overview",
             icon: LayoutDashboard,
           },
           {
             to: "/player/series/$serieId/standings",
-            params: { serieId: seriesId.toString() },
+            params: { serieId: resolvedSeriesId.toString() },
             label: "View Standings",
             icon: Trophy,
           },
@@ -168,25 +199,118 @@ export function HamburgerMenu({ className }: HamburgerMenuProps) {
           <div
             className={cn(
               "absolute top-12 right-0 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50",
-              "md:w-96"
+              "md:w-96",
+              "flex flex-col max-h-[80vh]"
             )}
           >
-            <div className="p-2">
+            <div className="p-2 flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center p-8">
                   <Loader2 className="h-6 w-6 animate-spin text-green-600" />
                 </div>
               ) : (
                 <nav className="divide-y divide-gray-200">
+                  {/* Navigation sections first */}
                   {contextualLinks.length > 0 && (
                     <MenuSection
-                      title={`Series: ${seriesName}`}
+                      title={`Series: ${resolvedSeriesName}`}
                       links={contextualLinks}
                     />
                   )}
                   <MenuSection title="Navigation" links={generalLinks} />
+
+                  {/* Account Section - at the bottom */}
+                  {isAuthenticated ? (
+                    <div className="py-2">
+                      <div className="px-3 pb-2">
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Account
+                        </h4>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-3 px-3 py-2.5">
+                          <User className="w-5 h-5 text-gray-400" />
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {user?.email}
+                          </span>
+                        </div>
+                        {(user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") && (
+                          <Link
+                            to="/admin/series"
+                            onClick={closeMenu}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 font-['Inter']",
+                              "hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-600",
+                              "group"
+                            )}
+                          >
+                            <Settings className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors duration-200" />
+                            <span className="text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors duration-200">
+                              Admin Panel
+                            </span>
+                          </Link>
+                        )}
+                        <button
+                          onClick={handleLogout}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 font-['Inter'] w-full",
+                            "hover:bg-red-50 focus:outline-2 focus:outline-offset-2 focus:outline-red-600",
+                            "group"
+                          )}
+                        >
+                          <LogOut className="w-5 h-5 text-gray-400 group-hover:text-red-600 transition-colors duration-200" />
+                          <span className="text-sm font-medium text-gray-900 group-hover:text-red-700 transition-colors duration-200">
+                            Logout
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-2">
+                      <div className="px-3 pb-2">
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Account
+                        </h4>
+                      </div>
+                      <div className="space-y-1">
+                        <Link
+                          to="/login"
+                          onClick={closeMenu}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 font-['Inter']",
+                            "hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-600",
+                            "group"
+                          )}
+                        >
+                          <LogIn className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors duration-200" />
+                          <span className="text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors duration-200">
+                            Login
+                          </span>
+                        </Link>
+                        <Link
+                          to="/register"
+                          onClick={closeMenu}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 font-['Inter']",
+                            "hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-600",
+                            "group"
+                          )}
+                        >
+                          <UserPlus className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors duration-200" />
+                          <span className="text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors duration-200">
+                            Sign Up
+                          </span>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </nav>
               )}
+            </div>
+
+            {/* Logo Footer */}
+            <div className="border-t border-gray-200 p-3 flex justify-center">
+              <TapScoreLogo size="sm" variant="color" layout="horizontal" />
             </div>
           </div>
         </>

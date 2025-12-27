@@ -4,6 +4,7 @@ import { CommonHeader } from "../navigation/CommonHeader";
 interface PlayerPageLayoutProps {
   children: React.ReactNode;
   title?: string;
+  subtitle?: string;
   showBackButton?: boolean;
   onBackClick?: () => void;
   headerContent?: React.ReactNode;
@@ -17,6 +18,7 @@ interface PlayerPageLayoutProps {
 export function PlayerPageLayout({
   children,
   title,
+  subtitle,
   showBackButton = true,
   onBackClick,
   headerContent,
@@ -30,6 +32,7 @@ export function PlayerPageLayout({
     <div className={`min-h-screen bg-scorecard ${className}`}>
       <CommonHeader
         title={title}
+        subtitle={subtitle}
         showBackButton={showBackButton}
         onBackClick={onBackClick}
         seriesId={seriesId}
