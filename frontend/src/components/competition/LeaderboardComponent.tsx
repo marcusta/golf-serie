@@ -238,10 +238,10 @@ export function LeaderboardComponent({
       ) : (
         <>
           {/* Mobile Card View */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden">
             {filteredLeaderboard.map((entry, index) => {
               const isRoundInvalid = entry.participant.score.includes(-1);
-              const isActive = index === 0; // Highlight leader
+              const isLeader = index === 0 && entry.holesPlayed > 0;
               const status = getPlayerStatus(entry);
               const displayProgress = getDisplayProgress(entry);
 
@@ -249,17 +249,15 @@ export function LeaderboardComponent({
                 <button
                   key={entry.participant.id}
                   onClick={() => onParticipantClick(entry.participant.id)}
-                  className={`w-full text-left bg-scorecard rounded-lg p-4 shadow-sm border transition-all duration-200 hover:shadow-md hover:border-turf cursor-pointer ${
-                    isActive
-                      ? "border-coral/20 shadow-md ring-2 ring-coral/10"
-                      : "border-soft-grey"
+                  className={`w-full text-left px-4 py-3 border-b border-soft-grey/50 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
+                    isLeader ? "border-l-4 border-l-coral bg-coral/5" : ""
                   }`}
                 >
                   <div className="flex items-center">
                     <div className="flex items-center flex-1">
-                      {/* Position Circle */}
+                      {/* Position Number */}
                       <div
-                        className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg font-bold mr-3 ${getPositionStyling(
+                        className={`w-8 text-lg font-bold mr-3 ${getPositionStyling(
                           index,
                           entry.holesPlayed
                         )}`}
@@ -408,7 +406,7 @@ export function LeaderboardComponent({
                       >
                         <td className="py-4 px-4">
                           <div
-                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${getPositionStyling(
+                            className={`text-sm font-bold ${getPositionStyling(
                               index,
                               entry.holesPlayed
                             )}`}

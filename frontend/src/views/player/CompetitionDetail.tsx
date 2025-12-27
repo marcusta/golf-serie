@@ -294,35 +294,33 @@ export default function CompetitionDetail() {
           </h1>
         </div>
 
-        {/* Competition Info Header with TapScore Styling */}
-        <div className="bg-rough bg-opacity-30 rounded-xl p-4 border border-soft-grey">
-          <div className="flex items-center justify-center gap-4 md:gap-8 text-xs md:text-sm text-charcoal font-primary">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-3 w-3 md:h-4 md:w-4 text-turf" />
-              <span className="hidden sm:inline">
-                {new Date(competition.date).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
-              <span className="sm:hidden">
-                {new Date(competition.date).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <MapPin className="h-3 w-3 md:h-4 md:w-4 text-turf" />
-              <span className="truncate">{course?.name || "Loading..."}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="h-3 w-3 md:h-4 md:w-4 text-turf" />
-              <span>{totalParticipants} participants</span>
-            </div>
+        {/* Competition Info */}
+        <div className="flex items-center justify-center gap-4 md:gap-6 text-xs md:text-sm text-charcoal/70 font-primary">
+          <div className="flex items-center gap-1">
+            <Calendar className="h-3 w-3 md:h-4 md:w-4 text-turf" />
+            <span className="hidden sm:inline">
+              {new Date(competition.date).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+            <span className="sm:hidden">
+              {new Date(competition.date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <MapPin className="h-3 w-3 md:h-4 md:w-4 text-turf" />
+            <span className="truncate">{course?.name || "Loading..."}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Users className="h-3 w-3 md:h-4 md:w-4 text-turf" />
+            <span>{totalParticipants} participants</span>
           </div>
         </div>
 

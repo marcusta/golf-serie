@@ -14,7 +14,7 @@ export function SeriesLinkBanner({
     <Link
       to="/player/series/$serieId"
       params={{ serieId: seriesId.toString() }}
-      className="block bg-turf/10 hover:bg-turf/20 border border-turf/20 rounded-xl p-4 transition-all duration-200 group"
+      className="block border-l-4 border-turf pl-4 py-3 hover:bg-turf/5 transition-colors group"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -77,13 +77,13 @@ export function ParticipantsListComponent({
             No tee times scheduled for this competition yet.
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-6">
             {teeTimes.map((teeTime) => (
               <div
                 key={teeTime.id}
-                className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden"
+                className="border-l-4 border-turf"
               >
-                <div className="bg-rough bg-opacity-30 px-4 py-3 border-b border-soft-grey">
+                <div className="bg-rough/20 px-4 py-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-base md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
                       <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />

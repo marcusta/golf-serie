@@ -411,7 +411,7 @@ export default function PlayerCompetitions() {
           {filteredCompetitions.length === 0 ? (
             <EmptyState statusFilter={statusFilter} searchQuery={searchQuery} />
           ) : (
-            <div className="grid gap-6">
+            <div className="divide-y divide-soft-grey">
               {filteredCompetitions.map((competition) => (
                 <CompetitionCard
                   key={competition.id}
@@ -680,117 +680,115 @@ function CompetitionCard({
   const actionButton = getActionButton();
 
   return (
-    <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden hover:shadow-lg hover:-translate-y-1 hover:border-turf transition-all duration-300">
-      <div className="p-6">
-        <div className="flex items-start gap-4">
-          <div
-            className={`w-16 h-16 ${status.gradientClass} rounded-xl flex items-center justify-center flex-shrink-0`}
-          >
-            <span className="text-2xl">{getIconForStatus(status.status)}</span>
+    <div className="py-6 hover:bg-gray-50/50 transition-colors">
+      <div className="flex items-start gap-4">
+        <div
+          className={`w-16 h-16 ${status.gradientClass} rounded-xl flex items-center justify-center flex-shrink-0`}
+        >
+          <span className="text-2xl">{getIconForStatus(status.status)}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <h3 className="text-xl font-bold text-charcoal font-display">
+              {competition.name}
+            </h3>
+            <span
+              className={`${status.color} ${status.bgColor} text-xs font-semibold px-3 py-1 rounded-full font-primary`}
+            >
+              {status.daysText || status.label}
+            </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <h3 className="text-xl font-bold text-charcoal font-display">
-                {competition.name}
-              </h3>
-              <span
-                className={`${status.color} ${status.bgColor} text-xs font-semibold px-3 py-1 rounded-full font-primary`}
-              >
-                {status.daysText || status.label}
-              </span>
-            </div>
 
-            <div className="grid md:grid-cols-3 gap-4 mb-4">
-              <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
-                <Calendar className="w-4 h-4" />
-                {new Date(competition.date).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
-                <MapPin className="w-4 h-4" />
-                {course?.name || "Course TBD"}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
-                <Users className="w-4 h-4" />
-                {competition.participant_count} participants
-              </div>
+          <div className="grid md:grid-cols-3 gap-4 mb-4">
+            <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
+              <Calendar className="w-4 h-4" />
+              {new Date(competition.date).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
             </div>
+            <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
+              <MapPin className="w-4 h-4" />
+              {course?.name || "Course TBD"}
+            </div>
+            <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
+              <Users className="w-4 h-4" />
+              {competition.participant_count} participants
+            </div>
+          </div>
 
-            {/* Leaderboard preview for completed/live competitions */}
-            {(status.status === "completed" || status.status === "live") &&
-              leaderboard &&
-              leaderboard.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <h4 className="font-medium text-charcoal mb-3 font-display">
-                    {status.status === "completed"
-                      ? "Final Results"
-                      : "Live Leaderboard"}
-                  </h4>
-                  <div className="space-y-2">
-                    {leaderboard.slice(0, 3).map((entry, index) => (
-                      <div
-                        key={entry.participant.id}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`${
-                              index === 0
-                                ? "text-yellow-500"
-                                : index === 1
-                                ? "text-gray-400"
-                                : "text-orange-500"
-                            }`}
-                          >
-                            {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
-                          </span>
-                          <span className="text-sm font-medium font-primary">
-                            {entry.participant.team_name}{" "}
-                            {entry.participant.position_name}
-                          </span>
-                        </div>
+          {/* Leaderboard preview for completed/live competitions */}
+          {(status.status === "completed" || status.status === "live") &&
+            leaderboard &&
+            leaderboard.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <h4 className="font-medium text-charcoal mb-3 font-display">
+                  {status.status === "completed"
+                    ? "Final Results"
+                    : "Live Leaderboard"}
+                </h4>
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 3).map((entry, index) => (
+                    <div
+                      key={entry.participant.id}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-2">
                         <span
-                          className={`text-sm font-bold ${
-                            status.status === "completed"
-                              ? "text-turf"
-                              : entry.relativeToPar < 0
-                              ? "text-turf"
-                              : entry.relativeToPar === 0
-                              ? "text-charcoal"
-                              : "text-flag"
-                          } font-display`}
+                          className={`${
+                            index === 0
+                              ? "text-yellow-500"
+                              : index === 1
+                              ? "text-gray-400"
+                              : "text-orange-500"
+                          }`}
                         >
-                          {status.status === "completed"
-                            ? `${entry.totalShots} pts`
-                            : entry.relativeToPar === 0
-                            ? "E"
-                            : entry.relativeToPar > 0
-                            ? `+${entry.relativeToPar}`
-                            : entry.relativeToPar}
+                          {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                        </span>
+                        <span className="text-sm font-medium font-primary">
+                          {entry.participant.team_name}{" "}
+                          {entry.participant.position_name}
                         </span>
                       </div>
-                    ))}
-                  </div>
+                      <span
+                        className={`text-sm font-bold ${
+                          status.status === "completed"
+                            ? "text-turf"
+                            : entry.relativeToPar < 0
+                            ? "text-turf"
+                            : entry.relativeToPar === 0
+                            ? "text-charcoal"
+                            : "text-flag"
+                        } font-display`}
+                      >
+                        {status.status === "completed"
+                          ? `${entry.totalShots} pts`
+                          : entry.relativeToPar === 0
+                          ? "E"
+                          : entry.relativeToPar > 0
+                          ? `+${entry.relativeToPar}`
+                          : entry.relativeToPar}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              )}
-
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-charcoal font-primary">
-                <span className="font-medium">Course:</span> Par{" "}
-                {course?.pars?.total || 72} • 18 holes
               </div>
-              <Link
-                to={getCompetitionLink()}
-                className={`${actionButton.className} text-scorecard px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 font-primary`}
-              >
-                <actionButton.icon className="w-4 h-4" />
-                {actionButton.text}
-              </Link>
+            )}
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-charcoal font-primary">
+              <span className="font-medium">Course:</span> Par{" "}
+              {course?.pars?.total || 72} • 18 holes
             </div>
+            <Link
+              to={getCompetitionLink()}
+              className={`${actionButton.className} text-scorecard px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 font-primary`}
+            >
+              <actionButton.icon className="w-4 h-4" />
+              {actionButton.text}
+            </Link>
           </div>
         </div>
       </div>

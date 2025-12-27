@@ -8,7 +8,6 @@ import {
   AlertCircle,
   RefreshCw,
   MapPin,
-  Filter,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -212,9 +211,6 @@ export default function SeriesCompetitions() {
                 Browse series competitions and events
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-charcoal/60" />
-            </div>
           </div>
         </div>
       </div>
@@ -301,7 +297,7 @@ export default function SeriesCompetitions() {
               </span>
             </div>
 
-            <div className="grid gap-4">
+            <div className="divide-y divide-soft-grey">
               {filteredCompetitions?.map((competition) => {
                 const competitionDate = new Date(competition.date);
                 const course = courses?.find(
@@ -316,12 +312,9 @@ export default function SeriesCompetitions() {
                     key={competition.id}
                     to="/player/competitions/$competitionId"
                     params={{ competitionId: competition.id.toString() }}
-                    className="block p-6 rounded-xl border border-soft-grey hover:border-turf hover:shadow-lg transition-all duration-200 group bg-scorecard"
+                    className="block py-5 hover:bg-gray-50/50 transition-colors group"
                   >
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-rough rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-turf/20 transition-colors">
-                        <Calendar className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
-                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4 mb-3">
                           <h3 className="text-label-lg font-semibold text-charcoal group-hover:text-fairway transition-colors">
