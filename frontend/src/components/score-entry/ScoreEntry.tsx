@@ -171,24 +171,45 @@ export function ScoreEntry({
   };
 
   const moveToNextPlayer = () => {
-    if (currentPlayerIndex < teeTimeGroup.players.length - 1) {
-      setCurrentPlayerIndex(currentPlayerIndex + 1);
-    } else {
-      // Last player on this hole - show confirmation briefly
-      setShowingConfirmation(true);
+    // Note: The current player just entered a score, but state hasn't updated yet.
+    // So we skip the current player when looking for players without scores.
 
-      setTimeout(() => {
-        setShowingConfirmation(false);
-
-        const nextHole = currentHole < 18 ? currentHole + 1 : 1;
-        if (onHoleChange) {
-          onHoleChange(nextHole);
-        } else {
-          setInternalCurrentHole(nextHole);
-        }
-        setCurrentPlayerIndex(0);
-      }, 800); // Show confirmation for shorter time
+    // Find the next player without a score on this hole
+    // First, check players after current index
+    for (let i = currentPlayerIndex + 1; i < teeTimeGroup.players.length; i++) {
+      const score = teeTimeGroup.players[i].scores[currentHole - 1];
+      if (score === undefined || score === 0) {
+        setCurrentPlayerIndex(i);
+        return;
+      }
     }
+
+    // Then check players before current index (wrap around, but skip current player)
+    for (let i = 0; i < currentPlayerIndex; i++) {
+      const score = teeTimeGroup.players[i].scores[currentHole - 1];
+      if (score === undefined || score === 0) {
+        setCurrentPlayerIndex(i);
+        return;
+      }
+    }
+
+    // If we get here, all OTHER players have scores, and current player just entered theirs.
+    // So all players now have scores - advance to next hole and close modal.
+    setShowingConfirmation(true);
+    setKeyboardVisible(false);
+    setIsEditing(false);
+
+    setTimeout(() => {
+      setShowingConfirmation(false);
+
+      const nextHole = currentHole < 18 ? currentHole + 1 : 1;
+      if (onHoleChange) {
+        onHoleChange(nextHole);
+      } else {
+        setInternalCurrentHole(nextHole);
+      }
+      setCurrentPlayerIndex(0);
+    }, 800);
   };
 
   const handleScoreFieldClick = (playerIndex: number) => {

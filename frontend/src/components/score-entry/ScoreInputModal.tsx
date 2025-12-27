@@ -256,9 +256,9 @@ export function ScoreInputModal({
           ))}
         </div>
 
-        {/* Row 3: 7, 8, 9+ */}
+        {/* Row 3: 7, 8, 9 */}
         <div className="grid grid-cols-3 gap-1.5 mb-1.5">
-          {[7, 8].map((num) => (
+          {[7, 8, 9].map((num) => (
             <button
               key={num}
               onMouseDown={(e) => {
@@ -278,6 +278,10 @@ export function ScoreInputModal({
               </span>
             </button>
           ))}
+        </div>
+
+        {/* Row 4: 10+, -, 0/Clear */}
+        <div className="grid grid-cols-3 gap-1.5">
           <button
             onMouseDown={(e) => {
               e.preventDefault();
@@ -289,19 +293,6 @@ export function ScoreInputModal({
             <span className="text-xs font-semibold uppercase mt-0.5 leading-none opacity-75">
               {getScoreLabel(10)}
             </span>
-          </button>
-        </div>
-
-        {/* Row 4: Clear, -, 0 */}
-        <div className="grid grid-cols-3 gap-1.5">
-          <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              onSpecialAction("unreported");
-            }}
-            className="h-14 bg-[#2a2a2a] text-white hover:bg-[#3a3a3a] rounded-xl text-xl font-bold transition-colors touch-manipulation flex flex-col items-center justify-center font-primary"
-          >
-            <span>Rensa</span>
           </button>
           <button
             onMouseDown={(e) => {
