@@ -142,7 +142,7 @@ export default function CompetitionRound() {
 
   // Build net scoring data map for tour competitions
   const netScoringData = useMemo(() => {
-    if (!leaderboardWithDetails?.tee?.strokeIndex || !leaderboardWithDetails?.scoringMode) {
+    if (!leaderboardWithDetails?.scoringMode) {
       return undefined;
     }
 
@@ -151,7 +151,8 @@ export default function CompetitionRound() {
       return undefined;
     }
 
-    const strokeIndex = leaderboardWithDetails.tee.strokeIndex;
+    // Stroke index from tee (optional - used for SI display in header)
+    const strokeIndex = leaderboardWithDetails.tee?.strokeIndex;
     const dataMap = new Map<string, PlayerNetScoringData>();
 
     leaderboardWithDetails.entries.forEach((entry) => {

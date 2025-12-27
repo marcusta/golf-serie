@@ -393,6 +393,12 @@ export function ScoreEntry({
               currentHole > 1 ? player.scores[currentHole - 2] ?? 0 : null;
             const toPar = calculatePlayerToPar(player);
 
+            // Net scoring data for this player
+            const playerNetData = netScoringData?.get(player.participantId);
+            const strokesOnThisHole = playerNetData?.handicapStrokesPerHole?.[currentHole - 1] ?? 0;
+            const courseHandicap = playerNetData?.courseHandicap;
+            const netScore = currentScore > 0 ? currentScore - strokesOnThisHole : null;
+
             return (
               <div
                 key={player.participantId}
@@ -448,14 +454,34 @@ export function ScoreEntry({
                       )}
                     </button>
 
-                    <span
-                      className={cn(
-                        "text-label-sm font-medium font-primary",
-                        toPar !== null ? getToParColor(toPar) : "text-soft-grey"
+                    <div className="flex items-center gap-2 mt-1">
+                      <span
+                        className={cn(
+                          "text-label-sm font-medium font-primary",
+                          toPar !== null ? getToParColor(toPar) : "text-soft-grey"
+                        )}
+                      >
+                        {toPar !== null ? formatToPar(toPar) : "-"}
+                      </span>
+                      {/* Handicap badge when net scoring enabled */}
+                      {courseHandicap !== undefined && (
+                        <span className="text-xs px-1.5 py-0.5 bg-soft-grey/20 text-charcoal/70 rounded font-primary">
+                          HCP {courseHandicap}
+                        </span>
                       )}
-                    >
-                      {toPar !== null ? formatToPar(toPar) : "-"}
-                    </span>
+                      {/* Stroke indicator dot for this hole */}
+                      {strokesOnThisHole > 0 && (
+                        <span className="flex items-center gap-0.5">
+                          {Array.from({ length: strokesOnThisHole }).map((_, i) => (
+                            <span
+                              key={i}
+                              className="w-2 h-2 bg-coral rounded-full"
+                              title={`Receives ${strokesOnThisHole} stroke${strokesOnThisHole > 1 ? 's' : ''} on this hole`}
+                            />
+                          ))}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center space-x-4">
@@ -469,24 +495,32 @@ export function ScoreEntry({
                     )}
 
                     {/* Current hole score - ALWAYS in a circle */}
-                    <button
-                      onClick={() => handleScoreFieldClick(index)}
-                      disabled={isLocked}
-                      className={cn(
-                        "w-12 h-12 rounded-full border-2 flex items-center justify-center text-label-sm font-medium touch-manipulation transition-colors",
-                        isLocked
-                          ? "border-soft-grey bg-soft-grey/20 cursor-not-allowed"
-                          : "border-soft-grey bg-rough/10 text-turf hover:bg-rough/20"
+                    <div className="flex flex-col items-center">
+                      <button
+                        onClick={() => handleScoreFieldClick(index)}
+                        disabled={isLocked}
+                        className={cn(
+                          "w-12 h-12 rounded-full border-2 flex items-center justify-center text-label-sm font-medium touch-manipulation transition-colors",
+                          isLocked
+                            ? "border-soft-grey bg-soft-grey/20 cursor-not-allowed"
+                            : "border-soft-grey bg-rough/10 text-turf hover:bg-rough/20"
+                        )}
+                      >
+                        <span className="text-lg font-bold text-fairway font-display">
+                          {currentScore > 0
+                            ? currentScore
+                            : currentScore === -1
+                            ? "−"
+                            : "0"}
+                        </span>
+                      </button>
+                      {/* Net score when strokes received */}
+                      {netScore !== null && strokesOnThisHole > 0 && (
+                        <span className="text-xs text-coral font-medium mt-0.5 font-primary">
+                          net {netScore}
+                        </span>
                       )}
-                    >
-                      <span className="text-lg font-bold text-fairway font-display">
-                        {currentScore > 0
-                          ? currentScore
-                          : currentScore === -1
-                          ? "−"
-                          : "0"}
-                      </span>
-                    </button>
+                    </div>
                   </div>
                 </div>
               </div>
