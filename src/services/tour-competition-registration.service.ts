@@ -488,7 +488,8 @@ export class TourCompetitionRegistrationService {
   }
 
   /**
-   * Get all active rounds for a player across all tours
+   * Get all active and recently finished rounds for a player across all tours
+   * Includes rounds that are: registered, playing, looking_for_group, or finished (for open competitions)
    */
   async getActiveRounds(playerId: number): Promise<ActiveRound[]> {
     const rounds = this.db
@@ -501,6 +502,7 @@ export class TourCompetitionRegistrationService {
           co.name as course_name,
           r.tee_time_id,
           r.participant_id,
+          r.status as registration_status,
           c.open_end as open_until,
           p.score
          FROM tour_competition_registrations r
@@ -508,7 +510,7 @@ export class TourCompetitionRegistrationService {
          JOIN tours t ON c.tour_id = t.id
          JOIN courses co ON c.course_id = co.id
          JOIN participants p ON r.participant_id = p.id
-         WHERE r.player_id = ? AND r.status IN ('registered', 'playing', 'looking_for_group')
+         WHERE r.player_id = ? AND r.status IN ('registered', 'playing', 'looking_for_group', 'finished')
          ORDER BY c.date DESC`
       )
       .all(playerId) as {
@@ -519,6 +521,7 @@ export class TourCompetitionRegistrationService {
       course_name: string;
       tee_time_id: number;
       participant_id: number;
+      registration_status: string;
       open_until: string | null;
       score: string;
     }[];
@@ -526,15 +529,16 @@ export class TourCompetitionRegistrationService {
     const activeRounds: ActiveRound[] = [];
 
     for (const round of rounds) {
-      // Get group members
+      // Get group members with handicaps
       const groupMembers = this.db
         .prepare(
-          `SELECT p.name
+          `SELECT p.name, COALESCE(te.playing_handicap, p.handicap) as handicap
            FROM tour_competition_registrations r
            JOIN players p ON r.player_id = p.id
+           JOIN tour_enrollments te ON r.enrollment_id = te.id
            WHERE r.tee_time_id = ? AND r.player_id != ?`
         )
-        .all(round.tee_time_id, playerId) as { name: string }[];
+        .all(round.tee_time_id, playerId) as { name: string; handicap: number | null }[];
 
       // Calculate holes played and score
       const scores = JSON.parse(round.score || "[]") as number[];
@@ -561,6 +565,9 @@ export class TourCompetitionRegistrationService {
       const currentScore =
         relativeToPar === 0 ? "E" : relativeToPar > 0 ? `+${relativeToPar}` : `${relativeToPar}`;
 
+      // Determine status for the card
+      const status = round.registration_status === "finished" ? "finished" : "playing";
+
       activeRounds.push({
         tour_id: round.tour_id,
         tour_name: round.tour_name,
@@ -571,8 +578,12 @@ export class TourCompetitionRegistrationService {
         participant_id: round.participant_id,
         holes_played: holesPlayed,
         current_score: currentScore,
-        group: groupMembers.map((m) => m.name),
+        group: groupMembers.map((m) => ({
+          name: m.name,
+          handicap: m.handicap ?? undefined,
+        })),
         open_until: round.open_until ?? undefined,
+        status,
       });
     }
 

@@ -531,15 +531,22 @@ describe("TourCompetitionRegistrationService", () => {
   });
 
   describe("getActiveRounds", () => {
-    test("should return active rounds for player", async () => {
+    test("should return active rounds for player with status and group handicaps", async () => {
       const owner = createUser("owner@test.com", "ADMIN");
       const tour = createTour("Test Tour", owner.id);
       const course = createCourse("Test Course");
       const competition = createOpenCompetition("Round 1", tour.id, course.id);
       const player = createPlayer("Marcus T.", undefined, 15);
+      const player2 = createPlayer("Other Player", undefined, 10);
       createEnrollment(tour.id, "marcus@test.com", player.id);
+      createEnrollment(tour.id, "other@test.com", player2.id);
 
+      // Register player and add player2 to their group
       await service.register(competition.id, player.id, "solo");
+      await service.register(competition.id, player2.id, "solo");
+
+      // Add player2 to player's group (player is the creator)
+      await service.addToGroup(competition.id, player.id, [player2.id]);
 
       const activeRounds = await service.getActiveRounds(player.id);
 
@@ -548,9 +555,14 @@ describe("TourCompetitionRegistrationService", () => {
       expect(activeRounds[0].competition_name).toBe("Round 1");
       expect(activeRounds[0].holes_played).toBe(0);
       expect(activeRounds[0].current_score).toBe("E");
+      expect(activeRounds[0].status).toBe("playing");
+      // Group should contain player2 with their handicap (not player themselves)
+      expect(activeRounds[0].group.length).toBe(1);
+      expect(activeRounds[0].group[0].name).toBe("Other Player");
+      expect(activeRounds[0].group[0].handicap).toBe(10);
     });
 
-    test("should not return finished rounds", async () => {
+    test("should return finished rounds with finished status", async () => {
       const owner = createUser("owner@test.com", "ADMIN");
       const tour = createTour("Test Tour", owner.id);
       const course = createCourse("Test Course");
@@ -564,7 +576,8 @@ describe("TourCompetitionRegistrationService", () => {
 
       const activeRounds = await service.getActiveRounds(player.id);
 
-      expect(activeRounds.length).toBe(0);
+      expect(activeRounds.length).toBe(1);
+      expect(activeRounds[0].status).toBe("finished");
     });
   });
 

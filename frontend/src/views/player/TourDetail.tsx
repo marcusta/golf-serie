@@ -163,19 +163,33 @@ export default function TourDetail() {
     return now >= openStart && now <= openEnd;
   }, []);
 
-  // Find upcoming competitions
+  // Find upcoming competitions, sorted by closest date first
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const upcomingCompetitions = competitions?.filter((comp) => {
+  const upcomingCompetitions = (competitions?.filter((comp) => {
     const compDate = new Date(comp.date);
     compDate.setHours(0, 0, 0, 0);
     return compDate >= today;
-  }) || [];
+  }) || []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Find currently open round (for "Play Now" feature)
   const currentOpenRound = useMemo(() => {
     return competitions?.find(isCompetitionOpen) || null;
   }, [competitions, isCompetitionOpen]);
+
+  // Check if player has an active/finished round for the current open competition
+  // If yes, we'll show only the ActiveRoundBanner (consolidated card) instead of LIVE NOW + GroupStatusCard
+  const activeRoundForCurrentOpen = useMemo(() => {
+    if (!currentOpenRound) return null;
+    return tourActiveRounds.find((round) => round.competition_id === currentOpenRound.id) || null;
+  }, [currentOpenRound, tourActiveRounds]);
+
+  // Filter out active rounds that match the current open round (to avoid duplication)
+  // These will be shown as the consolidated card in the "Play Now" section
+  const otherActiveRounds = useMemo(() => {
+    if (!currentOpenRound) return tourActiveRounds;
+    return tourActiveRounds.filter((round) => round.competition_id !== currentOpenRound.id);
+  }, [tourActiveRounds, currentOpenRound]);
 
   // Get registration status for the current open round
   const {
@@ -263,10 +277,11 @@ export default function TourDetail() {
           </div>
         )}
 
-        {/* Active Round Banner - show when player has an in-progress round (15F.2) */}
-        {tourActiveRounds.length > 0 && (
+        {/* Active Round Banner - show for rounds NOT in the current open competition (15F.2) */}
+        {/* Rounds for the current open competition are shown in the "Play Now" section below */}
+        {otherActiveRounds.length > 0 && (
           <section className="space-y-4">
-            {tourActiveRounds.map((round) => (
+            {otherActiveRounds.map((round) => (
               <ActiveRoundBanner key={round.competition_id} activeRound={round} />
             ))}
           </section>
@@ -304,69 +319,76 @@ export default function TourDetail() {
         {/* Play Now Section - Show when there's a currently open round */}
         {currentOpenRound && (
           <section className="space-y-4">
-            {/* Round header with LIVE badge */}
-            <div className="bg-gradient-to-r from-turf to-fairway rounded-xl p-4 text-scorecard">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-scorecard/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Play className="h-6 w-6 text-scorecard" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-scorecard/20 text-scorecard animate-pulse">
-                      LIVE NOW
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-display font-semibold">
-                    {currentOpenRound.name}
-                  </h3>
-                  <p className="text-scorecard/80 text-sm font-primary mt-1">
-                    {currentOpenRound.course_name && `${currentOpenRound.course_name} • `}
-                    Open until{" "}
-                    {new Date(currentOpenRound.open_end!).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-                <Link
-                  to="/player/competitions/$competitionId"
-                  params={{ competitionId: currentOpenRound.id.toString() }}
-                  className="text-scorecard/80 hover:text-scorecard transition-colors"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </Link>
-              </div>
-            </div>
-
-            {/* Registration status / Join button */}
-            {isEnrolled && registrationData?.registered && registrationData.registration ? (
-              <GroupStatusCard
-                competitionId={currentOpenRound.id}
-                registration={registrationData.registration}
-                group={registrationData.group}
-                teeTimeId={registrationData.registration.tee_time_id}
-                participantId={registrationData.registration.participant_id}
-                onUpdate={() => refetchRegistration()}
-              />
-            ) : isEnrolled ? (
-              <Button
-                onClick={() => setShowJoinFlow(true)}
-                className="w-full bg-coral hover:bg-coral/90 text-scorecard py-6 text-lg"
-              >
-                <Play className="h-5 w-5 mr-2" />
-                Join This Round
-              </Button>
+            {/* If player is playing or finished this round, show consolidated ActiveRoundBanner */}
+            {activeRoundForCurrentOpen ? (
+              <ActiveRoundBanner activeRound={activeRoundForCurrentOpen} />
             ) : (
-              <div className="bg-rough/50 border border-soft-grey rounded-xl p-4 text-center">
-                <p className="text-body-md text-charcoal/70">
-                  {isAuthenticated
-                    ? "You must be enrolled in this tour to join rounds"
-                    : "Sign in and enroll in this tour to join rounds"}
-                </p>
-              </div>
+              <>
+                {/* Round header with LIVE badge - only show if NOT playing/finished */}
+                <div className="bg-gradient-to-r from-turf to-fairway rounded-xl p-4 text-scorecard">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-scorecard/20 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Play className="h-6 w-6 text-scorecard" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-scorecard/20 text-scorecard animate-pulse">
+                          LIVE NOW
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-display font-semibold">
+                        {currentOpenRound.name}
+                      </h3>
+                      <p className="text-scorecard/80 text-sm font-primary mt-1">
+                        {currentOpenRound.course_name && `${currentOpenRound.course_name} • `}
+                        Open until{" "}
+                        {new Date(currentOpenRound.open_end!).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <Link
+                      to="/player/competitions/$competitionId"
+                      params={{ competitionId: currentOpenRound.id.toString() }}
+                      className="text-scorecard/80 hover:text-scorecard transition-colors"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Registration status / Join button - only show if NOT playing/finished */}
+                {isEnrolled && registrationData?.registered && registrationData.registration ? (
+                  <GroupStatusCard
+                    competitionId={currentOpenRound.id}
+                    registration={registrationData.registration}
+                    group={registrationData.group}
+                    teeTimeId={registrationData.registration.tee_time_id}
+                    participantId={registrationData.registration.participant_id}
+                    onUpdate={() => refetchRegistration()}
+                  />
+                ) : isEnrolled ? (
+                  <Button
+                    onClick={() => setShowJoinFlow(true)}
+                    className="w-full bg-coral hover:bg-coral/90 text-scorecard py-6 text-lg"
+                  >
+                    <Play className="h-5 w-5 mr-2" />
+                    Join This Round
+                  </Button>
+                ) : (
+                  <div className="bg-rough/50 border border-soft-grey rounded-xl p-4 text-center">
+                    <p className="text-body-md text-charcoal/70">
+                      {isAuthenticated
+                        ? "You must be enrolled in this tour to join rounds"
+                        : "Sign in and enroll in this tour to join rounds"}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </section>
         )}

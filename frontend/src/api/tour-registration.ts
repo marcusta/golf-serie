@@ -54,6 +54,11 @@ export interface AvailablePlayer {
 }
 
 // Active round info (for showing ongoing games)
+export interface ActiveRoundGroupMember {
+  name: string;
+  handicap?: number;
+}
+
 export interface ActiveRound {
   tour_id: number;
   tour_name: string;
@@ -64,8 +69,9 @@ export interface ActiveRound {
   participant_id: number;
   holes_played: number;
   current_score: string;
-  group: string[];
+  group: ActiveRoundGroupMember[];
   open_until?: string;
+  status: "playing" | "finished";
 }
 
 // ==========================================

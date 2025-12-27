@@ -15,6 +15,7 @@ import {
   LogIn,
   UserPlus,
   Settings,
+  Flag,
 } from "lucide-react";
 import { useCompetition } from "@/api/competitions";
 import { useSingleSeries } from "@/api/series";
@@ -114,6 +115,11 @@ export function HamburgerMenu({
       : [];
 
   const generalLinks = [
+    {
+      to: "/player/tours",
+      label: "Tours",
+      icon: Flag,
+    },
     {
       to: "/player/competitions",
       label: "All Competitions",
