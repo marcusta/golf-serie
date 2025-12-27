@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Search,
   MapPin,
-  Play,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -236,32 +235,31 @@ export default function TourCompetitions() {
               placeholder="Search competitions..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-soft-grey rounded-xl bg-scorecard text-charcoal placeholder-charcoal/50 focus:outline-none focus:ring-2 focus:ring-turf focus:border-turf transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 border-b border-soft-grey bg-transparent text-charcoal placeholder-charcoal/50 focus:outline-none focus:border-turf transition-colors"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1 flex-wrap">
             {/* Show "Open" filter prominently if there are open competitions */}
             {hasOpenCompetitions && (
               <button
                 onClick={() => setFilter("open")}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                className={`px-3 py-1.5 text-sm font-medium transition-colors rounded ${
                   filter === "open"
-                    ? "bg-coral text-scorecard"
-                    : "bg-coral/10 text-coral hover:bg-coral/20 border border-coral/30"
+                    ? "text-coral border-b-2 border-coral"
+                    : "text-charcoal/70 hover:text-coral"
                 }`}
               >
-                <Play className="h-4 w-4" />
-                Open Now
+                Live
               </button>
             )}
             {(["all", "upcoming", "past"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-3 py-1.5 text-sm font-medium transition-colors rounded ${
                   filter === f
-                    ? "bg-turf text-scorecard"
-                    : "bg-rough text-charcoal hover:bg-soft-grey"
+                    ? "text-turf border-b-2 border-turf"
+                    : "text-charcoal/70 hover:text-turf"
                 }`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -272,50 +270,40 @@ export default function TourCompetitions() {
 
         {/* Competitions List */}
         {!competitions || competitions.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="h-16 w-16 text-charcoal/30 mx-auto mb-6" />
-            <h2 className="text-display-sm font-display font-semibold text-charcoal mb-4">
-              No Competitions Yet
-            </h2>
-            <p className="text-body-lg text-charcoal/70 mb-8">
-              Competitions will be added to this tour soon.
-            </p>
+          <div className="text-center py-12 text-charcoal/70">
+            <Calendar className="h-8 w-8 text-turf mx-auto mb-3" />
+            <p className="text-sm mb-4">No competitions yet.</p>
             <Button
               onClick={() => window.history.back()}
-              className="bg-turf hover:bg-fairway text-scorecard"
+              variant="outline"
+              className="border-soft-grey text-charcoal hover:bg-rough/20"
             >
-              Back to Tour Overview
+              Back to Tour
             </Button>
           </div>
         ) : filteredCompetitions.length === 0 ? (
-          <div className="text-center py-12">
-            <Search className="h-16 w-16 text-charcoal/30 mx-auto mb-6" />
-            <h2 className="text-display-sm font-display font-semibold text-charcoal mb-4">
-              No Competitions Found
-            </h2>
-            <p className="text-body-lg text-charcoal/70 mb-8">
-              No competitions match your search or filter.
-            </p>
-            <div className="flex gap-4 justify-center">
-              <Button
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilter("all");
-                }}
-                className="bg-turf hover:bg-fairway text-scorecard"
-              >
-                Clear Filters
-              </Button>
-            </div>
+          <div className="text-center py-12 text-charcoal/70">
+            <Search className="h-8 w-8 text-turf mx-auto mb-3" />
+            <p className="text-sm mb-4">No competitions match your search.</p>
+            <Button
+              onClick={() => {
+                setSearchQuery("");
+                setFilter("all");
+              }}
+              variant="outline"
+              className="border-soft-grey text-charcoal hover:bg-rough/20"
+            >
+              Clear Filters
+            </Button>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {Object.entries(groupedCompetitions).map(([month, comps]) => (
               <div key={month}>
-                <h3 className="text-label-lg font-display font-semibold text-charcoal mb-4 sticky top-0 bg-scorecard py-2">
+                <h3 className="text-sm font-semibold text-charcoal/70 uppercase tracking-wide mb-2">
                   {month}
                 </h3>
-                <div className="space-y-4">
+                <div className="divide-y divide-soft-grey">
                   {comps.map((competition) => {
                     const compDate = new Date(competition.date);
                     compDate.setHours(0, 0, 0, 0);
@@ -332,104 +320,77 @@ export default function TourCompetitions() {
                     return (
                       <div
                         key={competition.id}
-                        className={`p-4 rounded-xl border transition-all duration-200 bg-scorecard ${
+                        className={`py-4 ${
                           isOpen
-                            ? "border-coral shadow-md ring-2 ring-coral/20"
-                            : "border-soft-grey hover:border-turf hover:shadow-md"
+                            ? "border-l-4 border-l-coral pl-4 bg-coral/5"
+                            : ""
                         }`}
                       >
                         <Link
                           to="/player/competitions/$competitionId"
                           params={{ competitionId: competition.id.toString() }}
-                          className="flex items-center gap-4 group"
+                          className="flex items-center gap-3 group hover:bg-gray-50/50 transition-colors -mx-2 px-2 py-1 rounded"
                         >
-                          {/* Date Badge */}
-                          <div
-                            className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${
-                              isOpen
-                                ? "bg-coral text-scorecard"
-                                : isToday
-                                ? "bg-coral text-scorecard"
-                                : isUpcoming
-                                ? "bg-turf/10 text-turf"
-                                : "bg-rough text-charcoal/60"
-                            }`}
-                          >
-                            {isOpen ? (
-                              <>
-                                <Play className="h-6 w-6" />
-                                <span className="text-[10px] font-semibold">LIVE</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-xs font-medium uppercase">
-                                  {new Date(competition.date).toLocaleDateString(
-                                    "en-US",
-                                    { month: "short" }
-                                  )}
-                                </span>
-                                <span className="text-xl font-bold">
-                                  {new Date(competition.date).getDate()}
-                                </span>
-                              </>
-                            )}
-                          </div>
-
                           {/* Competition Details */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               {isOpen && (
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-scorecard animate-pulse">
-                                  OPEN NOW
+                                <span className="text-xs font-semibold text-coral">
+                                  LIVE
                                 </span>
                               )}
                               {isThisCompetitionRegistered && (
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-turf text-scorecard flex items-center gap-1">
+                                <span className="text-xs font-semibold text-turf flex items-center gap-1">
                                   <UserCheck className="h-3 w-3" />
                                   JOINED
                                 </span>
                               )}
                               {isToday && !isOpen && (
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-coral text-scorecard">
+                                <span className="text-xs font-semibold text-coral">
                                   TODAY
                                 </span>
                               )}
-                              <h4 className="text-label-lg font-semibold text-charcoal group-hover:text-fairway transition-colors truncate">
+                              <h4 className="font-medium text-charcoal group-hover:text-fairway transition-colors truncate">
                                 {competition.name}
                               </h4>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-4 text-sm text-charcoal/70">
+                              <div className="flex items-center gap-1">
+                                <Calendar className={`h-4 w-4 ${isUpcoming ? "text-turf" : "text-charcoal/50"}`} />
+                                <span>
+                                  {new Date(competition.date).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                              </div>
                               {competition.course_name && (
-                                <div className="flex items-center gap-1 text-body-sm text-charcoal/70">
-                                  <MapPin className="h-3 w-3" />
-                                  <span className="truncate">
-                                    {competition.course_name}
-                                  </span>
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="h-4 w-4 text-turf" />
+                                  <span className="truncate">{competition.course_name}</span>
                                 </div>
                               )}
-                              {isOpen && competition.open_end && (
-                                <span className="text-xs text-coral font-medium">
-                                  Open until{" "}
-                                  {new Date(competition.open_end).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      month: "short",
-                                      day: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    }
-                                  )}
-                                </span>
-                              )}
                             </div>
+                            {isOpen && competition.open_end && (
+                              <p className="text-xs text-coral mt-1">
+                                Open until{" "}
+                                {new Date(competition.open_end).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            )}
                           </div>
 
-                          <ChevronRight className="h-5 w-5 text-charcoal/30 flex-shrink-0 group-hover:text-turf transition-colors" />
+                          <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
                         </Link>
 
                         {/* Quick Join button for open competitions */}
                         {isOpen && isEnrolled && !isThisCompetitionRegistered && (
-                          <div className="mt-3 pt-3 border-t border-soft-grey">
+                          <div className="mt-3">
                             <button
                               onClick={(e) => {
                                 e.preventDefault();

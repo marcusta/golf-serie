@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
+  ChevronRight,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -213,85 +214,80 @@ export default function SeriesDetail() {
           )
         )}
 
-        {/* Quick Access Cards */}
+        {/* Quick Access */}
         <section>
-          <h3 className="text-display-sm font-display font-semibold text-charcoal mb-6">
+          <h3 className="text-display-sm font-display font-semibold text-charcoal mb-4">
             Quick Access
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Team Standings Card */}
+          <div className="divide-y divide-soft-grey">
+            {/* Team Standings */}
             <Link
               to="/player/series/$serieId/standings"
               params={{ serieId }}
-              className="bg-scorecard border border-soft-grey rounded-xl p-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-turf group block"
+              className="flex items-center gap-4 py-4 hover:bg-gray-50/50 transition-colors"
             >
-              <div className="w-12 h-12 bg-rough rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-turf/20 transition-colors">
-                <Trophy className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
-              </div>
-              <h4 className="text-label-lg font-display font-semibold text-charcoal mb-2 group-hover:text-fairway transition-colors">
-                Team Standings
-              </h4>
-              <p className="text-body-sm text-charcoal/70">
-                {standingsLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading...
-                  </span>
-                ) : (
-                  `${activeTeams} teams competing`
-                )}
-              </p>
-            </Link>
-
-            {/* All Competitions Card */}
-            <Link
-              to="/player/series/$serieId/competitions"
-              params={{ serieId }}
-              className="bg-scorecard border border-soft-grey rounded-xl p-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-turf group block"
-            >
-              <div className="w-12 h-12 bg-rough rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-turf/20 transition-colors">
-                <Calendar className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
-              </div>
-              <h4 className="text-label-lg font-display font-semibold text-charcoal mb-2 group-hover:text-fairway transition-colors">
-                All Competitions
-              </h4>
-              <p className="text-body-sm text-charcoal/70">
-                {competitionsLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading...
-                  </span>
-                ) : (
-                  `Browse ${totalCompetitions} competitions`
-                )}
-              </p>
-            </Link>
-
-            {/* Documents Card */}
-            {documents && documents.length > 0 && (
-              <Link
-                to="/player/series/$serieId/documents"
-                params={{ serieId }}
-                className="bg-scorecard border border-soft-grey rounded-xl p-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-turf group block"
-              >
-                <div className="w-12 h-12 bg-rough rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-turf/20 transition-colors">
-                  <FileText className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
-                </div>
-                <h4 className="text-label-lg font-display font-semibold text-charcoal mb-2 group-hover:text-fairway transition-colors">
-                  Documents
-                </h4>
-                <p className="text-body-sm text-charcoal/70">
-                  {documentsLoading ? (
-                    <span className="flex items-center justify-center gap-2">
+              <Trophy className="h-5 w-5 text-turf flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-charcoal">Team Standings</div>
+                <div className="text-sm text-charcoal/70">
+                  {standingsLoading ? (
+                    <span className="flex items-center gap-2">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Loading...
                     </span>
                   ) : (
-                    `View ${documents.length} document${
-                      documents.length !== 1 ? "s" : ""
-                    }`
+                    `${activeTeams} teams competing`
                   )}
-                </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
+            </Link>
+
+            {/* All Competitions */}
+            <Link
+              to="/player/series/$serieId/competitions"
+              params={{ serieId }}
+              className="flex items-center gap-4 py-4 hover:bg-gray-50/50 transition-colors"
+            >
+              <Calendar className="h-5 w-5 text-turf flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-charcoal">All Competitions</div>
+                <div className="text-sm text-charcoal/70">
+                  {competitionsLoading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    `Browse ${totalCompetitions} competitions`
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
+            </Link>
+
+            {/* Documents */}
+            {documents && documents.length > 0 && (
+              <Link
+                to="/player/series/$serieId/documents"
+                params={{ serieId }}
+                className="flex items-center gap-4 py-4 hover:bg-gray-50/50 transition-colors"
+              >
+                <FileText className="h-5 w-5 text-turf flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-charcoal">Documents</div>
+                  <div className="text-sm text-charcoal/70">
+                    {documentsLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading...
+                      </span>
+                    ) : (
+                      `View ${documents.length} document${documents.length !== 1 ? "s" : ""}`
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
               </Link>
             )}
           </div>

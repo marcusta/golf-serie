@@ -245,9 +245,9 @@ export default function TourDetail() {
       <div className="space-y-8">
         {/* Enrollment Status Banner */}
         {isEnrolled && (
-          <div className="bg-turf/10 border border-turf/20 rounded-xl p-4">
-            <div className="flex items-center gap-3 text-turf">
-              <Check className="w-5 h-5" />
+          <div className="border-l-4 border-turf pl-4 py-3 bg-turf/5">
+            <div className="flex items-center gap-2 text-turf">
+              <Check className="w-4 h-4" />
               <span className="font-medium font-primary">
                 You're enrolled in this tour
               </span>
@@ -256,9 +256,9 @@ export default function TourDetail() {
         )}
 
         {isPending && (
-          <div className="bg-coral/10 border border-coral/20 rounded-xl p-4">
-            <div className="flex items-center gap-3 text-coral">
-              <Clock className="w-5 h-5" />
+          <div className="border-l-4 border-coral pl-4 py-3 bg-coral/5">
+            <div className="flex items-center gap-2 text-coral">
+              <Clock className="w-4 h-4" />
               <span className="font-medium font-primary">
                 Pending - awaiting registration completion
               </span>
@@ -267,9 +267,9 @@ export default function TourDetail() {
         )}
 
         {isRequested && (
-          <div className="bg-sky/10 border border-sky/20 rounded-xl p-4">
-            <div className="flex items-center gap-3 text-sky">
-              <Clock className="w-5 h-5" />
+          <div className="border-l-4 border-sky pl-4 py-3 bg-sky/5">
+            <div className="flex items-center gap-2 text-sky">
+              <Clock className="w-4 h-4" />
               <span className="font-medium font-primary">
                 Your request to join is pending approval
               </span>
@@ -417,79 +417,72 @@ export default function TourDetail() {
           )
         )}
 
-        {/* Quick Access Cards */}
+        {/* Quick Access */}
         <section>
-          <h3 className="text-display-sm font-display font-semibold text-charcoal mb-6">
+          <h3 className="text-display-sm font-display font-semibold text-charcoal mb-4">
             Quick Access
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {/* All Competitions Card */}
+          <div className="divide-y divide-soft-grey">
+            {/* Competitions */}
             <Link
               to="/player/tours/$tourId/competitions"
               params={{ tourId }}
-              className="bg-scorecard border border-soft-grey rounded-xl p-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-turf group block"
+              className="flex items-center gap-4 py-4 hover:bg-gray-50/50 transition-colors"
             >
-              <div className="w-12 h-12 bg-rough rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-turf/20 transition-colors">
-                <Calendar className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
-              </div>
-              <h4 className="text-label-lg font-display font-semibold text-charcoal mb-2 group-hover:text-fairway transition-colors">
-                Competitions
-              </h4>
-              <p className="text-body-sm text-charcoal/70">
-                {competitionsLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading...
-                  </span>
-                ) : (
-                  `Browse ${totalCompetitions} competitions`
-                )}
-              </p>
-            </Link>
-
-            {/* Documents Card */}
-            {documents && documents.length > 0 && (
-              <Link
-                to="/player/tours/$tourId/documents"
-                params={{ tourId }}
-                className="bg-scorecard border border-soft-grey rounded-xl p-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-turf group block"
-              >
-                <div className="w-12 h-12 bg-rough rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-turf/20 transition-colors">
-                  <FileText className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
-                </div>
-                <h4 className="text-label-lg font-display font-semibold text-charcoal mb-2 group-hover:text-fairway transition-colors">
-                  Documents
-                </h4>
-                <p className="text-body-sm text-charcoal/70">
-                  {documentsLoading ? (
-                    <span className="flex items-center justify-center gap-2">
+              <Calendar className="h-5 w-5 text-turf flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-charcoal">Competitions</div>
+                <div className="text-sm text-charcoal/70">
+                  {competitionsLoading ? (
+                    <span className="flex items-center gap-2">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       Loading...
                     </span>
                   ) : (
-                    `View ${documents.length} document${
-                      documents.length !== 1 ? "s" : ""
-                    }`
+                    `Browse ${totalCompetitions} competitions`
                   )}
-                </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
+            </Link>
+
+            {/* Documents */}
+            {documents && documents.length > 0 && (
+              <Link
+                to="/player/tours/$tourId/documents"
+                params={{ tourId }}
+                className="flex items-center gap-4 py-4 hover:bg-gray-50/50 transition-colors"
+              >
+                <FileText className="h-5 w-5 text-turf flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-charcoal">Documents</div>
+                  <div className="text-sm text-charcoal/70">
+                    {documentsLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading...
+                      </span>
+                    ) : (
+                      `View ${documents.length} document${documents.length !== 1 ? "s" : ""}`
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
               </Link>
             )}
 
-            {/* Standings Card */}
+            {/* Standings */}
             <Link
               to="/player/tours/$tourId/standings"
               params={{ tourId }}
-              className="bg-scorecard border border-soft-grey rounded-xl p-6 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-turf group block"
+              className="flex items-center gap-4 py-4 hover:bg-gray-50/50 transition-colors"
             >
-              <div className="w-12 h-12 bg-rough rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-turf/20 transition-colors">
-                <Trophy className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
+              <Trophy className="h-5 w-5 text-turf flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-charcoal">Standings</div>
+                <div className="text-sm text-charcoal/70">View player rankings</div>
               </div>
-              <h4 className="text-label-lg font-display font-semibold text-charcoal mb-2 group-hover:text-fairway transition-colors">
-                Standings
-              </h4>
-              <p className="text-body-sm text-charcoal/70">
-                View player rankings
-              </p>
+              <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
             </Link>
           </div>
         </section>
@@ -497,7 +490,7 @@ export default function TourDetail() {
         {/* Upcoming Competitions Section */}
         {upcomingCompetitions.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-display-sm font-display font-semibold text-charcoal">
                 Upcoming Competitions
               </h3>
@@ -509,39 +502,38 @@ export default function TourDetail() {
                 View All
               </Link>
             </div>
-            <div className="space-y-4">
-              {upcomingCompetitions.slice(0, 3).map((competition) => (
+            <div className="divide-y divide-soft-grey">
+              {upcomingCompetitions.slice(0, 3).map((competition, index) => (
                 <Link
                   key={competition.id}
                   to="/player/competitions/$competitionId"
                   params={{ competitionId: competition.id.toString() }}
-                  className="block p-4 rounded-xl border border-soft-grey hover:border-turf hover:shadow-md transition-all duration-200 group bg-scorecard"
+                  className={`block py-4 hover:bg-gray-50/50 transition-colors ${
+                    index === 0 ? "border-l-4 border-l-turf pl-4 bg-turf/5" : ""
+                  }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-rough rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-turf/20 transition-colors">
-                      <Calendar className="h-6 w-6 text-turf group-hover:text-fairway transition-colors" />
-                    </div>
+                  <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-label-lg font-semibold text-charcoal group-hover:text-fairway transition-colors truncate">
+                      <h4 className="font-medium text-charcoal truncate">
                         {competition.name}
                       </h4>
-                      <div className="flex items-center gap-2 text-body-sm text-charcoal/70 mt-1">
-                        <span>
-                          {new Date(competition.date).toLocaleDateString("en-US", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
+                      <div className="flex items-center gap-4 text-sm text-charcoal/70 mt-1">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-turf" />
+                          <span>
+                            {new Date(competition.date).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
                         {competition.course_name && (
-                          <>
-                            <span className="text-charcoal/30">•</span>
-                            <span className="truncate">{competition.course_name}</span>
-                          </>
+                          <span className="truncate">{competition.course_name}</span>
                         )}
                       </div>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-charcoal/30 flex-shrink-0 group-hover:text-turf transition-colors" />
+                    <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
                   </div>
                 </Link>
               ))}
