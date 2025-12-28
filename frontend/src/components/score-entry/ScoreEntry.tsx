@@ -389,12 +389,7 @@ export function ScoreEntry({
             return (
               <div
                 key={player.participantId}
-                className={cn(
-                  "py-4 px-4 transition-colors border-l-4",
-                  isCurrentPlayer
-                    ? "border-l-coral bg-coral/5"
-                    : "border-l-transparent hover:bg-gray-50/50"
-                )}
+                className="py-4 px-4 transition-colors hover:bg-gray-50/50"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
