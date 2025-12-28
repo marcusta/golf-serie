@@ -593,6 +593,9 @@ export class TourCompetitionRegistrationService {
   /**
    * Get all groups for a competition with their members and status
    * Used for "Who's Playing" / Groups Overview views
+   *
+   * Queries all participants from tee_times/participants tables,
+   * and merges in handicap/category from tour registrations where available.
    */
   async getCompetitionGroups(competitionId: number): Promise<CompetitionGroup[]> {
     // Get course pars for score calculation
@@ -611,48 +614,56 @@ export class TourCompetitionRegistrationService {
 
     const pars = JSON.parse(courseInfo.pars) as number[];
 
-    // Get all registrations grouped by tee_time
-    const registrations = this.db
+    // Get ALL participants from tee_times (the source of truth for who's playing)
+    // Join tour_enrollments directly via player_id + tour_id to get category for all enrolled players
+    const participants = this.db
       .prepare(
         `SELECT
-          r.id,
-          r.tee_time_id,
-          r.player_id,
-          r.status,
+          tt.id as tee_time_id,
+          par.id as participant_id,
+          par.player_names,
+          par.score,
+          par.is_locked,
+          tm.name as team_name,
+          par.player_id,
+          r.status as registration_status,
           r.started_at,
           r.finished_at,
-          p.name as player_name,
-          COALESCE(te.playing_handicap, p.handicap) as handicap,
-          tc.name as category_name,
-          par.score
-         FROM tour_competition_registrations r
-         JOIN players p ON r.player_id = p.id
-         JOIN tour_enrollments te ON r.enrollment_id = te.id
+          COALESCE(te.playing_handicap, pl.handicap) as handicap,
+          tc.name as category_name
+         FROM tee_times tt
+         JOIN competitions c ON tt.competition_id = c.id
+         JOIN participants par ON par.tee_time_id = tt.id
+         LEFT JOIN teams tm ON par.team_id = tm.id
+         LEFT JOIN players pl ON par.player_id = pl.id
+         LEFT JOIN tour_enrollments te ON par.player_id = te.player_id AND c.tour_id = te.tour_id
          LEFT JOIN tour_categories tc ON te.category_id = tc.id
-         LEFT JOIN participants par ON r.participant_id = par.id
-         WHERE r.competition_id = ? AND r.tee_time_id IS NOT NULL
-         ORDER BY r.tee_time_id, r.registered_at`
+         LEFT JOIN tour_competition_registrations r ON r.participant_id = par.id
+         WHERE tt.competition_id = ?
+         ORDER BY tt.id, par.tee_order`
       )
       .all(competitionId) as {
-      id: number;
       tee_time_id: number;
-      player_id: number;
-      status: RegistrationStatus;
+      participant_id: number;
+      player_names: string | null;
+      score: string | null;
+      is_locked: boolean;
+      team_name: string | null;
+      player_id: number | null;
+      registration_status: RegistrationStatus | null;
       started_at: string | null;
       finished_at: string | null;
-      player_name: string;
       handicap: number | null;
       category_name: string | null;
-      score: string | null;
     }[];
 
-    // Group registrations by tee_time_id
-    const groupMap = new Map<number, typeof registrations>();
-    for (const reg of registrations) {
-      if (!groupMap.has(reg.tee_time_id)) {
-        groupMap.set(reg.tee_time_id, []);
+    // Group participants by tee_time_id
+    const groupMap = new Map<number, typeof participants>();
+    for (const p of participants) {
+      if (!groupMap.has(p.tee_time_id)) {
+        groupMap.set(p.tee_time_id, []);
       }
-      groupMap.get(reg.tee_time_id)!.push(reg);
+      groupMap.get(p.tee_time_id)!.push(p);
     }
 
     // Build CompetitionGroup array
@@ -687,12 +698,16 @@ export class TourCompetitionRegistrationService {
                 ? `+${relativeToPar}`
                 : `${relativeToPar}`;
 
-        // Track group status
-        if (m.status === "playing") {
+        // Determine status from is_locked, registration_status, or scores
+        let memberStatus: RegistrationStatus = "registered";
+        if (m.is_locked) {
+          memberStatus = "finished";
+        } else if (m.registration_status === "playing" || holesPlayed > 0) {
+          memberStatus = "playing";
           hasPlaying = true;
           allFinished = false;
-        } else if (m.status === "finished") {
-          // finished
+        } else if (m.registration_status === "finished") {
+          memberStatus = "finished";
         } else {
           allFinished = false;
         }
@@ -705,18 +720,18 @@ export class TourCompetitionRegistrationService {
         }
 
         return {
-          player_id: m.player_id,
-          name: m.player_name,
+          player_id: m.player_id ?? m.participant_id,
+          name: m.player_names || m.team_name,
           handicap: m.handicap ?? undefined,
           category_name: m.category_name ?? undefined,
-          registration_status: m.status,
+          registration_status: memberStatus,
           holes_played: holesPlayed,
           current_score: currentScore,
         };
       });
 
       // Determine final group status
-      if (allFinished && members.length > 0) {
+      if (allFinished && members.length > 0 && members.every(m => m.is_locked)) {
         groupStatus = "finished";
       } else if (hasPlaying) {
         groupStatus = "on_course";

@@ -1,5 +1,6 @@
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Clock, Users } from "lucide-react";
+import { Clock, Users, CheckCircle2, Circle, Play } from "lucide-react";
 import {
   formatParticipantTypeDisplay,
   isMultiPlayerFormat,
@@ -14,6 +15,43 @@ interface TeeTime {
   participants: TeeTimeParticipant[];
   pars: number[];
   course_name: string;
+}
+
+// Helper to check if a group has finished (all participants locked)
+function isGroupFinished(group: TeeTime): boolean {
+  return group.participants.length > 0 &&
+    group.participants.every((p) => p.is_locked);
+}
+
+// Helper to check if a group has started (any non-zero scores)
+function hasGroupStarted(group: TeeTime): boolean {
+  return group.participants.some((p) =>
+    Array.isArray(p.score) && p.score.some((s) => s !== 0)
+  );
+}
+
+// Helper to get the current hole a group is on (highest hole with a score)
+function getGroupCurrentHole(group: TeeTime): number {
+  let maxHole = 0;
+  for (const p of group.participants) {
+    if (Array.isArray(p.score)) {
+      for (let i = p.score.length - 1; i >= 0; i--) {
+        if (p.score[i] !== 0) {
+          maxHole = Math.max(maxHole, i + 1);
+          break;
+        }
+      }
+    }
+  }
+  return maxHole;
+}
+
+type GroupStatus = "playing" | "not_started" | "finished";
+
+function getGroupStatus(group: TeeTime): GroupStatus {
+  if (isGroupFinished(group)) return "finished";
+  if (hasGroupStarted(group)) return "playing";
+  return "not_started";
 }
 
 interface ParticipantsListComponentProps {
@@ -88,10 +126,10 @@ export function ParticipantsListComponent({
                     <h4 className="text-base md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
                       <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />
                       {teeTime.teetime}
-                      <span className="text-xs md:text-sm text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
+                      <span className="text-xs md:text-sm text-turf font-primary font-medium">
                         {venueType === "indoor" && teeTime.hitting_bay
-                          ? `Bay ${teeTime.hitting_bay}`
-                          : `Hole ${teeTime.start_hole}`}
+                          ? `· Bay ${teeTime.hitting_bay}`
+                          : `· Hole ${teeTime.start_hole}`}
                       </span>
                     </h4>
                     <div className="text-xs md:text-sm text-turf font-primary">
@@ -149,26 +187,26 @@ export function ParticipantsListComponent({
 
         {/* Current Tee Time Group (if in score entry context) */}
         {currentTeeTimeId && currentTeeTime && (
-          <div className="bg-rough bg-opacity-20 rounded-xl border border-turf p-4 mb-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="border-l-4 border-turf mb-4">
+            <div className="bg-rough/20 px-4 py-3 flex items-center justify-between">
               <h3 className="text-sm md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
                 {isOpenStart ? "Your Group" : `Your Group - ${currentTeeTime.teetime}`}
-                <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
+                <span className="text-xs text-turf font-primary font-medium">
                   {venueType === "indoor" && currentTeeTime.hitting_bay
-                    ? `Bay ${currentTeeTime.hitting_bay}`
-                    : `Hole ${currentTeeTime.start_hole}`}
+                    ? `· Bay ${currentTeeTime.hitting_bay}`
+                    : `· Hole ${currentTeeTime.start_hole}`}
                 </span>
               </h3>
-              <span className="text-xs md:text-sm text-scorecard bg-coral px-2 py-1 rounded-full font-primary font-medium">
+              <span className="text-xs md:text-sm text-coral font-semibold font-primary">
                 Active
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="divide-y divide-soft-grey">
               {currentTeeTime.participants.map(
                 (participant: TeeTimeParticipant) => (
                   <div
                     key={participant.id}
-                    className="flex items-center justify-between p-3 bg-scorecard rounded-xl border border-turf"
+                    className="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
                   >
                     <div className="flex-1">
                       <h4 className="text-sm md:text-base font-medium text-fairway font-primary">
@@ -187,70 +225,130 @@ export function ParticipantsListComponent({
           </div>
         )}
 
-        {/* All Other Tee Times */}
-        <div>
-          <h3 className="text-sm md:text-base font-medium text-fairway mb-3 font-primary">
-            {currentTeeTimeId ? "Other Groups" : "All Groups"}
-          </h3>
+        {/* Categorized Other Groups */}
+        {(() => {
+          if (!teeTimes || teeTimes.length === 0) {
+            return (
+              <div className="text-center py-6 md:py-8 text-soft-grey font-primary">
+                No tee times scheduled for this competition.
+              </div>
+            );
+          }
 
-          {!teeTimes || teeTimes.length === 0 ? (
-            <div className="text-center py-6 md:py-8 text-soft-grey font-primary">
-              No tee times scheduled for this competition.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {teeTimes
-                .filter(
-                  (t) =>
-                    !currentTeeTimeId || t.id !== parseInt(currentTeeTimeId)
-                )
-                .map((teeTimeGroup) => (
+          // Filter out current group and categorize
+          const otherGroups = teeTimes.filter(
+            (t) => !currentTeeTimeId || t.id !== parseInt(currentTeeTimeId)
+          );
+
+          const playingGroups = otherGroups.filter((g) => getGroupStatus(g) === "playing");
+          const notStartedGroups = otherGroups.filter((g) => getGroupStatus(g) === "not_started");
+          const finishedGroups = otherGroups.filter((g) => getGroupStatus(g) === "finished");
+
+          const renderGroupCard = (
+            group: TeeTime,
+            statusIndicator?: ReactNode
+          ) => (
+            <div
+              key={group.id}
+              className="border-l-4 border-soft-grey hover:border-turf transition-colors"
+            >
+              <div className="bg-rough/20 px-4 py-2 flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-fairway font-display flex items-center gap-2">
+                  {isOpenStart ? "Group" : group.teetime}
+                  <span className="text-xs text-charcoal/50 font-primary font-normal">
+                    {venueType === "indoor" && group.hitting_bay
+                      ? `· Bay ${group.hitting_bay}`
+                      : `· Start ${group.start_hole}`}
+                  </span>
+                </h4>
+                {statusIndicator}
+              </div>
+              <div className="divide-y divide-soft-grey/50">
+                {group.participants.map((participant: TeeTimeParticipant) => (
                   <div
-                    key={teeTimeGroup.id}
-                    className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden"
+                    key={participant.id}
+                    className="px-4 py-2 flex items-center justify-between"
                   >
-                    <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
-                      <h4 className="text-sm md:text-base font-semibold text-fairway font-display flex items-center gap-2">
-                        {isOpenStart ? (
-                          // For open start, just show "Group" or hole info
-                          <span>Group</span>
-                        ) : (
-                          // For scheduled competitions, show tee time
-                          teeTimeGroup.teetime
-                        )}
-                        <span className="text-xs text-turf bg-scorecard px-2 py-1 rounded-full font-primary font-medium">
-                          {venueType === "indoor" && teeTimeGroup.hitting_bay
-                            ? `Bay ${teeTimeGroup.hitting_bay}`
-                            : `Hole ${teeTimeGroup.start_hole}`}
-                        </span>
-                      </h4>
-                    </div>
-                    <div className="divide-y divide-soft-grey">
-                      {teeTimeGroup.participants.map(
-                        (participant: TeeTimeParticipant) => (
-                          <div
-                            key={participant.id}
-                            className="px-4 py-2 flex items-center justify-between"
-                          >
-                            <div className="flex-1">
-                              <h5 className="text-xs md:text-sm font-medium text-fairway font-primary">
-                                {formatParticipantDisplay(participant)}
-                              </h5>
-                            </div>
-                            <div className="text-xs text-turf">
-                              {isMultiPlayerFormat(
-                                participant.position_name
-                              ) && <Users className="w-3 h-3 inline-block" />}
-                            </div>
-                          </div>
-                        )
-                      )}
-                    </div>
+                    <h5 className="text-xs md:text-sm font-medium text-fairway font-primary">
+                      {formatParticipantDisplay(participant)}
+                    </h5>
+                    {isMultiPlayerFormat(participant.position_name) && (
+                      <Users className="w-3 h-3 text-turf" />
+                    )}
                   </div>
                 ))}
+              </div>
             </div>
-          )}
-        </div>
+          );
+
+          return (
+            <div className="space-y-6">
+              {/* On Course - Playing */}
+              {playingGroups.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-fairway mb-3 font-primary flex items-center gap-2">
+                    <Play className="w-4 h-4 text-coral" />
+                    On Course
+                    <span className="text-charcoal/50 font-normal">({playingGroups.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {playingGroups.map((group) => {
+                      const currentHole = getGroupCurrentHole(group);
+                      return renderGroupCard(
+                        group,
+                        <span className="text-xs text-coral font-semibold font-primary">
+                          Hole {currentHole}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Not Started - Waiting */}
+              {notStartedGroups.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-fairway mb-3 font-primary flex items-center gap-2">
+                    <Circle className="w-4 h-4 text-charcoal/40" />
+                    Waiting to Start
+                    <span className="text-charcoal/50 font-normal">({notStartedGroups.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {notStartedGroups.map((group) => renderGroupCard(group))}
+                  </div>
+                </div>
+              )}
+
+              {/* Finished */}
+              {finishedGroups.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-fairway mb-3 font-primary flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-turf" />
+                    Finished
+                    <span className="text-charcoal/50 font-normal">({finishedGroups.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {finishedGroups.map((group) =>
+                      renderGroupCard(
+                        group,
+                        <span className="text-xs text-turf font-medium font-primary">
+                          Done
+                        </span>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state if no other groups */}
+              {otherGroups.length === 0 && (
+                <div className="text-center py-6 text-charcoal/50 text-sm font-primary">
+                  No other groups in this competition.
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

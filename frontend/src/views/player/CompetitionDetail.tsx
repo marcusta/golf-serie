@@ -107,9 +107,10 @@ export default function CompetitionDetail() {
     isOpenStartTourCompetition ? parseInt(competitionId || "0") : 0
   );
 
-  // Get groups for open-start competitions (Who's Playing tab)
+  // Get groups for tour competitions (Who's Playing / Groups tab)
+  const isTourCompetition = !!competition?.tour_id;
   const { data: competitionGroups, isLoading: groupsLoading } = useCompetitionGroups(
-    isOpenStartTourCompetition ? parseInt(competitionId || "0") : 0
+    isTourCompetition ? parseInt(competitionId || "0") : 0
   );
 
   // Check if competition is currently open
@@ -510,6 +511,8 @@ export default function CompetitionDetail() {
           <WhosPlayingComponent
             groups={competitionGroups}
             isLoading={groupsLoading}
+            myTeeTimeId={registrationData?.registration?.tee_time_id}
+            isOpenStart={competition?.start_mode === "open"}
           />
         )}
       </div>
