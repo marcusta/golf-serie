@@ -93,9 +93,12 @@ export function LeaderboardComponent({
 
         // Within valid scores category: sort by score (best score first)
         if (aHasValidScore && bHasValidScore) {
-          // Use net score for sorting if sorting by net and net scores are available
-          if (sortBy === "net" && a.netRelativeToPar !== undefined && b.netRelativeToPar !== undefined) {
-            return a.netRelativeToPar - b.netRelativeToPar;
+          // Use net score for sorting if sorting by net
+          if (sortBy === "net") {
+            // Handle cases where net scores might be undefined
+            const aNet = a.netRelativeToPar ?? a.relativeToPar;
+            const bNet = b.netRelativeToPar ?? b.relativeToPar;
+            return aNet - bNet;
           }
           return a.relativeToPar - b.relativeToPar;
         }
@@ -239,6 +242,17 @@ export function LeaderboardComponent({
         <>
           {/* Mobile Card View */}
           <div className="md:hidden">
+            {/* Header Row */}
+            <div className="flex items-center px-4 py-2 border-b-2 border-soft-grey bg-gray-50 text-xs text-gray-500 font-medium">
+              <div className="w-7 mr-2">#</div>
+              <div className="flex-1 min-w-0">Player</div>
+              <div className={`flex items-center ${showNetScores ? 'gap-1' : ''}`}>
+                <div className="w-10 text-center">Gross</div>
+                {showNetScores && <div className="w-10 text-center">Net</div>}
+                <div className="w-8 text-center">Thru</div>
+              </div>
+            </div>
+
             {filteredLeaderboard.map((entry, index) => {
               const isRoundInvalid = entry.participant.score.includes(-1);
               const isLeader = index === 0 && entry.holesPlayed > 0;
@@ -249,120 +263,88 @@ export function LeaderboardComponent({
                 <button
                   key={entry.participant.id}
                   onClick={() => onParticipantClick(entry.participant.id)}
-                  className={`w-full text-left px-4 py-3 border-b border-soft-grey/50 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
+                  className={`w-full text-left px-4 py-2.5 border-b border-soft-grey/50 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
                     isLeader ? "border-l-4 border-l-coral bg-coral/5" : ""
                   }`}
                 >
                   <div className="flex items-center">
-                    <div className="flex items-center flex-1">
-                      {/* Position Number */}
-                      <div
-                        className={`w-8 text-lg font-bold mr-3 ${getPositionStyling(
-                          index,
-                          entry.holesPlayed
-                        )}`}
-                      >
-                        {entry.holesPlayed === 0 ? "-" : index + 1}
-                      </div>
-
-                      {/* Player Info */}
-                      <div>
-                        {entry.participant.player_names ? (
-                          // Player has a name - show player name prominently
-                          <>
-                            <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                              {entry.participant.player_names}
-                            </h3>
-                            {/* Hide team/position for Tour competitions */}
-                            {!isTourCompetition && (
-                              <p className="text-label-sm text-turf font-primary">
-                                {entry.participant.team_name}{" "}
-                                {entry.participant.position_name}
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          // No player name - show team name + position (unless Tour competition)
-                          <>
-                            <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                              {isTourCompetition
-                                ? entry.participant.position_name
-                                : `${entry.participant.team_name} ${entry.participant.position_name}`}
-                            </h3>
-                          </>
-                        )}
-                        {/* Show handicap info when net scoring enabled */}
-                        {showNetScores && entry.participant.handicap_index !== undefined && (
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-turf font-primary">
-                              HCP {entry.participant.handicap_index.toFixed(1)}
-                            </span>
-                            {entry.courseHandicap !== undefined && (
-                              <span className="text-xs bg-coral/20 text-coral px-1.5 py-0.5 rounded font-medium font-primary">
-                                PH {entry.courseHandicap}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                    {/* Position Number */}
+                    <div
+                      className={`w-7 text-base font-bold mr-2 ${getPositionStyling(
+                        index,
+                        entry.holesPlayed
+                      )}`}
+                    >
+                      {entry.holesPlayed === 0 ? "-" : index + 1}
                     </div>
 
-                    {/* Score Section - Hole and Score side by side */}
-                    <div className="flex items-center space-x-3 text-right ml-auto">
+                    {/* Player Info - truncate long names */}
+                    <div className="flex-1 min-w-0 mr-2">
+                      {entry.participant.player_names ? (
+                        <>
+                          <h3 className="text-sm font-semibold text-charcoal font-display truncate">
+                            {entry.participant.player_names}
+                          </h3>
+                          {showNetScores && entry.participant.handicap_index !== undefined && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-turf font-primary">
+                                HCP {entry.participant.handicap_index.toFixed(1)}
+                              </span>
+                              {entry.courseHandicap !== undefined && (
+                                <span className="text-xs bg-coral/20 text-coral px-1 py-0.5 rounded font-medium font-primary">
+                                  PH {entry.courseHandicap}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <h3 className="text-sm font-semibold text-charcoal font-display truncate">
+                          {isTourCompetition
+                            ? entry.participant.position_name
+                            : `${entry.participant.team_name} ${entry.participant.position_name}`}
+                        </h3>
+                      )}
+                    </div>
+
+                    {/* Score Section - Gross/Net/Thru with fixed widths */}
+                    <div className={`flex items-center ${showNetScores ? 'gap-1' : ''}`}>
                       {status === "NOT_STARTED" ? (
-                        <div className="text-center">
-                          <div className="text-xs text-gray-500">
-                            Start Time
-                          </div>
-                          <div className="text-lg font-medium text-gray-500">
-                            {displayProgress}
-                          </div>
+                        <div className="w-10 text-center text-sm text-gray-500">
+                          {displayProgress}
                         </div>
                       ) : (
                         <>
-                          {/* Hole Number */}
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">Hole</div>
-                            <div className="text-xl font-bold text-gray-800">
-                              {displayProgress}
-                            </div>
+                          {/* Gross Score */}
+                          <div
+                            className={`w-10 text-center text-lg font-bold ${
+                              isRoundInvalid
+                                ? "text-gray-400"
+                                : getToParColor(entry.relativeToPar)
+                            }`}
+                          >
+                            {isRoundInvalid ? "-" : formatToPar(entry.relativeToPar)}
                           </div>
 
-                          {/* Gross Score */}
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500">
-                              {showNetScores ? "Gross" : "To Par"}
-                            </div>
+                          {/* Net Score */}
+                          {showNetScores && (
                             <div
-                              className={`text-xl font-bold ${
-                                isRoundInvalid
-                                  ? "text-gray-500"
-                                  : getToParColor(entry.relativeToPar)
+                              className={`w-10 text-center text-lg font-bold ${
+                                isRoundInvalid || entry.netRelativeToPar === undefined
+                                  ? "text-gray-400"
+                                  : getToParColor(entry.netRelativeToPar)
                               }`}
                             >
-                              {isRoundInvalid
+                              {isRoundInvalid || entry.netRelativeToPar === undefined
                                 ? "-"
-                                : formatToPar(entry.relativeToPar)}
-                            </div>
-                          </div>
-
-                          {/* Net Score - only show when scoring mode includes net */}
-                          {showNetScores && (
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">Net</div>
-                              <div
-                                className={`text-xl font-bold ${
-                                  isRoundInvalid || entry.netRelativeToPar === undefined
-                                    ? "text-gray-500"
-                                    : getToParColor(entry.netRelativeToPar)
-                                }`}
-                              >
-                                {isRoundInvalid || entry.netRelativeToPar === undefined
-                                  ? "-"
-                                  : formatToPar(entry.netRelativeToPar)}
-                              </div>
+                                : formatToPar(entry.netRelativeToPar)}
                             </div>
                           )}
+
+                          {/* Thru (Hole progress) */}
+                          <div className="w-8 text-center text-base font-semibold text-gray-600">
+                            {displayProgress}
+                          </div>
                         </>
                       )}
                     </div>

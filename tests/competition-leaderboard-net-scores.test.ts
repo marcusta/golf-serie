@@ -306,7 +306,7 @@ describe("Competition Leaderboard with Net Scores", () => {
       expect(entry.courseHandicap).toBeUndefined();
     });
 
-    it("should only calculate net for finished (locked) players", async () => {
+    it("should calculate running net score for in-progress rounds", async () => {
       const courseId = await createCourse("Test Course 7");
       const tourId = createTour("Net Tour 3", "net");
       const strokeIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
@@ -318,6 +318,7 @@ describe("Competition Leaderboard with Net Scores", () => {
       createEnrollment(tourId, playerId, "inprogress@test.com");
 
       // Only 9 holes played (not all 18)
+      // Scores: [4, 4, 3, 5, 4, 3, 4, 5, 4] = 36 gross, par 36
       createTeeTimeWithParticipant(
         competitionId,
         teamId,
@@ -331,11 +332,16 @@ describe("Competition Leaderboard with Net Scores", () => {
 
       const entry = response.entries[0];
       expect(entry.holesPlayed).toBe(9);
-      // Net score should not be calculated for incomplete round
-      expect(entry.netRelativeToPar).toBeUndefined();
-      // But course handicap and strokes per hole should be provided
+      // Running net score should be calculated for in-progress rounds
+      // Handicap 15 gives 1 stroke on holes with SI 1-15, all 9 played holes get 1 stroke
+      // Net score: (4-1)+(4-1)+(3-1)+(5-1)+(4-1)+(3-1)+(4-1)+(5-1)+(4-1) = 27
+      // Net relative to par: 27 - 36 = -9
+      expect(entry.netRelativeToPar).toBe(-9);
+      // Course handicap and strokes per hole should be provided
       expect(entry.courseHandicap).toBeDefined();
       expect(entry.handicapStrokesPerHole).toBeDefined();
+      // netTotalShots should still be undefined for incomplete rounds
+      expect(entry.netTotalShots).toBeUndefined();
     });
   });
 });

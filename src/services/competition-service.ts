@@ -525,9 +525,23 @@ export class CompetitionService {
         // Calculate net scores
         let netTotalShots: number | undefined;
         let netRelativeToPar: number | undefined;
-        if (courseHandicap !== undefined && holesPlayed === 18 && !score.includes(-1)) {
-          netTotalShots = totalShots - courseHandicap;
-          netRelativeToPar = netTotalShots - totalPar;
+        if (courseHandicap !== undefined && handicapStrokesPerHole && holesPlayed > 0 && !score.includes(-1)) {
+          // Calculate running net score for holes played
+          let netScore = 0;
+          let parForHolesPlayed = 0;
+          for (let i = 0; i < score.length; i++) {
+            if (score[i] > 0) {
+              // Net score for this hole = gross score - handicap strokes for this hole
+              netScore += score[i] - handicapStrokesPerHole[i];
+              parForHolesPlayed += pars[i] || 0;
+            }
+          }
+          netRelativeToPar = netScore - parForHolesPlayed;
+
+          // Only set netTotalShots for completed rounds (for display purposes)
+          if (holesPlayed === 18) {
+            netTotalShots = totalShots - courseHandicap;
+          }
         }
 
         return {
