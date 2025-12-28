@@ -106,7 +106,7 @@ export class TeeTimeService {
 
     // Get all participants for each tee time
     const participantsStmt = this.db.prepare(`
-      SELECT p.*, t.name as team_name 
+      SELECT p.*, t.name as team_name, p.player_id
       FROM participants p
       LEFT JOIN teams t ON p.team_id = t.id
       WHERE p.tee_time_id = ?
@@ -164,7 +164,7 @@ export class TeeTimeService {
 
     // Get all participants for this tee time
     const participantsStmt = this.db.prepare(`
-      SELECT p.*, t.name as team_name 
+      SELECT p.*, t.name as team_name, p.player_id
       FROM participants p
       LEFT JOIN teams t ON p.team_id = t.id
       WHERE p.tee_time_id = ?

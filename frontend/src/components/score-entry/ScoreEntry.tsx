@@ -18,6 +18,7 @@ interface PlayerScore {
   isMultiPlayer?: boolean;
   scores: number[];
   playerNames?: string | null;
+  playerId?: number | null;
 }
 
 interface TeeTimeGroup {
@@ -268,17 +269,17 @@ export function ScoreEntry({
       const lastName = parts[1];
 
       // If total length is reasonable, keep both
-      if (name.length <= 14) {
+      if (name.length <= 22) {
         return name;
       }
 
       // If first name is short, use first name + last initial
-      if (firstName.length <= 8) {
+      if (firstName.length <= 10) {
         return `${firstName} ${lastName.charAt(0)}.`;
       }
 
       // If first name is long, use first initial + last name
-      if (lastName.length <= 8) {
+      if (lastName.length <= 10) {
         return `${firstName.charAt(0)}. ${lastName}`;
       }
 
@@ -287,7 +288,7 @@ export function ScoreEntry({
     }
 
     // Single name - truncate if too long
-    return name.length > 12 ? `${name.substring(0, 11)}...` : name;
+    return name.length > 22 ? `${name.substring(0, 21)}...` : name;
   };
 
   // Close keyboard when clicking outside
@@ -392,48 +393,64 @@ export function ScoreEntry({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    {/* Tappable name/position area */}
-                    <button
-                      onClick={() => handlePlayerNameClick(player)}
-                      className="text-left w-full hover:bg-rough/10 rounded-md p-1 -m-1 transition-colors"
-                    >
-                      {player.playerNames ? (
-                        // Player has a name - show player name prominently
-                        <>
-                          <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                            {abbreviateName(player.playerNames)}
-                          </h3>
-                          {/* Only show team/position for series competitions, not tour */}
-                          {!isTourCompetition && (
-                            <p className="text-label-sm text-turf font-primary">
-                              {player.participantName} {player.participantType}
-                            </p>
-                          )}
-                        </>
-                      ) : isTourCompetition ? (
-                        // Tour competition without player name - just show prompt
-                        <>
-                          <h3 className="text-body-lg font-semibold text-charcoal font-display">
-                            Player
-                          </h3>
-                          <div className="flex items-center gap-1 text-label-sm text-soft-grey font-primary">
-                            <Pencil className="w-3 h-3" />
-                            <span>+ Add player name</span>
-                          </div>
-                        </>
-                      ) : (
-                        // Series competition - show team name + position prominently
-                        <>
-                          <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                    {/* Player name/position area - only editable for ad-hoc players (no playerId) */}
+                    {player.playerId ? (
+                      // Real account player - not editable
+                      <div className="p-1 -m-1">
+                        <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                          {player.playerNames ? abbreviateName(player.playerNames) : "Player"}
+                        </h3>
+                        {/* Only show team/position for series competitions, not tour */}
+                        {!isTourCompetition && (
+                          <p className="text-label-sm text-turf font-primary">
                             {player.participantName} {player.participantType}
-                          </h3>
-                          <div className="flex items-center gap-1 text-label-sm text-soft-grey font-primary">
-                            <Pencil className="w-3 h-3" />
-                            <span>+ Add player name</span>
-                          </div>
-                        </>
-                      )}
-                    </button>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      // Ad-hoc player - tappable to edit name
+                      <button
+                        onClick={() => handlePlayerNameClick(player)}
+                        className="text-left w-full hover:bg-rough/10 rounded-md p-1 -m-1 transition-colors"
+                      >
+                        {player.playerNames ? (
+                          // Player has a name - show player name prominently
+                          <>
+                            <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                              {abbreviateName(player.playerNames)}
+                            </h3>
+                            {/* Only show team/position for series competitions, not tour */}
+                            {!isTourCompetition && (
+                              <p className="text-label-sm text-turf font-primary">
+                                {player.participantName} {player.participantType}
+                              </p>
+                            )}
+                          </>
+                        ) : isTourCompetition ? (
+                          // Tour competition without player name - just show prompt
+                          <>
+                            <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                              Player
+                            </h3>
+                            <div className="flex items-center gap-1 text-label-sm text-soft-grey font-primary">
+                              <Pencil className="w-3 h-3" />
+                              <span>+ Add player name</span>
+                            </div>
+                          </>
+                        ) : (
+                          // Series competition - show team name + position prominently
+                          <>
+                            <h3 className="text-body-lg font-semibold text-charcoal font-display">
+                              {player.participantName} {player.participantType}
+                            </h3>
+                            <div className="flex items-center gap-1 text-label-sm text-soft-grey font-primary">
+                              <Pencil className="w-3 h-3" />
+                              <span>+ Add player name</span>
+                            </div>
+                          </>
+                        )}
+                      </button>
+                    )}
 
                     <div className="flex items-center gap-2 mt-1">
                       <span

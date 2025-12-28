@@ -14,6 +14,7 @@ export interface TeeTimeParticipant {
   is_locked: boolean;
   locked_at?: string;
   team_name: string;
+  player_id?: number | null;
 }
 
 export interface TeeTime {
