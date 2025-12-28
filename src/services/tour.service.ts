@@ -1,5 +1,8 @@
 import { Database } from "bun:sqlite";
 import type { TourCategory, TourPlayerStanding, TourStandings, Tour as TourType } from "../types";
+import { calculateCourseHandicap } from "../utils/handicap";
+
+export type ScoringType = "gross" | "net";
 
 export type Tour = {
   id: number;
@@ -214,9 +217,11 @@ export class TourService {
     return this.db
       .prepare(
         `
-      SELECT c.*, co.name as course_name, co.pars
+      SELECT c.*, co.name as course_name, co.pars,
+             ct.slope_rating, ct.course_rating
       FROM competitions c
       JOIN courses co ON c.course_id = co.id
+      LEFT JOIN course_tees ct ON c.tee_id = ct.id
       WHERE c.tour_id = ?
       ORDER BY c.date DESC
     `
@@ -226,9 +231,9 @@ export class TourService {
 
   /**
    * Get full standings for a tour with detailed competition breakdown
-   * Optionally filter by category
+   * Optionally filter by category and scoring type
    */
-  getFullStandings(tourId: number, categoryId?: number): TourStandings {
+  getFullStandings(tourId: number, categoryId?: number, scoringType?: ScoringType): TourStandings {
     const tour = this.findById(tourId);
     if (!tour) {
       throw new Error("Tour not found");
@@ -283,23 +288,32 @@ export class TourService {
       .get(...enrollmentParams) as { count: number };
     const numberOfPlayers = enrollmentCount.count;
 
-    // Get player to category mapping
+    // Get player to category mapping and handicaps
     const playerCategories = new Map<number, { category_id: number | null; category_name: string | null }>();
+    const playerHandicaps = new Map<number, number>();
     const enrollments = this.db
       .prepare(`
-        SELECT te.player_id, te.category_id, tc.name as category_name
+        SELECT te.player_id, te.category_id, tc.name as category_name,
+               COALESCE(te.playing_handicap, p.handicap) as handicap
         FROM tour_enrollments te
         LEFT JOIN tour_categories tc ON te.category_id = tc.id
+        LEFT JOIN players p ON te.player_id = p.id
         WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
       `)
-      .all(tourId) as { player_id: number; category_id: number | null; category_name: string | null }[];
+      .all(tourId) as { player_id: number; category_id: number | null; category_name: string | null; handicap: number | null }[];
 
     for (const enrollment of enrollments) {
       playerCategories.set(enrollment.player_id, {
         category_id: enrollment.category_id,
         category_name: enrollment.category_name,
       });
+      if (enrollment.handicap !== null) {
+        playerHandicaps.set(enrollment.player_id, enrollment.handicap);
+      }
     }
+
+    // Determine effective scoring type
+    const effectiveScoringType = scoringType || (tour.scoring_mode === "net" ? "net" : "gross");
 
     // Track player standings
     const playerStandings: Map<number, TourPlayerStanding> = new Map();
@@ -322,9 +336,38 @@ export class TourService {
         continue;
       }
 
-      // Rank players by their scores (only count finished players)
+      // Get course data for handicap calculations
+      const slopeRating = competition.slope_rating || 113;
+      const courseRating = competition.course_rating || 72;
+      let pars: number[];
+      try {
+        pars = JSON.parse(competition.pars);
+      } catch {
+        pars = [];
+      }
+      const totalPar = pars.reduce((sum: number, par: number) => sum + par, 0);
+
+      // Adjust scores for net scoring if needed
       const finishedResults = results.filter(r => r.is_finished);
-      const rankedResults = this.rankPlayersByScore(finishedResults);
+      const adjustedResults = finishedResults.map(result => {
+        if (effectiveScoringType === "net") {
+          const handicapIndex = playerHandicaps.get(result.player_id) || 0;
+          const courseHandicap = calculateCourseHandicap(
+            handicapIndex,
+            slopeRating,
+            courseRating,
+            totalPar
+          );
+          return {
+            ...result,
+            relative_to_par: result.relative_to_par - courseHandicap,
+          };
+        }
+        return result;
+      });
+
+      // Rank players by their scores (only count finished players)
+      const rankedResults = this.rankPlayersByScore(adjustedResults);
 
       // Calculate points for each player
       for (const result of rankedResults) {
@@ -404,6 +447,7 @@ export class TourService {
       player_standings: sortedStandings,
       total_competitions: competitions.length,
       scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
+      selected_scoring_type: effectiveScoringType,
       point_template: pointTemplate ? { id: pointTemplate.id, name: pointTemplate.name } : undefined,
       categories,
       selected_category_id: categoryId,

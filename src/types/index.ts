@@ -504,6 +504,7 @@ export interface TourStandings {
   player_standings: TourPlayerStanding[];
   total_competitions: number;
   scoring_mode: TourScoringMode;
+  selected_scoring_type?: "gross" | "net";
   point_template?: {
     id: number;
     name: string;

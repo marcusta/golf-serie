@@ -56,6 +56,7 @@ export interface TourStandings {
   player_standings: TourPlayerStanding[];
   total_competitions: number;
   scoring_mode: TourScoringMode;
+  selected_scoring_type?: "gross" | "net";
   point_template?: {
     id: number;
     name: string;
@@ -266,12 +267,20 @@ export function useTourCompetitions(id: number) {
   });
 }
 
-export function useTourStandings(id: number, categoryId?: number) {
+export function useTourStandings(id: number, categoryId?: number, scoringType?: "gross" | "net") {
   return useQuery<TourStandings>({
-    queryKey: ["tour-standings", id, categoryId],
+    queryKey: ["tour-standings", id, categoryId, scoringType],
     queryFn: async () => {
-      const url = categoryId
-        ? `${API_BASE_URL}/tours/${id}/standings?category=${categoryId}`
+      const params = new URLSearchParams();
+      if (categoryId !== undefined) {
+        params.set("category", categoryId.toString());
+      }
+      if (scoringType) {
+        params.set("scoring_type", scoringType);
+      }
+      const queryString = params.toString();
+      const url = queryString
+        ? `${API_BASE_URL}/tours/${id}/standings?${queryString}`
         : `${API_BASE_URL}/tours/${id}/standings`;
       const response = await fetch(url);
       if (!response.ok) {

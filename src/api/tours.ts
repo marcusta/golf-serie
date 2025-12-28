@@ -94,8 +94,14 @@ export function createToursApi(
       const categoryParam = c.req.query("category");
       const categoryId = categoryParam ? parseInt(categoryParam) : undefined;
 
+      // Support scoring type filtering (gross or net)
+      const scoringTypeParam = c.req.query("scoring_type");
+      const scoringType = scoringTypeParam === "gross" || scoringTypeParam === "net"
+        ? scoringTypeParam
+        : undefined;
+
       // Default: return full standings with competition breakdown
-      const standings = tourService.getFullStandings(id, categoryId);
+      const standings = tourService.getFullStandings(id, categoryId, scoringType);
       return c.json(standings);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);

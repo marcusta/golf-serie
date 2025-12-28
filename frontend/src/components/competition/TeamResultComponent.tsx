@@ -23,9 +23,9 @@ export function TeamResultComponent({
   // Filter state
   const [filter, setFilter] = useState<"all" | "finished">("all");
   // Track which teams are expanded to show players
-  const [expandedTeams, setExpandedTeams] = useState<Set<number>>(new Set());
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
-  const toggleTeamExpanded = (teamId: number) => {
+  const toggleTeamExpanded = (teamId: string) => {
     setExpandedTeams(prev => {
       const next = new Set(prev);
       if (next.has(teamId)) {

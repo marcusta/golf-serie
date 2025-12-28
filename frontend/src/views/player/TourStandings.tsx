@@ -10,8 +10,15 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface EnhancedCompetition extends TourPlayerCompetition {
   is_future?: boolean;
@@ -90,6 +97,8 @@ export default function TourStandings() {
     new Set()
   );
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
+  const [isFirstCategorySet, setIsFirstCategorySet] = useState(false);
+  const [selectedScoringType, setSelectedScoringType] = useState<"gross" | "net" | undefined>(undefined);
 
   const {
     data: tour,
@@ -102,13 +111,21 @@ export default function TourStandings() {
     isLoading: standingsLoading,
     error: standingsError,
     refetch: refetchStandings,
-  } = useTourStandings(id, selectedCategoryId);
+  } = useTourStandings(id, selectedCategoryId, selectedScoringType);
 
   const {
     data: allCompetitions,
     isLoading: competitionsLoading,
     error: competitionsError,
   } = useTourCompetitions(id);
+
+  // Set first category as default when standings load
+  useEffect(() => {
+    if (!isFirstCategorySet && standings?.categories && standings.categories.length > 0 && selectedCategoryId === undefined) {
+      setSelectedCategoryId(standings.categories[0].id);
+      setIsFirstCategorySet(true);
+    }
+  }, [standings?.categories, isFirstCategorySet, selectedCategoryId]);
 
   const handleShare = async () => {
     if (navigator.share && tour) {
@@ -326,34 +343,61 @@ export default function TourStandings() {
             </div>
           </div>
 
-          {/* Category Filter Tabs */}
-          {standings.categories && standings.categories.length > 0 && (
-            <div className="flex gap-2 pb-4 overflow-x-auto scrollbar-hide">
-              <button
-                onClick={() => setSelectedCategoryId(undefined)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  selectedCategoryId === undefined
-                    ? "bg-turf text-scorecard"
-                    : "bg-rough/30 text-charcoal hover:bg-rough/50"
-                }`}
-              >
-                All Players
-              </button>
-              {standings.categories.map((category: TourCategory) => (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategoryId(category.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    selectedCategoryId === category.id
-                      ? "bg-turf text-scorecard"
-                      : "bg-rough/30 text-charcoal hover:bg-rough/50"
-                  }`}
+          {/* Filters Row: Category dropdown (left) + Scoring type pills (right) */}
+          {(standings.categories && standings.categories.length > 1) || standings.scoring_mode === "both" ? (
+            <div className="flex items-center justify-between gap-4 pb-4">
+              {/* Category Dropdown */}
+              {standings.categories && standings.categories.length > 1 ? (
+                <Select
+                  value={selectedCategoryId?.toString() ?? ""}
+                  onValueChange={(value) => setSelectedCategoryId(Number(value))}
                 >
-                  {category.name}
-                </button>
-              ))}
+                  <SelectTrigger className="w-auto min-w-[120px] pr-4 bg-scorecard border-soft-grey text-charcoal">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-scorecard border-soft-grey">
+                    {standings.categories.map((category: TourCategory) => (
+                      <SelectItem
+                        key={category.id}
+                        value={category.id.toString()}
+                        className="text-charcoal"
+                      >
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div /> /* Spacer when no categories */
+              )}
+
+              {/* Scoring Type Pills */}
+              {standings.scoring_mode === "both" && (
+                <div className="flex rounded-lg overflow-hidden border border-soft-grey">
+                  <button
+                    onClick={() => setSelectedScoringType("gross")}
+                    className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                      (selectedScoringType === "gross" || (!selectedScoringType && standings.selected_scoring_type === "gross"))
+                        ? "bg-turf text-scorecard"
+                        : "bg-scorecard text-charcoal hover:bg-rough/30"
+                    }`}
+                  >
+                    Gross
+                  </button>
+                  <button
+                    onClick={() => setSelectedScoringType("net")}
+                    className={`px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
+                      (selectedScoringType === "net" || (!selectedScoringType && standings.selected_scoring_type === "net"))
+                        ? "bg-turf text-scorecard"
+                        : "bg-scorecard text-charcoal hover:bg-rough/30"
+                    }`}
+                  >
+                    Net
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -402,10 +446,6 @@ export default function TourStandings() {
                     <div className="flex-1 min-w-0">
                       <h3 className="text-base font-semibold text-charcoal leading-tight">
                         {standing.player_name}
-                        {/* Category as plain inline text */}
-                        {standing.category_name && selectedCategoryId === undefined && (
-                          <span className="text-sm font-normal text-charcoal/50"> · {standing.category_name}</span>
-                        )}
                       </h3>
                       <p className="text-sm text-charcoal/60">
                         {standing.competitions_played} of {standings.total_competitions} competitions
