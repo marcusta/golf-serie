@@ -7,7 +7,6 @@ import {
   RefreshCw,
   Share,
   Download,
-  Medal,
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -286,7 +285,6 @@ export default function TourStandings() {
     });
   };
 
-  const topThree = standings.player_standings.slice(0, 3);
   const enhancedPlayerStandings = getEnhancedPlayerStandings();
 
   return (
@@ -302,9 +300,7 @@ export default function TourStandings() {
               <p className="text-sm text-charcoal/70 font-primary mt-1">
                 {tour.name}
                 {standings.point_template && (
-                  <span className="ml-2 text-xs bg-turf/10 text-turf px-2 py-0.5 rounded">
-                    {standings.point_template.name}
-                  </span>
+                  <span className="text-charcoal/50"> · {standings.point_template.name}</span>
                 )}
               </p>
             </div>
@@ -363,74 +359,11 @@ export default function TourStandings() {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
-        {/* Top 3 Summary Cards */}
-        {topThree.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-display-sm font-display font-semibold text-charcoal mb-6">
-              Top Performers
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {topThree.map((standing, index) => (
-                <div
-                  key={standing.player_id}
-                  className={`p-6 rounded-xl border-2 transition-all duration-300 hover:transform hover:-translate-y-1 ${
-                    index === 0
-                      ? "bg-gradient-to-br from-coral/10 to-coral/5 border-coral shadow-lg shadow-coral/20 hover:shadow-xl hover:shadow-coral/30"
-                      : index === 1
-                      ? "bg-gradient-to-br from-slate-100/50 to-slate-50/30 border-slate-300 hover:shadow-lg"
-                      : "bg-gradient-to-br from-turf/10 to-turf/5 border-turf hover:shadow-lg"
-                  }`}
-                  style={{
-                    animationDelay: `${index * 0.1}s`,
-                  }}
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-200 ${
-                        index === 0
-                          ? "bg-coral text-scorecard"
-                          : index === 1
-                          ? "bg-slate-400 text-scorecard"
-                          : "bg-turf text-scorecard"
-                      }`}
-                    >
-                      {index === 0 ? (
-                        <Medal className="h-6 w-6" />
-                      ) : (
-                        <span className="text-lg font-bold">
-                          {standing.position}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-label-lg font-semibold text-charcoal truncate">
-                        {standing.player_name}
-                      </h3>
-                      <p className="text-body-sm text-charcoal/70">
-                        {standing.competitions_played} competition
-                        {standing.competitions_played !== 1 ? "s" : ""} played
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-display-lg font-display font-bold text-charcoal">
-                      {standing.total_points}
-                    </div>
-                    <div className="text-body-sm text-charcoal/70 font-medium">
-                      points
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Enhanced Standings with Expandable Details */}
+        {/* Standings List */}
         <section>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-display-sm font-display font-semibold text-charcoal">
-              Complete Standings
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-charcoal">
+              Standings
             </h2>
             <span className="text-body-sm text-charcoal/70">
               {standings.player_standings.length} player
@@ -438,28 +371,28 @@ export default function TourStandings() {
             </span>
           </div>
 
-          {/* Clean Hierarchical List */}
-          <div className="bg-scorecard rounded-xl shadow-sm border border-soft-grey/30 overflow-hidden">
-            {enhancedPlayerStandings.map((standing, index) => (
+          {/* Clean List with Dividers */}
+          <div className="divide-y divide-soft-grey">
+            {enhancedPlayerStandings.map((standing) => (
               <div key={standing.player_id}>
                 {/* Player Row */}
                 <div
-                  className={`relative cursor-pointer transition-colors duration-150 hover:bg-rough/30 ${
-                    index > 0 ? "border-t border-slate-100" : ""
+                  className={`cursor-pointer transition-colors hover:bg-gray-50/50 ${
+                    standing.position === 1 ? "border-l-4 border-l-coral bg-coral/5" : ""
                   }`}
                   onClick={() => togglePlayerDetails(standing.player_id)}
                 >
-                  <div className="flex items-center gap-4 p-5">
-                    {/* Position Badge */}
+                  <div className="flex items-center gap-4 py-4 px-4">
+                    {/* Position - Plain colored text */}
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      className={`w-6 text-lg font-bold ${
                         standing.position === 1
-                          ? "bg-amber-100 text-amber-700"
+                          ? "text-amber-600"
                           : standing.position === 2
-                          ? "bg-slate-200 text-slate-600"
+                          ? "text-slate-500"
                           : standing.position === 3
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-slate-100 text-slate-600"
+                          ? "text-orange-600"
+                          : "text-charcoal/60"
                       }`}
                     >
                       {standing.position}
@@ -467,81 +400,40 @@ export default function TourStandings() {
 
                     {/* Player Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-base font-semibold text-charcoal leading-tight">
-                          {standing.player_name}
-                        </h3>
-                        {/* Show category badge if player has a category and we're viewing "All Players" */}
+                      <h3 className="text-base font-semibold text-charcoal leading-tight">
+                        {standing.player_name}
+                        {/* Category as plain inline text */}
                         {standing.category_name && selectedCategoryId === undefined && (
-                          <span className="text-xs px-2 py-0.5 bg-turf/10 text-turf rounded-full font-medium">
-                            {standing.category_name}
-                          </span>
+                          <span className="text-sm font-normal text-charcoal/50"> · {standing.category_name}</span>
                         )}
-                      </div>
-                      <p className="text-sm text-slate-500 leading-tight">
-                        {standing.competitions_played} of{" "}
-                        {standings.total_competitions} competitions
+                      </h3>
+                      <p className="text-sm text-charcoal/60">
+                        {standing.competitions_played} of {standings.total_competitions} competitions
                       </p>
                     </div>
 
-                    {/* Stats - Desktop */}
-                    <div className="hidden sm:flex items-center gap-6">
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-charcoal leading-tight">
-                          {standing.total_points}
-                        </div>
-                        <div className="text-xs text-slate-500 uppercase tracking-wide leading-tight">
-                          Points
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-charcoal leading-tight">
-                          {standing.competitions_played}
-                        </div>
-                        <div className="text-xs text-slate-500 uppercase tracking-wide leading-tight">
-                          Played
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stats - Mobile */}
-                    <div className="sm:hidden text-right">
-                      <div className="text-lg font-bold text-charcoal leading-tight">
+                    {/* Points */}
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-charcoal">
                         {standing.total_points}
-                      </div>
-                      <div className="text-xs text-slate-500 leading-tight">
-                        pts
-                      </div>
+                      </span>
+                      <span className="text-sm text-charcoal/50 ml-1">pts</span>
                     </div>
 
                     {/* Expand Arrow */}
-                    <div
-                      className={`w-5 h-5 flex items-center justify-center transition-transform duration-200 text-slate-400 ${
-                        expandedPlayers.has(standing.player_id)
-                          ? "rotate-90"
-                          : ""
+                    <ChevronDown
+                      className={`h-4 w-4 text-charcoal/40 transition-transform ${
+                        expandedPlayers.has(standing.player_id) ? "rotate-180" : ""
                       }`}
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </div>
+                    />
                   </div>
                 </div>
 
                 {/* Competition Details - Expandable */}
-                <div
-                  className={`bg-slate-50 border-t border-slate-100 overflow-hidden transition-all duration-300 ease-in-out ${
-                    expandedPlayers.has(standing.player_id)
-                      ? "max-h-[1000px] opacity-100"
-                      : "max-h-0 opacity-0"
-                  }`}
-                >
-                  <div
-                    className={`pl-16 pr-5 space-y-1 transition-all duration-300 ease-in-out ${
-                      expandedPlayers.has(standing.player_id) ? "py-4" : "py-0"
-                    }`}
-                  >
-                    {expandedPlayers.has(standing.player_id) &&
-                      standing.competitions.map((competition) => {
+                {expandedPlayers.has(standing.player_id) && (
+                  <div className="bg-rough/10 border-l-4 border-l-turf/30 ml-4 mr-4 mb-4">
+                    <div className="divide-y divide-soft-grey/50">
+                      {standing.competitions.map((competition) => {
                         const enhancedComp = competition as EnhancedCompetition;
                         const isFuture = enhancedComp.is_future;
                         const notParticipated = enhancedComp.not_participated;
@@ -549,116 +441,64 @@ export default function TourStandings() {
                         return (
                           <div
                             key={competition.competition_id}
-                            className={`group flex items-center gap-3 py-3 border-b border-slate-200/50 last:border-b-0 transition-colors ${
+                            className={`flex items-center gap-3 py-3 px-4 transition-colors ${
                               isFuture || notParticipated
-                                ? "cursor-default"
-                                : "cursor-pointer hover:bg-slate-100/50"
+                                ? "opacity-50"
+                                : "cursor-pointer hover:bg-gray-50/50"
                             }`}
                             onClick={
                               isFuture || notParticipated
                                 ? undefined
-                                : (e) =>
-                                    handleCompetitionClick(
-                                      competition.competition_id,
-                                      e
-                                    )
+                                : (e) => handleCompetitionClick(competition.competition_id, e)
                             }
                           >
-                            {/* Position Badge */}
-                            <div
-                              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${
-                                isFuture
-                                  ? "bg-blue-100 text-blue-600"
-                                  : notParticipated
-                                  ? "bg-red-100 text-red-600"
+                            {/* Position - plain text */}
+                            <span
+                              className={`w-5 text-sm font-bold ${
+                                isFuture || notParticipated
+                                  ? "text-charcoal/30"
                                   : competition.position === 1
-                                  ? "bg-amber-100 text-amber-700"
+                                  ? "text-amber-600"
                                   : competition.position === 2
-                                  ? "bg-slate-200 text-slate-600"
+                                  ? "text-slate-500"
                                   : competition.position === 3
-                                  ? "bg-orange-100 text-orange-700"
-                                  : "bg-slate-100 text-slate-600"
+                                  ? "text-orange-600"
+                                  : "text-charcoal/60"
                               }`}
                             >
-                              {isFuture
-                                ? "-"
-                                : notParticipated
-                                ? "x"
-                                : competition.position}
-                            </div>
+                              {isFuture ? "–" : notParticipated ? "–" : competition.position}
+                            </span>
 
                             {/* Competition Info */}
                             <div className="flex-1 min-w-0">
-                              <div
-                                className={`text-sm font-medium leading-tight mb-1 ${
-                                  isFuture
-                                    ? "text-blue-800"
-                                    : notParticipated
-                                    ? "text-red-800"
-                                    : "text-charcoal"
-                                }`}
-                              >
+                              <span className="text-sm text-charcoal">
                                 {competition.competition_name}
-                              </div>
-                              <div
-                                className={`text-xs leading-tight ${
-                                  isFuture
-                                    ? "text-blue-600"
-                                    : notParticipated
-                                    ? "text-red-600"
-                                    : "text-slate-500"
-                                }`}
-                              >
-                                {new Date(
-                                  competition.competition_date
-                                ).toLocaleDateString("en-US", {
+                              </span>
+                              <span className="text-xs text-charcoal/50 ml-2">
+                                {new Date(competition.competition_date).toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric",
-                                  year: "numeric",
                                 })}
-                              </div>
+                              </span>
                             </div>
 
                             {/* Score and Points */}
-                            <div className="text-right flex items-center gap-4">
-                              {!isFuture && !notParticipated && (
-                                <div className="text-sm text-charcoal/70">
+                            {!isFuture && !notParticipated && (
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className="text-charcoal/60">
                                   {formatScore(competition.score_relative_to_par)}
-                                </div>
-                              )}
-                              <div>
-                                {isFuture || notParticipated ? (
-                                  <div
-                                    className={`text-lg font-bold ${
-                                      isFuture
-                                        ? "text-blue-600"
-                                        : "text-red-600"
-                                    }`}
-                                  >
-                                    -
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="text-sm font-bold text-charcoal leading-tight">
-                                      {competition.points}
-                                    </div>
-                                    <div className="text-xs text-slate-500 leading-tight">
-                                      pts
-                                    </div>
-                                  </>
-                                )}
+                                </span>
+                                <span className="font-semibold text-charcoal">
+                                  {competition.points} pts
+                                </span>
                               </div>
-                              {!isFuture && !notParticipated && (
-                                <div className="w-4 h-4 flex items-center justify-center text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <ChevronDown className="h-3 w-3 rotate-[-90deg]" />
-                                </div>
-                              )}
-                            </div>
+                            )}
                           </div>
                         );
                       })}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
