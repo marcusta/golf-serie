@@ -650,11 +650,6 @@ export function ScoreEntry({
         course={course}
         currentHole={currentHole}
         onClose={() => setFullScorecardVisible(false)}
-        onContinueEntry={(hole) => {
-          setInternalCurrentHole(hole || currentHole);
-          setCurrentPlayerIndex(0);
-          setFullScorecardVisible(false);
-        }}
         netScoringData={netScoringData}
       />
       {/* Native Keyboard Modal with TapScore Styling */}

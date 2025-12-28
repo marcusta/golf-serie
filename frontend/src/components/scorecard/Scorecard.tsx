@@ -178,24 +178,24 @@ export function Scorecard({
               <span className="text-rough text-sm">👥</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 text-sm font-primary">
             {/* Show handicap info when net scoring is enabled */}
             {showNetScoring && (
-              <div className="flex items-center gap-2 text-xs font-primary">
+              <>
                 {handicapIndex !== undefined && (
-                  <span className="bg-scorecard/20 px-1.5 py-0.5 rounded">
+                  <span className="text-scorecard/70">
                     HCP {handicapIndex.toFixed(1)}
                   </span>
                 )}
                 {courseHandicap !== undefined && (
-                  <span className="bg-coral/30 px-1.5 py-0.5 rounded font-medium">
-                    PH {courseHandicap}
+                  <span className="text-scorecard font-medium">
+                    ({courseHandicap})
                   </span>
                 )}
-              </div>
+              </>
             )}
             {participant.type && (
-              <span className="text-rough text-sm font-primary">
+              <span className="text-scorecard/70">
                 {participant.type}
               </span>
             )}
@@ -205,12 +205,8 @@ export function Scorecard({
 
       {/* Front Nine Section */}
       <div className="border-b border-soft-grey">
-        {/* Front Nine Section Header */}
-        <div className="bg-turf text-scorecard px-2 py-1">
-          <span className="text-sm font-medium font-primary">FRONT NINE</span>
-        </div>
         {/* Front Nine Header */}
-        <div className="bg-rough bg-opacity-30">
+        <div className="bg-rough/40">
           <div className="flex">
             <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
               Hole
@@ -220,20 +216,20 @@ export function Scorecard({
                 key={hole.number}
                 className={cn(
                   "min-w-6 px-0.5 py-1 text-center text-xs font-medium text-fairway border-r border-soft-grey flex-1 font-primary",
-                  hole.number === currentHole && "bg-coral"
+                  hole.number === currentHole && "bg-turf text-scorecard"
                 )}
               >
                 {hole.number}
               </div>
             ))}
-            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough bg-opacity-50 font-primary">
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough/50 font-primary">
               OUT
             </div>
           </div>
         </div>
 
         {/* Front Nine Par */}
-        <div className="bg-rough bg-opacity-20">
+        <div className="bg-rough/20">
           <div className="flex">
             <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
               Par
@@ -246,7 +242,7 @@ export function Scorecard({
                 {hole.par}
               </div>
             ))}
-            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-fairway bg-rough bg-opacity-40 font-display">
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-fairway bg-rough/50 font-display">
               {frontNine.reduce((sum, hole) => sum + hole.par, 0)}
             </div>
           </div>
@@ -254,27 +250,29 @@ export function Scorecard({
 
         {/* Front Nine Stroke Index - only show when net scoring enabled */}
         {showNetScoring && strokeIndex && (
-          <div className="bg-rough bg-opacity-10">
+          <div className="bg-scorecard">
             <div className="flex">
               <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
                 SI
               </div>
               {frontNine.map((hole) => {
                 const si = strokeIndex[hole.number - 1];
-                const receivesStroke = handicapStrokesPerHole && handicapStrokesPerHole[hole.number - 1] > 0;
+                const strokeAdjustment = handicapStrokesPerHole?.[hole.number - 1] ?? 0;
                 return (
                   <div
                     key={hole.number}
                     className={cn(
-                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium border-r border-soft-grey flex-1 font-primary",
-                      receivesStroke ? "text-coral font-bold" : "text-turf"
+                      "min-w-6 px-0.5 py-1 text-center text-xs border-r border-soft-grey flex-1 font-primary",
+                      strokeAdjustment > 0 && "text-charcoal font-bold bg-amber-100",
+                      strokeAdjustment < 0 && "text-charcoal font-bold bg-red-100",
+                      strokeAdjustment === 0 && "text-charcoal/50"
                     )}
                   >
                     {si}
                   </div>
                 );
               })}
-              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough bg-opacity-30 font-primary">
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough/30 font-primary">
                 -
               </div>
             </div>
@@ -296,7 +294,7 @@ export function Scorecard({
                   key={hole.number}
                   className={cn(
                     "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
-                    hole.number === currentHole && "bg-coral bg-opacity-20"
+                    hole.number === currentHole && "bg-turf/10"
                   )}
                 >
                   <div
@@ -311,7 +309,7 @@ export function Scorecard({
                 </div>
               );
             })}
-            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough bg-opacity-40 font-display">
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough/50 font-display">
               {totals.frontTotal ?? "-"}
             </div>
           </div>
@@ -319,9 +317,9 @@ export function Scorecard({
 
         {/* Front Nine Net Results - only show when net scoring enabled */}
         {showNetScoring && handicapStrokesPerHole && (
-          <div className="bg-coral/5 border-b border-soft-grey">
+          <div className="bg-scorecard border-b border-soft-grey border-l-2 border-l-turf">
             <div className="flex">
-              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-coral border-r border-soft-grey font-primary">
+              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-turf border-r border-soft-grey font-primary">
                 Net
               </div>
               {frontNine.map((hole) => {
@@ -334,8 +332,8 @@ export function Scorecard({
                   <div
                     key={hole.number}
                     className={cn(
-                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1 relative",
-                      hole.number === currentHole && "bg-coral bg-opacity-10"
+                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                      hole.number === currentHole && "bg-turf/10"
                     )}
                   >
                     <div
@@ -347,14 +345,10 @@ export function Scorecard({
                     >
                       {isValidScore(score) ? netScore : "-"}
                     </div>
-                    {/* Stroke indicator dot */}
-                    {strokes > 0 && (
-                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-coral rounded-full" />
-                    )}
                   </div>
                 );
               })}
-              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-coral bg-coral/10 font-display">
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-turf bg-rough/30 font-display">
                 {totals.netFrontTotal ?? "-"}
               </div>
             </div>
@@ -364,12 +358,8 @@ export function Scorecard({
 
       {/* Back Nine Section */}
       <div className="border-b border-soft-grey">
-        {/* Back Nine Section Header */}
-        <div className="bg-turf text-scorecard px-2 py-1">
-          <span className="text-sm font-medium font-primary">BACK NINE</span>
-        </div>
         {/* Back Nine Header */}
-        <div className="bg-rough bg-opacity-30">
+        <div className="bg-rough/40">
           <div className="flex">
             <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
               Hole
@@ -379,20 +369,20 @@ export function Scorecard({
                 key={hole.number}
                 className={cn(
                   "min-w-6 px-0.5 py-1 text-center text-xs font-medium text-fairway border-r border-soft-grey flex-1 font-primary",
-                  hole.number === currentHole && "bg-coral"
+                  hole.number === currentHole && "bg-turf text-scorecard"
                 )}
               >
                 {hole.number}
               </div>
             ))}
-            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough bg-opacity-50 font-primary">
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough/50 font-primary">
               IN
             </div>
           </div>
         </div>
 
         {/* Back Nine Par */}
-        <div className="bg-rough bg-opacity-20">
+        <div className="bg-rough/20">
           <div className="flex">
             <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
               Par
@@ -405,7 +395,7 @@ export function Scorecard({
                 {hole.par}
               </div>
             ))}
-            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-fairway bg-rough bg-opacity-40 font-display">
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-fairway bg-rough/50 font-display">
               {backNine.reduce((sum, hole) => sum + hole.par, 0)}
             </div>
           </div>
@@ -413,27 +403,29 @@ export function Scorecard({
 
         {/* Back Nine Stroke Index - only show when net scoring enabled */}
         {showNetScoring && strokeIndex && (
-          <div className="bg-rough bg-opacity-10">
+          <div className="bg-scorecard">
             <div className="flex">
               <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
                 SI
               </div>
               {backNine.map((hole) => {
                 const si = strokeIndex[hole.number - 1];
-                const receivesStroke = handicapStrokesPerHole && handicapStrokesPerHole[hole.number - 1] > 0;
+                const strokeAdjustment = handicapStrokesPerHole?.[hole.number - 1] ?? 0;
                 return (
                   <div
                     key={hole.number}
                     className={cn(
-                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium border-r border-soft-grey flex-1 font-primary",
-                      receivesStroke ? "text-coral font-bold" : "text-turf"
+                      "min-w-6 px-0.5 py-1 text-center text-xs border-r border-soft-grey flex-1 font-primary",
+                      strokeAdjustment > 0 && "text-charcoal font-bold bg-amber-100",
+                      strokeAdjustment < 0 && "text-charcoal font-bold bg-red-100",
+                      strokeAdjustment === 0 && "text-charcoal/50"
                     )}
                   >
                     {si}
                   </div>
                 );
               })}
-              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough bg-opacity-30 font-primary">
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-medium text-fairway bg-rough/30 font-primary">
                 -
               </div>
             </div>
@@ -455,7 +447,7 @@ export function Scorecard({
                   key={hole.number}
                   className={cn(
                     "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
-                    hole.number === currentHole && "bg-coral bg-opacity-20"
+                    hole.number === currentHole && "bg-turf/10"
                   )}
                 >
                   <div
@@ -470,7 +462,7 @@ export function Scorecard({
                 </div>
               );
             })}
-            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough bg-opacity-40 font-display">
+            <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough/50 font-display">
               {totals.backTotal ?? "-"}
             </div>
           </div>
@@ -478,9 +470,9 @@ export function Scorecard({
 
         {/* Back Nine Net Results - only show when net scoring enabled */}
         {showNetScoring && handicapStrokesPerHole && (
-          <div className="bg-coral/5">
+          <div className="bg-scorecard border-l-2 border-l-turf">
             <div className="flex">
-              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-coral border-r border-soft-grey font-primary">
+              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-turf border-r border-soft-grey font-primary">
                 Net
               </div>
               {backNine.map((hole) => {
@@ -493,8 +485,8 @@ export function Scorecard({
                   <div
                     key={hole.number}
                     className={cn(
-                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1 relative",
-                      hole.number === currentHole && "bg-coral bg-opacity-10"
+                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                      hole.number === currentHole && "bg-turf/10"
                     )}
                   >
                     <div
@@ -506,14 +498,10 @@ export function Scorecard({
                     >
                       {isValidScore(score) ? netScore : "-"}
                     </div>
-                    {/* Stroke indicator dot */}
-                    {strokes > 0 && (
-                      <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-coral rounded-full" />
-                    )}
                   </div>
                 );
               })}
-              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-coral bg-coral/10 font-display">
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-turf bg-rough/30 font-display">
                 {totals.netBackTotal ?? "-"}
               </div>
             </div>
@@ -522,7 +510,7 @@ export function Scorecard({
       </div>
 
       {/* Totals Section */}
-      <div className="bg-rough bg-opacity-20 px-2 py-2">
+      <div className="bg-rough/30 px-2 py-2">
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium text-fairway font-primary">
             {showNetScoring ? "Gross" : "Total Score"}
@@ -543,16 +531,16 @@ export function Scorecard({
 
       {/* Net Totals Section - only show when net scoring enabled */}
       {showNetScoring && (
-        <div className="bg-coral/10 px-2 py-2 border-t border-coral/20">
+        <div className="bg-scorecard px-2 py-2 border-t border-soft-grey border-l-2 border-l-turf">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-coral font-primary">
+            <span className="text-sm font-medium text-turf font-primary">
               Net
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-coral/80 text-sm font-primary">
+              <span className="text-charcoal/70 text-sm font-primary">
                 Total: {totals.netTotalScore ?? "-"}
               </span>
-              <span className="text-base font-bold text-coral font-display">
+              <span className="text-base font-bold text-turf font-display">
                 To par:{" "}
                 {totals.netTotalScore && totals.netToPar !== null
                   ? formatToPar(totals.netToPar)

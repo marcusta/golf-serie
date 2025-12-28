@@ -523,7 +523,6 @@ export default function CompetitionRound() {
         course={courseData || { id: "", name: "", holes: [] }}
         currentHole={currentHole}
         onClose={() => setIsFullScorecardModalOpen(false)}
-        onContinueEntry={() => setIsFullScorecardModalOpen(false)}
         onLockRound={handleLockRound}
         netScoringData={netScoringData}
       />
