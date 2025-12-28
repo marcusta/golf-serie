@@ -423,12 +423,16 @@ export class CompetitionService {
       }
     }
 
-    // Get all participants for this competition
+    // Get all participants for this competition, including category info for tour competitions
     const participantsStmt = this.db.prepare(`
-      SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime, p.player_id
+      SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime, p.player_id,
+             te.category_id, tc.name as category_name
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN teams tm ON p.team_id = tm.id
+      LEFT JOIN competitions c ON t.competition_id = c.id
+      LEFT JOIN tour_enrollments te ON p.player_id = te.player_id AND c.tour_id = te.tour_id
+      LEFT JOIN tour_categories tc ON te.category_id = tc.id
       WHERE t.competition_id = ?
       ORDER BY t.teetime, p.tee_order
     `);
@@ -437,7 +441,24 @@ export class CompetitionService {
       team_id: number;
       teetime: string;
       player_id: number | null;
+      category_id: number | null;
+      category_name: string | null;
     })[];
+
+    // Get categories that have players in this competition (not all tour categories)
+    let categories: { id: number; tour_id: number; name: string; description?: string; sort_order: number; created_at: string }[] = [];
+    if (competition.tour_id) {
+      const categoriesStmt = this.db.prepare(`
+        SELECT DISTINCT tc.id, tc.tour_id, tc.name, tc.description, tc.sort_order, tc.created_at
+        FROM tour_categories tc
+        INNER JOIN tour_enrollments te ON tc.id = te.category_id
+        INNER JOIN participants p ON te.player_id = p.player_id
+        INNER JOIN tee_times t ON p.tee_time_id = t.id
+        WHERE tc.tour_id = ? AND t.competition_id = ?
+        ORDER BY tc.sort_order ASC, tc.name ASC
+      `);
+      categories = categoriesStmt.all(competition.tour_id, competitionId) as typeof categories;
+    }
 
     // Parse course pars
     const coursePars = JSON.parse(competition.pars);
@@ -494,6 +515,8 @@ export class CompetitionService {
             ...participant,
             score,
             handicap_index: handicapIndex,
+            category_id: participant.category_id ?? undefined,
+            category_name: participant.category_name ?? undefined,
           },
           totalShots,
           holesPlayed,
@@ -549,6 +572,8 @@ export class CompetitionService {
             ...participant,
             score,
             handicap_index: handicapIndex,
+            category_id: participant.category_id ?? undefined,
+            category_name: participant.category_name ?? undefined,
           },
           totalShots,
           holesPlayed,
@@ -570,6 +595,7 @@ export class CompetitionService {
       competitionId,
       scoringMode,
       tee: teeInfo,
+      categories: categories.length > 0 ? categories : undefined,
     };
   }
 

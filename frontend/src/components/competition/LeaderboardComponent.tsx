@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
-import type { LeaderboardEntry, TourScoringMode, TeeInfo } from "../../api/competitions";
+import type { LeaderboardEntry, TourScoringMode, TeeInfo, LeaderboardCategory } from "../../api/competitions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface LeaderboardComponentProps {
   leaderboard: LeaderboardEntry[] | undefined;
@@ -14,6 +21,8 @@ interface LeaderboardComponentProps {
   scoringMode?: TourScoringMode;
   // Tee info for display
   teeInfo?: TeeInfo;
+  // Categories for filtering (only for tour competitions)
+  categories?: LeaderboardCategory[];
 }
 
 export function LeaderboardComponent({
@@ -24,13 +33,23 @@ export function LeaderboardComponent({
   isTourCompetition = false,
   scoringMode,
   teeInfo,
+  categories,
 }: LeaderboardComponentProps) {
   // Filter state
   const [filter, setFilter] = useState<"all" | "finished">("all");
+  // Category filter - default to first category if available
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
   // Sort mode for when scoring_mode is 'both' - defaults to 'net' for net-aware modes
   const [sortBy, setSortBy] = useState<"gross" | "net">(
     scoringMode === "net" || scoringMode === "both" ? "net" : "gross"
   );
+
+  // Set first category as default when categories become available
+  useEffect(() => {
+    if (categories && categories.length > 0 && selectedCategoryId === undefined) {
+      setSelectedCategoryId(categories[0].id);
+    }
+  }, [categories, selectedCategoryId]);
 
   // Check if we should show net scores
   const showNetScores = scoringMode === "net" || scoringMode === "both";
@@ -117,12 +136,17 @@ export function LeaderboardComponent({
       })
     : [];
 
-  // Apply filter
+  // Apply filters (status filter + category filter)
   const filteredLeaderboard = sortedLeaderboard.filter((entry) => {
-    if (filter === "finished") {
-      return getPlayerStatus(entry) === "FINISHED";
+    // Apply status filter
+    if (filter === "finished" && getPlayerStatus(entry) !== "FINISHED") {
+      return false;
     }
-    return true; // 'all' shows everything
+    // Apply category filter (only when categories exist and one is selected)
+    if (selectedCategoryId !== undefined && entry.participant.category_id !== selectedCategoryId) {
+      return false;
+    }
+    return true;
   });
 
   // Helper function to get position styling
@@ -180,54 +204,93 @@ export function LeaderboardComponent({
         </div>
       </div>
 
-      {/* Filter Controls */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setFilter("all")}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filter === "all"
-              ? "bg-coral text-scorecard"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setFilter("finished")}
-          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filter === "finished"
-              ? "bg-coral text-scorecard"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          Only Finished
-        </button>
+      {/* Filter Controls - Row 1: Category + Gross/Net (matching TourStandings layout) */}
+      {((categories && categories.length >= 1) || scoringMode === "both") && (
+        <div className="flex items-center justify-between gap-4 pb-2">
+          {/* Category Dropdown or Label */}
+          {categories && categories.length > 1 && selectedCategoryId !== undefined ? (
+            <Select
+              value={selectedCategoryId.toString()}
+              onValueChange={(value: string) => setSelectedCategoryId(Number(value))}
+            >
+              <SelectTrigger className="w-auto min-w-[120px] pr-4 bg-scorecard border-soft-grey text-charcoal">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent className="bg-scorecard border-soft-grey">
+                {categories.map((cat) => (
+                  <SelectItem
+                    key={cat.id}
+                    value={cat.id.toString()}
+                    className="text-charcoal"
+                  >
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : categories && categories.length === 1 ? (
+            <span className="text-sm font-medium text-charcoal px-3 py-1.5 bg-rough/20 rounded-lg">
+              {categories[0].name}
+            </span>
+          ) : (
+            <div /> /* Spacer when no categories */
+          )}
 
-        {/* Gross/Net toggle when scoring mode is 'both' */}
-        {scoringMode === "both" && (
-          <div className="ml-auto flex bg-gray-100 rounded-lg p-0.5">
-            <button
-              onClick={() => setSortBy("gross")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                sortBy === "gross"
-                  ? "bg-scorecard text-charcoal shadow-sm"
-                  : "text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              Gross
-            </button>
-            <button
-              onClick={() => setSortBy("net")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                sortBy === "net"
-                  ? "bg-scorecard text-charcoal shadow-sm"
-                  : "text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              Net
-            </button>
-          </div>
-        )}
+          {/* Gross/Net toggle when scoring mode is 'both' */}
+          {scoringMode === "both" && (
+            <div className="flex rounded-lg overflow-hidden border border-soft-grey">
+              <button
+                onClick={() => setSortBy("gross")}
+                className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                  sortBy === "gross"
+                    ? "bg-turf text-scorecard"
+                    : "bg-scorecard text-charcoal hover:bg-rough/30"
+                }`}
+              >
+                Gross
+              </button>
+              <button
+                onClick={() => setSortBy("net")}
+                className={`px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
+                  sortBy === "net"
+                    ? "bg-turf text-scorecard"
+                    : "bg-scorecard text-charcoal hover:bg-rough/30"
+                }`}
+              >
+                Net
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filter Controls - Row 2: All/Only Finished */}
+      <div className="flex items-center gap-2 pb-2">
+        <div className="flex rounded-lg overflow-hidden border border-soft-grey">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+              filter === "all"
+                ? "bg-turf text-scorecard"
+                : "bg-scorecard text-charcoal hover:bg-rough/30"
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setFilter("finished")}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
+              filter === "finished"
+                ? "bg-turf text-scorecard"
+                : "bg-scorecard text-charcoal hover:bg-rough/30"
+            }`}
+          >
+            Only Finished
+          </button>
+        </div>
+        <span className="text-sm text-charcoal/60 ml-auto">
+          {filteredLeaderboard.length} players
+        </span>
       </div>
 
       {leaderboardLoading ? (

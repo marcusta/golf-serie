@@ -27,7 +27,12 @@ export interface EnhancedCompetition extends Competition {
 }
 
 export interface LeaderboardEntry {
-  participant: TeeTimeParticipant & { player_id?: number; handicap_index?: number };
+  participant: TeeTimeParticipant & {
+    player_id?: number;
+    handicap_index?: number;
+    category_id?: number;
+    category_name?: string;
+  };
   totalShots: number;
   holesPlayed: number;
   relativeToPar: number;
@@ -50,11 +55,21 @@ export interface TeeInfo {
   strokeIndex?: number[];
 }
 
+export interface LeaderboardCategory {
+  id: number;
+  tour_id: number;
+  name: string;
+  description?: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
   competitionId: number;
   scoringMode?: TourScoringMode;
   tee?: TeeInfo;
+  categories?: LeaderboardCategory[];
 }
 
 // New interface for team leaderboard entries

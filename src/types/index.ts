@@ -202,7 +202,13 @@ export interface UpdateParticipantDto {
 }
 
 export interface LeaderboardEntry {
-  participant: Participant & { team_name: string; player_id?: number; handicap_index?: number };
+  participant: Participant & {
+    team_name: string;
+    player_id?: number;
+    handicap_index?: number;
+    category_id?: number;
+    category_name?: string;
+  };
   totalShots: number;
   holesPlayed: number;
   relativeToPar: number;
@@ -228,6 +234,8 @@ export interface LeaderboardResponse {
     slopeRating: number;
     strokeIndex?: number[];
   };
+  // Categories for filtering (only for tour competitions)
+  categories?: TourCategory[];
 }
 
 export interface TeamLeaderboardEntry {

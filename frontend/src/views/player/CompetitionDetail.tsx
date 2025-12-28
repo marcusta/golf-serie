@@ -82,6 +82,7 @@ export default function CompetitionDetail() {
   const leaderboard = leaderboardResponse?.entries;
   const scoringMode = leaderboardResponse?.scoringMode;
   const teeInfo = leaderboardResponse?.tee;
+  const leaderboardCategories = leaderboardResponse?.categories;
 
   const {
     data: teamLeaderboard,
@@ -495,6 +496,7 @@ export default function CompetitionDetail() {
             isTourCompetition={!!competition?.tour_id}
             scoringMode={scoringMode}
             teeInfo={teeInfo}
+            categories={leaderboardCategories}
           />
         )}
 
