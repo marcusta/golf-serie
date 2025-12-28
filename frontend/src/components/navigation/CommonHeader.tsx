@@ -13,6 +13,8 @@ interface CommonHeaderProps {
   className?: string;
   seriesId?: number;
   seriesName?: string;
+  tourId?: number;
+  tourName?: string;
   showHamburgerMenu?: boolean;
   customActions?: React.ReactNode;
 }
@@ -26,6 +28,8 @@ export function CommonHeader({
   className = "",
   seriesId,
   seriesName,
+  tourId,
+  tourName,
   showHamburgerMenu = true,
   customActions,
 }: CommonHeaderProps) {
@@ -90,7 +94,7 @@ export function CommonHeader({
           <div className="ml-auto flex items-center gap-2">
             {customActions}
             {children}
-            {showHamburgerMenu && <HamburgerMenu seriesId={seriesId} seriesName={seriesName} />}
+            {showHamburgerMenu && <HamburgerMenu seriesId={seriesId} seriesName={seriesName} tourId={tourId} tourName={tourName} />}
           </div>
         </div>
       </div>

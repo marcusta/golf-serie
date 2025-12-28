@@ -199,7 +199,7 @@ export default function TourStandings() {
 
   if (!standings?.player_standings?.length) {
     return (
-      <PlayerPageLayout title="Player Standings">
+      <PlayerPageLayout title="Player Standings" tourId={id} tourName={tour?.name}>
         {/* Sub-header with Page Title */}
         <div className="bg-scorecard border-b border-soft-grey shadow-sm">
           <div className="container mx-auto px-4">
@@ -305,7 +305,7 @@ export default function TourStandings() {
   const enhancedPlayerStandings = getEnhancedPlayerStandings();
 
   return (
-    <PlayerPageLayout title="Player Standings">
+    <PlayerPageLayout title="Player Standings" tourId={id} tourName={tour.name}>
       {/* Sub-header with export functionality */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">
         <div className="container mx-auto px-4">

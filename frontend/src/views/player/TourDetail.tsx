@@ -545,7 +545,7 @@ export default function TourDetail() {
   };
 
   return (
-    <PlayerPageLayout onBackClick={handleBackNavigation}>
+    <PlayerPageLayout onBackClick={handleBackNavigation} tourId={id} tourName={tour.name}>
 
       {/* Hero Section */}
       <section className="relative">

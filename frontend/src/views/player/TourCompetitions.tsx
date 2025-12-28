@@ -206,7 +206,7 @@ export default function TourCompetitions() {
   }
 
   return (
-    <PlayerPageLayout title="Competitions">
+    <PlayerPageLayout title="Competitions" tourId={id} tourName={tour.name}>
 
       {/* Sub-header with Page Title */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import {
@@ -16,9 +16,13 @@ import {
   UserPlus,
   Settings,
   Flag,
+  Calendar,
+  Play,
 } from "lucide-react";
 import { useCompetition } from "@/api/competitions";
 import { useSingleSeries } from "@/api/series";
+import { useTour } from "@/api/tours";
+import { useActiveRounds } from "@/api/tour-registration";
 import { useAuth } from "@/hooks/useAuth";
 import TapScoreLogo from "../ui/TapScoreLogo";
 
@@ -26,6 +30,8 @@ interface HamburgerMenuProps {
   className?: string;
   seriesId?: number;
   seriesName?: string;
+  tourId?: number;
+  tourName?: string;
 }
 
 interface MenuLink {
@@ -38,11 +44,15 @@ interface MenuLink {
 export function HamburgerMenu({
   className,
   seriesId: propSeriesId,
-  seriesName: propSeriesName
+  seriesName: propSeriesName,
+  tourId: propTourId,
+  tourName: propTourName,
 }: HamburgerMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [resolvedSeriesId, setResolvedSeriesId] = useState<number | undefined>(propSeriesId);
   const [resolvedSeriesName, setResolvedSeriesName] = useState<string | undefined>(propSeriesName);
+  const [resolvedTourId, setResolvedTourId] = useState<number | undefined>(propTourId);
+  const [resolvedTourName, setResolvedTourName] = useState<string | undefined>(propTourName);
   const [isLoading, setIsLoading] = useState(false);
 
   const { user, isAuthenticated, logout } = useAuth();
@@ -50,21 +60,43 @@ export function HamburgerMenu({
   // Use router params to get context only if not passed via props
   const params = useParams({
     strict: false,
-  }) as { competitionId?: string; serieId?: string };
+  }) as { competitionId?: string; serieId?: string; tourId?: string; teeTimeId?: string };
 
   const competitionIdNum = params.competitionId
     ? parseInt(params.competitionId)
     : undefined;
   const serieIdNum = params.serieId ? parseInt(params.serieId) : undefined;
+  const tourIdNum = params.tourId ? parseInt(params.tourId) : undefined;
+  const teeTimeIdNum = params.teeTimeId ? parseInt(params.teeTimeId) : undefined;
 
-  // Only fetch if we don't have props and need to resolve from route
-  const needsFetch = !propSeriesId && (competitionIdNum || serieIdNum);
+  // Only fetch series if we don't have props and need to resolve from route
+  const needsSeriesFetch = !propSeriesId && (competitionIdNum || serieIdNum);
+  // Only fetch tour if we don't have props and need to resolve from route
+  const needsTourFetch = !propTourId && tourIdNum;
 
   const { data: competitionData, isLoading: competitionLoading } =
-    useCompetition(needsFetch ? competitionIdNum || 0 : 0);
+    useCompetition(needsSeriesFetch ? competitionIdNum || 0 : 0);
   const { data: seriesData, isLoading: seriesLoading } = useSingleSeries(
-    needsFetch ? (serieIdNum || competitionData?.series_id || 0) : 0
+    needsSeriesFetch ? (serieIdNum || competitionData?.series_id || 0) : 0
   );
+  const { data: tourData, isLoading: tourLoading } = useTour(
+    needsTourFetch ? tourIdNum || 0 : 0
+  );
+
+  // Get active rounds to show "Current Round" link if applicable
+  const { data: activeRounds } = useActiveRounds();
+
+  // Find active round by teeTimeId (for when we're on a tee time page)
+  const activeRoundByTeeTime = useMemo(() => {
+    if (!teeTimeIdNum || !activeRounds) return null;
+    return activeRounds.find((round) => round.tee_time_id === teeTimeIdNum) || null;
+  }, [activeRounds, teeTimeIdNum]);
+
+  // Find active round for the current tour
+  const currentTourActiveRound = useMemo(() => {
+    if (!resolvedTourId || !activeRounds) return null;
+    return activeRounds.find((round) => round.tour_id === resolvedTourId) || null;
+  }, [activeRounds, resolvedTourId]);
 
   useEffect(() => {
     // If props are provided, use them directly
@@ -75,7 +107,7 @@ export function HamburgerMenu({
       return;
     }
 
-    setIsLoading(competitionLoading || seriesLoading);
+    setIsLoading(competitionLoading || seriesLoading || tourLoading);
 
     if (seriesData) {
       setResolvedSeriesId(seriesData.id);
@@ -87,7 +119,34 @@ export function HamburgerMenu({
       setResolvedSeriesId(undefined);
       setResolvedSeriesName(undefined);
     }
-  }, [competitionData, seriesData, competitionLoading, seriesLoading, propSeriesId, propSeriesName]);
+  }, [competitionData, seriesData, competitionLoading, seriesLoading, tourLoading, propSeriesId, propSeriesName]);
+
+  // Tour context resolution
+  useEffect(() => {
+    // If props are provided, use them directly
+    if (propTourId !== undefined) {
+      setResolvedTourId(propTourId);
+      setResolvedTourName(propTourName);
+      return;
+    }
+
+    // If we have tour data from URL params, use it
+    if (tourData) {
+      setResolvedTourId(tourData.id);
+      setResolvedTourName(tourData.name);
+      return;
+    }
+
+    // If we're on a tee time page, get tour context from active rounds
+    if (activeRoundByTeeTime) {
+      setResolvedTourId(activeRoundByTeeTime.tour_id);
+      setResolvedTourName(activeRoundByTeeTime.tour_name);
+      return;
+    }
+
+    setResolvedTourId(undefined);
+    setResolvedTourName(undefined);
+  }, [tourData, tourLoading, propTourId, propTourName, activeRoundByTeeTime]);
 
   const closeMenu = () => setIsOpen(false);
 
@@ -96,7 +155,7 @@ export function HamburgerMenu({
     closeMenu();
   };
 
-  const contextualLinks =
+  const seriesContextualLinks =
     resolvedSeriesId && resolvedSeriesName
       ? [
           {
@@ -113,6 +172,47 @@ export function HamburgerMenu({
           },
         ]
       : [];
+
+  // Tour contextual links
+  const tourContextualLinks = useMemo(() => {
+    if (!resolvedTourId || !resolvedTourName) return [];
+
+    const links: MenuLink[] = [
+      {
+        to: "/player/tours/$tourId",
+        params: { tourId: resolvedTourId.toString() },
+        label: "Tour Home",
+        icon: LayoutDashboard,
+      },
+      {
+        to: "/player/tours/$tourId/standings",
+        params: { tourId: resolvedTourId.toString() },
+        label: "Tour Standings",
+        icon: Trophy,
+      },
+      {
+        to: "/player/tours/$tourId/competitions",
+        params: { tourId: resolvedTourId.toString() },
+        label: "Tour Competitions",
+        icon: Calendar,
+      },
+    ];
+
+    // Add "Current Round" link if there's an active round
+    if (currentTourActiveRound) {
+      links.push({
+        to: "/player/competitions/$competitionId/tee-times/$teeTimeId",
+        params: {
+          competitionId: currentTourActiveRound.competition_id.toString(),
+          teeTimeId: currentTourActiveRound.tee_time_id.toString()
+        },
+        label: currentTourActiveRound.status === "playing" ? "Continue Round" : "View Round",
+        icon: Play,
+      });
+    }
+
+    return links;
+  }, [resolvedTourId, resolvedTourName, currentTourActiveRound]);
 
   const generalLinks = [
     {
@@ -216,11 +316,17 @@ export function HamburgerMenu({
                 </div>
               ) : (
                 <nav className="divide-y divide-gray-200">
-                  {/* Navigation sections first */}
-                  {contextualLinks.length > 0 && (
+                  {/* Contextual navigation sections first */}
+                  {seriesContextualLinks.length > 0 && (
                     <MenuSection
                       title={`Series: ${resolvedSeriesName}`}
-                      links={contextualLinks}
+                      links={seriesContextualLinks}
+                    />
+                  )}
+                  {tourContextualLinks.length > 0 && (
+                    <MenuSection
+                      title={`Tour: ${resolvedTourName}`}
+                      links={tourContextualLinks}
                     />
                   )}
                   <MenuSection title="Navigation" links={generalLinks} />

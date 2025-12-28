@@ -11,6 +11,8 @@ interface PlayerPageLayoutProps {
   className?: string;
   seriesId?: number;
   seriesName?: string;
+  tourId?: number;
+  tourName?: string;
   showHamburgerMenu?: boolean;
   customActions?: React.ReactNode;
 }
@@ -25,6 +27,8 @@ export function PlayerPageLayout({
   className = "",
   seriesId,
   seriesName,
+  tourId,
+  tourName,
   showHamburgerMenu = true,
   customActions,
 }: PlayerPageLayoutProps) {
@@ -37,6 +41,8 @@ export function PlayerPageLayout({
         onBackClick={onBackClick}
         seriesId={seriesId}
         seriesName={seriesName}
+        tourId={tourId}
+        tourName={tourName}
         showHamburgerMenu={showHamburgerMenu}
         customActions={customActions}
       >

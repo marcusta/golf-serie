@@ -374,7 +374,6 @@ export function ScoreEntry({
 
         <div className="divide-y divide-soft-grey">
           {teeTimeGroup.players.map((player, index) => {
-            const isCurrentPlayer = index === currentPlayerIndex;
             const currentScore = player.scores[currentHole - 1] ?? 0;
             const previousScore =
               currentHole > 1 ? player.scores[currentHole - 2] ?? 0 : null;

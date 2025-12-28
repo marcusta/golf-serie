@@ -153,7 +153,7 @@ export default function TourDocumentDetail() {
   }
 
   return (
-    <PlayerPageLayout title={currentDocument.title}>
+    <PlayerPageLayout title={currentDocument.title} tourId={id} tourName={tour.name}>
 
       {/* Sub-header with Document Title and Actions */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm sticky top-16 z-9">
