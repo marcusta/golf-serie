@@ -121,7 +121,7 @@ export default function TourDocuments() {
   }
 
   return (
-    <PlayerPageLayout title="Documents">
+    <PlayerPageLayout title="Documents" tourId={id} tourName={tour.name}>
 
       {/* Sub-header with Page Title and Search */}
       <div className="bg-scorecard border-b border-soft-grey shadow-sm">
