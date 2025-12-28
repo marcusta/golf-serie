@@ -342,8 +342,8 @@ export function ScoreEntry({
       {/* Player Area with Aligned Score Columns */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
         {/* Hole Header - full width bar */}
-        <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey">
-          <div className="flex items-center justify-end pr-2">
+        <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey border-l-4 border-l-transparent">
+          <div className="flex items-center justify-end">
             <div className="flex items-center space-x-4">
               {/* Previous hole (only when on hole 2+) */}
               {currentHole > 1 && (
@@ -372,7 +372,7 @@ export function ScoreEntry({
           </div>
         </div>
 
-        <div className="p-3 space-y-2">
+        <div className="divide-y divide-soft-grey">
           {teeTimeGroup.players.map((player, index) => {
             const isCurrentPlayer = index === currentPlayerIndex;
             const currentScore = player.scores[currentHole - 1] ?? 0;
@@ -390,10 +390,10 @@ export function ScoreEntry({
               <div
                 key={player.participantId}
                 className={cn(
-                  "bg-scorecard rounded-lg p-4 shadow-sm border transition-all duration-200",
+                  "py-4 px-4 transition-colors border-l-4",
                   isCurrentPlayer
-                    ? "border-coral/20 shadow-md ring-2 ring-coral/10"
-                    : "border-soft-grey"
+                    ? "border-l-coral bg-coral/5"
+                    : "border-l-transparent hover:bg-gray-50/50"
                 )}
               >
                 <div className="flex items-center justify-between">
@@ -500,10 +500,10 @@ export function ScoreEntry({
                         onClick={() => handleScoreFieldClick(index)}
                         disabled={isLocked}
                         className={cn(
-                          "w-12 h-12 rounded-full border-2 flex items-center justify-center touch-manipulation transition-colors relative",
+                          "w-12 h-12 rounded-full flex items-center justify-center touch-manipulation transition-colors relative",
                           isLocked
-                            ? "border-soft-grey bg-soft-grey/20 cursor-not-allowed"
-                            : "border-soft-grey bg-rough/10 hover:bg-rough/20"
+                            ? "bg-soft-grey/30 cursor-not-allowed"
+                            : "bg-turf/10 hover:bg-turf/20 active:bg-turf/30"
                         )}
                       >
                         {/* Main score display */}
@@ -532,12 +532,15 @@ export function ScoreEntry({
               </div>
             );
           })}
+        </div>
 
+        {/* Action Buttons */}
+        <div className="px-4 py-6">
           {/* View Full Scorecard Button - Only show if not ready to finalize */}
           {!isReadyToFinalize && (
             <button
               onClick={() => setFullScorecardVisible(true)}
-              className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-lg transition-colors mt-6 flex items-center justify-center space-x-2 font-primary"
+              className="w-full bg-turf hover:bg-fairway text-scorecard font-semibold py-4 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2 font-primary"
             >
               <BarChart3 size={20} />
               <span>View Full Scorecard</span>
@@ -545,21 +548,19 @@ export function ScoreEntry({
           )}
 
           {isReadyToFinalize && !isLocked && (
-            <div className="bg-scorecard border-t border-soft-grey p-4">
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setFullScorecardVisible(true)}
-                  className="flex-1 bg-turf hover:bg-fairway text-scorecard font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 font-primary"
-                >
-                  <span>Review Scorecard</span>
-                </button>
-                <button
-                  onClick={onFinalize}
-                  className="flex-1 bg-coral hover:bg-orange-600 text-scorecard font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 font-primary"
-                >
-                  <span>Complete Round</span>
-                </button>
-              </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setFullScorecardVisible(true)}
+                className="flex-1 bg-turf hover:bg-fairway text-scorecard font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 font-primary"
+              >
+                <span>Review Scorecard</span>
+              </button>
+              <button
+                onClick={onFinalize}
+                className="flex-1 bg-coral hover:bg-orange-600 text-scorecard font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 font-primary"
+              >
+                <span>Complete Round</span>
+              </button>
             </div>
           )}
           {/* Locked State Overlay - Success state with navigation */}
