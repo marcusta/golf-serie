@@ -226,7 +226,7 @@ export interface LeaderboardResponse {
   // Competition info
   competitionId: number;
   scoringMode?: TourScoringMode;
-  // Tee info (when competition has a tee assigned)
+  // Tee info (when competition has a default tee assigned)
   tee?: {
     id: number;
     name: string;
@@ -235,6 +235,15 @@ export interface LeaderboardResponse {
     slopeRating: number;
     strokeIndex?: number[];
   };
+  // Category-specific tee assignments (used when categories have different tees)
+  categoryTees?: {
+    categoryId: number;
+    categoryName: string;
+    teeId: number;
+    teeName: string;
+    courseRating: number;
+    slopeRating: number;
+  }[];
   // Categories for filtering (only for tour competitions)
   categories?: TourCategory[];
 }

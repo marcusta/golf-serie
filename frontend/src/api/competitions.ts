@@ -66,11 +66,21 @@ export interface LeaderboardCategory {
   created_at: string;
 }
 
+export interface CategoryTee {
+  categoryId: number;
+  categoryName: string;
+  teeId: number;
+  teeName: string;
+  courseRating: number;
+  slopeRating: number;
+}
+
 export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
   competitionId: number;
   scoringMode?: TourScoringMode;
   tee?: TeeInfo;
+  categoryTees?: CategoryTee[];
   categories?: LeaderboardCategory[];
 }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
-import type { LeaderboardEntry, TourScoringMode, TeeInfo, LeaderboardCategory } from "../../api/competitions";
+import type { LeaderboardEntry, TourScoringMode, TeeInfo, LeaderboardCategory, CategoryTee } from "../../api/competitions";
 import {
   Select,
   SelectContent,
@@ -19,8 +19,10 @@ interface LeaderboardComponentProps {
   isTourCompetition?: boolean;
   // Scoring mode from tour
   scoringMode?: TourScoringMode;
-  // Tee info for display
+  // Tee info for display (default/single tee)
   teeInfo?: TeeInfo;
+  // Category-specific tee assignments (when categories use different tees)
+  categoryTees?: CategoryTee[];
   // Categories for filtering (only for tour competitions)
   categories?: LeaderboardCategory[];
 }
@@ -33,6 +35,7 @@ export function LeaderboardComponent({
   isTourCompetition = false,
   scoringMode,
   teeInfo,
+  categoryTees,
   categories,
 }: LeaderboardComponentProps) {
   // Filter state
@@ -188,8 +191,17 @@ export function LeaderboardComponent({
           <h2 className="text-lg md:text-xl font-semibold text-fairway font-display">
             Leaderboard
           </h2>
-          {/* Show tee info if available */}
-          {teeInfo && (
+          {/* Show tee info - prefer category tees over default tee */}
+          {categoryTees && categoryTees.length > 0 ? (
+            <div className="text-xs text-turf font-primary mt-1 space-y-0.5">
+              {categoryTees.map((ct) => (
+                <div key={ct.categoryId}>
+                  <span className="font-medium">{ct.categoryName}:</span>{" "}
+                  {ct.teeName} (CR: {ct.courseRating.toFixed(1)}, SR: {ct.slopeRating})
+                </div>
+              ))}
+            </div>
+          ) : teeInfo ? (
             <div className="text-xs text-turf font-primary mt-1">
               <span
                 className="inline-block w-3 h-3 rounded-full mr-1.5 align-middle"
@@ -197,7 +209,7 @@ export function LeaderboardComponent({
               />
               {teeInfo.name} Tees (CR: {teeInfo.courseRating.toFixed(1)}, SR: {teeInfo.slopeRating})
             </div>
-          )}
+          ) : null}
         </div>
         <div className="text-xs md:text-sm text-turf font-primary">
           Live scoring

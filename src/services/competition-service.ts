@@ -460,6 +460,88 @@ export class CompetitionService {
       categories = categoriesStmt.all(competition.tour_id, competitionId) as typeof categories;
     }
 
+    // Get category tee assignments with full tee details for handicap calculations
+    interface CategoryTeeRating {
+      categoryId: number;
+      teeId: number;
+      teeName: string;
+      courseRating: number;
+      slopeRating: number;
+      strokeIndex: number[];
+    }
+    const categoryTeeRatings = new Map<number, CategoryTeeRating>();
+
+    if (competition.tour_id && scoringMode && scoringMode !== "gross") {
+      const categoryTeesStmt = this.db.prepare(`
+        SELECT
+          cct.category_id,
+          cct.tee_id,
+          ct.name as tee_name,
+          ct.stroke_index,
+          ct.course_rating as legacy_course_rating,
+          ct.slope_rating as legacy_slope_rating,
+          (SELECT json_group_array(json_object('gender', ctr.gender, 'course_rating', ctr.course_rating, 'slope_rating', ctr.slope_rating))
+           FROM course_tee_ratings ctr WHERE ctr.tee_id = ct.id) as ratings_json
+        FROM competition_category_tees cct
+        JOIN course_tees ct ON cct.tee_id = ct.id
+        WHERE cct.competition_id = ?
+      `);
+      const categoryTees = categoryTeesStmt.all(competitionId) as {
+        category_id: number;
+        tee_id: number;
+        tee_name: string;
+        stroke_index: string | null;
+        legacy_course_rating: number | null;
+        legacy_slope_rating: number | null;
+        ratings_json: string | null;
+      }[];
+
+      for (const ct of categoryTees) {
+        // Parse stroke index
+        let catStrokeIndex = getDefaultStrokeIndex();
+        if (ct.stroke_index) {
+          try {
+            catStrokeIndex = typeof ct.stroke_index === "string"
+              ? JSON.parse(ct.stroke_index)
+              : ct.stroke_index;
+          } catch {
+            catStrokeIndex = getDefaultStrokeIndex();
+          }
+        }
+
+        // Get course rating and slope - prefer gender-specific ratings
+        let catCourseRating = ct.legacy_course_rating || 72;
+        let catSlopeRating = ct.legacy_slope_rating || 113;
+
+        if (ct.ratings_json) {
+          try {
+            const ratings = JSON.parse(ct.ratings_json);
+            // Use men's rating as default (TODO: match player gender to category gender)
+            const menRating = ratings.find((r: { gender: string }) => r.gender === "men");
+            if (menRating) {
+              catCourseRating = menRating.course_rating;
+              catSlopeRating = menRating.slope_rating;
+            } else if (ratings.length > 0) {
+              // Fall back to first available rating
+              catCourseRating = ratings[0].course_rating;
+              catSlopeRating = ratings[0].slope_rating;
+            }
+          } catch {
+            // Use legacy values
+          }
+        }
+
+        categoryTeeRatings.set(ct.category_id, {
+          categoryId: ct.category_id,
+          teeId: ct.tee_id,
+          teeName: ct.tee_name,
+          courseRating: catCourseRating,
+          slopeRating: catSlopeRating,
+          strokeIndex: catStrokeIndex,
+        });
+      }
+    }
+
     // Parse course pars
     const coursePars = JSON.parse(competition.pars);
     if (!coursePars || coursePars.length === 0) {
@@ -484,12 +566,24 @@ export class CompetitionService {
         : undefined;
 
       // Calculate course handicap and stroke distribution
+      // Use category-specific tee ratings if available, otherwise fall back to default/competition tee
       let courseHandicap: number | undefined;
       let handicapStrokesPerHole: number[] | undefined;
+      let playerCourseRating = courseRating;
+      let playerSlopeRating = slopeRating;
+      let playerStrokeIndex = strokeIndex;
 
       if (handicapIndex !== undefined && scoringMode && scoringMode !== "gross") {
-        courseHandicap = calculateCourseHandicap(handicapIndex, slopeRating, courseRating, totalPar);
-        handicapStrokesPerHole = distributeHandicapStrokes(courseHandicap, strokeIndex);
+        // Check if participant has a category with a specific tee assignment
+        if (participant.category_id && categoryTeeRatings.has(participant.category_id)) {
+          const catTee = categoryTeeRatings.get(participant.category_id)!;
+          playerCourseRating = catTee.courseRating;
+          playerSlopeRating = catTee.slopeRating;
+          playerStrokeIndex = catTee.strokeIndex;
+        }
+
+        courseHandicap = calculateCourseHandicap(handicapIndex, playerSlopeRating, playerCourseRating, totalPar);
+        handicapStrokesPerHole = distributeHandicapStrokes(courseHandicap, playerStrokeIndex);
       }
 
       // Check if participant has manual scores
@@ -590,11 +684,35 @@ export class CompetitionService {
     // Sort by relative to par (ascending)
     const sortedLeaderboard = leaderboard.sort((a, b) => a.relativeToPar - b.relativeToPar);
 
+    // Build categoryTees for the response if category-based tee assignments are used
+    let categoryTeesResponse: LeaderboardResponse["categoryTees"] = undefined;
+    if (categoryTeeRatings.size > 0 && categories.length > 0) {
+      categoryTeesResponse = [];
+      for (const cat of categories) {
+        const catTee = categoryTeeRatings.get(cat.id);
+        if (catTee) {
+          categoryTeesResponse.push({
+            categoryId: cat.id,
+            categoryName: cat.name,
+            teeId: catTee.teeId,
+            teeName: catTee.teeName,
+            courseRating: catTee.courseRating,
+            slopeRating: catTee.slopeRating,
+          });
+        }
+      }
+      // Only include if we actually have assignments
+      if (categoryTeesResponse.length === 0) {
+        categoryTeesResponse = undefined;
+      }
+    }
+
     return {
       entries: sortedLeaderboard,
       competitionId,
       scoringMode,
       tee: teeInfo,
+      categoryTees: categoryTeesResponse,
       categories: categories.length > 0 ? categories : undefined,
     };
   }

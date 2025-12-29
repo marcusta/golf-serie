@@ -416,6 +416,7 @@ export default function CompetitionRound() {
             isTourCompetition={!!competition?.tour_id}
             scoringMode={leaderboardWithDetails?.scoringMode}
             teeInfo={leaderboardWithDetails?.tee}
+            categoryTees={leaderboardWithDetails?.categoryTees}
             categories={leaderboardWithDetails?.categories}
           />
         );
