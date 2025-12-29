@@ -269,7 +269,7 @@ export function ScoreEntry({
       const lastName = parts[1];
 
       // If total length is reasonable, keep both
-      if (name.length <= 22) {
+      if (name.length <= 23) {
         return name;
       }
 
@@ -288,7 +288,7 @@ export function ScoreEntry({
     }
 
     // Single name - truncate if too long
-    return name.length > 22 ? `${name.substring(0, 21)}...` : name;
+    return name.length > 23 ? `${name.substring(0, 22)}...` : name;
   };
 
   // Close keyboard when clicking outside
