@@ -10,6 +10,7 @@ import TeeTimeAssignmentPanel, { type AssignableItem } from "./TeeTimeAssignment
 
 interface TourPlayerAssignmentProps {
   selectedEnrollments: TourEnrollment[];
+  allEnrollments?: TourEnrollment[]; // For handicap lookup of already-assigned players
   teeTimes: TeeTime[];
   defaultTeamId: number;
   onAssignmentsChange?: () => void;
@@ -275,10 +276,13 @@ function AvailablePlayersPanel({
 // Main Component
 export default function TourPlayerAssignment({
   selectedEnrollments,
+  allEnrollments,
   teeTimes,
   defaultTeamId,
   onAssignmentsChange,
 }: TourPlayerAssignmentProps) {
+  // Use allEnrollments for handicap lookup if provided, otherwise fall back to selectedEnrollments
+  const enrollmentsForLookup = allEnrollments || selectedEnrollments;
   const [players, setPlayers] = useState<GeneratedPlayer[]>([]);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedTeeTime, setSelectedTeeTime] = useState<TeeTime | null>(null);
@@ -296,7 +300,8 @@ export default function TourPlayerAssignment({
     teeTimes.forEach((teeTime) => {
       teeTime.participants.forEach((participant: TeeTimeParticipant) => {
         if (participant.player_id) {
-          const enrollment = selectedEnrollments.find(
+          // Look up enrollment from all enrollments for handicap data
+          const enrollment = enrollmentsForLookup.find(
             (e) => e.player_id === participant.player_id
           );
           newPlayers.push({
@@ -331,20 +336,24 @@ export default function TourPlayerAssignment({
     });
 
     setPlayers(newPlayers);
-  }, [selectedEnrollments, teeTimes]);
+  }, [selectedEnrollments, enrollmentsForLookup, teeTimes]);
 
   const availablePlayers = players.filter((p) => !p.assignedToTeeTimeId);
 
   // Get participant display info for the shared panel
   const getParticipantDisplay = useCallback(
     (participant: TeeTimeParticipant) => {
+      // First try to find in players array, then fall back to enrollment lookup
       const playerData = players.find((p) => p.playerId === participant.player_id);
+      const enrollment = !playerData?.handicap && participant.player_id
+        ? enrollmentsForLookup.find((e) => e.player_id === participant.player_id)
+        : null;
       return {
         displayName: participant.player_names || participant.position_name,
-        handicap: playerData?.handicap,
+        handicap: playerData?.handicap ?? enrollment?.handicap,
       };
     },
-    [players]
+    [players, enrollmentsForLookup]
   );
 
   // Handle drop from left panel

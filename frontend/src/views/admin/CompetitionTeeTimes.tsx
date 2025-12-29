@@ -664,21 +664,26 @@ export default function AdminCompetitionTeeTimes() {
               Quick Sequential Creation
             </h4>
             <p className="text-sm text-gray-600 mb-4">
-              Add tee times sequentially based on the latest existing tee time (or first tee time if none exist).
+              {teeTimes && teeTimes.length > 0
+                ? `Add tee times sequentially. Next time will be ${timeBetweenTeeTimes} minutes after ${teeTimes[teeTimes.length - 1].teetime}.`
+                : "Set the first tee time and interval to start creating tee times."}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  First Tee Time (if no existing tee times)
-                </label>
-                <input
-                  type="time"
-                  value={firstTeeTime}
-                  onChange={(e) => setFirstTeeTime(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              {/* Only show first tee time input when there are no existing tee times */}
+              {(!teeTimes || teeTimes.length === 0) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    First Tee Time
+                  </label>
+                  <input
+                    type="time"
+                    value={firstTeeTime}
+                    onChange={(e) => setFirstTeeTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -701,7 +706,7 @@ export default function AdminCompetitionTeeTimes() {
               <button
                 onClick={() => handleCreateNextTeeTime(1)}
                 disabled={
-                  !firstTeeTime ||
+                  ((!teeTimes || teeTimes.length === 0) && !firstTeeTime) ||
                   isCreating ||
                   createTeeTimeMutation.isPending
                 }
@@ -712,7 +717,7 @@ export default function AdminCompetitionTeeTimes() {
               <button
                 onClick={() => handleCreateNextTeeTime(10)}
                 disabled={
-                  !firstTeeTime ||
+                  ((!teeTimes || teeTimes.length === 0) && !firstTeeTime) ||
                   isCreating ||
                   createTeeTimeMutation.isPending
                 }
@@ -906,17 +911,29 @@ export default function AdminCompetitionTeeTimes() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {teeTime.participants.map((participant) => (
+                  {teeTime.participants.map((participant) => {
+                    // Look up handicap from enrollments for tour competitions
+                    const enrollment = competition?.tour_id && participant.player_id
+                      ? tourEnrollments?.find((e) => e.player_id === participant.player_id)
+                      : null;
+                    return (
                     <div
                       key={participant.id}
                       className="p-3 bg-white rounded-lg border border-gray-200"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <div className="font-medium text-gray-900">
-                          {competition?.tour_id
-                            ? participant.player_names || participant.position_name
-                            : `${participant.team_name} ${participant.position_name}`
-                          }
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">
+                            {competition?.tour_id
+                              ? participant.player_names || participant.position_name
+                              : `${participant.team_name} ${participant.position_name}`
+                            }
+                          </span>
+                          {enrollment?.handicap !== undefined && (
+                            <span className="text-xs text-gray-500 font-mono">
+                              HCP {enrollment.handicap.toFixed(1)}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {participant.is_locked ? (
@@ -965,7 +982,8 @@ export default function AdminCompetitionTeeTimes() {
                         </div>
                       )}
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               </div>
             ))}
@@ -1003,6 +1021,7 @@ export default function AdminCompetitionTeeTimes() {
             selectedEnrollments={
               tourEnrollments?.filter((e) => selectedEnrollments.includes(e.id)) || []
             }
+            allEnrollments={tourEnrollments || []}
             teeTimes={teeTimes}
             defaultTeamId={teams[0].id}
             onAssignmentsChange={() => {
