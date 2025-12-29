@@ -187,7 +187,8 @@ export class TourEnrollmentService {
       SELECT
         te.*,
         p.name as player_name,
-        tc.name as category_name
+        tc.name as category_name,
+        COALESCE(te.playing_handicap, p.handicap) as handicap
       FROM tour_enrollments te
       LEFT JOIN players p ON te.player_id = p.id
       LEFT JOIN tour_categories tc ON te.category_id = tc.id

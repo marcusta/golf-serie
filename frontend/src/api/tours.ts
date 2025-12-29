@@ -75,6 +75,7 @@ export interface TourEnrollment {
   player_name?: string;
   category_id?: number;
   category_name?: string;
+  handicap?: number;
   created_at: string;
   updated_at: string;
 }

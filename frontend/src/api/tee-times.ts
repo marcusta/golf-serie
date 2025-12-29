@@ -124,6 +124,8 @@ interface CreateParticipantParams {
   position_name: string;
   team_id: number;
   tee_time_id: number;
+  player_names?: string;
+  player_id?: number;
 }
 
 export function useCreateTeeTime() {

@@ -3,11 +3,14 @@ import { useParams } from "@tanstack/react-router";
 import { useCompetition } from "../../api/competitions";
 import { useTeams } from "../../api/teams";
 import { useSeriesTeams } from "../../api/series";
+import { useTourEnrollments, type TourEnrollment } from "../../api/tours";
 import {
   useTeeTimesForCompetition,
   useCreateTeeTime,
   useDeleteTeeTime,
   useUpdateTeeTime,
+  useCreateParticipant,
+  useDeleteParticipant,
 } from "../../api/tee-times";
 import {
   useLockParticipant,
@@ -23,6 +26,7 @@ import {
   Unlock,
 } from "lucide-react";
 import ParticipantAssignment from "../../components/ParticipantAssignment";
+import TourPlayerAssignment from "../../components/TourPlayerAssignment";
 
 interface ParticipantType {
   id: string;
@@ -38,6 +42,12 @@ export default function AdminCompetitionTeeTimes() {
   const { data: seriesTeams } = useSeriesTeams(competition?.series_id || 0);
   const { data: teeTimes, refetch: refetchTeeTimes } =
     useTeeTimesForCompetition(competitionId ? parseInt(competitionId) : 0);
+
+  // Fetch tour enrollments for tour competitions (only approved/active players)
+  const { data: tourEnrollments } = useTourEnrollments(
+    competition?.tour_id || 0,
+    "active"
+  );
 
   // Use series teams if competition belongs to a series, otherwise use all teams
   // This ensures that when administering a competition that belongs to a series,
@@ -65,9 +75,14 @@ export default function AdminCompetitionTeeTimes() {
   const [newWaveTime, setNewWaveTime] = useState("");
   const [newWaveNumberOfBays, setNewWaveNumberOfBays] = useState(1);
 
+  // Tour player assignment state - selected enrollments to include in start list
+  const [selectedEnrollments, setSelectedEnrollments] = useState<number[]>([]);
+
   const createTeeTimeMutation = useCreateTeeTime();
   const deleteTeeTimeMutation = useDeleteTeeTime();
   const updateTeeTimeMutation = useUpdateTeeTime();
+  const createParticipantMutation = useCreateParticipant();
+  const deleteParticipantMutation = useDeleteParticipant();
   const lockParticipantMutation = useLockParticipant();
   const unlockParticipantMutation = useUnlockParticipant();
 
@@ -260,6 +275,40 @@ export default function AdminCompetitionTeeTimes() {
     }
   };
 
+  // Tour enrollment selection handler
+  const handleEnrollmentSelection = (enrollmentId: number) => {
+    setSelectedEnrollments((prev) =>
+      prev.includes(enrollmentId)
+        ? prev.filter((id) => id !== enrollmentId)
+        : [...prev, enrollmentId]
+    );
+  };
+
+  // Select all / deselect all enrollments
+  const handleSelectAllEnrollments = () => {
+    if (!tourEnrollments) return;
+    const unassignedIds = tourEnrollments
+      .filter((e) => !teeTimes?.some((tt) => tt.participants.some((p) => p.player_id === e.player_id)))
+      .map((e) => e.id);
+
+    if (selectedEnrollments.length === unassignedIds.length) {
+      setSelectedEnrollments([]);
+    } else {
+      setSelectedEnrollments(unassignedIds);
+    }
+  };
+
+  // Get selected enrollments that are not yet assigned to tee times
+  const getSelectedUnassignedEnrollments = () => {
+    if (!tourEnrollments) return [];
+    const assignedPlayerIds = new Set(
+      teeTimes?.flatMap((tt) => tt.participants.map((p) => p.player_id)).filter(Boolean) || []
+    );
+    return tourEnrollments.filter(
+      (e) => selectedEnrollments.includes(e.id) && !assignedPlayerIds.has(e.player_id)
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -273,8 +322,8 @@ export default function AdminCompetitionTeeTimes() {
         </div>
       </div>
 
-      {/* Auto-prefill notification */}
-      {hasAnalyzedExistingData && teeTimes && teeTimes.length > 0 && (
+      {/* Auto-prefill notification - Only for Series competitions */}
+      {competition?.series_id && hasAnalyzedExistingData && teeTimes && teeTimes.length > 0 && (
         <div className="bg-green-50 rounded-lg border border-green-200 p-4">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-green-600" />
@@ -288,98 +337,219 @@ export default function AdminCompetitionTeeTimes() {
         </div>
       )}
 
-      {/* Participant Types Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Participant Types
-            {hasAnalyzedExistingData && participantTypes.length > 0 && (
-              <span className="ml-2 text-sm font-normal text-green-600">
-                (auto-detected from existing)
-              </span>
-            )}
-          </h3>
-          <button
-            onClick={handleAddParticipantType}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Add Type
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {participantTypes.map((type) => (
-            <div
-              key={type.id}
-              className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
-            >
-              <input
-                type="text"
-                value={type.name}
-                onChange={(e) =>
-                  handleParticipantTypeChange(type.id, e.target.value)
-                }
-                placeholder="Enter participant type (e.g., Single 1)"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+      {/* Participant Types & Team Selection - Only for Series competitions */}
+      {competition?.series_id && (
+        <>
+          {/* Participant Types Section */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Participant Types
+                {hasAnalyzedExistingData && participantTypes.length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-green-600">
+                    (auto-detected from existing)
+                  </span>
+                )}
+              </h3>
               <button
-                onClick={() => handleRemoveParticipantType(type.id)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                onClick={handleAddParticipantType}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                <Trash2 className="h-4 w-4" />
+                <Plus className="h-4 w-4" />
+                Add Type
               </button>
             </div>
-          ))}
 
-          {participantTypes.length === 0 && (
-            <div className="text-center py-4 text-gray-500">
-              No participant types added yet. Add at least one type to continue.
+            <div className="space-y-3">
+              {participantTypes.map((type) => (
+                <div
+                  key={type.id}
+                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                >
+                  <input
+                    type="text"
+                    value={type.name}
+                    onChange={(e) =>
+                      handleParticipantTypeChange(type.id, e.target.value)
+                    }
+                    placeholder="Enter participant type (e.g., Single 1)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={() => handleRemoveParticipantType(type.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+
+              {participantTypes.length === 0 && (
+                <div className="text-center py-4 text-gray-500">
+                  No participant types added yet. Add at least one type to continue.
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Team Selection Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Select Participating Teams
-          {competition?.series_id && (
-            <span className="ml-2 text-sm font-normal text-blue-600">
-              (from series)
-            </span>
-          )}
-          {hasAnalyzedExistingData && selectedTeams.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-green-600">
-              (auto-selected from existing)
-            </span>
-          )}
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {teams?.map((team) => (
-            <div
-              key={team.id}
-              className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                selectedTeams.includes(team.id)
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-blue-300"
-              }`}
-              onClick={() => handleTeamSelection(team.id)}
-            >
-              <div className="font-medium text-gray-900">{team.name}</div>
-            </div>
-          ))}
-        </div>
-
-        {teams?.length === 0 && (
-          <div className="text-center py-4 text-gray-500">
-            {competition?.series_id
-              ? "No teams available in this series. Please add teams to the series first."
-              : "No teams available. Please add teams first."}
           </div>
-        )}
-      </div>
+
+          {/* Team Selection Section */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Select Participating Teams
+              <span className="ml-2 text-sm font-normal text-blue-600">
+                (from series)
+              </span>
+              {hasAnalyzedExistingData && selectedTeams.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-green-600">
+                  (auto-selected from existing)
+                </span>
+              )}
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {teams?.map((team) => (
+                <div
+                  key={team.id}
+                  className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    selectedTeams.includes(team.id)
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-blue-300"
+                  }`}
+                  onClick={() => handleTeamSelection(team.id)}
+                >
+                  <div className="font-medium text-gray-900">{team.name}</div>
+                </div>
+              ))}
+            </div>
+
+            {teams?.length === 0 && (
+              <div className="text-center py-4 text-gray-500">
+                No teams available in this series. Please add teams to the series first.
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Tour Enrollments Section - Only for Tour competitions */}
+      {competition?.tour_id && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Select Players for Start List
+                <span className="ml-2 text-sm font-normal text-blue-600">
+                  ({tourEnrollments?.length || 0} enrolled)
+                </span>
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Select which enrolled players should participate in this competition.
+              </p>
+            </div>
+            {tourEnrollments && tourEnrollments.length > 0 && (
+              <button
+                onClick={handleSelectAllEnrollments}
+                className="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                {selectedEnrollments.length === tourEnrollments.filter((e) =>
+                  !teeTimes?.some((tt) => tt.participants.some((p) => p.player_id === e.player_id))
+                ).length
+                  ? "Deselect All"
+                  : "Select All"}
+              </button>
+            )}
+          </div>
+
+          {tourEnrollments && tourEnrollments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {tourEnrollments.map((enrollment) => {
+                // Check if this player is already assigned to a tee time
+                const isAssigned = teeTimes?.some((tt) =>
+                  tt.participants.some((p) => p.player_id === enrollment.player_id)
+                );
+                const isSelected = selectedEnrollments.includes(enrollment.id);
+
+                return (
+                  <div
+                    key={enrollment.id}
+                    onClick={() => !isAssigned && handleEnrollmentSelection(enrollment.id)}
+                    className={`p-3 rounded-lg border-2 transition-colors ${
+                      isAssigned
+                        ? "border-green-300 bg-green-50 cursor-not-allowed"
+                        : isSelected
+                        ? "border-blue-500 bg-blue-50 cursor-pointer"
+                        : "border-gray-200 hover:border-blue-300 cursor-pointer"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {!isAssigned && (
+                        <div
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                            isSelected
+                              ? "border-blue-500 bg-blue-500"
+                              : "border-gray-300"
+                          }`}
+                        >
+                          {isSelected && (
+                            <svg
+                              className="w-3 h-3 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900 truncate">
+                            {enrollment.player_name || enrollment.email}
+                          </span>
+                          {enrollment.handicap !== undefined && (
+                            <span className="text-xs text-gray-500 font-mono flex-shrink-0">
+                              HCP {enrollment.handicap.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                        {enrollment.category_name && (
+                          <div className="text-sm text-gray-500">
+                            {enrollment.category_name}
+                          </div>
+                        )}
+                        {isAssigned && (
+                          <div className="text-xs text-green-600 mt-1">
+                            Already assigned
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500">
+              No active enrollments found. Players need to be enrolled in the tour first.
+            </div>
+          )}
+
+          {selectedEnrollments.length > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-800">
+                <strong>{selectedEnrollments.length}</strong> player(s) selected for start list.
+                Create tee times below, then assign players using the assignment panel.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Wave & Bay Management Section (Indoor) OR Tee Time Creation Section (Outdoor) */}
       {competition?.venue_type === "indoor" ? (
@@ -743,7 +913,10 @@ export default function AdminCompetitionTeeTimes() {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-medium text-gray-900">
-                          {participant.team_name} {participant.position_name}
+                          {competition?.tour_id
+                            ? participant.player_names || participant.position_name
+                            : `${participant.team_name} ${participant.position_name}`
+                          }
                         </div>
                         <div className="flex items-center gap-2">
                           {participant.is_locked ? (
@@ -780,7 +953,7 @@ export default function AdminCompetitionTeeTimes() {
                           </button>
                         </div>
                       </div>
-                      {participant.player_names && (
+                      {!competition?.tour_id && participant.player_names && (
                         <div className="text-sm text-gray-500">
                           {participant.player_names}
                         </div>
@@ -800,8 +973,9 @@ export default function AdminCompetitionTeeTimes() {
         </div>
       )}
 
-      {/* Participant Assignment Section */}
-      {selectedTeams.length > 0 &&
+      {/* Participant Assignment Section - Series competitions */}
+      {competition?.series_id &&
+        selectedTeams.length > 0 &&
         participantTypes.length > 0 &&
         teeTimes &&
         teeTimes.length > 0 && (
@@ -811,9 +985,27 @@ export default function AdminCompetitionTeeTimes() {
             }
             participantTypes={participantTypes}
             teeTimes={teeTimes}
-            onAssignmentsChange={(assignments) => {
-              console.log("Assignments changed:", assignments);
+            onAssignmentsChange={() => {
               // Refresh tee times to show updated assignments
+              refetchTeeTimes();
+            }}
+          />
+        )}
+
+      {/* Tour Player Assignment Section - Tour competitions */}
+      {competition?.tour_id &&
+        selectedEnrollments.length > 0 &&
+        teeTimes &&
+        teeTimes.length > 0 &&
+        teams &&
+        teams.length > 0 && (
+          <TourPlayerAssignment
+            selectedEnrollments={
+              tourEnrollments?.filter((e) => selectedEnrollments.includes(e.id)) || []
+            }
+            teeTimes={teeTimes}
+            defaultTeamId={teams[0].id}
+            onAssignmentsChange={() => {
               refetchTeeTimes();
             }}
           />

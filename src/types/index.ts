@@ -191,6 +191,7 @@ export interface CreateParticipantDto {
   tee_time_id: number;
   position_name: string;
   player_names?: string;
+  player_id?: number;
 }
 
 export interface UpdateParticipantDto {

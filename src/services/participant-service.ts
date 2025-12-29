@@ -34,8 +34,8 @@ export class ParticipantService {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO participants (tee_order, team_id, tee_time_id, position_name, player_names, score)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO participants (tee_order, team_id, tee_time_id, position_name, player_names, player_id, score)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
 
@@ -45,6 +45,7 @@ export class ParticipantService {
       data.tee_time_id,
       data.position_name,
       data.player_names || null,
+      data.player_id || null,
       JSON.stringify([])
     ) as Participant;
 
