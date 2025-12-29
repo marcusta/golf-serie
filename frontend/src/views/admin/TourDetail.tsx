@@ -27,12 +27,18 @@ import {
   type TourDocument,
   type TourScoringMode,
   type TourCategory,
+  type TourCompetition,
 } from "../../api/tours";
+import { usePointTemplates } from "../../api/point-templates";
+import { useDeleteCompetition, useCompetition } from "../../api/competitions";
+import {
+  TourCompetitionList,
+  TourCompetitionModal,
+} from "../../components/admin/tour";
 import {
   Loader2,
   ArrowLeft,
   Plus,
-  Calendar,
   Users,
   Shield,
   Trophy,
@@ -53,6 +59,8 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type TabType = "competitions" | "enrollments" | "categories" | "admins" | "documents" | "settings";
 
@@ -83,14 +91,22 @@ export default function TourDetail() {
   const [categoryDescription, setCategoryDescription] = useState("");
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
+  // Competition state
+  const [showCompetitionModal, setShowCompetitionModal] = useState(false);
+  const [editingCompetitionId, setEditingCompetitionId] = useState<number | null>(null);
+
   // Settings state
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [scoringMode, setScoringMode] = useState<TourScoringMode>("gross");
+  const [pointTemplateId, setPointTemplateId] = useState<number | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
   const { data: tour, isLoading: tourLoading } = useTour(tourId);
-  const { data: competitions, isLoading: competitionsLoading } = useTourCompetitions(tourId);
+  const { data: competitions } = useTourCompetitions(tourId);
+  const { data: editingCompetition } = useCompetition(editingCompetitionId || 0);
+  const { data: pointTemplates } = usePointTemplates();
+  const deleteCompetitionMutation = useDeleteCompetition();
   const { data: enrollments, isLoading: enrollmentsLoading } = useTourEnrollments(
     tourId,
     statusFilter === "all" ? undefined : statusFilter
@@ -273,6 +289,7 @@ export default function TourDetail() {
         data: {
           banner_image_url: bannerImageUrl || null,
           scoring_mode: scoringMode,
+          point_template_id: pointTemplateId,
         },
       });
       setSettingsSaved(true);
@@ -377,12 +394,36 @@ export default function TourDetail() {
     }
   };
 
+  // Competition handlers
+  const handleEditCompetition = (competition: TourCompetition) => {
+    setEditingCompetitionId(competition.id);
+    setShowCompetitionModal(true);
+  };
+
+  const handleDeleteCompetition = async (competition: TourCompetition) => {
+    if (confirm(`Are you sure you want to delete "${competition.name}"?`)) {
+      try {
+        await deleteCompetitionMutation.mutateAsync(competition.id);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed to delete competition");
+      }
+    }
+  };
+
+  const handleAddCompetition = () => {
+    setEditingCompetitionId(null);
+    setShowCompetitionModal(true);
+  };
+
   // Initialize settings state when tour loads
   if (tour && bannerImageUrl === "" && tour.banner_image_url) {
     setBannerImageUrl(tour.banner_image_url);
   }
   if (tour && scoringMode !== tour.scoring_mode && tour.scoring_mode) {
     setScoringMode(tour.scoring_mode);
+  }
+  if (tour && pointTemplateId === null && tour.point_template_id) {
+    setPointTemplateId(tour.point_template_id);
   }
 
   const getStatusBadge = (status: TourEnrollmentStatus) => {
@@ -574,11 +615,16 @@ export default function TourDetail() {
       {activeTab === "competitions" && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-charcoal">Competitions</h2>
+            <div>
+              <h2 className="text-xl font-semibold text-charcoal">Competitions</h2>
+              {competitions && competitions.length > 0 && (
+                <p className="text-sm text-charcoal/60 mt-1">
+                  {competitions.length} competition{competitions.length !== 1 ? "s" : ""}
+                </p>
+              )}
+            </div>
             <button
-              onClick={() => {
-                navigate({ to: `/admin/competitions`, search: { tour: tourId.toString() } });
-              }}
+              onClick={handleAddCompetition}
               className="flex items-center gap-2 px-4 py-2 bg-fairway text-white rounded-lg hover:bg-turf transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -586,36 +632,11 @@ export default function TourDetail() {
             </button>
           </div>
 
-          {competitionsLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-fairway" />
-            </div>
-          ) : competitions && competitions.length > 0 ? (
-            <div className="space-y-3">
-              {competitions.map((competition) => (
-                <div
-                  key={competition.id}
-                  className="border border-soft-grey rounded-lg p-4 hover:bg-light-rough/30 transition-colors cursor-pointer"
-                  onClick={() => navigate({ to: `/admin/competitions/${competition.id}/tee-times` })}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-charcoal">{competition.name}</h3>
-                      <div className="flex items-center gap-2 text-sm text-charcoal/60 mt-1">
-                        <Calendar className="w-4 h-4" />
-                        {competition.date}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-charcoal/60">
-              <p>No competitions yet.</p>
-              <p className="text-sm mt-2">Click "Add Competition" to create one.</p>
-            </div>
-          )}
+          <TourCompetitionList
+            tourId={tourId}
+            onEdit={handleEditCompetition}
+            onDelete={handleDeleteCompetition}
+          />
         </div>
       )}
 
@@ -1036,10 +1057,11 @@ export default function TourDetail() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-charcoal/60 mt-1 line-clamp-2">
-                          {doc.content.substring(0, 150)}
-                          {doc.content.length > 150 && "..."}
-                        </p>
+                        <div className="prose prose-sm prose-gray max-w-none mt-3">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {doc.content}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
                         <button
@@ -1135,6 +1157,51 @@ export default function TourDetail() {
                 {scoringMode === "net" && "Standings based on handicap-adjusted net scores."}
                 {scoringMode === "both" && "Display both gross and net scores in standings."}
               </p>
+            </div>
+
+            {/* Point Template */}
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4" />
+                  Point Template
+                </div>
+              </label>
+              <select
+                value={pointTemplateId || ""}
+                onChange={(e) => setPointTemplateId(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full max-w-md px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors bg-white"
+              >
+                <option value="">No point template (no standings points)</option>
+                {pointTemplates?.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-sm text-charcoal/50 mt-1">
+                Point template defines how standings points are awarded based on finishing position.
+              </p>
+              {pointTemplateId && pointTemplates && (
+                <div className="mt-2 p-3 bg-rough/20 rounded-lg">
+                  <p className="text-xs text-charcoal/70 font-medium mb-1">Points Structure:</p>
+                  <p className="text-sm text-charcoal">
+                    {(() => {
+                      const template = pointTemplates.find(t => t.id === pointTemplateId);
+                      if (!template) return "N/A";
+                      try {
+                        const structure = JSON.parse(template.points_structure);
+                        return Object.entries(structure)
+                          .slice(0, 5)
+                          .map(([pos, pts]) => `${pos}: ${pts}pts`)
+                          .join(", ") + (Object.keys(structure).length > 5 ? "..." : "");
+                      } catch {
+                        return "Invalid structure";
+                      }
+                    })()}
+                  </p>
+                </div>
+              )}
             </div>
 
             {settingsError && (
@@ -1295,6 +1362,19 @@ export default function TourDetail() {
           </div>
         </div>
       )}
+
+      {/* Competition Modal */}
+      <TourCompetitionModal
+        tourId={tourId}
+        open={showCompetitionModal}
+        onOpenChange={(open) => {
+          setShowCompetitionModal(open);
+          if (!open) {
+            setEditingCompetitionId(null);
+          }
+        }}
+        competition={editingCompetition}
+      />
     </div>
   );
 }

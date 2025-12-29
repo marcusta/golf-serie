@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createAuthApi } from "./api/auth";
+import { createCompetitionCategoryTeesApi } from "./api/competition-category-tees";
 import { createCompetitionsApi } from "./api/competitions";
 import { createCoursesApi } from "./api/courses";
 import { createDocumentsApi } from "./api/documents";
@@ -14,6 +15,7 @@ import { createTeeTimesApi } from "./api/tee-times";
 import { createToursApi } from "./api/tours";
 import { createAuthMiddleware } from "./middleware/auth";
 import { createAuthService } from "./services/auth.service";
+import { CompetitionCategoryTeeService } from "./services/competition-category-tee.service";
 import { CompetitionService } from "./services/competition-service";
 import { CourseService } from "./services/course-service";
 import { CourseTeeService } from "./services/course-tee.service";
@@ -38,6 +40,7 @@ export function createApp(db: Database): Hono {
   const courseTeeService = new CourseTeeService(db);
   const teamService = new TeamService(db);
   const competitionService = new CompetitionService(db);
+  const competitionCategoryTeeService = new CompetitionCategoryTeeService(db);
   const teeTimeService = new TeeTimeService(db);
   const participantService = new ParticipantService(db);
   const seriesService = new SeriesService(db, competitionService);
@@ -61,6 +64,9 @@ export function createApp(db: Database): Hono {
   const coursesApi = createCoursesApi(courseService, courseTeeService);
   const teamsApi = createTeamsApi(teamService);
   const competitionsApi = createCompetitionsApi(competitionService);
+  const competitionCategoryTeesApi = createCompetitionCategoryTeesApi(
+    competitionCategoryTeeService
+  );
   const teeTimesApi = createTeeTimesApi(teeTimeService);
   const participantsApi = createParticipantsApi(participantService);
   const seriesApi = createSeriesApi(seriesService);
@@ -320,6 +326,20 @@ export function createApp(db: Database): Hono {
   app.get("/api/competitions/:competitionId/team-leaderboard", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));
     return await competitionsApi.getTeamLeaderboard(competitionId);
+  });
+
+  // Competition Category Tees routes
+  app.get("/api/competitions/:competitionId/category-tees", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await competitionCategoryTeesApi.getByCompetition(competitionId);
+  });
+
+  app.put("/api/competitions/:competitionId/category-tees", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    return await competitionCategoryTeesApi.setForCompetition(
+      c.req.raw,
+      competitionId
+    );
   });
 
   // TeeTime routes

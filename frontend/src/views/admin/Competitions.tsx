@@ -6,10 +6,11 @@ import {
   useDeleteCompetition,
   type Competition,
 } from "../../api/competitions";
-import { useCourses } from "../../api/courses";
+import { useCourses, useCourseTees } from "../../api/courses";
 import { useSeries, useSeriesCompetitions } from "../../api/series";
 import { useTours, useTourCompetitions } from "../../api/tours";
 import { usePointTemplates } from "../../api/point-templates";
+import { TeeSelector } from "../../components/admin/competition";
 import {
   Plus,
   Edit,
@@ -21,6 +22,7 @@ import {
   ClipboardEdit,
   Star,
   Users,
+  Flag,
 } from "lucide-react";
 import { Link, useSearch } from "@tanstack/react-router";
 
@@ -56,6 +58,7 @@ export default function AdminCompetitions() {
     name: string;
     date: string;
     course_id: string;
+    tee_id: string;
     series_id: string;
     tour_id: string;
     point_template_id: string;
@@ -69,6 +72,7 @@ export default function AdminCompetitions() {
     name: "",
     date: "",
     course_id: "",
+    tee_id: "",
     series_id: seriesFilter?.toString() || "",
     tour_id: tourFilter?.toString() || "",
     point_template_id: "",
@@ -80,6 +84,7 @@ export default function AdminCompetitions() {
     open_end: "",
   });
 
+
   if (isLoading) return <div>Loading competitions...</div>;
   if (error) return <div>Error loading competitions</div>;
 
@@ -89,6 +94,7 @@ export default function AdminCompetitions() {
       name: competition.name,
       date: competition.date,
       course_id: competition.course_id.toString(),
+      tee_id: competition.tee_id?.toString() || "",
       series_id: competition.series_id?.toString() || "",
       tour_id: (competition as any).tour_id?.toString() || "",
       point_template_id: (competition as any).point_template_id?.toString() || "",
@@ -120,6 +126,7 @@ export default function AdminCompetitions() {
       name: formData.name,
       date: formData.date,
       course_id: parseInt(formData.course_id),
+      tee_id: formData.tee_id ? parseInt(formData.tee_id) : undefined,
       series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
       tour_id: formData.tour_id ? parseInt(formData.tour_id) : undefined,
       point_template_id: formData.point_template_id ? parseInt(formData.point_template_id) : undefined,
@@ -137,6 +144,7 @@ export default function AdminCompetitions() {
         name: "",
         date: "",
         course_id: "",
+        tee_id: "",
         series_id: seriesFilter?.toString() || "",
         tour_id: tourFilter?.toString() || "",
         point_template_id: "",
@@ -175,6 +183,20 @@ export default function AdminCompetitions() {
 
   const getCourse = (courseId: number) => {
     return courses?.find((course) => course.id === courseId);
+  };
+
+  // Helper component to display tee info
+  const TeeDisplay = ({ courseId, teeId }: { courseId: number; teeId?: number }) => {
+    const { data: tees } = useCourseTees(courseId);
+    if (!teeId) return null;
+    const tee = tees?.find((t) => t.id === teeId);
+    if (!tee) return null;
+    return (
+      <div className="flex items-center gap-1 text-green-600">
+        <Flag className="h-4 w-4" />
+        {tee.name}
+      </div>
+    );
   };
 
   return (
@@ -224,6 +246,7 @@ export default function AdminCompetitions() {
               name: "",
               date: "",
               course_id: "",
+              tee_id: "",
               series_id: seriesFilter?.toString() || "",
               tour_id: tourFilter?.toString() || "",
               point_template_id: "",
@@ -286,7 +309,14 @@ export default function AdminCompetitions() {
               <select
                 name="course_id"
                 value={formData.course_id}
-                onChange={handleInputChange}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    course_id: value,
+                    tee_id: "", // Reset tee when course changes
+                  }));
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
@@ -297,6 +327,19 @@ export default function AdminCompetitions() {
                   </option>
                 ))}
             </select>
+            </div>
+            <div>
+              <TeeSelector
+                courseId={formData.course_id ? parseInt(formData.course_id) : null}
+                value={formData.tee_id ? parseInt(formData.tee_id) : null}
+                onChange={(teeId) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    tee_id: teeId?.toString() || "",
+                  }))
+                }
+                label="Tee Box (Optional)"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -484,6 +527,7 @@ export default function AdminCompetitions() {
                     name: "",
                     date: "",
                     course_id: "",
+                    tee_id: "",
                     series_id: seriesFilter?.toString() || "",
                     tour_id: tourFilter?.toString() || "",
                     point_template_id: "",
@@ -561,6 +605,12 @@ export default function AdminCompetitions() {
                             <Star className="h-4 w-4" />
                             {(competition as Competition).points_multiplier}x Points
                           </div>
+                        )}
+                        {isFullCompetition && (competition as Competition).tee_id && (
+                          <TeeDisplay
+                            courseId={(competition as Competition).course_id}
+                            teeId={(competition as Competition).tee_id}
+                          />
                         )}
                       </div>
                     </div>

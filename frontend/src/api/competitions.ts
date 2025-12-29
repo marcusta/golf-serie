@@ -10,6 +10,8 @@ export interface Competition {
   course_id: number;
   series_id?: number;
   tour_id?: number;
+  tee_id?: number;
+  point_template_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";
@@ -186,6 +188,9 @@ export interface CreateCompetitionDto {
   date: string;
   course_id: number;
   series_id?: number;
+  tour_id?: number;
+  tee_id?: number;
+  point_template_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
@@ -199,6 +204,9 @@ export interface UpdateCompetitionDto {
   date?: string;
   course_id?: number;
   series_id?: number;
+  tour_id?: number;
+  tee_id?: number | null;
+  point_template_id?: number | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
@@ -264,6 +272,74 @@ export function useDeleteCompetition() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["competitions"] });
+    },
+  });
+}
+
+// Competition Category Tee Mapping types and hooks
+export interface CompetitionCategoryTee {
+  id: number;
+  competition_id: number;
+  category_id: number;
+  category_name?: string;
+  tee_id: number;
+  tee_name?: string;
+  tee_color?: string;
+  created_at?: string;
+}
+
+export interface CategoryTeeMapping {
+  categoryId: number;
+  teeId: number;
+}
+
+export function useCompetitionCategoryTees(competitionId: number) {
+  return useQuery<CompetitionCategoryTee[]>({
+    queryKey: ["competition", competitionId, "category-tees"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/category-tees`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch category-tee mappings");
+      }
+      const data = await response.json();
+      return data.categoryTees;
+    },
+    enabled: competitionId > 0,
+  });
+}
+
+export function useSetCompetitionCategoryTees() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      competitionId,
+      mappings,
+    }: {
+      competitionId: number;
+      mappings: CategoryTeeMapping[];
+    }): Promise<CompetitionCategoryTee[]> => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/category-tees`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mappings }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to set category-tee mappings");
+      }
+      const data = await response.json();
+      return data.categoryTees;
+    },
+    onSuccess: (_, { competitionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["competition", competitionId, "category-tees"],
+      });
     },
   });
 }

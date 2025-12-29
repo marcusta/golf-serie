@@ -621,3 +621,19 @@ export interface CompetitionGroup {
   started_at?: string;
   finished_at?: string;
 }
+
+// Competition Category Tee Mapping (Phase 4)
+export interface CompetitionCategoryTee {
+  id: number;
+  competition_id: number;
+  category_id: number;
+  category_name?: string;
+  tee_id: number;
+  tee_name?: string;
+  tee_color?: string;
+  created_at?: string;
+}
+
+export interface SetCompetitionCategoryTeesDto {
+  mappings: { categoryId: number; teeId: number }[];
+}

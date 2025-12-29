@@ -16,6 +16,7 @@ export interface Tour {
   scoring_mode: TourScoringMode;
   banner_image_url: string | null;
   landing_document_id: number | null;
+  point_template_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -126,6 +127,7 @@ export interface UpdateTourData {
   scoring_mode?: TourScoringMode;
   banner_image_url?: string | null;
   landing_document_id?: number | null;
+  point_template_id?: number | null;
 }
 
 export interface CreateTourDocumentData {

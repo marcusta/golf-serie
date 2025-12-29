@@ -72,6 +72,7 @@ export default function AdminCompetitionTeeTimes() {
   const unlockParticipantMutation = useUnlockParticipant();
 
   // Analyze existing tee times and prefill teams/participant types
+  // Only runs once on initial load if there are tee times with actual participants
   useEffect(() => {
     if (teeTimes && teeTimes.length > 0 && teams && !hasAnalyzedExistingData) {
       const foundTeamIds = new Set<number>();
@@ -84,16 +85,20 @@ export default function AdminCompetitionTeeTimes() {
         });
       });
 
-      // Prefill selected teams
-      const teamIdsArray = Array.from(foundTeamIds);
-      setSelectedTeams(teamIdsArray);
+      // Only prefill if we found actual participants
+      // This prevents overwriting user's manual selections when creating empty tee times
+      if (foundTeamIds.size > 0 || foundParticipantTypes.size > 0) {
+        // Prefill selected teams
+        const teamIdsArray = Array.from(foundTeamIds);
+        setSelectedTeams(teamIdsArray);
 
-      // Prefill participant types
-      const typesArray = Array.from(foundParticipantTypes).map((name) => ({
-        id: crypto.randomUUID(),
-        name,
-      }));
-      setParticipantTypes(typesArray);
+        // Prefill participant types
+        const typesArray = Array.from(foundParticipantTypes).map((name) => ({
+          id: crypto.randomUUID(),
+          name,
+        }));
+        setParticipantTypes(typesArray);
+      }
 
       setHasAnalyzedExistingData(true);
     }
@@ -183,22 +188,21 @@ export default function AdminCompetitionTeeTimes() {
 
     setIsCreating(true);
     try {
-      let currentTime: Date;
+      let newTeeTime: string;
 
-      // If there are existing tee times, use the latest one as base
+      // If there are existing tee times, use the latest one as base and add interval
       if (teeTimes && teeTimes.length > 0) {
         const latestTeeTime = teeTimes[teeTimes.length - 1].teetime;
-        currentTime = new Date(`2000-01-01T${latestTeeTime}`);
+        const currentTime = new Date(`2000-01-01T${latestTeeTime}`);
+        // Add the time interval to get the next tee time
+        const nextTime = new Date(
+          currentTime.getTime() + timeBetweenTeeTimes * 60000
+        );
+        newTeeTime = nextTime.toTimeString().slice(0, 5);
       } else {
-        // If no existing tee times, use the first tee time input
-        currentTime = new Date(`2000-01-01T${firstTeeTime}`);
+        // If no existing tee times, use the first tee time input directly
+        newTeeTime = firstTeeTime;
       }
-
-      // Add the time interval to get the next tee time
-      currentTime = new Date(
-        currentTime.getTime() + timeBetweenTeeTimes * 60000
-      );
-      const newTeeTime = currentTime.toTimeString().slice(0, 5);
 
       // Create the empty tee time
       await createTeeTimeMutation.mutateAsync({

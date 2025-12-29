@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useParams } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useSingleSeries,
   useUpdateSeries,
@@ -13,6 +14,7 @@ import {
   useDeleteSeriesDocument,
   type SeriesDocument,
 } from "@/api/series";
+import { useDeleteCompetition, type Competition } from "@/api/competitions";
 import { type Team } from "@/api/teams";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +29,7 @@ import {
   FileText,
   Settings,
   X,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,15 +40,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  SeriesCompetitionList,
+  SeriesCompetitionModal,
+} from "@/components/admin/series";
 
 export default function AdminSeriesDetail() {
   const { serieId } = useParams({ from: "/admin/series/$serieId" });
   const seriesId = parseInt(serieId);
+  const queryClient = useQueryClient();
 
   // API hooks
   const { data: series, isLoading: seriesLoading } = useSingleSeries(seriesId);
@@ -58,11 +66,12 @@ export default function AdminSeriesDetail() {
   const createDocument = useCreateSeriesDocument();
   const updateDocument = useUpdateSeriesDocument();
   const deleteDocument = useDeleteSeriesDocument();
+  const deleteCompetition = useDeleteCompetition();
 
   // Local state
   const [activeTab, setActiveTab] = useState<
-    "settings" | "teams" | "documents"
-  >("settings");
+    "competitions" | "settings" | "teams" | "documents"
+  >("competitions");
   const [isEditingBasic, setIsEditingBasic] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -70,6 +79,11 @@ export default function AdminSeriesDetail() {
     is_public: true,
     landing_document_id: undefined as number | undefined,
   });
+
+  // Competition management state
+  const [showCompetitionModal, setShowCompetitionModal] = useState(false);
+  const [editingCompetition, setEditingCompetition] = useState<Competition | null>(null);
+  const [deletingCompetition, setDeletingCompetition] = useState<Competition | null>(null);
 
   // Document management state
   const [showDocumentDialog, setShowDocumentDialog] = useState(false);
@@ -186,6 +200,28 @@ export default function AdminSeriesDetail() {
     }
   };
 
+  // Competition handlers
+  const handleEditCompetition = (competition: Competition) => {
+    setEditingCompetition(competition);
+    setShowCompetitionModal(true);
+  };
+
+  const handleDeleteCompetitionClick = (competition: Competition) => {
+    setDeletingCompetition(competition);
+  };
+
+  const handleConfirmDeleteCompetition = async () => {
+    if (!deletingCompetition) return;
+    try {
+      await deleteCompetition.mutateAsync(deletingCompetition.id);
+      queryClient.invalidateQueries({ queryKey: ["series", seriesId, "competitions"] });
+      setDeletingCompetition(null);
+    } catch (error) {
+      console.error("Failed to delete competition:", error);
+      alert("Failed to delete competition. Please try again.");
+    }
+  };
+
   const handleDeleteDocument = async (document: SeriesDocument) => {
     if (!series) return;
 
@@ -256,29 +292,81 @@ export default function AdminSeriesDetail() {
         </Badge>
       </div>
 
-      {/* Main content */}
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) =>
-          setActiveTab(value as "settings" | "teams" | "documents")
-        }
-      >
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-          <TabsTrigger value="teams" className="flex items-center gap-2">
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="flex gap-6">
+          <button
+            onClick={() => setActiveTab("competitions")}
+            className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === "competitions"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            Competitions
+          </button>
+          <button
+            onClick={() => setActiveTab("teams")}
+            className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === "teams"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
             <Users className="h-4 w-4" />
             Teams
-          </TabsTrigger>
-          <TabsTrigger value="documents" className="flex items-center gap-2">
+          </button>
+          <button
+            onClick={() => setActiveTab("documents")}
+            className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === "documents"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
             <FileText className="h-4 w-4" />
             Documents
-          </TabsTrigger>
-        </TabsList>
+          </button>
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === "settings"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </button>
+        </nav>
+      </div>
 
-        <TabsContent value="settings" className="space-y-6">
+      {/* Tab Content */}
+      {activeTab === "competitions" && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Competitions</h2>
+            <Button
+              onClick={() => {
+                setEditingCompetition(null);
+                setShowCompetitionModal(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Competition
+            </Button>
+          </div>
+          <SeriesCompetitionList
+            seriesId={seriesId}
+            onEdit={handleEditCompetition}
+            onDelete={handleDeleteCompetitionClick}
+          />
+        </div>
+      )}
+
+      {activeTab === "settings" && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -387,9 +475,11 @@ export default function AdminSeriesDetail() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="teams" className="space-y-6">
+      {activeTab === "teams" && (
+        <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -461,9 +551,11 @@ export default function AdminSeriesDetail() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="documents" className="space-y-6">
+      {activeTab === "documents" && (
+        <div className="space-y-6">
           {/* Landing Page Settings Section */}
           <Card>
             <CardHeader>
@@ -598,8 +690,8 @@ export default function AdminSeriesDetail() {
               </Card>
             )}
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Document Dialog */}
       <Dialog open={showDocumentDialog} onOpenChange={setShowDocumentDialog}>
@@ -708,6 +800,48 @@ export default function AdminSeriesDetail() {
               onClick={() => setShowPreviewDialog(false)}
             >
               Close Preview
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Competition Modal */}
+      <SeriesCompetitionModal
+        seriesId={seriesId}
+        open={showCompetitionModal}
+        onOpenChange={(open) => {
+          setShowCompetitionModal(open);
+          if (!open) setEditingCompetition(null);
+        }}
+        competition={editingCompetition}
+      />
+
+      {/* Delete Competition Confirmation */}
+      <Dialog
+        open={!!deletingCompetition}
+        onOpenChange={(open) => !open && setDeletingCompetition(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Competition</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{deletingCompetition?.name}"? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeletingCompetition(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteCompetition}
+              disabled={deleteCompetition.isPending}
+            >
+              {deleteCompetition.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
