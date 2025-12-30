@@ -13,7 +13,7 @@ import { createSeriesApi } from "./api/series";
 import { createTeamsApi } from "./api/teams";
 import { createTeeTimesApi } from "./api/tee-times";
 import { createToursApi } from "./api/tours";
-import { createAuthMiddleware } from "./middleware/auth";
+import { createAuthMiddleware, requireAuth } from "./middleware/auth";
 import { createAuthService } from "./services/auth.service";
 import { CompetitionCategoryTeeService } from "./services/competition-category-tee.service";
 import { CompetitionService } from "./services/competition-service";
@@ -417,6 +417,25 @@ export function createApp(db: Database): Hono {
   app.post("/api/participants/:id/unlock", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await participantsApi.unlock(c.req.raw, id);
+  });
+
+  // Admin participant actions (require authentication)
+  app.post("/api/participants/:id/admin/dq", requireAuth(), async (c) => {
+    const id = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    return await participantsApi.adminSetDQ(c.req.raw, id, user.id);
+  });
+
+  app.post("/api/participants/:id/admin/score", requireAuth(), async (c) => {
+    const id = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    return await participantsApi.adminUpdateScore(c.req.raw, id, user.id);
   });
 
   // Series routes

@@ -1,11 +1,16 @@
+import { useState } from "react";
 import { useParams, Link } from "@tanstack/react-router";
 import { useCompetition } from "../../api/competitions";
+import { useCourse } from "../../api/courses";
 import {
   useCompetitionGroups,
   type CompetitionGroup,
   type CompetitionGroupMember,
 } from "../../api/tour-registration";
-import { ArrowLeft, Users, Clock, Trophy, RefreshCw } from "lucide-react";
+import { ArrowLeft, Users, Clock, Trophy, RefreshCw, Pencil, Ban, FileEdit } from "lucide-react";
+import { EditParticipantHandicapDialog } from "../../components/EditParticipantHandicapDialog";
+import { AdminEditScoreDialog } from "../../components/admin/AdminEditScoreDialog";
+import { AdminDQDialog } from "../../components/admin/AdminDQDialog";
 
 function getStatusBadge(status: CompetitionGroup["status"]) {
   switch (status) {
@@ -53,6 +58,33 @@ export default function AdminCompetitionGroups() {
     isLoading: groupsLoading,
     refetch,
   } = useCompetitionGroups(competitionId ? parseInt(competitionId) : 0);
+
+  // Fetch course to get pars for score editing
+  const { data: course } = useCourse(competition?.course_id || 0);
+
+  // Handicap edit dialog state
+  const [editHandicapDialogOpen, setEditHandicapDialogOpen] = useState(false);
+  const [selectedMemberForHandicap, setSelectedMemberForHandicap] = useState<{
+    participantId: number;
+    name: string;
+    handicap?: number;
+  } | null>(null);
+
+  // Score edit dialog state
+  const [editScoreDialogOpen, setEditScoreDialogOpen] = useState(false);
+  const [selectedMemberForScore, setSelectedMemberForScore] = useState<{
+    participantId: number;
+    name: string;
+    score: number[];
+  } | null>(null);
+
+  // DQ dialog state
+  const [dqDialogOpen, setDqDialogOpen] = useState(false);
+  const [selectedMemberForDQ, setSelectedMemberForDQ] = useState<{
+    participantId: number;
+    name: string;
+    isDQ: boolean;
+  } | null>(null);
 
   if (competitionLoading || groupsLoading) {
     return (
@@ -182,22 +214,50 @@ export default function AdminCompetitionGroups() {
                     <div
                       key={member.player_id}
                       className={`p-3 rounded-lg border ${
-                        member.registration_status === "playing"
-                          ? "bg-green-50 border-green-200"
-                          : member.registration_status === "finished"
-                            ? "bg-gray-50 border-gray-200"
-                            : "bg-white border-gray-200"
+                        member.is_dq
+                          ? "bg-red-50 border-red-200"
+                          : member.registration_status === "playing"
+                            ? "bg-green-50 border-green-200"
+                            : member.registration_status === "finished"
+                              ? "bg-gray-50 border-gray-200"
+                              : "bg-white border-gray-200"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900">{member.name}</span>
-                        {getMemberStatusIcon(member.registration_status)}
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{member.name}</span>
+                          {member.is_dq && (
+                            <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                              DQ
+                            </span>
+                          )}
+                        </div>
+                        {!member.is_dq && getMemberStatusIcon(member.registration_status)}
                       </div>
                       <div className="flex items-center justify-between mt-1 text-sm text-gray-500">
-                        <span>
-                          HCP: {member.handicap !== undefined ? member.handicap.toFixed(1) : "-"}
-                        </span>
-                        {member.holes_played > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span>
+                            HCP: {member.handicap !== undefined ? member.handicap.toFixed(1) : "-"}
+                          </span>
+                          {/* Edit handicap button - only show when player has played */}
+                          {member.holes_played > 0 && (
+                            <button
+                              onClick={() => {
+                                setSelectedMemberForHandicap({
+                                  participantId: member.participant_id,
+                                  name: member.name,
+                                  handicap: member.handicap,
+                                });
+                                setEditHandicapDialogOpen(true);
+                              }}
+                              className="p-0.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="Edit handicap for this round"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        {member.holes_played > 0 && !member.is_dq && (
                           <span>
                             Hole {member.holes_played} • {member.current_score}
                           </span>
@@ -205,6 +265,45 @@ export default function AdminCompetitionGroups() {
                       </div>
                       {member.category_name && (
                         <div className="mt-1 text-xs text-gray-400">{member.category_name}</div>
+                      )}
+                      {/* Admin action buttons - show when player has played */}
+                      {member.holes_played > 0 && (
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                          <button
+                            onClick={() => {
+                              setSelectedMemberForScore({
+                                participantId: member.participant_id,
+                                name: member.name,
+                                score: member.score || [],
+                              });
+                              setEditScoreDialogOpen(true);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Edit scores"
+                          >
+                            <FileEdit className="h-3 w-3" />
+                            Edit Score
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedMemberForDQ({
+                                participantId: member.participant_id,
+                                name: member.name,
+                                isDQ: member.is_dq,
+                              });
+                              setDqDialogOpen(true);
+                            }}
+                            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
+                              member.is_dq
+                                ? "text-green-600 hover:bg-green-50"
+                                : "text-red-600 hover:bg-red-50"
+                            }`}
+                            title={member.is_dq ? "Remove DQ" : "Disqualify"}
+                          >
+                            <Ban className="h-3 w-3" />
+                            {member.is_dq ? "Remove DQ" : "DQ"}
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -214,6 +313,55 @@ export default function AdminCompetitionGroups() {
           </div>
         )}
       </div>
+
+      {/* Edit Handicap Dialog */}
+      {selectedMemberForHandicap && (
+        <EditParticipantHandicapDialog
+          open={editHandicapDialogOpen}
+          onOpenChange={(open) => {
+            setEditHandicapDialogOpen(open);
+            if (!open) {
+              refetch();
+            }
+          }}
+          participantId={selectedMemberForHandicap.participantId}
+          participantName={selectedMemberForHandicap.name}
+          currentHandicap={selectedMemberForHandicap.handicap}
+        />
+      )}
+
+      {/* Edit Score Dialog */}
+      {selectedMemberForScore && (
+        <AdminEditScoreDialog
+          open={editScoreDialogOpen}
+          onOpenChange={(open) => {
+            setEditScoreDialogOpen(open);
+            if (!open) {
+              refetch();
+            }
+          }}
+          participantId={selectedMemberForScore.participantId}
+          participantName={selectedMemberForScore.name}
+          currentScore={selectedMemberForScore.score}
+          pars={course?.pars?.holes || []}
+        />
+      )}
+
+      {/* DQ Dialog */}
+      {selectedMemberForDQ && (
+        <AdminDQDialog
+          open={dqDialogOpen}
+          onOpenChange={(open) => {
+            setDqDialogOpen(open);
+            if (!open) {
+              refetch();
+            }
+          }}
+          participantId={selectedMemberForDQ.participantId}
+          participantName={selectedMemberForDQ.name}
+          currentlyDQ={selectedMemberForDQ.isDQ}
+        />
+      )}
     </div>
   );
 }

@@ -415,12 +415,15 @@ export type CompetitionGroupStatus = "registered" | "on_course" | "finished";
 
 export interface CompetitionGroupMember {
   player_id: number;
+  participant_id: number;
   name: string;
   handicap?: number;
   category_name?: string;
   registration_status: RegistrationStatus;
   holes_played: number;
   current_score: string;
+  score: number[];
+  is_dq: boolean;
 }
 
 export interface CompetitionGroup {

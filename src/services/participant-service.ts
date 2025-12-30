@@ -153,6 +153,11 @@ export class ParticipantService {
       values.push(data.player_names);
     }
 
+    if (data.handicap_index !== undefined) {
+      updates.push("handicap_index = ?");
+      values.push(data.handicap_index);
+    }
+
     if (updates.length === 0) {
       return participant;
     }
@@ -468,5 +473,83 @@ export class ParticipantService {
       is_locked: Boolean(updated.is_locked),
       score: JSON.parse(updated.score as unknown as string),
     };
+  }
+
+  /**
+   * Admin action: Set DQ status for a participant
+   */
+  async adminSetDQ(
+    participantId: number,
+    is_dq: boolean,
+    admin_notes: string | undefined,
+    admin_user_id: number
+  ): Promise<Participant> {
+    const participant = await this.findById(participantId);
+    if (!participant) {
+      throw new Error("Participant not found");
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE participants
+      SET is_dq = ?,
+          admin_notes = ?,
+          admin_modified_by = ?,
+          admin_modified_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    stmt.run(is_dq ? 1 : 0, admin_notes || null, admin_user_id, participantId);
+
+    const updated = await this.findById(participantId);
+    if (!updated) {
+      throw new Error("Participant not found after update");
+    }
+    return updated;
+  }
+
+  /**
+   * Admin action: Update full score array for a participant
+   */
+  async adminUpdateScore(
+    participantId: number,
+    score: number[],
+    admin_notes: string | undefined,
+    admin_user_id: number
+  ): Promise<Participant> {
+    const participant = await this.findById(participantId);
+    if (!participant) {
+      throw new Error("Participant not found");
+    }
+
+    // Validate score array - should be 18 elements, each 0 or positive (or -1 for DNF)
+    if (!Array.isArray(score) || score.length !== 18) {
+      throw new Error("Score must be an array of 18 elements");
+    }
+
+    for (let i = 0; i < score.length; i++) {
+      const s = score[i];
+      if (typeof s !== "number" || (s < -1 && s !== 0)) {
+        throw new Error(`Invalid score at hole ${i + 1}: must be 0, -1 (DNF), or positive`);
+      }
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE participants
+      SET score = ?,
+          admin_notes = ?,
+          admin_modified_by = ?,
+          admin_modified_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+
+    stmt.run(JSON.stringify(score), admin_notes || null, admin_user_id, participantId);
+
+    const updated = await this.findById(participantId);
+    if (!updated) {
+      throw new Error("Participant not found after update");
+    }
+    return updated;
   }
 }

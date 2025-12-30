@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useTourCompetitions, type TourCompetition } from "../../../api/tours";
 import { useCourses, useCourseTees } from "../../../api/courses";
-import { Calendar, MapPin, Loader2, Flag, Edit, Trash2, ListOrdered } from "lucide-react";
+import { Calendar, MapPin, Loader2, Flag, Edit, Trash2, ListOrdered, Users } from "lucide-react";
 
 export interface TourCompetitionListProps {
   tourId: number;
@@ -88,6 +88,16 @@ export function TourCompetitionList({
                   title="Manage start list"
                 >
                   <ListOrdered className="w-4 h-4" />
+                </Link>
+              )}
+              {competition.start_mode === "open" && (
+                <Link
+                  to="/admin/competitions/$competitionId/groups"
+                  params={{ competitionId: competition.id.toString() }}
+                  className="p-2 text-charcoal/60 hover:text-purple-600 transition-colors"
+                  title="View playing groups"
+                >
+                  <Users className="w-4 h-4" />
                 </Link>
               )}
               <button

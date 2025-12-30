@@ -635,6 +635,7 @@ export class TourCompetitionRegistrationService {
           par.player_names,
           par.score,
           par.is_locked,
+          par.is_dq,
           tm.name as team_name,
           par.player_id,
           r.status as registration_status,
@@ -659,6 +660,7 @@ export class TourCompetitionRegistrationService {
       player_names: string | null;
       score: string | null;
       is_locked: boolean;
+      is_dq: number | null;
       team_name: string | null;
       player_id: number | null;
       registration_status: RegistrationStatus | null;
@@ -732,12 +734,15 @@ export class TourCompetitionRegistrationService {
 
         return {
           player_id: m.player_id ?? m.participant_id,
+          participant_id: m.participant_id,
           name: m.player_names || m.team_name,
           handicap: m.handicap ?? undefined,
           category_name: m.category_name ?? undefined,
           registration_status: memberStatus,
           holes_played: holesPlayed,
           current_score: currentScore,
+          score: scores,
+          is_dq: Boolean(m.is_dq),
         };
       });
 

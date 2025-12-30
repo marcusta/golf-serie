@@ -169,6 +169,11 @@ export interface Participant {
   manual_score_out?: number;
   manual_score_in?: number;
   manual_score_total?: number;
+  // DQ and audit fields
+  is_dq: boolean;
+  admin_notes?: string;
+  admin_modified_by?: number;
+  admin_modified_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -202,6 +207,18 @@ export interface UpdateParticipantDto {
   tee_time_id?: number;
   position_name?: string;
   player_names?: string;
+  handicap_index?: number | null;
+}
+
+// Admin action DTOs
+export interface AdminDQParticipantDto {
+  is_dq: boolean;
+  admin_notes?: string;
+}
+
+export interface AdminUpdateScoreDto {
+  score: number[]; // Full 18-hole score array
+  admin_notes?: string;
 }
 
 export interface LeaderboardEntry {
@@ -617,12 +634,15 @@ export type CompetitionGroupStatus = "registered" | "on_course" | "finished";
 
 export interface CompetitionGroupMember {
   player_id: number;
+  participant_id: number;
   name: string;
   handicap?: number;
   category_name?: string;
   registration_status: RegistrationStatus;
   holes_played: number;
   current_score: string; // e.g., "+2", "-1", "E"
+  score: number[]; // Full 18-hole score array for admin editing
+  is_dq: boolean;
 }
 
 export interface CompetitionGroup {

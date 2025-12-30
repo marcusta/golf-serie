@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useCompetition } from "../../api/competitions";
+import { useCourse } from "../../api/courses";
 import { useTeams } from "../../api/teams";
 import { useSeriesTeams } from "../../api/series";
 import { useTourEnrollments } from "../../api/tours";
@@ -22,9 +23,15 @@ import {
   AlertCircle,
   Lock,
   Unlock,
+  Pencil,
+  Ban,
+  FileEdit,
 } from "lucide-react";
 import ParticipantAssignment from "../../components/ParticipantAssignment";
 import TourPlayerAssignment from "../../components/TourPlayerAssignment";
+import { EditParticipantHandicapDialog } from "../../components/EditParticipantHandicapDialog";
+import { AdminEditScoreDialog } from "../../components/admin/AdminEditScoreDialog";
+import { AdminDQDialog } from "../../components/admin/AdminDQDialog";
 
 interface ParticipantType {
   id: string;
@@ -75,6 +82,33 @@ export default function AdminCompetitionTeeTimes() {
 
   // Tour player assignment state - selected enrollments to include in start list
   const [selectedEnrollments, setSelectedEnrollments] = useState<number[]>([]);
+
+  // Handicap edit dialog state
+  const [editHandicapDialogOpen, setEditHandicapDialogOpen] = useState(false);
+  const [selectedParticipantForHandicap, setSelectedParticipantForHandicap] = useState<{
+    id: number;
+    name: string;
+    handicap_index?: number;
+  } | null>(null);
+
+  // Score edit dialog state
+  const [editScoreDialogOpen, setEditScoreDialogOpen] = useState(false);
+  const [selectedParticipantForScore, setSelectedParticipantForScore] = useState<{
+    id: number;
+    name: string;
+    score: number[];
+  } | null>(null);
+
+  // DQ dialog state
+  const [dqDialogOpen, setDqDialogOpen] = useState(false);
+  const [selectedParticipantForDQ, setSelectedParticipantForDQ] = useState<{
+    id: number;
+    name: string;
+    isDQ: boolean;
+  } | null>(null);
+
+  // Fetch course to get pars for score editing
+  const { data: course } = useCourse(competition?.course_id || 0);
 
   const createTeeTimeMutation = useCreateTeeTime();
   const deleteTeeTimeMutation = useDeleteTeeTime();
@@ -901,26 +935,57 @@ export default function AdminCompetitionTeeTimes() {
                     const enrollment = competition?.tour_id && participant.player_id
                       ? tourEnrollments?.find((e) => e.player_id === participant.player_id)
                       : null;
+                    // Check if the round has been played (has any scores)
+                    const hasPlayed = participant.score?.some((s: number) => s > 0 || s === -1);
+                    // Display the snapshot handicap if available, otherwise fall back to enrollment handicap
+                    const displayHandicap = participant.handicap_index ?? enrollment?.handicap;
+                    const participantName = competition?.tour_id
+                      ? participant.player_names || participant.position_name
+                      : `${participant.team_name} ${participant.position_name}`;
+                    const isDQ = Boolean(participant.is_dq);
                     return (
                     <div
                       key={participant.id}
-                      className="p-3 bg-white rounded-lg border border-gray-200"
+                      className={`p-3 rounded-lg border ${
+                        isDQ
+                          ? "bg-red-50 border-red-200"
+                          : "bg-white border-gray-200"
+                      }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">
-                            {competition?.tour_id
-                              ? participant.player_names || participant.position_name
-                              : `${participant.team_name} ${participant.position_name}`
-                            }
+                            {participantName}
                           </span>
-                          {enrollment?.handicap !== undefined && (
+                          {isDQ && (
+                            <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                              DQ
+                            </span>
+                          )}
+                          {!isDQ && displayHandicap !== undefined && (
                             <span className="text-xs text-gray-500 font-mono">
-                              HCP {enrollment.handicap.toFixed(1)}
+                              HCP {displayHandicap.toFixed(1)}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Edit handicap button - only visible when round has been played */}
+                          {hasPlayed && (
+                            <button
+                              onClick={() => {
+                                setSelectedParticipantForHandicap({
+                                  id: participant.id,
+                                  name: participantName,
+                                  handicap_index: participant.handicap_index,
+                                });
+                                setEditHandicapDialogOpen(true);
+                              }}
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="Edit handicap for this round"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           {participant.is_locked ? (
                             <Lock className="h-4 w-4 text-red-600" />
                           ) : (
@@ -964,6 +1029,45 @@ export default function AdminCompetitionTeeTimes() {
                         <div className="text-xs text-gray-400 mt-1">
                           Locked:{" "}
                           {new Date(participant.locked_at).toLocaleString()}
+                        </div>
+                      )}
+                      {/* Admin action buttons - show when player has played */}
+                      {hasPlayed && (
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
+                          <button
+                            onClick={() => {
+                              setSelectedParticipantForScore({
+                                id: participant.id,
+                                name: participantName,
+                                score: participant.score || [],
+                              });
+                              setEditScoreDialogOpen(true);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Edit scores"
+                          >
+                            <FileEdit className="h-3 w-3" />
+                            Edit Score
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedParticipantForDQ({
+                                id: participant.id,
+                                name: participantName,
+                                isDQ: isDQ,
+                              });
+                              setDqDialogOpen(true);
+                            }}
+                            className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
+                              isDQ
+                                ? "text-green-600 hover:bg-green-50"
+                                : "text-red-600 hover:bg-red-50"
+                            }`}
+                            title={isDQ ? "Remove DQ" : "Disqualify"}
+                          >
+                            <Ban className="h-3 w-3" />
+                            {isDQ ? "Remove DQ" : "DQ"}
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1014,6 +1118,55 @@ export default function AdminCompetitionTeeTimes() {
             }}
           />
         )}
+
+      {/* Edit Handicap Dialog */}
+      {selectedParticipantForHandicap && (
+        <EditParticipantHandicapDialog
+          open={editHandicapDialogOpen}
+          onOpenChange={(open) => {
+            setEditHandicapDialogOpen(open);
+            if (!open) {
+              refetchTeeTimes();
+            }
+          }}
+          participantId={selectedParticipantForHandicap.id}
+          participantName={selectedParticipantForHandicap.name}
+          currentHandicap={selectedParticipantForHandicap.handicap_index}
+        />
+      )}
+
+      {/* Edit Score Dialog */}
+      {selectedParticipantForScore && (
+        <AdminEditScoreDialog
+          open={editScoreDialogOpen}
+          onOpenChange={(open) => {
+            setEditScoreDialogOpen(open);
+            if (!open) {
+              refetchTeeTimes();
+            }
+          }}
+          participantId={selectedParticipantForScore.id}
+          participantName={selectedParticipantForScore.name}
+          currentScore={selectedParticipantForScore.score}
+          pars={course?.pars?.holes || []}
+        />
+      )}
+
+      {/* DQ Dialog */}
+      {selectedParticipantForDQ && (
+        <AdminDQDialog
+          open={dqDialogOpen}
+          onOpenChange={(open) => {
+            setDqDialogOpen(open);
+            if (!open) {
+              refetchTeeTimes();
+            }
+          }}
+          participantId={selectedParticipantForDQ.id}
+          participantName={selectedParticipantForDQ.name}
+          currentlyDQ={selectedParticipantForDQ.isDQ}
+        />
+      )}
     </div>
   );
 }

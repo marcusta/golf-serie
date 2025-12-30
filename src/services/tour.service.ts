@@ -484,6 +484,7 @@ export class TourService {
           p.player_id,
           p.score,
           p.is_locked,
+          p.is_dq,
           p.manual_score_total,
           pl.name as player_name,
           c.id as competition_id,
@@ -504,7 +505,10 @@ export class TourService {
       let relativeToPar = 0;
       let isFinished = false;
 
-      if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
+      // DQ'd players are never considered finished (no points awarded)
+      if (participant.is_dq) {
+        isFinished = false;
+      } else if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
         // Use manual scores
         totalShots = participant.manual_score_total;
         relativeToPar = totalShots - totalPar;

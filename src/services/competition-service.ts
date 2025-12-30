@@ -696,9 +696,20 @@ export class CompetitionService {
       }
     });
 
-    // Sort by relative to par (ascending), with DNF entries at the bottom
+    // Sort by relative to par (ascending), with DQ at very bottom, then DNF entries
     const sortedLeaderboard = leaderboard.sort((a, b) => {
-      // DNF entries always go to the bottom
+      // DQ entries always go to the very bottom
+      const aIsDQ = a.participant.is_dq;
+      const bIsDQ = b.participant.is_dq;
+      if (aIsDQ && !bIsDQ) return 1;
+      if (!aIsDQ && bIsDQ) return -1;
+      // Among DQ entries, sort alphabetically by name
+      if (aIsDQ && bIsDQ) {
+        const aName = a.participant.player_names || a.participant.team_name || '';
+        const bName = b.participant.player_names || b.participant.team_name || '';
+        return aName.localeCompare(bName);
+      }
+      // DNF entries go above DQ but below normal entries
       if (a.isDNF && !b.isDNF) return 1;
       if (!a.isDNF && b.isDNF) return -1;
       // Among DNF entries, sort by holes played (more holes = higher)

@@ -15,6 +15,8 @@ export interface TeeTimeParticipant {
   locked_at?: string;
   team_name: string;
   player_id?: number | null;
+  handicap_index?: number;
+  is_dq?: boolean;
 }
 
 export interface TeeTime {

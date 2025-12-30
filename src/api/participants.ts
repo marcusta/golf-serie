@@ -1,5 +1,10 @@
 import { ParticipantService } from "../services/participant-service";
-import type { CreateParticipantDto, UpdateParticipantDto } from "../types";
+import type {
+  CreateParticipantDto,
+  UpdateParticipantDto,
+  AdminDQParticipantDto,
+  AdminUpdateScoreDto,
+} from "../types";
 
 export function createParticipantsApi(participantService: ParticipantService) {
   return {
@@ -266,6 +271,100 @@ export function createParticipantsApi(participantService: ParticipantService) {
         const participant = await participantService.updateManualScore(
           id,
           data
+        );
+        return new Response(JSON.stringify(participant), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message === "Participant not found" ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    // Admin action: Set DQ status
+    async adminSetDQ(
+      req: Request,
+      id: number,
+      adminUserId: number
+    ): Promise<Response> {
+      try {
+        const data = (await req.json()) as AdminDQParticipantDto;
+
+        if (typeof data.is_dq !== "boolean") {
+          return new Response(
+            JSON.stringify({ error: "is_dq must be a boolean" }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        const participant = await participantService.adminSetDQ(
+          id,
+          data.is_dq,
+          data.admin_notes,
+          adminUserId
+        );
+        return new Response(JSON.stringify(participant), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          const status = error.message === "Participant not found" ? 404 : 400;
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: status,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    // Admin action: Update full score array
+    async adminUpdateScore(
+      req: Request,
+      id: number,
+      adminUserId: number
+    ): Promise<Response> {
+      try {
+        const data = (await req.json()) as AdminUpdateScoreDto;
+
+        if (!Array.isArray(data.score)) {
+          return new Response(
+            JSON.stringify({ error: "score must be an array" }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        const participant = await participantService.adminUpdateScore(
+          id,
+          data.score,
+          data.admin_notes,
+          adminUserId
         );
         return new Response(JSON.stringify(participant), {
           status: 200,
