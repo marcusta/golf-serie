@@ -641,7 +641,7 @@ export class TourCompetitionRegistrationService {
           r.status as registration_status,
           r.started_at,
           r.finished_at,
-          COALESCE(te.playing_handicap, pl.handicap) as handicap,
+          COALESCE(par.handicap_index, te.playing_handicap, pl.handicap) as handicap,
           tc.name as category_name
          FROM tee_times tt
          JOIN competitions c ON tt.competition_id = c.id
