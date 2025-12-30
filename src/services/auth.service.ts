@@ -193,6 +193,66 @@ export class AuthService {
     this.db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
   }
 
+  async updateEmail(userId: number, newEmail: string, currentPassword: string): Promise<{ email: string }> {
+    // Get current user
+    const user = this.db
+      .prepare("SELECT id, email, password_hash FROM users WHERE id = ?")
+      .get(userId) as { id: number; email: string; password_hash: string } | null;
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Verify current password
+    const valid = await Bun.password.verify(currentPassword, user.password_hash);
+    if (!valid) {
+      throw new Error("Current password is incorrect");
+    }
+
+    // Check if new email is already taken
+    const existing = this.db
+      .prepare("SELECT id FROM users WHERE email = ? AND id != ?")
+      .get(newEmail, userId);
+    if (existing) {
+      throw new Error("Email already in use");
+    }
+
+    // Update email
+    this.db
+      .prepare("UPDATE users SET email = ? WHERE id = ?")
+      .run(newEmail, userId);
+
+    return { email: newEmail };
+  }
+
+  async updatePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {
+    // Get current user
+    const user = this.db
+      .prepare("SELECT id, password_hash FROM users WHERE id = ?")
+      .get(userId) as { id: number; password_hash: string } | null;
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Verify current password
+    const valid = await Bun.password.verify(currentPassword, user.password_hash);
+    if (!valid) {
+      throw new Error("Current password is incorrect");
+    }
+
+    // Validate new password
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error("New password must be at least 6 characters");
+    }
+
+    // Hash and update password
+    const newPasswordHash = await Bun.password.hash(newPassword);
+    this.db
+      .prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+      .run(newPasswordHash, userId);
+  }
+
   getAllUsers(): Array<{ id: number; email: string; role: string }> {
     return this.db
       .prepare("SELECT id, email, role FROM users ORDER BY email")

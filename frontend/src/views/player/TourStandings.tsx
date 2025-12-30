@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
+import { PlayerNameLink } from "@/components/player/PlayerNameLink";
 import { useState, useEffect } from "react";
 
 interface EnhancedCompetition extends TourPlayerCompetition {
@@ -445,7 +446,11 @@ export default function TourStandings() {
                     {/* Player Info */}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-base font-semibold text-charcoal leading-tight">
-                        {standing.player_name}
+                        <PlayerNameLink
+                          playerId={standing.player_id}
+                          playerName={standing.player_name}
+                          skipFriendCheck={true}
+                        />
                       </h3>
                       <p className="text-sm text-charcoal/60">
                         {standing.competitions_played} of {standings.total_competitions} competitions

@@ -18,6 +18,8 @@ export default function PlayerLayout() {
     location.pathname.endsWith("/player/competitions") || // Full-screen competitions page
     location.pathname.endsWith("/player/series") || // Full-screen series page
     location.pathname.endsWith("/player/tours") || // Full-screen tours page
+    location.pathname.endsWith("/player/profile") || // User's own profile
+    location.pathname.match(/\/player\/players\/\d+/) || // Public player profiles
     (location.pathname.includes("/competitions/") &&
       (location.pathname.includes("/tee-times/") ||
         location.pathname.match(/\/competitions\/\d+$/))) ||

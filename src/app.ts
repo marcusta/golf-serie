@@ -22,6 +22,7 @@ import { CourseTeeService } from "./services/course-tee.service";
 import { DocumentService } from "./services/document-service";
 import { ParticipantService } from "./services/participant-service";
 import { createPlayerService } from "./services/player.service";
+import { createPlayerProfileService } from "./services/player-profile.service";
 import { createPointTemplateService } from "./services/point-template.service";
 import { SeriesService } from "./services/series-service";
 import { TeamService } from "./services/team-service";
@@ -46,6 +47,7 @@ export function createApp(db: Database): Hono {
   const seriesService = new SeriesService(db, competitionService);
   const documentService = new DocumentService(db);
   const playerService = createPlayerService(db);
+  const playerProfileService = createPlayerProfileService(db);
   const pointTemplateService = createPointTemplateService(db);
   const tourService = createTourService(db);
   const tourEnrollmentService = createTourEnrollmentService(db);
@@ -72,7 +74,7 @@ export function createApp(db: Database): Hono {
   const seriesApi = createSeriesApi(seriesService);
   const documentsApi = createDocumentsApi(documentService);
   const authApi = createAuthApi(authService);
-  const playersApi = createPlayersApi(playerService);
+  const playersApi = createPlayersApi(playerService, playerProfileService);
   const pointTemplatesApi = createPointTemplatesApi(pointTemplateService);
   const toursApi = createToursApi(tourService, tourEnrollmentService, tourAdminService, tourDocumentService, tourCategoryService);
   const tourCompetitionRegistrationApi = createTourCompetitionRegistrationApi(

@@ -3,14 +3,12 @@ import { useParams } from "@tanstack/react-router";
 import { useCompetition } from "../../api/competitions";
 import { useTeams } from "../../api/teams";
 import { useSeriesTeams } from "../../api/series";
-import { useTourEnrollments, type TourEnrollment } from "../../api/tours";
+import { useTourEnrollments } from "../../api/tours";
 import {
   useTeeTimesForCompetition,
   useCreateTeeTime,
   useDeleteTeeTime,
   useUpdateTeeTime,
-  useCreateParticipant,
-  useDeleteParticipant,
 } from "../../api/tee-times";
 import {
   useLockParticipant,
@@ -81,8 +79,6 @@ export default function AdminCompetitionTeeTimes() {
   const createTeeTimeMutation = useCreateTeeTime();
   const deleteTeeTimeMutation = useDeleteTeeTime();
   const updateTeeTimeMutation = useUpdateTeeTime();
-  const createParticipantMutation = useCreateParticipant();
-  const deleteParticipantMutation = useDeleteParticipant();
   const lockParticipantMutation = useLockParticipant();
   const unlockParticipantMutation = useUnlockParticipant();
 
@@ -296,17 +292,6 @@ export default function AdminCompetitionTeeTimes() {
     } else {
       setSelectedEnrollments(unassignedIds);
     }
-  };
-
-  // Get selected enrollments that are not yet assigned to tee times
-  const getSelectedUnassignedEnrollments = () => {
-    if (!tourEnrollments) return [];
-    const assignedPlayerIds = new Set(
-      teeTimes?.flatMap((tt) => tt.participants.map((p) => p.player_id)).filter(Boolean) || []
-    );
-    return tourEnrollments.filter(
-      (e) => selectedEnrollments.includes(e.id) && !assignedPlayerIds.has(e.player_id)
-    );
   };
 
   return (

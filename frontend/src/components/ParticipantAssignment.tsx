@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Team } from "../api/teams";
-import type { TeeTime, TeeTimeParticipant } from "../api/tee-times";
+import type { TeeTime } from "../api/tee-times";
 import { useCreateParticipant, useDeleteParticipant } from "../api/tee-times";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";

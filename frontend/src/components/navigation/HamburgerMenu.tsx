@@ -340,12 +340,20 @@ export function HamburgerMenu({
                         </h4>
                       </div>
                       <div className="space-y-1">
-                        <div className="flex items-center gap-3 px-3 py-2.5">
-                          <User className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm font-medium text-gray-900 truncate">
-                            {user?.email}
+                        <Link
+                          to="/player/profile"
+                          onClick={closeMenu}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 font-['Inter']",
+                            "hover:bg-green-50 focus:outline-2 focus:outline-offset-2 focus:outline-green-600",
+                            "group"
+                          )}
+                        >
+                          <User className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors duration-200" />
+                          <span className="text-sm font-medium text-gray-900 group-hover:text-green-700 transition-colors duration-200">
+                            My Profile
                           </span>
-                        </div>
+                        </Link>
                         {(user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") && (
                           <Link
                             to="/admin/series"

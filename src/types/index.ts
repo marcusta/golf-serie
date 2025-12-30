@@ -649,3 +649,94 @@ export interface CompetitionCategoryTee {
 export interface SetCompetitionCategoryTeesDto {
   mappings: { categoryId: number; teeId: number }[];
 }
+
+// Player Profile types
+export type HandicapSource = "manual" | "calculated" | "import";
+export type ProfileVisibility = "public" | "friends" | "private";
+
+export interface HandicapHistoryEntry {
+  id: number;
+  player_id: number;
+  handicap_index: number;
+  effective_date: string;
+  source: HandicapSource;
+  notes?: string;
+  created_at: string;
+}
+
+export interface PlayerProfile {
+  player_id: number;
+  display_name?: string;
+  bio?: string;
+  avatar_url?: string;
+  home_course_id?: number;
+  home_course_name?: string;
+  visibility: ProfileVisibility;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerProfileFull {
+  // Player base
+  id: number;
+  name: string;
+  handicap: number;
+  user_id?: number;
+
+  // Profile extended
+  display_name?: string;
+  bio?: string;
+  avatar_url?: string;
+  home_course_id?: number;
+  home_course_name?: string;
+  visibility: ProfileVisibility;
+
+  // Stats (MVP)
+  competitions_played: number;
+  total_rounds: number;
+  best_score?: number;
+  average_score?: number;
+
+  // Handicap history
+  handicap_history: HandicapHistoryEntry[];
+}
+
+export interface PlayerRoundHistory {
+  participant_id: number;
+  competition_id: number;
+  competition_name: string;
+  competition_date: string;
+  course_id: number;
+  course_name: string;
+  gross_score: number;
+  net_score?: number;
+  relative_to_par: number;
+  holes_played: number;
+}
+
+export interface CreatePlayerProfileDto {
+  display_name?: string;
+  bio?: string;
+  avatar_url?: string;
+  home_course_id?: number;
+  visibility?: ProfileVisibility;
+}
+
+export interface UpdatePlayerProfileDto {
+  display_name?: string;
+  bio?: string;
+  avatar_url?: string;
+  home_course_id?: number;
+  visibility?: ProfileVisibility;
+}
+
+export interface RecordHandicapDto {
+  handicap_index: number;
+  effective_date?: string;
+  notes?: string;
+}
+
+export interface HandicapWithHistory {
+  current: number;
+  history: HandicapHistoryEntry[];
+}

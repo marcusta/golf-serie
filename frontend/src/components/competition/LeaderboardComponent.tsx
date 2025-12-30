@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PlayerNameLink } from "@/components/player/PlayerNameLink";
 
 interface LeaderboardComponentProps {
   leaderboard: LeaderboardEntry[] | undefined;
@@ -375,7 +376,11 @@ export function LeaderboardComponent({
                       {entry.participant.player_names ? (
                         <>
                           <h3 className={`text-sm font-semibold font-display truncate ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
-                            {entry.participant.player_names}
+                            <PlayerNameLink
+                              playerId={entry.participant.player_id}
+                              playerName={entry.participant.player_names}
+                              skipFriendCheck={isTourCompetition}
+                            />
                           </h3>
                           {showNetScores && entry.participant.handicap_index !== undefined && (
                             <div className="flex items-center gap-1.5">
@@ -511,7 +516,11 @@ export function LeaderboardComponent({
                               // Player has a name - show player name prominently
                               <>
                                 <div className={`text-body-md font-semibold font-display ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
-                                  {entry.participant.player_names}
+                                  <PlayerNameLink
+                                    playerId={entry.participant.player_id}
+                                    playerName={entry.participant.player_names}
+                                    skipFriendCheck={isTourCompetition}
+                                  />
                                 </div>
                                 {/* Hide team/position for Tour competitions */}
                                 {!isTourCompetition && (

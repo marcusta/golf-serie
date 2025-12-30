@@ -69,5 +69,47 @@ export function createAuthApi(authService: AuthService) {
     return c.json({ user });
   });
 
+  // PUT /api/auth/email - Update email (requires current password)
+  app.put("/email", async (c) => {
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    try {
+      const { newEmail, currentPassword } = await c.req.json();
+
+      if (!newEmail || !currentPassword) {
+        return c.json({ error: "New email and current password are required" }, 400);
+      }
+
+      const result = await authService.updateEmail(user.id, newEmail, currentPassword);
+      return c.json({ email: result.email });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // PUT /api/auth/password - Update password (requires current password)
+  app.put("/password", async (c) => {
+    const user = c.get("user");
+    if (!user) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    try {
+      const { currentPassword, newPassword } = await c.req.json();
+
+      if (!currentPassword || !newPassword) {
+        return c.json({ error: "Current password and new password are required" }, 400);
+      }
+
+      await authService.updatePassword(user.id, currentPassword, newPassword);
+      return c.json({ success: true });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
   return app;
 }

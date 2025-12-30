@@ -1,8 +1,12 @@
 import { Hono } from "hono";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { PlayerService } from "../services/player.service";
+import { PlayerProfileService } from "../services/player-profile.service";
 
-export function createPlayersApi(playerService: PlayerService) {
+export function createPlayersApi(
+  playerService: PlayerService,
+  playerProfileService?: PlayerProfileService
+) {
   const app = new Hono();
 
   // GET /api/players - Public: List all players
@@ -25,12 +29,192 @@ export function createPlayersApi(playerService: PlayerService) {
       }
 
       const player = playerService.findByUserId(user.id);
-      
+
       if (!player) {
         return c.json({ player: null });
       }
-      
+
       return c.json(player);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /api/players/me/profile - Auth: Get current user's full profile with stats
+  app.get("/me/profile", requireAuth(), async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const player = playerService.findByUserId(user.id);
+      if (!player) {
+        return c.json({ error: "No player profile linked to this account" }, 404);
+      }
+
+      const profile = playerProfileService.getFullProfile(player.id);
+      if (!profile) {
+        return c.json({ error: "Profile not found" }, 404);
+      }
+
+      return c.json(profile);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // PUT /api/players/me/profile - Auth: Update own profile
+  app.put("/me/profile", requireAuth(), async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const player = playerService.findByUserId(user.id);
+      if (!player) {
+        return c.json({ error: "No player profile linked to this account" }, 404);
+      }
+
+      const body = await c.req.json();
+      const profile = playerProfileService.updateProfile(player.id, {
+        display_name: body.display_name,
+        bio: body.bio,
+        avatar_url: body.avatar_url,
+        home_course_id: body.home_course_id,
+        visibility: body.visibility,
+      });
+
+      return c.json(profile);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // GET /api/players/me/handicap - Auth: Get handicap with history
+  app.get("/me/handicap", requireAuth(), async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const player = playerService.findByUserId(user.id);
+      if (!player) {
+        return c.json({ error: "No player profile linked to this account" }, 404);
+      }
+
+      const handicapData = playerProfileService.getHandicapWithHistory(player.id);
+      if (!handicapData) {
+        return c.json({ error: "Handicap data not found" }, 404);
+      }
+
+      return c.json(handicapData);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // POST /api/players/me/handicap - Auth: Record new handicap
+  app.post("/me/handicap", requireAuth(), async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const player = playerService.findByUserId(user.id);
+      if (!player) {
+        return c.json({ error: "No player profile linked to this account" }, 404);
+      }
+
+      const body = await c.req.json();
+
+      if (body.handicap_index === undefined || body.handicap_index === null) {
+        return c.json({ error: "handicap_index is required" }, 400);
+      }
+
+      const entry = playerProfileService.recordHandicap(player.id, {
+        handicap_index: body.handicap_index,
+        effective_date: body.effective_date,
+        notes: body.notes,
+      });
+
+      return c.json(entry, 201);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // GET /api/players/me/rounds - Auth: Get round history
+  app.get("/me/rounds", requireAuth(), async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const player = playerService.findByUserId(user.id);
+      if (!player) {
+        return c.json({ error: "No player profile linked to this account" }, 404);
+      }
+
+      const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!) : undefined;
+      const offset = c.req.query("offset") ? parseInt(c.req.query("offset")!) : undefined;
+
+      const rounds = playerProfileService.getRoundHistory(player.id, limit, offset);
+      return c.json(rounds);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /api/players/is-friend/:targetPlayerId - Auth: Check if current user is "friends" with target player
+  // "Friends" = both enrolled in at least one common tour
+  app.get("/is-friend/:targetPlayerId", requireAuth(), async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const viewerPlayer = playerService.findByUserId(user.id);
+      if (!viewerPlayer) {
+        return c.json({ isFriend: false, commonTours: [] });
+      }
+
+      const targetPlayerId = parseInt(c.req.param("targetPlayerId"));
+      const isFriend = playerProfileService.isFriend(viewerPlayer.id, targetPlayerId);
+      const commonTours = isFriend
+        ? playerProfileService.getCommonTours(viewerPlayer.id, targetPlayerId)
+        : [];
+
+      return c.json({ isFriend, commonTours });
     } catch (error: any) {
       return c.json({ error: error.message }, 500);
     }
@@ -41,27 +225,52 @@ export function createPlayersApi(playerService: PlayerService) {
     try {
       const id = parseInt(c.req.param("id"));
       const player = playerService.findById(id);
-      
+
       if (!player) {
         return c.json({ error: "Player not found" }, 404);
       }
-      
+
       return c.json(player);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);
     }
   });
 
-  // GET /api/players/:id/profile - Public: Get player profile with stats
+  // GET /api/players/:id/profile - Public: Get player profile with stats (legacy)
   app.get("/:id/profile", async (c) => {
     try {
       const id = parseInt(c.req.param("id"));
       const profile = playerService.getPlayerProfile(id);
-      
+
       if (!profile) {
         return c.json({ error: "Player not found" }, 404);
       }
-      
+
+      return c.json(profile);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /api/players/:id/full - Public: Get full profile (respects visibility)
+  app.get("/:id/full", async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const id = parseInt(c.req.param("id"));
+
+      // Get viewer ID if authenticated
+      const user = c.get("user");
+      const viewerId = user?.id;
+
+      const profile = playerProfileService.getPublicProfile(id, viewerId);
+
+      if (!profile) {
+        return c.json({ error: "Player not found or profile is private" }, 404);
+      }
+
       return c.json(profile);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);

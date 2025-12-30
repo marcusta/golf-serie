@@ -135,3 +135,61 @@ export function useLogout() {
     },
   });
 }
+
+// Update email
+export interface UpdateEmailParams {
+  newEmail: string;
+  currentPassword: string;
+}
+
+async function updateEmail(params: UpdateEmailParams): Promise<{ email: string }> {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/auth/email`, {
+    method: "PUT",
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to update email");
+  }
+
+  return response.json();
+}
+
+export function useUpdateEmail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateEmail,
+    onSuccess: (data) => {
+      // Update the cached user with new email
+      queryClient.setQueryData(["currentUser"], (old: User | null) =>
+        old ? { ...old, email: data.email } : null
+      );
+    },
+  });
+}
+
+// Update password
+export interface UpdatePasswordParams {
+  currentPassword: string;
+  newPassword: string;
+}
+
+async function updatePassword(params: UpdatePasswordParams): Promise<void> {
+  const response = await fetchWithCredentials(`${API_BASE_URL}/auth/password`, {
+    method: "PUT",
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to update password");
+  }
+}
+
+export function useUpdatePassword() {
+  return useMutation({
+    mutationFn: updatePassword,
+  });
+}
