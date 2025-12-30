@@ -232,6 +232,10 @@ export class TourService {
   /**
    * Get full standings for a tour with detailed competition breakdown
    * Optionally filter by category and scoring type
+   *
+   * HYBRID APPROACH:
+   * - Uses stored results from competition_results for finalized competitions (fast)
+   * - Calculates on-the-fly for active/non-finalized competitions (live projections)
    */
   getFullStandings(tourId: number, categoryId?: number, scoringType?: ScoringType): TourStandings {
     const tour = this.findById(tourId);
@@ -291,16 +295,18 @@ export class TourService {
     // Get player to category mapping and handicaps
     const playerCategories = new Map<number, { category_id: number | null; category_name: string | null }>();
     const playerHandicaps = new Map<number, number>();
+    const playerNames = new Map<number, string>();
     const enrollments = this.db
       .prepare(`
         SELECT te.player_id, te.category_id, tc.name as category_name,
-               COALESCE(te.playing_handicap, p.handicap) as handicap
+               COALESCE(te.playing_handicap, p.handicap) as handicap,
+               p.name as player_name
         FROM tour_enrollments te
         LEFT JOIN tour_categories tc ON te.category_id = tc.id
         LEFT JOIN players p ON te.player_id = p.id
         WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
       `)
-      .all(tourId) as { player_id: number; category_id: number | null; category_name: string | null; handicap: number | null }[];
+      .all(tourId) as { player_id: number; category_id: number | null; category_name: string | null; handicap: number | null; player_name: string }[];
 
     for (const enrollment of enrollments) {
       playerCategories.set(enrollment.player_id, {
@@ -310,6 +316,7 @@ export class TourService {
       if (enrollment.handicap !== null) {
         playerHandicaps.set(enrollment.player_id, enrollment.handicap);
       }
+      playerNames.set(enrollment.player_id, enrollment.player_name);
     }
 
     // Determine effective scoring type
@@ -318,8 +325,93 @@ export class TourService {
     // Track player standings
     const playerStandings: Map<number, TourPlayerStanding> = new Map();
 
-    // Process each competition
+    // Track which competitions have live (projected) data
+    let hasProjectedResults = false;
+
+    // Separate competitions into finalized and active
+    const finalizedCompetitionIds = new Set(
+      (this.db
+        .prepare("SELECT id FROM competitions WHERE tour_id = ? AND is_results_final = 1")
+        .all(tourId) as { id: number }[]).map(c => c.id)
+    );
+
+    // STEP 1: Load stored results for finalized competitions (FAST)
+    if (finalizedCompetitionIds.size > 0) {
+      const storedResults = this.db
+        .prepare(`
+          SELECT
+            cr.player_id,
+            cr.competition_id,
+            cr.position,
+            cr.points,
+            cr.relative_to_par,
+            c.name as competition_name,
+            c.date as competition_date,
+            pl.name as player_name
+          FROM competition_results cr
+          JOIN competitions c ON cr.competition_id = c.id
+          JOIN players pl ON cr.player_id = pl.id
+          WHERE c.tour_id = ?
+            AND cr.scoring_type = ?
+            AND c.is_results_final = 1
+          ORDER BY c.date ASC
+        `)
+        .all(tourId, effectiveScoringType) as {
+          player_id: number;
+          competition_id: number;
+          position: number;
+          points: number;
+          relative_to_par: number;
+          competition_name: string;
+          competition_date: string;
+          player_name: string;
+        }[];
+
+      for (const result of storedResults) {
+        // Filter by category if specified
+        const playerCategory = playerCategories.get(result.player_id);
+        if (categoryId !== undefined) {
+          if (!playerCategory || playerCategory.category_id !== categoryId) {
+            continue;
+          }
+        }
+
+        // Initialize or update player standing
+        if (!playerStandings.has(result.player_id)) {
+          playerStandings.set(result.player_id, {
+            player_id: result.player_id,
+            player_name: result.player_name,
+            category_id: playerCategory?.category_id ?? undefined,
+            category_name: playerCategory?.category_name ?? undefined,
+            total_points: 0,
+            competitions_played: 0,
+            position: 0,
+            competitions: [],
+          });
+        }
+
+        const standing = playerStandings.get(result.player_id)!;
+        standing.total_points += result.points;
+        standing.competitions_played += 1;
+        standing.competitions.push({
+          competition_id: result.competition_id,
+          competition_name: result.competition_name,
+          competition_date: result.competition_date,
+          points: result.points,
+          position: result.position,
+          score_relative_to_par: result.relative_to_par,
+          is_projected: false,
+        });
+      }
+    }
+
+    // STEP 2: Calculate on-the-fly for non-finalized competitions (LIVE)
     for (const competition of competitions) {
+      // Skip finalized competitions - already loaded from stored results
+      if (finalizedCompetitionIds.has(competition.id)) {
+        continue;
+      }
+
       // Check if competition should be included (past or has scores)
       const competitionDate = new Date(competition.date);
       const today = new Date();
@@ -335,6 +427,9 @@ export class TourService {
       if (!isPastCompetition && !hasFinishedPlayers) {
         continue;
       }
+
+      // Mark that we have projected results
+      hasProjectedResults = true;
 
       // Get course data for handicap calculations
       const slopeRating = competition.slope_rating || 113;
@@ -409,6 +504,7 @@ export class TourService {
           points,
           position: result.position,
           score_relative_to_par: result.relative_to_par,
+          is_projected: true,
         });
       }
     }
@@ -451,6 +547,7 @@ export class TourService {
       point_template: pointTemplate ? { id: pointTemplate.id, name: pointTemplate.name } : undefined,
       categories,
       selected_category_id: categoryId,
+      has_projected_results: hasProjectedResults,
     };
   }
 

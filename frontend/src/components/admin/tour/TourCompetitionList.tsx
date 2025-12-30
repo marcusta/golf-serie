@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useTourCompetitions, type TourCompetition } from "../../../api/tours";
 import { useCourses, useCourseTees } from "../../../api/courses";
-import { Calendar, MapPin, Loader2, Flag, Edit, Trash2, ListOrdered, Users } from "lucide-react";
+import { useFinalizeCompetitionResults } from "../../../api/competitions";
+import { Calendar, MapPin, Loader2, Flag, Edit, Trash2, ListOrdered, Users, CheckCircle } from "lucide-react";
 
 export interface TourCompetitionListProps {
   tourId: number;
@@ -29,6 +30,7 @@ export function TourCompetitionList({
 }: TourCompetitionListProps) {
   const { data: competitions, isLoading } = useTourCompetitions(tourId);
   const { data: courses } = useCourses();
+  const finalizeResults = useFinalizeCompetitionResults();
 
   const getCourseName = (courseId?: number) => {
     if (!courseId) return "No course";
@@ -99,6 +101,33 @@ export function TourCompetitionList({
                 >
                   <Users className="w-4 h-4" />
                 </Link>
+              )}
+              {competition.is_results_final ? (
+                <div
+                  className="p-2 text-fairway"
+                  title={`Results finalized${competition.results_finalized_at ? ` on ${new Date(competition.results_finalized_at).toLocaleDateString()}` : ''}`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!confirm("Finalize results for this competition? This will calculate and store the final standings and points.")) {
+                      return;
+                    }
+                    finalizeResults.mutate(competition.id);
+                  }}
+                  disabled={finalizeResults.isPending}
+                  className="p-2 text-orange-500 hover:text-orange-600 transition-colors disabled:opacity-50"
+                  title="Finalize results"
+                >
+                  {finalizeResults.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                </button>
               )}
               <button
                 onClick={(e) => {

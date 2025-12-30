@@ -34,6 +34,7 @@ import { createTourEnrollmentService } from "./services/tour-enrollment.service"
 import { createTourCompetitionRegistrationService } from "./services/tour-competition-registration.service";
 import { createTourService } from "./services/tour.service";
 import { createTourCompetitionRegistrationApi } from "./api/tour-competition-registration";
+import { createCompetitionResultsService } from "./services/competition-results.service";
 
 export function createApp(db: Database): Hono {
   // Initialize services
@@ -55,6 +56,7 @@ export function createApp(db: Database): Hono {
   const tourDocumentService = new TourDocumentService(db);
   const tourCategoryService = createTourCategoryService(db);
   const tourCompetitionRegistrationService = createTourCompetitionRegistrationService(db);
+  const competitionResultsService = createCompetitionResultsService(db);
 
   // Auth service with auto-enrollment dependencies
   const authService = createAuthService(db, {
@@ -328,6 +330,48 @@ export function createApp(db: Database): Hono {
   app.get("/api/competitions/:competitionId/team-leaderboard", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));
     return await competitionsApi.getTeamLeaderboard(competitionId);
+  });
+
+  // Finalize competition results (calculate and store)
+  app.post("/api/competitions/:competitionId/finalize", requireAuth(), async (c) => {
+    try {
+      const competitionId = parseInt(c.req.param("competitionId"));
+
+      // Verify competition exists
+      const competition = competitionService.findById(competitionId);
+      if (!competition) {
+        return c.json({ error: "Competition not found" }, 404);
+      }
+
+      // Finalize results
+      competitionResultsService.finalizeCompetitionResults(competitionId);
+
+      return c.json({
+        success: true,
+        message: "Competition results finalized",
+        competition_id: competitionId,
+      });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // Get stored competition results
+  app.get("/api/competitions/:competitionId/results", async (c) => {
+    try {
+      const competitionId = parseInt(c.req.param("competitionId"));
+      const scoringType = (c.req.query("scoring_type") as "gross" | "net") || "gross";
+
+      const results = competitionResultsService.getCompetitionResults(competitionId, scoringType);
+      const isFinalized = competitionResultsService.isCompetitionFinalized(competitionId);
+
+      return c.json({
+        results,
+        is_finalized: isFinalized,
+      });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
   });
 
   // Competition Category Tees routes

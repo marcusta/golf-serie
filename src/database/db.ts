@@ -37,6 +37,7 @@ import { AddCompetitionCategoryTeesMigration } from "./migrations/035_add_compet
 import { AddPlayerProfilesMigration } from "./migrations/036_add_player_profiles";
 import { AddParticipantHandicapSnapshotMigration } from "./migrations/037_add_participant_handicap_snapshot";
 import { AddParticipantDQAndAuditMigration } from "./migrations/038_add_participant_dq_and_audit";
+import { AddCompetitionResultsMigration } from "./migrations/039_add_competition_results";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -105,6 +106,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddPlayerProfilesMigration(db),
     new AddParticipantHandicapSnapshotMigration(db),
     new AddParticipantDQAndAuditMigration(db),
+    new AddCompetitionResultsMigration(db),
   ];
 
   // Apply pending migrations

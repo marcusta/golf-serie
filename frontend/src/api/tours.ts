@@ -254,6 +254,9 @@ export interface TourCompetition {
   start_mode?: "scheduled" | "open";
   open_start?: string;
   open_end?: string;
+  // Results finalization
+  is_results_final?: boolean;
+  results_finalized_at?: string;
 }
 
 export function useTourCompetitions(id: number) {

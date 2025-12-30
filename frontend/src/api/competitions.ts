@@ -21,6 +21,8 @@ export interface Competition {
   created_at: string;
   updated_at: string;
   participant_count: number;
+  is_results_final?: boolean;
+  results_finalized_at?: string;
 }
 
 // Enhanced Competition interface
@@ -46,6 +48,10 @@ export interface LeaderboardEntry {
   handicapStrokesPerHole?: number[];
   // DNF status (Did Not Finish - competition window closed before completion)
   isDNF?: boolean;
+  // Points and position (for tour competitions)
+  position?: number;
+  points?: number;
+  isProjected?: boolean; // true = calculated on-the-fly, false = from finalized results
 }
 
 export type TourScoringMode = "gross" | "net" | "both";
@@ -81,6 +87,8 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
   competitionId: number;
   scoringMode?: TourScoringMode;
+  isTourCompetition?: boolean;
+  isResultsFinal?: boolean;
   tee?: TeeInfo;
   categoryTees?: CategoryTee[];
   categories?: LeaderboardCategory[];
@@ -352,6 +360,44 @@ export function useSetCompetitionCategoryTees() {
       queryClient.invalidateQueries({
         queryKey: ["competition", competitionId, "category-tees"],
       });
+    },
+  });
+}
+
+// Competition Results Finalization
+
+export interface FinalizeResultsResponse {
+  success: boolean;
+  message: string;
+  competition_id: number;
+}
+
+export function useFinalizeCompetitionResults() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (competitionId: number): Promise<FinalizeResultsResponse> => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/finalize`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to finalize results");
+      }
+      return response.json();
+    },
+    onSuccess: (_, competitionId) => {
+      // Invalidate competition and related queries
+      queryClient.invalidateQueries({ queryKey: ["competition", competitionId] });
+      queryClient.invalidateQueries({ queryKey: ["competitions"] });
+      // Invalidate tour-related queries if this is a tour competition
+      queryClient.invalidateQueries({ queryKey: ["tour-standings"] });
+      queryClient.invalidateQueries({ queryKey: ["tour-competitions"] });
     },
   });
 }

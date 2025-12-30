@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "@tanstack/react-router";
-import { useCompetition } from "../../api/competitions";
+import { useCompetition, useFinalizeCompetitionResults } from "../../api/competitions";
 import { useCourse } from "../../api/courses";
 import { useTeams } from "../../api/teams";
 import { useSeriesTeams } from "../../api/series";
@@ -26,6 +26,8 @@ import {
   Pencil,
   Ban,
   FileEdit,
+  CheckCircle,
+  Loader2,
 } from "lucide-react";
 import ParticipantAssignment from "../../components/ParticipantAssignment";
 import TourPlayerAssignment from "../../components/TourPlayerAssignment";
@@ -53,6 +55,9 @@ export default function AdminCompetitionTeeTimes() {
     competition?.tour_id || 0,
     "active"
   );
+
+  // Finalize competition results mutation
+  const finalizeResults = useFinalizeCompetitionResults();
 
   // Use series teams if competition belongs to a series, otherwise use all teams
   // This ensures that when administering a competition that belongs to a series,
@@ -338,6 +343,62 @@ export default function AdminCompetitionTeeTimes() {
           <p className="text-gray-600">
             Set up participant types and create tee times
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {competition.is_results_final ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <span className="text-green-800 font-medium">Results Finalized</span>
+                  {competition.results_finalized_at && (
+                    <p className="text-xs text-green-600">
+                      {new Date(competition.results_finalized_at).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!confirm("Re-finalize results? This will recalculate standings and points based on current scores.")) {
+                    return;
+                  }
+                  finalizeResults.mutate(parseInt(competitionId!));
+                }}
+                disabled={finalizeResults.isPending}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {finalizeResults.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Re-finalize"
+                )}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                if (!confirm("Finalize results for this competition? This will calculate and store the final standings and points. You can re-finalize later if needed.")) {
+                  return;
+                }
+                finalizeResults.mutate(parseInt(competitionId!));
+              }}
+              disabled={finalizeResults.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {finalizeResults.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Finalizing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Finalize Results
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

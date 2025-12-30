@@ -342,6 +342,7 @@ export function LeaderboardComponent({
                 <div className="w-10 text-center">Gross</div>
                 {showNetScores && <div className="w-10 text-center">Net</div>}
                 <div className="w-8 text-center">Thru</div>
+                {isTourCompetition && <div className="w-8 text-center">Pts</div>}
               </div>
             </div>
 
@@ -407,9 +408,12 @@ export function LeaderboardComponent({
                     {/* Score Section - Gross/Net/Thru with fixed widths */}
                     <div className={`flex items-center ${showNetScores ? 'gap-1' : ''}`}>
                       {status === "NOT_STARTED" ? (
-                        <div className="w-10 text-center text-sm text-gray-500">
-                          {displayProgress}
-                        </div>
+                        <>
+                          <div className="w-10 text-center text-sm text-gray-500">
+                            {displayProgress}
+                          </div>
+                          {isTourCompetition && <div className="w-8 text-center text-sm text-gray-400">-</div>}
+                        </>
                       ) : status === "DNF" ? (
                         <>
                           {/* DNF - show partial score greyed out */}
@@ -424,6 +428,7 @@ export function LeaderboardComponent({
                           <div className="w-8 text-center text-xs font-bold text-red-500">
                             DNF
                           </div>
+                          {isTourCompetition && <div className="w-8 text-center text-sm text-gray-400">-</div>}
                         </>
                       ) : (
                         <>
@@ -457,6 +462,17 @@ export function LeaderboardComponent({
                           <div className="w-8 text-center text-base font-semibold text-gray-600">
                             {displayProgress}
                           </div>
+
+                          {/* Points (for tour competitions) */}
+                          {isTourCompetition && (
+                            <div className={`w-8 text-center text-sm font-bold ${
+                              entry.points && entry.points > 0
+                                ? entry.isProjected ? "text-turf/70" : "text-turf"
+                                : "text-gray-400"
+                            }`}>
+                              {entry.points && entry.points > 0 ? entry.points : "-"}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -481,6 +497,11 @@ export function LeaderboardComponent({
                     <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
                       Hole & Score
                     </th>
+                    {isTourCompetition && (
+                      <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
+                        Pts
+                      </th>
+                    )}
                     <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display"></th>
                   </tr>
                 </thead>
@@ -659,6 +680,20 @@ export function LeaderboardComponent({
                             </div>
                           )}
                         </td>
+                        {isTourCompetition && (
+                          <td className="py-4 px-4 text-center">
+                            <div className={`text-lg font-bold ${
+                              entry.points && entry.points > 0
+                                ? entry.isProjected ? "text-turf/70" : "text-turf"
+                                : "text-gray-400"
+                            }`}>
+                              {entry.points && entry.points > 0 ? entry.points : "-"}
+                            </div>
+                            {entry.isProjected && entry.points && entry.points > 0 && (
+                              <div className="text-xs text-gray-500">(proj)</div>
+                            )}
+                          </td>
+                        )}
                         <td className="py-4 px-4 text-center">
                           <button
                             onClick={() =>

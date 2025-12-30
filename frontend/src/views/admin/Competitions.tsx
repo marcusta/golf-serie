@@ -4,6 +4,7 @@ import {
   useCreateCompetition,
   useUpdateCompetition,
   useDeleteCompetition,
+  useFinalizeCompetitionResults,
   type Competition,
 } from "../../api/competitions";
 import { useCourses, useCourseTees } from "../../api/courses";
@@ -23,6 +24,8 @@ import {
   Star,
   Users,
   Flag,
+  CheckCircle,
+  Loader2,
 } from "lucide-react";
 import { Link, useSearch } from "@tanstack/react-router";
 
@@ -45,6 +48,7 @@ export default function AdminCompetitions() {
   const createCompetition = useCreateCompetition();
   const updateCompetition = useUpdateCompetition();
   const deleteCompetition = useDeleteCompetition();
+  const finalizeResults = useFinalizeCompetitionResults();
 
   // Use series-specific or tour-specific competitions if filtering, otherwise all
   const competitions = seriesFilter ? seriesCompetitions : tourFilter ? tourCompetitions : allCompetitions;
@@ -640,6 +644,34 @@ export default function AdminCompetitions() {
                       >
                         <ClipboardEdit className="h-4 w-4" />
                       </Link>
+                      {isFullCompetition && (
+                        (competition as Competition).is_results_final ? (
+                          <div
+                            className="p-2 text-green-600"
+                            title={`Results finalized${(competition as Competition).results_finalized_at ? ` on ${new Date((competition as Competition).results_finalized_at!).toLocaleDateString()}` : ''}`}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (!confirm("Finalize results for this competition? This will calculate and store the final standings and points.")) {
+                                return;
+                              }
+                              finalizeResults.mutate(competition.id);
+                            }}
+                            disabled={finalizeResults.isPending}
+                            className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Finalize results"
+                          >
+                            {finalizeResults.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
+                          </button>
+                        )
+                      )}
                       {isFullCompetition && (
                         <button
                           onClick={() => handleEdit(competition as Competition)}

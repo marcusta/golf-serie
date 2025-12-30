@@ -8,8 +8,32 @@ import type {
   PlayerRoundHistory,
   ProfileVisibility,
   RecordHandicapDto,
+  TourEnrollmentStatus,
   UpdatePlayerProfileDto,
 } from "../types";
+
+// Types for tours and series info
+export interface PlayerTourInfo {
+  tour_id: number;
+  tour_name: string;
+  enrollment_status: TourEnrollmentStatus;
+  category_name?: string;
+  position?: number;
+  total_points?: number;
+  competitions_played: number;
+}
+
+export interface PlayerSeriesInfo {
+  series_id: number;
+  series_name: string;
+  competitions_played: number;
+  last_played_date: string;
+}
+
+export interface PlayerToursAndSeries {
+  tours: PlayerTourInfo[];
+  series: PlayerSeriesInfo[];
+}
 
 interface PlayerProfileRow {
   player_id: number;
@@ -264,16 +288,38 @@ export class PlayerProfileService {
    */
   private getPlayerStats(playerId: number): StatsRow {
     try {
+      // Calculate total score from manual_score_total or sum of score array
       const stats = this.db
         .prepare(
           `
           SELECT
-            COUNT(DISTINCT p.competition_id) as competitions_played,
+            COUNT(DISTINCT tt.competition_id) as competitions_played,
             COUNT(p.id) as total_rounds,
-            MIN(p.total_score) as best_score,
-            AVG(p.total_score) as average_score
+            MIN(
+              CASE
+                WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
+                WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
+                  SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
+                )
+                ELSE NULL
+              END
+            ) as best_score,
+            AVG(
+              CASE
+                WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
+                WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
+                  SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
+                )
+                ELSE NULL
+              END
+            ) as average_score
           FROM participants p
-          WHERE p.player_id = ? AND p.total_score IS NOT NULL
+          JOIN tee_times tt ON p.tee_time_id = tt.id
+          WHERE p.player_id = ?
+            AND (
+              p.manual_score_total IS NOT NULL
+              OR (p.score IS NOT NULL AND p.score != '[]' AND EXISTS (SELECT 1 FROM json_each(p.score) WHERE value > 0))
+            )
         `
         )
         .get(playerId) as StatsRow;
@@ -286,7 +332,8 @@ export class PlayerProfileService {
           ? Math.round(stats.average_score * 10) / 10
           : null,
       };
-    } catch {
+    } catch (error) {
+      console.error("Error getting player stats:", error);
       return {
         competitions_played: 0,
         total_rounds: 0,
@@ -389,8 +436,14 @@ export class PlayerProfileService {
         c.date as competition_date,
         co.id as course_id,
         co.name as course_name,
-        p.total_score,
-        (SELECT SUM(value) FROM json_each(co.pars, '$.holes')) as par_total,
+        CASE
+          WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
+          WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
+            SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
+          )
+          ELSE NULL
+        END as total_score,
+        (SELECT SUM(value) FROM json_each(co.pars)) as par_total,
         (
           SELECT COUNT(*)
           FROM json_each(p.score)
@@ -400,7 +453,11 @@ export class PlayerProfileService {
       JOIN tee_times tt ON p.tee_time_id = tt.id
       JOIN competitions c ON tt.competition_id = c.id
       JOIN courses co ON c.course_id = co.id
-      WHERE p.player_id = ? AND p.total_score IS NOT NULL
+      WHERE p.player_id = ?
+        AND (
+          p.manual_score_total IS NOT NULL
+          OR (p.score IS NOT NULL AND p.score != '[]' AND EXISTS (SELECT 1 FROM json_each(p.score) WHERE value > 0))
+        )
       ORDER BY c.date DESC, c.id DESC
       ${limit ? `LIMIT ${limit}` : ""}
       ${offset ? `OFFSET ${offset}` : ""}
@@ -507,6 +564,176 @@ export class PlayerProfileService {
       .all(viewerPlayerId, targetPlayerId) as Array<{ id: number; name: string }>;
 
     return tours;
+  }
+
+  /**
+   * Get all tours and series for a player
+   * Tours: Shows enrollment status and standings
+   * Series: Shows participation history based on rounds played
+   */
+  getPlayerToursAndSeries(playerId: number): PlayerToursAndSeries {
+    // Get tour enrollments with tour details
+    const tourEnrollments = this.db
+      .prepare(
+        `
+        SELECT
+          te.tour_id,
+          t.name as tour_name,
+          te.status as enrollment_status,
+          tc.name as category_name
+        FROM tour_enrollments te
+        JOIN tours t ON te.tour_id = t.id
+        LEFT JOIN tour_categories tc ON te.category_id = tc.id
+        WHERE te.player_id = ?
+        ORDER BY t.name
+      `
+      )
+      .all(playerId) as Array<{
+        tour_id: number;
+        tour_name: string;
+        enrollment_status: string;
+        category_name: string | null;
+      }>;
+
+    // Get standings info for each tour (position, points, competitions played)
+    const tours: PlayerTourInfo[] = tourEnrollments.map((enrollment) => {
+      // Get player's standing in this tour
+      const standingInfo = this.getPlayerTourStanding(playerId, enrollment.tour_id);
+
+      return {
+        tour_id: enrollment.tour_id,
+        tour_name: enrollment.tour_name,
+        enrollment_status: enrollment.enrollment_status as TourEnrollmentStatus,
+        category_name: enrollment.category_name ?? undefined,
+        position: standingInfo?.position,
+        total_points: standingInfo?.total_points,
+        competitions_played: standingInfo?.competitions_played ?? 0,
+      };
+    });
+
+    // Get series participation based on rounds played
+    // A player has played if they have manual_score_total OR score array with values > 0
+    const seriesParticipation = this.db
+      .prepare(
+        `
+        SELECT
+          s.id as series_id,
+          s.name as series_name,
+          COUNT(DISTINCT c.id) as competitions_played,
+          MAX(c.date) as last_played_date
+        FROM participants p
+        JOIN tee_times tt ON p.tee_time_id = tt.id
+        JOIN competitions c ON tt.competition_id = c.id
+        JOIN series s ON c.series_id = s.id
+        WHERE p.player_id = ?
+          AND c.series_id IS NOT NULL
+          AND (
+            p.manual_score_total IS NOT NULL
+            OR (
+              p.score IS NOT NULL
+              AND p.score != '[]'
+              AND EXISTS (SELECT 1 FROM json_each(p.score) WHERE json_each.value > 0)
+            )
+          )
+        GROUP BY s.id, s.name
+        ORDER BY last_played_date DESC
+      `
+      )
+      .all(playerId) as Array<{
+        series_id: number;
+        series_name: string;
+        competitions_played: number;
+        last_played_date: string;
+      }>;
+
+    const series: PlayerSeriesInfo[] = seriesParticipation.map((s) => ({
+      series_id: s.series_id,
+      series_name: s.series_name,
+      competitions_played: s.competitions_played,
+      last_played_date: s.last_played_date,
+    }));
+
+    return { tours, series };
+  }
+
+  /**
+   * Get a player's standing within a specific tour
+   * Returns position, total points, and competitions played
+   * Uses stored competition_results for finalized competitions
+   */
+  private getPlayerTourStanding(
+    playerId: number,
+    tourId: number
+  ): { position: number; total_points: number; competitions_played: number } | null {
+    try {
+      // Get player's stats from stored competition results
+      const playerStats = this.db
+        .prepare(
+          `
+          SELECT
+            SUM(cr.points) as total_points,
+            COUNT(DISTINCT cr.competition_id) as competitions_played
+          FROM competition_results cr
+          JOIN competitions c ON cr.competition_id = c.id
+          WHERE cr.player_id = ?
+            AND c.tour_id = ?
+            AND cr.scoring_type = 'gross'
+            AND c.is_results_final = 1
+        `
+        )
+        .get(playerId, tourId) as {
+          total_points: number | null;
+          competitions_played: number;
+        } | null;
+
+      if (!playerStats || playerStats.total_points === null) {
+        return null;
+      }
+
+      // Calculate position among all players in this tour
+      const allStandings = this.db
+        .prepare(
+          `
+          SELECT
+            cr.player_id,
+            SUM(cr.points) as total_points
+          FROM competition_results cr
+          JOIN competitions c ON cr.competition_id = c.id
+          WHERE c.tour_id = ?
+            AND cr.scoring_type = 'gross'
+            AND c.is_results_final = 1
+          GROUP BY cr.player_id
+          ORDER BY total_points DESC
+        `
+        )
+        .all(tourId) as { player_id: number; total_points: number }[];
+
+      // Find this player's position
+      let position = 1;
+      let previousPoints = Number.MAX_SAFE_INTEGER;
+      for (let i = 0; i < allStandings.length; i++) {
+        if (allStandings[i].total_points !== previousPoints) {
+          position = i + 1;
+        }
+        previousPoints = allStandings[i].total_points;
+
+        if (allStandings[i].player_id === playerId) {
+          return {
+            position,
+            total_points: playerStats.total_points,
+            competitions_played: playerStats.competitions_played,
+          };
+        }
+      }
+
+      return {
+        position: allStandings.length + 1,
+        total_points: playerStats.total_points,
+        competitions_played: playerStats.competitions_played,
+      };
+    } catch {
+      return null;
+    }
   }
 }
 

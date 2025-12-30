@@ -238,6 +238,10 @@ export interface LeaderboardEntry {
   handicapStrokesPerHole?: number[];
   // DNF status (Did Not Finish - competition window closed before completion)
   isDNF?: boolean;
+  // Points and position (for tour competitions)
+  position?: number;
+  points?: number;
+  isProjected?: boolean; // true = calculated on-the-fly, false = from finalized results
 }
 
 export interface LeaderboardResponse {
@@ -245,6 +249,8 @@ export interface LeaderboardResponse {
   // Competition info
   competitionId: number;
   scoringMode?: TourScoringMode;
+  isTourCompetition?: boolean;
+  isResultsFinal?: boolean;
   // Tee info (when competition has a default tee assigned)
   tee?: {
     id: number;
@@ -533,6 +539,7 @@ export interface TourPlayerStanding {
     score_relative_to_par: number;
     net_score_relative_to_par?: number;
     course_handicap?: number;
+    is_projected?: boolean; // True if from active/non-finalized competition
   }[];
 }
 
@@ -548,6 +555,7 @@ export interface TourStandings {
   };
   categories?: TourCategory[];
   selected_category_id?: number;
+  has_projected_results?: boolean; // True if standings include live/non-finalized results
 }
 
 // Tour competition registration types (for open-start competitions)

@@ -190,6 +190,30 @@ export function createPlayersApi(
     }
   });
 
+  // GET /api/players/me/tours-and-series - Auth: Get tours and series for current player
+  app.get("/me/tours-and-series", requireAuth(), async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const player = playerService.findByUserId(user.id);
+      if (!player) {
+        return c.json({ tours: [], series: [] });
+      }
+
+      const toursAndSeries = playerProfileService.getPlayerToursAndSeries(player.id);
+      return c.json(toursAndSeries);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
   // GET /api/players/is-friend/:targetPlayerId - Auth: Check if current user is "friends" with target player
   // "Friends" = both enrolled in at least one common tour
   app.get("/is-friend/:targetPlayerId", requireAuth(), async (c) => {
@@ -215,6 +239,53 @@ export function createPlayersApi(
         : [];
 
       return c.json({ isFriend, commonTours });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /api/players/:id/tours-and-series - Public: Get tours and series for any player
+  app.get("/:id/tours-and-series", async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const playerId = parseInt(c.req.param("id"));
+
+      // Verify player exists
+      const player = playerService.findById(playerId);
+      if (!player) {
+        return c.json({ error: "Player not found" }, 404);
+      }
+
+      const toursAndSeries = playerProfileService.getPlayerToursAndSeries(playerId);
+      return c.json(toursAndSeries);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /api/players/:id/rounds - Public: Get round history for any player
+  app.get("/:id/rounds", async (c) => {
+    try {
+      if (!playerProfileService) {
+        return c.json({ error: "Profile service not available" }, 500);
+      }
+
+      const playerId = parseInt(c.req.param("id"));
+
+      // Verify player exists
+      const player = playerService.findById(playerId);
+      if (!player) {
+        return c.json({ error: "Player not found" }, 404);
+      }
+
+      const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!) : undefined;
+      const offset = c.req.query("offset") ? parseInt(c.req.query("offset")!) : undefined;
+
+      const rounds = playerProfileService.getRoundHistory(playerId, limit, offset);
+      return c.json(rounds);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);
     }

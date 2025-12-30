@@ -495,6 +495,7 @@ export default function CompetitionDetail() {
             leaderboardLoading={leaderboardLoading}
             onParticipantClick={handleParticipantClick}
             isTourCompetition={!!competition?.tour_id}
+            isResultsFinal={leaderboardResponse?.isResultsFinal}
             scoringMode={scoringMode}
             teeInfo={teeInfo}
             categoryTees={categoryTees}

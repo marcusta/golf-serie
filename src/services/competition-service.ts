@@ -323,11 +323,14 @@ export class CompetitionService {
       WHERE c.id = ?
     `);
     const competition = competitionStmt.get(competitionId) as
-      | (Competition & { pars: string })
+      | (Competition & { pars: string; is_results_final?: number; point_template_id?: number })
       | null;
     if (!competition) {
       throw new Error("Competition not found");
     }
+
+    const isTourCompetition = !!competition.tour_id;
+    const isResultsFinal = !!competition.is_results_final;
 
     // Get tour scoring mode if this is a tour competition
     let scoringMode: TourScoringMode | undefined;
@@ -743,14 +746,141 @@ export class CompetitionService {
       }
     }
 
+    // Add points and positions for tour competitions
+    let leaderboardWithPoints = sortedLeaderboard;
+    if (isTourCompetition) {
+      if (isResultsFinal) {
+        // Fetch stored results and map points to entries
+        const storedResultsStmt = this.db.prepare(`
+          SELECT participant_id, position, points
+          FROM competition_results
+          WHERE competition_id = ? AND scoring_type = 'gross'
+        `);
+        const storedResults = storedResultsStmt.all(competitionId) as {
+          participant_id: number;
+          position: number;
+          points: number;
+        }[];
+
+        const resultsMap = new Map(storedResults.map(r => [r.participant_id, r]));
+
+        leaderboardWithPoints = sortedLeaderboard.map(entry => {
+          const stored = resultsMap.get(entry.participant.id);
+          return {
+            ...entry,
+            position: stored?.position || 0,
+            points: stored?.points || 0,
+            isProjected: false,
+          };
+        });
+      } else {
+        // Calculate projected points on-the-fly
+        // Get point template if one is assigned
+        let pointTemplate: { id: number; name: string; points_structure: string } | null = null;
+        if (competition.point_template_id) {
+          const templateStmt = this.db.prepare(`
+            SELECT id, name, points_structure FROM point_templates WHERE id = ?
+          `);
+          pointTemplate = templateStmt.get(competition.point_template_id) as typeof pointTemplate;
+        }
+
+        // Count finished players for points calculation
+        const finishedPlayers = sortedLeaderboard.filter(
+          e => e.holesPlayed === 18 && !e.participant.is_dq && !e.isDNF
+        );
+        const numberOfPlayers = finishedPlayers.length;
+
+        // Assign positions and calculate projected points
+        let currentPosition = 1;
+        let previousScore = Number.MIN_SAFE_INTEGER;
+
+        leaderboardWithPoints = sortedLeaderboard.map((entry, index) => {
+          // Only assign positions to finished, non-DQ, non-DNF players
+          if (entry.holesPlayed < 18 || entry.participant.is_dq || entry.isDNF) {
+            return {
+              ...entry,
+              position: 0,
+              points: 0,
+              isProjected: true,
+            };
+          }
+
+          // Update position for new scores
+          if (entry.relativeToPar !== previousScore) {
+            // Count how many finished players are ahead
+            currentPosition = sortedLeaderboard
+              .slice(0, index)
+              .filter(e => e.holesPlayed === 18 && !e.participant.is_dq && !e.isDNF).length + 1;
+          }
+          previousScore = entry.relativeToPar;
+
+          // Calculate points
+          const points = this.calculateProjectedPoints(
+            currentPosition,
+            numberOfPlayers,
+            pointTemplate,
+            competition.points_multiplier || 1
+          );
+
+          return {
+            ...entry,
+            position: currentPosition,
+            points,
+            isProjected: true,
+          };
+        });
+      }
+    }
+
     return {
-      entries: sortedLeaderboard,
+      entries: leaderboardWithPoints,
       competitionId,
       scoringMode,
+      isTourCompetition,
+      isResultsFinal,
       tee: teeInfo,
       categoryTees: categoryTeesResponse,
       categories: categories.length > 0 ? categories : undefined,
     };
+  }
+
+  /**
+   * Calculate projected points for a position (used for live leaderboards)
+   */
+  private calculateProjectedPoints(
+    position: number,
+    numberOfPlayers: number,
+    pointTemplate: { id: number; name: string; points_structure: string } | null,
+    pointsMultiplier: number
+  ): number {
+    if (position <= 0) return 0;
+
+    let basePoints: number;
+
+    if (pointTemplate) {
+      try {
+        const structure: Record<string, number> = JSON.parse(pointTemplate.points_structure);
+        if (structure[position.toString()]) {
+          basePoints = structure[position.toString()];
+        } else {
+          basePoints = structure["default"] || 0;
+        }
+      } catch {
+        basePoints = 0;
+      }
+    } else {
+      // Default formula
+      if (position === 1) {
+        basePoints = numberOfPlayers + 2;
+      } else if (position === 2) {
+        basePoints = numberOfPlayers;
+      } else {
+        basePoints = numberOfPlayers - (position - 1);
+        basePoints = Math.max(0, basePoints);
+      }
+    }
+
+    return Math.round(basePoints * pointsMultiplier);
   }
 
   async getTeamLeaderboard(

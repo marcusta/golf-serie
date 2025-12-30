@@ -259,6 +259,62 @@ export function useMyRounds(limit?: number, offset?: number) {
   });
 }
 
+/**
+ * Get any player's round history by ID
+ */
+async function getPlayerRoundHistory(
+  playerId: number,
+  limit?: number,
+  offset?: number
+): Promise<PlayerRoundHistory[]> {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", limit.toString());
+  if (offset) params.set("offset", offset.toString());
+
+  const url = `${API_BASE_URL}/players/${playerId}/rounds${params.toString() ? `?${params}` : ""}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to fetch player rounds");
+  }
+
+  return response.json();
+}
+
+export function usePlayerRoundHistory(playerId: number, limit?: number, offset?: number) {
+  return useQuery<PlayerRoundHistory[]>({
+    queryKey: ["player-rounds", playerId, { limit, offset }],
+    queryFn: () => getPlayerRoundHistory(playerId, limit, offset),
+    enabled: playerId > 0,
+  });
+}
+
+// Tours and Series types
+export type TourEnrollmentStatus = "pending" | "requested" | "active";
+
+export interface PlayerTourInfo {
+  tour_id: number;
+  tour_name: string;
+  enrollment_status: TourEnrollmentStatus;
+  category_name?: string;
+  position?: number;
+  total_points?: number;
+  competitions_played: number;
+}
+
+export interface PlayerSeriesInfo {
+  series_id: number;
+  series_name: string;
+  competitions_played: number;
+  last_played_date: string;
+}
+
+export interface PlayerToursAndSeries {
+  tours: PlayerTourInfo[];
+  series: PlayerSeriesInfo[];
+}
+
 // isFriend types and hook
 export interface IsFriendResponse {
   isFriend: boolean;
@@ -288,5 +344,57 @@ export function useIsFriend(targetPlayerId: number) {
     queryFn: () => checkIsFriend(targetPlayerId),
     enabled: targetPlayerId > 0,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+}
+
+// Tours and Series API
+
+async function getMyToursAndSeries(): Promise<PlayerToursAndSeries> {
+  const response = await fetchWithCredentials(
+    `${API_BASE_URL}/players/me/tours-and-series`
+  );
+
+  if (!response.ok) {
+    // If not authenticated, return empty arrays
+    if (response.status === 401) {
+      return { tours: [], series: [] };
+    }
+    const error = await response.json();
+    throw new Error(error.error || "Failed to fetch tours and series");
+  }
+
+  return response.json();
+}
+
+/**
+ * Get current user's tours and series participation
+ */
+export function useMyToursAndSeries() {
+  return useQuery<PlayerToursAndSeries>({
+    queryKey: ["my-tours-and-series"],
+    queryFn: getMyToursAndSeries,
+    retry: false,
+  });
+}
+
+/**
+ * Get any player's tours and series participation by ID
+ */
+async function getPlayerToursAndSeries(playerId: number): Promise<PlayerToursAndSeries> {
+  const response = await fetch(`${API_BASE_URL}/players/${playerId}/tours-and-series`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to fetch player tours and series");
+  }
+
+  return response.json();
+}
+
+export function usePlayerToursAndSeries(playerId: number) {
+  return useQuery<PlayerToursAndSeries>({
+    queryKey: ["player-tours-and-series", playerId],
+    queryFn: () => getPlayerToursAndSeries(playerId),
+    enabled: playerId > 0,
   });
 }

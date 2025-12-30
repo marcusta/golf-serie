@@ -1,9 +1,12 @@
 import { useParams } from "@tanstack/react-router";
-import { usePlayerProfile } from "@/api/player-profile";
+import {
+  usePlayerProfile,
+  usePlayerRoundHistory,
+  usePlayerToursAndSeries,
+} from "@/api/player-profile";
 import {
   AlertCircle,
   RefreshCw,
-  Trophy,
   Target,
   MapPin,
   Eye,
@@ -14,6 +17,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
+import { ProfileRecentRounds, ProfileTours, ProfileSeries } from "@/components/profile";
 
 // Loading skeleton
 function LoadingSkeleton() {
@@ -115,6 +119,8 @@ export default function PlayerPublicProfile() {
   const playerIdNum = parseInt(playerId);
 
   const { data: profile, isLoading, error, refetch } = usePlayerProfile(playerIdNum);
+  const { data: rounds, isLoading: roundsLoading } = usePlayerRoundHistory(playerIdNum, 5);
+  const { data: toursAndSeries, isLoading: toursLoading } = usePlayerToursAndSeries(playerIdNum);
 
   if (isLoading) {
     return <LoadingSkeleton />;
@@ -271,34 +277,22 @@ export default function PlayerPublicProfile() {
           )}
         </div>
 
-        {/* Activity summary */}
-        <div className="bg-white rounded-xl border-l-4 border-turf mb-6">
-          <div className="flex items-center gap-2 px-4 pt-4">
-            <Trophy className="h-5 w-5 text-turf" />
-            <h2 className="text-lg font-display font-bold text-charcoal">
-              Activity
-            </h2>
-          </div>
+        {/* Recent Rounds */}
+        <ProfileRecentRounds rounds={rounds} isLoading={roundsLoading} />
 
-          {profile.total_rounds > 0 ? (
-            <div className="text-center py-4 px-4">
-              <p className="text-charcoal/70">
-                {profile.name} has played {profile.total_rounds} rounds across{" "}
-                {profile.competitions_played} competitions.
-              </p>
-              {profile.best_score && profile.average_score && (
-                <p className="text-charcoal/50 text-sm mt-2">
-                  Best: {profile.best_score} | Avg: {profile.average_score.toFixed(1)}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8 px-4 text-charcoal/60">
-              <Trophy className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              <p>No rounds recorded yet</p>
-            </div>
-          )}
-        </div>
+        {/* Tours */}
+        <ProfileTours
+          tours={toursAndSeries?.tours}
+          isLoading={toursLoading}
+          title="Tours"
+        />
+
+        {/* Series */}
+        <ProfileSeries
+          series={toursAndSeries?.series}
+          isLoading={toursLoading}
+          title="Series"
+        />
       </div>
     </PlayerPageLayout>
   );

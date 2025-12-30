@@ -5,6 +5,7 @@ import {
   useUpdateMyProfile,
   useRecordHandicap,
   useMyRounds,
+  useMyToursAndSeries,
   type UpdateProfileDto,
 } from "@/api/player-profile";
 import { useUpdateEmail, useUpdatePassword } from "@/api/auth";
@@ -18,16 +19,12 @@ import {
   Edit2,
   Save,
   X,
-  Trophy,
   Target,
-  TrendingUp,
-  Calendar,
   MapPin,
   Eye,
   EyeOff,
   Users,
   Plus,
-  ChevronRight,
   LogIn,
   Settings,
   Mail,
@@ -38,6 +35,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
+import { ProfileRecentRounds, ProfileTours, ProfileSeries } from "@/components/profile";
 
 // Loading skeleton
 function LoadingSkeleton() {
@@ -160,17 +158,12 @@ function VisibilityIcon({ visibility }: { visibility: string }) {
   }
 }
 
-// Format relative score
-function formatRelativeToPar(score: number): string {
-  if (score === 0) return "E";
-  return score > 0 ? `+${score}` : score.toString();
-}
-
 export default function MyProfile() {
   const { user, isLoading: authLoading } = useAuth();
   const { data: profile, isLoading, error, refetch } = useMyProfile();
   const { data: courses } = useCourses();
   const { data: rounds } = useMyRounds(5);
+  const { data: toursAndSeries } = useMyToursAndSeries();
   const updateProfile = useUpdateMyProfile();
   const recordHandicap = useRecordHandicap();
   const updateEmail = useUpdateEmail();
@@ -616,69 +609,14 @@ export default function MyProfile() {
           )}
         </div>
 
-        {/* Recent rounds */}
-        <div className="bg-white rounded-xl border-l-4 border-turf mb-6">
-          <div className="flex items-center justify-between px-4 pt-4 pb-2">
-            <h2 className="text-lg font-display font-bold text-charcoal flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-turf" />
-              Recent Rounds
-            </h2>
-          </div>
+        {/* Recent Rounds */}
+        <ProfileRecentRounds rounds={rounds} />
 
-          {rounds && rounds.length > 0 ? (
-            <div className="divide-y divide-soft-grey">
-              {rounds.map((round) => (
-                <Link
-                  key={round.participant_id}
-                  to="/player/competitions/$competitionId"
-                  params={{ competitionId: round.competition_id.toString() }}
-                  className="block"
-                >
-                  <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-charcoal truncate">
-                        {round.competition_name}
-                      </div>
-                      <div className="text-sm text-charcoal/60 flex items-center gap-2">
-                        <Calendar className="h-3 w-3 text-turf" />
-                        {new Date(round.competition_date).toLocaleDateString()}
-                        <span className="text-charcoal/40">•</span>
-                        {round.course_name}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="font-bold text-charcoal">
-                          {round.gross_score}
-                        </div>
-                        <div
-                          className={`text-sm ${
-                            round.relative_to_par < 0
-                              ? "text-green-600"
-                              : round.relative_to_par > 0
-                                ? "text-red-600"
-                                : "text-charcoal/60"
-                          }`}
-                        >
-                          {formatRelativeToPar(round.relative_to_par)}
-                        </div>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-charcoal/40" />
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 px-4 text-charcoal/60">
-              <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              <p>No rounds played yet</p>
-              <p className="text-sm">
-                Your rounds will appear here after you play
-              </p>
-            </div>
-          )}
-        </div>
+        {/* My Tours */}
+        <ProfileTours tours={toursAndSeries?.tours} />
+
+        {/* My Series */}
+        <ProfileSeries series={toursAndSeries?.series} />
 
         {/* Account Settings */}
         <div className="bg-white rounded-xl border-l-4 border-turf mb-6">
