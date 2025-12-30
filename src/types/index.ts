@@ -219,6 +219,8 @@ export interface LeaderboardEntry {
   netRelativeToPar?: number;
   courseHandicap?: number;
   handicapStrokesPerHole?: number[];
+  // DNF status (Did Not Finish - competition window closed before completion)
+  isDNF?: boolean;
 }
 
 export interface LeaderboardResponse {

@@ -490,6 +490,7 @@ export class TourCompetitionRegistrationService {
   /**
    * Get all active and recently finished rounds for a player across all tours
    * Includes rounds that are: registered, playing, looking_for_group, or finished (for open competitions)
+   * Excludes DNF rounds (competition window closed and player didn't finish 18 holes)
    */
   async getActiveRounds(playerId: number): Promise<ActiveRound[]> {
     const rounds = this.db
@@ -527,8 +528,22 @@ export class TourCompetitionRegistrationService {
     }[];
 
     const activeRounds: ActiveRound[] = [];
+    const now = new Date();
 
     for (const round of rounds) {
+      // Calculate holes played
+      const scores = JSON.parse(round.score || "[]") as number[];
+      const holesPlayed = scores.filter((s) => s > 0).length;
+
+      // Check if this is a DNF (competition window closed and didn't finish 18 holes)
+      const isExpired = round.open_until && new Date(round.open_until) < now;
+      const isFinished = round.registration_status === "finished" || holesPlayed === 18;
+
+      // Skip DNF rounds - they'll appear on the leaderboard instead
+      if (isExpired && !isFinished) {
+        continue;
+      }
+
       // Get group members with handicaps
       const groupMembers = this.db
         .prepare(
@@ -539,10 +554,6 @@ export class TourCompetitionRegistrationService {
            WHERE r.tee_time_id = ? AND r.player_id != ?`
         )
         .all(round.tee_time_id, playerId) as { name: string; handicap: number | null }[];
-
-      // Calculate holes played and score
-      const scores = JSON.parse(round.score || "[]") as number[];
-      const holesPlayed = scores.filter((s) => s > 0).length;
 
       // Get pars for score calculation
       const courseInfo = this.db

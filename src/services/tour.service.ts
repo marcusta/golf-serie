@@ -467,6 +467,15 @@ export class TourService {
     }
     const totalPar = pars.reduce((sum, par) => sum + par, 0);
 
+    // Check if this is a closed open competition (for DNF handling)
+    const competition = this.db
+      .prepare("SELECT start_mode, open_end FROM competitions WHERE id = ?")
+      .get(competitionId) as { start_mode: string; open_end: string | null } | null;
+
+    const isOpenCompetitionClosed = competition?.start_mode === "open" &&
+      competition.open_end &&
+      new Date(competition.open_end) < new Date();
+
     // Get all participants with player_id for this competition
     const participants = this.db
       .prepare(`
@@ -511,10 +520,19 @@ export class TourService {
           score = [];
         }
 
-        // Check if player has finished (is_locked and has valid scores)
+        // Check if player has finished
         const hasInvalidRound = score.includes(-1);
         const holesPlayed = score.filter((s: number) => s > 0 || s === -1).length;
-        isFinished = participant.is_locked && holesPlayed === 18 && !hasInvalidRound;
+
+        // For closed open competitions, consider finished if 18 holes played (regardless of is_locked)
+        // Otherwise require is_locked to be true
+        if (isOpenCompetitionClosed) {
+          // Competition window closed: finished if 18 holes, DNF otherwise (no points for < 18)
+          isFinished = holesPlayed === 18 && !hasInvalidRound;
+        } else {
+          // Competition still open: require is_locked
+          isFinished = participant.is_locked && holesPlayed === 18 && !hasInvalidRound;
+        }
 
         if (isFinished) {
           totalShots = score.reduce((sum: number, s: number) => sum + (s > 0 ? s : 0), 0);

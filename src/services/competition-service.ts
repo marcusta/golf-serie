@@ -550,6 +550,11 @@ export class CompetitionService {
     const pars = coursePars;
     const totalPar = pars.reduce((sum: number, par: number) => sum + par, 0);
 
+    // Check if this is an open competition with a closed window (for DNF detection)
+    const isOpenCompetitionClosed = competition.start_mode === "open" &&
+      competition.open_end &&
+      new Date(competition.open_end) < new Date();
+
     // Calculate leaderboard entries
     const leaderboard: LeaderboardEntry[] = participants.map((participant) => {
       // Parse the score field
@@ -620,6 +625,8 @@ export class CompetitionService {
           netRelativeToPar,
           courseHandicap,
           handicapStrokesPerHole,
+          // Manual scores are always complete rounds, so never DNF
+          isDNF: false,
         };
       } else {
         // Use existing logic for hole-by-hole scores
@@ -661,6 +668,9 @@ export class CompetitionService {
           }
         }
 
+        // DNF if competition window closed and round not complete (less than 18 holes)
+        const isDNF = isOpenCompetitionClosed && holesPlayed < 18;
+
         return {
           participant: {
             ...participant,
@@ -677,12 +687,23 @@ export class CompetitionService {
           netRelativeToPar,
           courseHandicap,
           handicapStrokesPerHole,
+          isDNF,
         };
       }
     });
 
-    // Sort by relative to par (ascending)
-    const sortedLeaderboard = leaderboard.sort((a, b) => a.relativeToPar - b.relativeToPar);
+    // Sort by relative to par (ascending), with DNF entries at the bottom
+    const sortedLeaderboard = leaderboard.sort((a, b) => {
+      // DNF entries always go to the bottom
+      if (a.isDNF && !b.isDNF) return 1;
+      if (!a.isDNF && b.isDNF) return -1;
+      // Among DNF entries, sort by holes played (more holes = higher)
+      if (a.isDNF && b.isDNF) {
+        return b.holesPlayed - a.holesPlayed;
+      }
+      // Normal sorting by relative to par
+      return a.relativeToPar - b.relativeToPar;
+    });
 
     // Build categoryTees for the response if category-based tee assignments are used
     let categoryTeesResponse: LeaderboardResponse["categoryTees"] = undefined;

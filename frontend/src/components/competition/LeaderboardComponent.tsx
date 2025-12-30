@@ -59,6 +59,9 @@ export function LeaderboardComponent({
 
   // Helper function to determine player status
   const getPlayerStatus = (entry: LeaderboardEntry) => {
+    // DNF takes priority - competition closed and didn't finish
+    if (entry.isDNF) return "DNF";
+
     const hasInvalidRound = entry.participant.score.includes(-1);
     const isLocked = entry.participant.is_locked;
     const hasStarted = entry.holesPlayed > 0;
@@ -72,6 +75,7 @@ export function LeaderboardComponent({
   const getDisplayProgress = (entry: LeaderboardEntry) => {
     const status = getPlayerStatus(entry);
 
+    if (status === "DNF") return "DNF";
     if (status === "NOT_STARTED") {
       if (entry.startTime) {
         // startTime is in "HH:MM" format, so we can return it directly
@@ -86,6 +90,14 @@ export function LeaderboardComponent({
   // Shared sorting logic for both mobile and desktop views
   const sortedLeaderboard = leaderboard
     ? [...leaderboard].sort((a, b) => {
+        // DNF entries always go to the bottom
+        if (a.isDNF && !b.isDNF) return 1;
+        if (!a.isDNF && b.isDNF) return -1;
+        // Among DNF entries, sort by holes played (more holes = higher)
+        if (a.isDNF && b.isDNF) {
+          return b.holesPlayed - a.holesPlayed;
+        }
+
         // Check if rounds are invalid (contain -1 scores)
         const aHasInvalidRound = a.participant.score.includes(-1);
         const bHasInvalidRound = b.participant.score.includes(-1);
@@ -94,7 +106,7 @@ export function LeaderboardComponent({
         const aStarted = a.holesPlayed > 0;
         const bStarted = b.holesPlayed > 0;
 
-        // Category 1: Valid scores (started, no -1 scores)
+        // Category 1: Valid scores (started, no -1 scores, not DNF)
         const aHasValidScore = aStarted && !aHasInvalidRound;
         const bHasValidScore = bStarted && !bHasInvalidRound;
 
@@ -153,7 +165,10 @@ export function LeaderboardComponent({
   });
 
   // Helper function to get position styling
-  const getPositionStyling = (index: number, holesPlayed: number) => {
+  const getPositionStyling = (index: number, holesPlayed: number, isDNF?: boolean) => {
+    if (isDNF) {
+      return "border-red-300 text-red-500";
+    }
     if (holesPlayed === 0) {
       return "border-gray-300 text-gray-500";
     }
@@ -170,7 +185,8 @@ export function LeaderboardComponent({
   };
 
   // Helper function to get row background for table
-  const getRowBackground = (index: number, holesPlayed: number) => {
+  const getRowBackground = (index: number, holesPlayed: number, isDNF?: boolean) => {
+    if (isDNF) return "bg-red-50/50 hover:bg-red-100/50";
     if (holesPlayed === 0) return "bg-scorecard hover:bg-gray-50";
     switch (index) {
       case 0:
@@ -330,7 +346,7 @@ export function LeaderboardComponent({
 
             {filteredLeaderboard.map((entry, index) => {
               const isRoundInvalid = entry.participant.score.includes(-1);
-              const isLeader = index === 0 && entry.holesPlayed > 0;
+              const isLeader = index === 0 && entry.holesPlayed > 0 && !entry.isDNF;
               const status = getPlayerStatus(entry);
               const displayProgress = getDisplayProgress(entry);
 
@@ -340,24 +356,25 @@ export function LeaderboardComponent({
                   onClick={() => onParticipantClick(entry.participant.id)}
                   className={`w-full text-left px-4 py-2.5 border-b border-soft-grey/50 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
                     isLeader ? "border-l-4 border-l-coral bg-coral/5" : ""
-                  }`}
+                  } ${entry.isDNF ? "bg-red-50/50" : ""}`}
                 >
                   <div className="flex items-center">
                     {/* Position Number */}
                     <div
                       className={`w-7 text-base font-bold mr-2 ${getPositionStyling(
                         index,
-                        entry.holesPlayed
+                        entry.holesPlayed,
+                        entry.isDNF
                       )}`}
                     >
-                      {entry.holesPlayed === 0 ? "-" : index + 1}
+                      {entry.isDNF ? "-" : entry.holesPlayed === 0 ? "-" : index + 1}
                     </div>
 
                     {/* Player Info - truncate long names */}
                     <div className="flex-1 min-w-0 mr-2">
                       {entry.participant.player_names ? (
                         <>
-                          <h3 className="text-sm font-semibold text-charcoal font-display truncate">
+                          <h3 className={`text-sm font-semibold font-display truncate ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                             {entry.participant.player_names}
                           </h3>
                           {showNetScores && entry.participant.handicap_index !== undefined && (
@@ -374,7 +391,7 @@ export function LeaderboardComponent({
                           )}
                         </>
                       ) : (
-                        <h3 className="text-sm font-semibold text-charcoal font-display truncate">
+                        <h3 className={`text-sm font-semibold font-display truncate ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                           {isTourCompetition
                             ? entry.participant.position_name
                             : `${entry.participant.team_name} ${entry.participant.position_name}`}
@@ -388,6 +405,21 @@ export function LeaderboardComponent({
                         <div className="w-10 text-center text-sm text-gray-500">
                           {displayProgress}
                         </div>
+                      ) : status === "DNF" ? (
+                        <>
+                          {/* DNF - show partial score greyed out */}
+                          <div className="w-10 text-center text-lg font-bold text-gray-400">
+                            {entry.holesPlayed > 0 ? formatToPar(entry.relativeToPar) : "-"}
+                          </div>
+                          {showNetScores && (
+                            <div className="w-10 text-center text-lg font-bold text-gray-400">
+                              -
+                            </div>
+                          )}
+                          <div className="w-8 text-center text-xs font-bold text-red-500">
+                            DNF
+                          </div>
+                        </>
                       ) : (
                         <>
                           {/* Gross Score */}
@@ -458,17 +490,19 @@ export function LeaderboardComponent({
                         key={entry.participant.id}
                         className={`border-b border-soft-grey last:border-b-0 transition-colors duration-200 ${getRowBackground(
                           index,
-                          entry.holesPlayed
+                          entry.holesPlayed,
+                          entry.isDNF
                         )}`}
                       >
                         <td className="py-4 px-4">
                           <div
                             className={`text-sm font-bold ${getPositionStyling(
                               index,
-                              entry.holesPlayed
+                              entry.holesPlayed,
+                              entry.isDNF
                             )}`}
                           >
-                            {entry.holesPlayed === 0 ? "-" : index + 1}
+                            {entry.isDNF ? "-" : entry.holesPlayed === 0 ? "-" : index + 1}
                           </div>
                         </td>
                         <td className="py-4 px-4">
@@ -476,7 +510,7 @@ export function LeaderboardComponent({
                             {entry.participant.player_names ? (
                               // Player has a name - show player name prominently
                               <>
-                                <div className="text-body-md font-semibold text-charcoal font-display">
+                                <div className={`text-body-md font-semibold font-display ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                                   {entry.participant.player_names}
                                 </div>
                                 {/* Hide team/position for Tour competitions */}
@@ -490,7 +524,7 @@ export function LeaderboardComponent({
                             ) : (
                               // No player name - show team name + position (unless Tour competition)
                               <>
-                                <div className="text-body-md font-semibold text-charcoal font-display">
+                                <div className={`text-body-md font-semibold font-display ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                                   {isTourCompetition
                                     ? entry.participant.position_name
                                     : `${entry.participant.team_name} ${entry.participant.position_name}`}
@@ -520,6 +554,28 @@ export function LeaderboardComponent({
                               </div>
                               <div className="text-base font-medium text-gray-500">
                                 {displayProgress}
+                              </div>
+                            </div>
+                          ) : status === "DNF" ? (
+                            <div className="flex items-center justify-center space-x-4">
+                              {/* DNF Status */}
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">
+                                  Status
+                                </div>
+                                <div className="text-xl font-bold text-red-500 font-display">
+                                  DNF
+                                </div>
+                              </div>
+
+                              {/* Partial Score */}
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">
+                                  Thru {entry.holesPlayed}
+                                </div>
+                                <div className="text-xl font-bold text-gray-400 font-display">
+                                  {entry.holesPlayed > 0 ? formatToPar(entry.relativeToPar) : "-"}
+                                </div>
                               </div>
                             </div>
                           ) : (
