@@ -73,10 +73,10 @@ export class ParticipantService {
       JOIN teams te ON p.team_id = te.id
       WHERE p.id = ?
     `);
-    const participant = stmt.get(id) as Participant | null;
+    const participant = stmt.get(id) as (Participant & { handicap_index: number | null }) | null;
     if (!participant) return null;
 
-    let score: any[] = [];
+    let score: number[] = [];
     try {
       score = participant.score
         ? JSON.parse(participant.score as unknown as string)
@@ -89,6 +89,7 @@ export class ParticipantService {
       ...participant,
       is_locked: Boolean(participant.is_locked),
       score,
+      handicap_index: participant.handicap_index ?? undefined,
     };
   }
 
@@ -216,21 +217,26 @@ export class ParticipantService {
       throw new Error("Scorecard is locked and cannot be modified.");
     }
 
-    // Get the course to validate hole number
+    // Get the course to validate hole number, plus competition/tour info for handicap snapshot
     const courseStmt = this.db.prepare(`
-      SELECT co.pars
+      SELECT co.pars, c.tour_id, p.player_id, p.handicap_index
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN competitions c ON t.competition_id = c.id
       JOIN courses co ON c.course_id = co.id
       WHERE p.id = ?
     `);
-    const course = courseStmt.get(id) as { pars: string } | null;
-    if (!course) {
+    const courseInfo = courseStmt.get(id) as {
+      pars: string;
+      tour_id: number | null;
+      player_id: number | null;
+      handicap_index: number | null;
+    } | null;
+    if (!courseInfo) {
       throw new Error("Could not find course for participant");
     }
 
-    const pars = JSON.parse(course.pars);
+    const pars = JSON.parse(courseInfo.pars);
     if (hole < 1 || hole > pars.length) {
       throw new Error(`Hole number must be between 1 and ${pars.length}`);
     }
@@ -255,17 +261,70 @@ export class ParticipantService {
       }
     }
 
+    // Check if this is the first score being entered (snapshot handicap at time of playing)
+    // Only capture if: has player_id, no handicap_index yet, no scores entered yet
+    let shouldCaptureHandicap = false;
+    let capturedHandicapIndex: number | null = null;
+
+    if (
+      courseInfo.player_id &&
+      courseInfo.handicap_index === null &&
+      shots > 0 // Only capture on actual score entry, not clears
+    ) {
+      // Check if all existing scores are 0 (no scores entered yet)
+      const hasExistingScores = score.some((s: number) => s > 0 || s === -1);
+      if (!hasExistingScores) {
+        // Look up current handicap from tour enrollment or player record
+        if (courseInfo.tour_id) {
+          const handicapStmt = this.db.prepare(`
+            SELECT COALESCE(te.playing_handicap, pl.handicap) as handicap_index
+            FROM players pl
+            LEFT JOIN tour_enrollments te ON te.player_id = pl.id AND te.tour_id = ? AND te.status = 'active'
+            WHERE pl.id = ?
+          `);
+          const handicapResult = handicapStmt.get(
+            courseInfo.tour_id,
+            courseInfo.player_id
+          ) as { handicap_index: number | null } | null;
+          if (handicapResult && handicapResult.handicap_index !== null) {
+            shouldCaptureHandicap = true;
+            capturedHandicapIndex = handicapResult.handicap_index;
+          }
+        } else {
+          // Non-tour competition, just use player's default handicap
+          const handicapStmt = this.db.prepare(
+            "SELECT handicap FROM players WHERE id = ?"
+          );
+          const handicapResult = handicapStmt.get(courseInfo.player_id) as {
+            handicap: number | null;
+          } | null;
+          if (handicapResult && handicapResult.handicap !== null) {
+            shouldCaptureHandicap = true;
+            capturedHandicapIndex = handicapResult.handicap;
+          }
+        }
+      }
+    }
+
     score[hole - 1] = shots;
 
-    const stmt = this.db.prepare(`
-      UPDATE participants 
-      SET score = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-      RETURNING *
-    `);
+    // Update score and optionally capture handicap snapshot
+    if (shouldCaptureHandicap && capturedHandicapIndex !== null) {
+      const stmt = this.db.prepare(`
+        UPDATE participants
+        SET score = ?, handicap_index = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      stmt.run(JSON.stringify(score), capturedHandicapIndex, id);
+    } else {
+      const stmt = this.db.prepare(`
+        UPDATE participants
+        SET score = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+      stmt.run(JSON.stringify(score), id);
+    }
 
-    const stringifiedScore = JSON.stringify(score);
-    stmt.run(stringifiedScore, id);
     const updated = await this.findById(id);
     if (!updated) {
       throw new Error("Participant not found");

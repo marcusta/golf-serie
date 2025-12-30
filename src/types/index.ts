@@ -161,6 +161,8 @@ export interface Participant {
   tee_time_id: number;
   position_name: string;
   player_names?: string;
+  player_id?: number;
+  handicap_index?: number; // Snapshot of handicap at time of playing
   score: number[];
   is_locked: boolean;
   locked_at?: string;
@@ -205,8 +207,6 @@ export interface UpdateParticipantDto {
 export interface LeaderboardEntry {
   participant: Participant & {
     team_name: string;
-    player_id?: number;
-    handicap_index?: number;
     category_id?: number;
     category_name?: string;
   };

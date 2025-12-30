@@ -441,6 +441,7 @@ export class CompetitionService {
       team_id: number;
       teetime: string;
       player_id: number | null;
+      handicap_index: number | null; // Stored snapshot from time of playing
       category_id: number | null;
       category_name: string | null;
     })[];
@@ -565,10 +566,13 @@ export class CompetitionService {
           ? participant.score
           : [];
 
-      // Get player handicap if available
-      const handicapIndex = participant.player_id
-        ? playerHandicaps.get(participant.player_id)
-        : undefined;
+      // Get player handicap - prefer stored snapshot, fall back to live lookup for backwards compatibility
+      const handicapIndex =
+        participant.handicap_index !== null && participant.handicap_index !== undefined
+          ? participant.handicap_index
+          : participant.player_id
+            ? playerHandicaps.get(participant.player_id)
+            : undefined;
 
       // Calculate course handicap and stroke distribution
       // Use category-specific tee ratings if available, otherwise fall back to default/competition tee
