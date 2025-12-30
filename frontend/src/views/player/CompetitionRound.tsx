@@ -414,7 +414,6 @@ export default function CompetitionRound() {
             onParticipantClick={handleParticipantClick}
             isRoundView={true}
             isTourCompetition={!!competition?.tour_id}
-            isResultsFinal={leaderboardWithDetails?.isResultsFinal}
             scoringMode={leaderboardWithDetails?.scoringMode}
             teeInfo={leaderboardWithDetails?.tee}
             categoryTees={leaderboardWithDetails?.categoryTees}
