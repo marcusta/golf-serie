@@ -1,8 +1,20 @@
 # Backend Refactoring Plan
 
 **Created:** 2025-12-31
+**Updated:** 2025-12-31
 **Goal:** Refactor backend services to comply with new code quality rules in CLAUDE.md
 **Safety Net:** 670+ integration tests must pass after each change
+
+---
+
+## Core Rule Reminder
+
+> Within a service, a method contains EITHER a single SQL query OR business logic - never both.
+
+**Method Categories:**
+- **Query Methods** (private): Single SQL query, prefix `find*`, `get*`, `insert*`, `update*`, `delete*`
+- **Logic Methods** (private): Pure business logic, no SQL, prefix `validate*`, `calculate*`, `build*`, `transform*`
+- **Public API Methods**: Orchestration only - calls query and logic methods
 
 ---
 
@@ -25,65 +37,12 @@ Create supporting infrastructure before touching existing code.
 - [x] Export `GOLF` object with all domain constants
 - [x] Run tests: `bun test`
 
-```typescript
-// src/constants/golf.ts
-export const GOLF = {
-  HOLES_PER_ROUND: 18,
-  FRONT_NINE_START: 1,
-  BACK_NINE_START: 10,
-
-  // WHS Standard Values
-  STANDARD_SLOPE_RATING: 113,
-  STANDARD_COURSE_RATING: 72,
-
-  // Valid Ranges
-  MIN_PAR: 3,
-  MAX_PAR: 6,
-  MIN_COURSE_RATING: 50,
-  MAX_COURSE_RATING: 90,
-  MIN_SLOPE_RATING: 55,
-  MAX_SLOPE_RATING: 155,
-  MIN_HANDICAP_INDEX: -10,
-  MAX_HANDICAP_INDEX: 54,
-
-  // Score Markers
-  UNREPORTED_HOLE: -1,
-} as const;
-```
-
 ### Step 0.2: Create Parsing Utilities
 - [x] Create `src/utils/parsing.ts`
 - [x] Add `safeParseJson<T>()` utility
 - [x] Add `parseScoreArray()` utility
 - [x] Add `parseParsArray()` utility
 - [x] Run tests: `bun test`
-
-```typescript
-// src/utils/parsing.ts
-export function safeParseJson<T>(json: string, fieldName: string): T {
-  try {
-    return JSON.parse(json) as T;
-  } catch (e) {
-    throw new Error(`Invalid ${fieldName} format: ${e instanceof Error ? e.message : 'parse error'}`);
-  }
-}
-
-export function parseScoreArray(json: string): number[] {
-  const parsed = safeParseJson<unknown>(json, 'score');
-  if (!Array.isArray(parsed)) {
-    throw new Error('Score must be an array');
-  }
-  return parsed as number[];
-}
-
-export function parseParsArray(json: string): number[] {
-  const parsed = safeParseJson<unknown>(json, 'pars');
-  if (!Array.isArray(parsed)) {
-    throw new Error('Pars must be an array');
-  }
-  return parsed as number[];
-}
-```
 
 ### Step 0.3: Verify Baseline
 - [x] Run full test suite: `bun test` (677 pass, 1 skip - Playwright tests excluded)
@@ -95,81 +54,250 @@ export function parseParsArray(json: string): number[] {
 
 ## Phase 1: Simple Services
 
-Refactor simple CRUD services first to build confidence.
-
 ### 1.1 TeamService (`src/services/team-service.ts`)
-**Complexity:** Low (~80 lines)
+**Complexity:** Low (~106 lines after refactoring)
 **Tests:** `tests/teams.test.ts`
 
-- [ ] Replace magic numbers with `GOLF.*` constants (if any)
-- [ ] Extract query methods with proper naming
-- [ ] Extract validation logic methods
-- [ ] Fix any `any` types
-- [ ] Run tests: `bun test tests/teams.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Type Safety Pass)
+- [x] Fix `any` types - Fixed `values: any[]` to `values: (string | number)[]`
+
+#### Completed (Method Separation) - 2025-12-31
+
+**`create()` refactored:**
+- [x] Extract `validateTeamName(name: string): void`
+- [x] Extract `insertTeam(name: string): Team` (single INSERT query)
+- [x] Extract `translateUniqueConstraintError(error: Error): Error`
+- [x] Refactor `create()` to orchestration only
+
+**`update()` refactored:**
+- [x] Extract `validateTeamUpdate(data: UpdateTeamDto): void`
+- [x] Extract `updateTeamRow(id: number, name: string): Team | null` (single UPDATE query)
+- [x] Refactor `update()` to orchestration only
+
+- [x] Run tests: `bun test tests/teams.test.ts` - 16 pass
+- [x] Run full suite: `bun test`
+
+---
 
 ### 1.2 DocumentService (`src/services/document-service.ts`)
-**Complexity:** Low
+**Complexity:** Low (~202 lines after refactoring)
 **Tests:** `tests/documents.test.ts`
 
-- [ ] Replace magic numbers with `GOLF.*` constants (if any)
-- [ ] Extract query methods
-- [ ] Extract validation logic
-- [ ] Fix any `any` types
-- [ ] Run tests: `bun test tests/documents.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Type Safety Pass)
+- [x] Fix `any` types - Fixed `values: any[]` to `values: (string | number)[]`
+
+#### Completed (Method Separation) - 2025-12-31
+
+**Logic methods extracted:**
+- [x] Extract `validateCreateDocumentData(data: CreateDocumentDto): void`
+- [x] Extract `validateUpdateDocumentData(data: UpdateDocumentDto): void`
+- [x] Extract `extractTypes(rows: { type: string }[]): string[]`
+
+**Query methods extracted:**
+- [x] Extract `findSeriesExists(id: number): boolean`
+- [x] Extract `insertDocument(data: CreateDocumentDto): Document`
+- [x] Extract `findDocumentsBySeries(seriesId: number): Document[]`
+- [x] Extract `findDocumentsBySeriesAndType(seriesId: number, type: string): Document[]`
+- [x] Extract `findDistinctTypesBySeries(seriesId: number): { type: string }[]`
+- [x] Extract `updateDocumentRow(id, title, content, type): Document`
+- [x] Extract `deleteDocumentRow(id: number): void`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - validation, series check, insert
+- [x] `findBySeriesId()` - series check, query
+- [x] `findBySeriesIdAndType()` - series check, query
+- [x] `update()` - find existing, validation, merge fields, update
+- [x] `delete()` - find existing, delete
+- [x] `getDocumentTypes()` - series check, query, extract
+
+- [x] Run tests: `bun test tests/documents.test.ts` - 22 pass
+- [x] Run full suite: `bun test`
+
+---
 
 ### 1.3 PointTemplateService (`src/services/point-template.service.ts`)
-**Complexity:** Low
+**Complexity:** Low (~144 lines after refactoring)
 **Tests:** `tests/point-templates.test.ts`
 
-- [ ] Extract query methods
-- [ ] Extract validation logic
-- [ ] Fix any `any` types
-- [ ] Run tests: `bun test tests/point-templates.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Type Safety Pass)
+- [x] Fix `any` types - Fixed `values: any[]` to `values: (string | number)[]`
+- [x] Add safe JSON parsing - Using `safeParseJson()` for points_structure
+
+#### Completed (Method Separation) - 2025-12-31
+
+**Logic methods extracted:**
+- [x] Extract `getPointsForPosition(structure: PointsStructure, position: number): number`
+
+**Query methods extracted:**
+- [x] Extract `insertPointTemplate(name, pointsStructureJson, createdBy): PointTemplate`
+- [x] Extract `updatePointTemplateRow(id, name, pointsStructureJson): PointTemplate`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - serialize JSON, insert
+- [x] `update()` - check exists, merge fields, update
+- [x] `calculatePoints()` - get template, parse JSON, call logic method
+
+- [x] Run tests: `bun test tests/point-templates.test.ts` - 17 pass
+- [x] Run full suite: `bun test`
 
 ---
 
 ## Phase 2: Medium Services
 
 ### 2.1 CourseService (`src/services/course-service.ts`)
-**Complexity:** Medium
+**Complexity:** Medium (~185 lines after refactoring)
 **Tests:** `tests/courses.test.ts`
 
-- [ ] Replace `18` with `GOLF.HOLES_PER_ROUND`
-- [ ] Replace par range checks with `GOLF.MIN_PAR`, `GOLF.MAX_PAR`
-- [ ] Extract query methods
-- [ ] Extract `validatePars()` logic method
-- [ ] Add defensive JSON parsing for pars
-- [ ] Run tests: `bun test tests/courses.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Constants & Parsing Pass)
+- [x] Replace `18` with `GOLF.HOLES_PER_ROUND`
+- [x] Replace par range checks with `GOLF.MIN_PAR`, `GOLF.MAX_PAR`
+- [x] Fix `any` types - Fixed `values: any[]` to `values: (string | number)[]`
+- [x] Add defensive JSON parsing - Using `parseParsArray()` for all pars
+
+#### Completed (Method Separation) - 2025-12-31
+
+**Logic methods extracted:**
+- [x] Extract `calculatePars(pars: number[]): ParsData`
+- [x] Extract `transformCourseRow(row: CourseRow): Course`
+- [x] Extract `validateCourseName(name: string): void`
+- [x] Extract `validateCourseNameNotEmpty(name: string): void`
+- [x] Extract `validateParsArray(pars: number[]): void`
+
+**Query methods extracted:**
+- [x] Extract `insertCourseRow(name: string): CourseRow`
+- [x] Extract `findAllCourseRows(): CourseRow[]`
+- [x] Extract `findCourseRowById(id: number): CourseRow | null`
+- [x] Extract `updateCourseNameRow(id: number, name: string): CourseRow`
+- [x] Extract `updateCourseParsRow(id: number, pars: number[]): CourseRow`
+- [x] Extract `findCompetitionsByCourse(courseId: number): { id: number }[]`
+- [x] Extract `deleteCourseRow(id: number): void`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - validation, insert, transform
+- [x] `findAll()` - query, transform each
+- [x] `findById()` - query, transform
+- [x] `update()` - check exists, validation, update, transform
+- [x] `updateHoles()` - check exists, validation, update, transform
+- [x] `delete()` - check exists, check competitions, delete
+
+- [x] Run tests: `bun test tests/courses.test.ts` - 12 pass
+- [x] Run full suite: `bun test`
+
+---
 
 ### 2.2 CourseTeeService (`src/services/course-tee.service.ts`)
-**Complexity:** Medium (has rating validation)
-**Tests:** `tests/course-tees.test.ts`, `tests/course-tee-ratings.test.ts`
+**Complexity:** High (~548 lines after refactoring) - Originally marked Medium, actually complex
+**Tests:** `tests/course-tees.test.ts`, `tests/course-tee-ratings.test.ts`, `tests/course-tee-ratings-api.test.ts`
 
-- [ ] Replace `113` with `GOLF.STANDARD_SLOPE_RATING`
-- [ ] Replace `72` with `GOLF.STANDARD_COURSE_RATING`
-- [ ] Replace rating range checks with `GOLF.*` constants
-- [ ] Replace `18` checks with `GOLF.HOLES_PER_ROUND`
-- [ ] Extract query methods
-- [ ] Extract validation logic methods
-- [ ] Add defensive JSON parsing for stroke_index
-- [ ] Fix any `any` types
-- [ ] Run tests: `bun test tests/course-tees.test.ts tests/course-tee-ratings.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Constants & Parsing Pass)
+- [x] Replace `113` with `GOLF.STANDARD_SLOPE_RATING`
+- [x] Replace rating range checks with `GOLF.MIN_COURSE_RATING`, `GOLF.MAX_COURSE_RATING`, `GOLF.MIN_SLOPE_RATING`, `GOLF.MAX_SLOPE_RATING`
+- [x] Replace `18` checks with `GOLF.HOLES_PER_ROUND`
+- [x] Replace par range checks with `GOLF.MIN_PAR`, `GOLF.MAX_PAR`
+- [x] Add defensive JSON parsing - Using `parseStrokeIndex()` and `parseParsArray()`
+
+#### Completed (Method Separation) - 2025-12-31
+
+**Critical fix: `parseRow()` → `transformTeeRow()` (pure, no SQL)**
+- [x] Renamed to `transformTeeRow()` - pure transformation, no SQL calls
+- [x] Ratings loading now explicit in each public method
+
+**Logic methods extracted:**
+- [x] `transformTeeRow(row: CourseTeeRow): CourseTee`
+- [x] `transformRatingRow(row: CourseTeeRatingRow): CourseTeeRating`
+- [x] `validateRatingGender(gender: string): void`
+- [x] `validateCourseRating(courseRating: number): void`
+- [x] `validateSlopeRating(slopeRating: number): void`
+- [x] `validateTeeName(name: string): void`
+- [x] `validateTeeNameNotEmpty(name: string): void`
+- [x] `validateStrokeIndexArray(strokeIndex: number[]): void`
+- [x] `validateParsArray(pars: number[]): void`
+- [x] `validateRatingsArray(ratings: CreateCourseTeeRatingDto[]): void`
+- [x] `determineCourseAndSlopeRating(data: CreateCourseTeeDto): { courseRating, slopeRating }`
+
+**Query methods extracted:**
+- [x] `findTeeRowById(id: number): CourseTeeRow | null`
+- [x] `findTeeRowsByCourse(courseId: number): CourseTeeRow[]`
+- [x] `findRatingRowsByTee(teeId: number): CourseTeeRatingRow[]`
+- [x] `findRatingRowById(id: number): CourseTeeRatingRow | null`
+- [x] `findRatingRowByGender(teeId, gender): CourseTeeRatingRow | null`
+- [x] `findCourseExists(courseId: number): boolean`
+- [x] `findDuplicateTee(courseId, name): boolean`
+- [x] `findDuplicateTeeExcluding(courseId, name, excludeId): boolean`
+- [x] `findCompetitionsByTee(teeId: number): { id: number }[]`
+- [x] `insertTeeRow(...): CourseTeeRow`
+- [x] `upsertRatingRow(...): CourseTeeRatingRow`
+- [x] `updateRatingRow(...): CourseTeeRatingRow`
+- [x] `updateTeeRow(...): CourseTeeRow`
+- [x] `deleteRatingRow(id: number): void`
+- [x] `deleteRatingRowByGender(teeId, gender): void`
+- [x] `deleteTeeRow(id: number): void`
+- [x] `findTeeRowsByCourseWithDetails(courseId): (CourseTeeRow & { course_name })`
+
+**Public methods refactored to orchestration:**
+- [x] `getRatingsForTee()` - query, transform each
+- [x] `getRatingByGender()` - query, transform
+- [x] `getRatingById()` - query, transform
+- [x] `upsertRating()` - check tee exists, validation, upsert, transform
+- [x] `updateRating()` - check exists, validation, merge, update, transform
+- [x] `deleteRating()` - check exists, delete
+- [x] `deleteRatingByGender()` - delete
+- [x] `findByCourse()` - query rows, transform each, load ratings
+- [x] `findById()` - query, transform, load ratings
+- [x] `create()` - validations, determine ratings, insert, create ratings, return with ratings
+- [x] `update()` - check exists, validations, merge values, update, return with ratings
+- [x] `delete()` - check exists, check competitions, delete
+- [x] `findByCourseWithDetails()` - query, transform each, load ratings
+
+- [x] Run tests: `bun test tests/course-tees.test.ts tests/course-tee-ratings.test.ts tests/course-tee-ratings-api.test.ts` - 72 pass
+- [x] Run full suite: `bun test`
+
+---
 
 ### 2.3 TeeTimeService (`src/services/tee-time-service.ts`)
-**Complexity:** Medium
+**Complexity:** Medium (~337 lines after refactoring)
 **Tests:** `tests/tee-times.test.ts`
 
-- [ ] Replace `1` and `10` with `GOLF.FRONT_NINE_START`, `GOLF.BACK_NINE_START`
-- [ ] Extract query methods
-- [ ] Extract validation logic
-- [ ] Fix any `any` types
-- [ ] Run tests: `bun test tests/tee-times.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Method Separation) - 2025-12-31
+
+**Logic methods extracted:**
+- [x] `validateTeeTimeRequired(teetime: string): void`
+- [x] `validateTeeTimeNotEmpty(teetime: string): void`
+- [x] `validateCreateForVenueType(data, venueType): void`
+- [x] `validateUpdateForVenueType(data, venueType): void`
+- [x] `transformParticipantRow(row): ParticipantWithTeamRow`
+- [x] `transformTeeTimeWithParticipants(teeTimeRow, participantRows): TeeTimeWithParticipants`
+- [x] `validateParticipantIds(newOrder, validIds): void`
+
+**Query methods extracted:**
+- [x] `findCompetitionVenueInfo(competitionId): CompetitionVenueInfo | null`
+- [x] `findCompetitionExists(competitionId): boolean`
+- [x] `insertTeeTimeRow(...): TeeTime`
+- [x] `findTeeTimeRowsByCompetition(competitionId): TeeTime[]`
+- [x] `findTeeTimeRowsWithCourseByCompetition(competitionId): TeeTimeWithCourseRow[]`
+- [x] `findTeeTimeRowById(id): TeeTime | null`
+- [x] `findTeeTimeRowWithCourse(id): TeeTimeWithCourseRow | null`
+- [x] `findParticipantRowsByTeeTime(teeTimeId): ParticipantWithTeamRow[]`
+- [x] `findParticipantIdsByTeeTime(teeTimeId): number[]`
+- [x] `updateTeeTimeRow(...): TeeTime`
+- [x] `deleteTeeTimeRow(id): void`
+- [x] `updateParticipantOrderRow(participantId, order): void`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - validation, get venue info, validate for venue type, insert
+- [x] `findAllForCompetition()` - check exists, query
+- [x] `findAllForCompetitionWithParticipants()` - check exists, query, transform each with participants
+- [x] `findById()` - query
+- [x] `findByIdWithParticipants()` - query with course, get participants, transform
+- [x] `update()` - check exists, validation, get venue info, validate for venue type, merge, update
+- [x] `delete()` - check exists, delete
+- [x] `updateParticipantsOrder()` - check exists, validate ids, update each, return with participants
+
+**Type safety fixed:**
+- [x] Fixed `any[]` type to proper typed interfaces
+
+- [x] Run tests: `bun test tests/tee-times.test.ts` - 15 pass
+- [x] Run full suite: `bun test`
 
 ---
 
@@ -181,14 +309,9 @@ Refactor simple CRUD services first to build confidence.
 
 - [ ] Replace `18` with `GOLF.HOLES_PER_ROUND`
 - [ ] Replace `-1` with `GOLF.UNREPORTED_HOLE`
-- [ ] Extract query methods:
-  - [ ] `findParticipantById()`
-  - [ ] `findParticipantsByTeeTime()`
-  - [ ] `insertParticipant()`
-  - [ ] `updateParticipantScore()`
-- [ ] Extract logic methods:
-  - [ ] `validateScore()`
-  - [ ] `calculateScoreTotal()`
+- [ ] Analyze method violations
+- [ ] Extract query methods
+- [ ] Extract logic methods
 - [ ] Add defensive JSON parsing
 - [ ] Fix any `any` types
 - [ ] Run tests: `bun test tests/participants.test.ts`
@@ -198,6 +321,7 @@ Refactor simple CRUD services first to build confidence.
 **Complexity:** High (has standings calculation)
 **Tests:** `tests/series.test.ts`
 
+- [ ] Analyze method violations
 - [ ] Extract query methods
 - [ ] Extract standings calculation logic
 - [ ] Fix any `any` types (especially `getTeams(): any[]`)
@@ -209,6 +333,7 @@ Refactor simple CRUD services first to build confidence.
 **Tests:** `tests/auth-auto-enrollment.test.ts`
 
 - [ ] Extract session expiry to named constant
+- [ ] Analyze method violations
 - [ ] Extract query methods
 - [ ] Fix any `any` types
 - [ ] Run tests: `bun test tests/auth-auto-enrollment.test.ts`
@@ -242,6 +367,7 @@ Refactor simple CRUD services first to build confidence.
 **Complexity:** Medium
 **Tests:** `tests/tour-enrollment-service.test.ts`, `tests/tour-api-enrollments.test.ts`
 
+- [ ] Analyze method violations
 - [ ] Extract query methods
 - [ ] Fix any `any` types
 - [ ] Run tests
@@ -252,6 +378,7 @@ Refactor simple CRUD services first to build confidence.
 **Tests:** `tests/tour-competition-registration.test.ts`
 
 - [ ] Replace `18` with `GOLF.HOLES_PER_ROUND`
+- [ ] Analyze method violations
 - [ ] Extract query methods
 - [ ] Extract logic methods
 - [ ] Fix any `any` types
@@ -337,6 +464,7 @@ Lines 835-844:   Return response
 **Tests:** Related competition tests
 
 - [ ] Replace magic numbers with `GOLF.*` constants
+- [ ] Analyze method violations
 - [ ] Extract query methods
 - [ ] Extract calculation logic
 - [ ] Run full suite: `bun test`
@@ -346,6 +474,7 @@ Lines 835-844:   Return response
 ## Phase 7: Player Services
 
 ### 7.1 PlayerService (`src/services/player.service.ts`)
+- [ ] Analyze method violations
 - [ ] Fix any `any` types
 - [ ] Extract query methods
 - [ ] Run tests
@@ -353,6 +482,7 @@ Lines 835-844:   Return response
 ### 7.2 PlayerProfileService (`src/services/player-profile.service.ts`)
 - [ ] Replace handicap range with `GOLF.*` constants
 - [ ] Replace `72` default par with `GOLF.STANDARD_COURSE_RATING`
+- [ ] Analyze method violations
 - [ ] Extract query methods
 - [ ] Fix any `any` types
 - [ ] Run tests
@@ -374,8 +504,8 @@ Lines 835-844:   Return response
 | Phase | Status | Date Started | Date Completed |
 |-------|--------|--------------|----------------|
 | Phase 0: Foundation | Complete | 2025-12-31 | 2025-12-31 |
-| Phase 1: Simple Services | Not Started | | |
-| Phase 2: Medium Services | Not Started | | |
+| Phase 1: Simple Services | **Complete** | 2025-12-31 | 2025-12-31 |
+| Phase 2: Medium Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 3: Complex Services | Not Started | | |
 | Phase 4: Tour Services | Not Started | | |
 | Phase 5: CompetitionService | Not Started | | |
@@ -423,3 +553,4 @@ bun run lint
 - Never skip running tests after an extraction
 - If unsure about an extraction, make it smaller
 - The goal is structure change, not behavior change
+- **Method separation is the core work** - type fixes and constants were just preparation
