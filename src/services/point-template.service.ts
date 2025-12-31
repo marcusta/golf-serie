@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { safeParseJson } from "../utils/parsing";
 
 export type PointTemplate = {
   id: number;
@@ -26,6 +27,56 @@ export type UpdatePointTemplateInput = {
 export class PointTemplateService {
   constructor(private db: Database) {}
 
+  // ─────────────────────────────────────────────────────────────────
+  // Logic Methods (no SQL)
+  // ─────────────────────────────────────────────────────────────────
+
+  private getPointsForPosition(structure: PointsStructure, position: number): number {
+    // Try exact position match
+    if (structure[position.toString()]) {
+      return structure[position.toString()];
+    }
+    // Fall back to default
+    return structure["default"] || 0;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Query Methods (single SQL statement each)
+  // ─────────────────────────────────────────────────────────────────
+
+  private insertPointTemplate(
+    name: string,
+    pointsStructureJson: string,
+    createdBy: number
+  ): PointTemplate {
+    return this.db
+      .prepare(
+        `INSERT INTO point_templates (name, points_structure, created_by)
+         VALUES (?, ?, ?)
+         RETURNING *`
+      )
+      .get(name, pointsStructureJson, createdBy) as PointTemplate;
+  }
+
+  private updatePointTemplateRow(
+    id: number,
+    name: string,
+    pointsStructureJson: string
+  ): PointTemplate {
+    return this.db
+      .prepare(
+        `UPDATE point_templates
+         SET name = ?, points_structure = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?
+         RETURNING *`
+      )
+      .get(name, pointsStructureJson, id) as PointTemplate;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Public API Methods (orchestration only)
+  // ─────────────────────────────────────────────────────────────────
+
   findAll(): PointTemplate[] {
     return this.db
       .prepare("SELECT * FROM point_templates ORDER BY name ASC")
@@ -40,18 +91,7 @@ export class PointTemplateService {
 
   create(data: CreatePointTemplateInput, createdBy: number): PointTemplate {
     const pointsStructureJson = JSON.stringify(data.points_structure);
-
-    const result = this.db
-      .prepare(
-        `
-      INSERT INTO point_templates (name, points_structure, created_by)
-      VALUES (?, ?, ?)
-      RETURNING *
-    `
-      )
-      .get(data.name, pointsStructureJson, createdBy) as PointTemplate;
-
-    return result;
+    return this.insertPointTemplate(data.name, pointsStructureJson, createdBy);
   }
 
   update(id: number, data: UpdatePointTemplateInput): PointTemplate {
@@ -60,38 +100,19 @@ export class PointTemplateService {
       throw new Error("Point template not found");
     }
 
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name !== undefined) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (data.points_structure !== undefined) {
-      updates.push("points_structure = ?");
-      values.push(JSON.stringify(data.points_structure));
-    }
-
-    if (updates.length === 0) {
+    // No changes requested - return existing template
+    if (data.name === undefined && data.points_structure === undefined) {
       return template;
     }
 
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
+    // Merge with existing values for unchanged fields
+    const name = data.name !== undefined ? data.name : template.name;
+    const pointsStructureJson =
+      data.points_structure !== undefined
+        ? JSON.stringify(data.points_structure)
+        : template.points_structure;
 
-    const result = this.db
-      .prepare(
-        `
-      UPDATE point_templates 
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `
-      )
-      .get(...values) as PointTemplate;
-
-    return result;
+    return this.updatePointTemplateRow(id, name, pointsStructureJson);
   }
 
   delete(id: number): void {
@@ -109,15 +130,12 @@ export class PointTemplateService {
       throw new Error("Point template not found");
     }
 
-    const structure: PointsStructure = JSON.parse(template.points_structure);
+    const structure = safeParseJson<PointsStructure>(
+      template.points_structure,
+      "points_structure"
+    );
 
-    // Try exact position match
-    if (structure[position.toString()]) {
-      return structure[position.toString()];
-    }
-
-    // Fall back to default
-    return structure["default"] || 0;
+    return this.getPointsForPosition(structure, position);
   }
 }
 
