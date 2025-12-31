@@ -1,5 +1,7 @@
 import { Database } from "bun:sqlite";
 import type { Course, CreateCourseDto, UpdateCourseDto } from "../types";
+import { GOLF } from "../constants/golf";
+import { parseParsArray } from "../utils/parsing";
 
 interface ParsData {
   holes: number[];
@@ -8,146 +10,176 @@ interface ParsData {
   total: number;
 }
 
-function calculatePars(pars: number[]): ParsData {
-  const holes = pars;
-  const out = pars.slice(0, 9).reduce((sum, par) => sum + par, 0);
-  const in_ = pars.slice(9).reduce((sum, par) => sum + par, 0);
-  const total = out + in_;
-
-  return {
-    holes,
-    out,
-    in: in_,
-    total,
-  };
+// Raw database row type
+interface CourseRow {
+  id: number;
+  name: string;
+  pars: string; // JSON string in database
+  created_at: string;
+  updated_at: string;
 }
 
 export class CourseService {
   constructor(private db: Database) {}
 
-  async create(data: CreateCourseDto): Promise<Course> {
-    if (!data.name?.trim()) {
+  // ─────────────────────────────────────────────────────────────────
+  // Logic Methods (no SQL)
+  // ─────────────────────────────────────────────────────────────────
+
+  private calculatePars(pars: number[]): ParsData {
+    const out = pars.slice(0, 9).reduce((sum, par) => sum + par, 0);
+    const in_ = pars.slice(9).reduce((sum, par) => sum + par, 0);
+    return {
+      holes: pars,
+      out,
+      in: in_,
+      total: out + in_,
+    };
+  }
+
+  private transformCourseRow(row: CourseRow): Course {
+    const pars = parseParsArray(row.pars);
+    return {
+      ...row,
+      pars: this.calculatePars(pars),
+    } as Course;
+  }
+
+  private validateCourseName(name: string | undefined): void {
+    if (!name?.trim()) {
       throw new Error("Course name is required");
     }
+  }
 
+  private validateCourseNameNotEmpty(name: string | undefined): void {
+    if (name !== undefined && !name.trim()) {
+      throw new Error("Course name cannot be empty");
+    }
+  }
+
+  private validateParsArray(pars: number[]): void {
+    if (pars.length > GOLF.HOLES_PER_ROUND) {
+      throw new Error(`Course cannot have more than ${GOLF.HOLES_PER_ROUND} holes`);
+    }
+    if (!pars.every((par) => Number.isInteger(par) && par >= GOLF.MIN_PAR && par <= GOLF.MAX_PAR)) {
+      throw new Error(`All pars must be integers between ${GOLF.MIN_PAR} and ${GOLF.MAX_PAR}`);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Query Methods (single SQL statement each)
+  // ─────────────────────────────────────────────────────────────────
+
+  private insertCourseRow(name: string): CourseRow {
     const stmt = this.db.prepare(`
       INSERT INTO courses (name, pars)
       VALUES (?, ?)
       RETURNING *
     `);
-
-    const course = stmt.get(data.name, JSON.stringify([])) as Course;
-    const pars = JSON.parse(course.pars as unknown as string);
-    course.pars = calculatePars(pars);
-    return course;
+    return stmt.get(name, JSON.stringify([])) as CourseRow;
   }
 
-  async findAll(): Promise<Course[]> {
+  private findAllCourseRows(): CourseRow[] {
     const stmt = this.db.prepare("SELECT * FROM courses");
-    const courses = stmt.all() as Course[];
-    return courses.map((course) => ({
-      ...course,
-      pars: calculatePars(JSON.parse(course.pars as unknown as string)),
-    }));
+    return stmt.all() as CourseRow[];
   }
 
-  async findById(id: number): Promise<Course | null> {
+  private findCourseRowById(id: number): CourseRow | null {
     const stmt = this.db.prepare("SELECT * FROM courses WHERE id = ?");
-    const course = stmt.get(id) as Course | null;
-
-    if (!course) return null;
-
-    const pars = JSON.parse(course.pars as unknown as string);
-    return {
-      ...course,
-      pars: calculatePars(pars),
-    };
+    return stmt.get(id) as CourseRow | null;
   }
 
-  async update(id: number, data: UpdateCourseDto): Promise<Course> {
-    const course = await this.findById(id);
-    if (!course) {
-      throw new Error("Course not found");
-    }
-
-    if (data.name && !data.name.trim()) {
-      throw new Error("Course name cannot be empty");
-    }
-
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (updates.length === 0) {
-      return course;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
+  private updateCourseNameRow(id: number, name: string): CourseRow {
     const stmt = this.db.prepare(`
-      UPDATE courses 
-      SET ${updates.join(", ")}
+      UPDATE courses
+      SET name = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
       RETURNING *
     `);
-
-    const updated = stmt.get(...values) as Course;
-    const pars = JSON.parse(updated.pars as unknown as string);
-    return {
-      ...updated,
-      pars: calculatePars(pars),
-    };
+    return stmt.get(name, id) as CourseRow;
   }
 
-  async updateHoles(id: number, pars: number[]): Promise<Course> {
-    const course = await this.findById(id);
-    if (!course) {
-      throw new Error("Course not found");
-    }
-
-    if (pars.length > 18) {
-      throw new Error("Course cannot have more than 18 holes");
-    }
-
-    if (!pars.every((par) => Number.isInteger(par) && par >= 3 && par <= 6)) {
-      throw new Error("All pars must be integers between 3 and 6");
-    }
-
+  private updateCourseParsRow(id: number, pars: number[]): CourseRow {
     const stmt = this.db.prepare(`
-      UPDATE courses 
+      UPDATE courses
       SET pars = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
       RETURNING *
     `);
-
-    const updated = stmt.get(JSON.stringify(pars), id) as Course;
-    return {
-      ...updated,
-      pars: calculatePars(pars),
-    };
+    return stmt.get(JSON.stringify(pars), id) as CourseRow;
   }
 
-  async delete(id: number): Promise<void> {
-    const course = await this.findById(id);
-    if (!course) {
+  private findCompetitionsByCourse(courseId: number): { id: number }[] {
+    const stmt = this.db.prepare("SELECT id FROM competitions WHERE course_id = ?");
+    return stmt.all(courseId) as { id: number }[];
+  }
+
+  private deleteCourseRow(id: number): void {
+    const stmt = this.db.prepare("DELETE FROM courses WHERE id = ?");
+    stmt.run(id);
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Public API Methods (orchestration only)
+  // ─────────────────────────────────────────────────────────────────
+
+  async create(data: CreateCourseDto): Promise<Course> {
+    this.validateCourseName(data.name);
+    const row = this.insertCourseRow(data.name);
+    return this.transformCourseRow(row);
+  }
+
+  async findAll(): Promise<Course[]> {
+    const rows = this.findAllCourseRows();
+    return rows.map((row) => this.transformCourseRow(row));
+  }
+
+  async findById(id: number): Promise<Course | null> {
+    const row = this.findCourseRowById(id);
+    if (!row) return null;
+    return this.transformCourseRow(row);
+  }
+
+  async update(id: number, data: UpdateCourseDto): Promise<Course> {
+    const existingRow = this.findCourseRowById(id);
+    if (!existingRow) {
       throw new Error("Course not found");
     }
 
-    // Check if course is used in any competitions
-    const competitionsStmt = this.db.prepare(
-      "SELECT id FROM competitions WHERE course_id = ?"
-    );
-    const competitions = competitionsStmt.all(id);
+    this.validateCourseNameNotEmpty(data.name);
+
+    // No changes requested - return existing course
+    if (!data.name) {
+      return this.transformCourseRow(existingRow);
+    }
+
+    const updatedRow = this.updateCourseNameRow(id, data.name);
+    return this.transformCourseRow(updatedRow);
+  }
+
+  async updateHoles(id: number, pars: number[]): Promise<Course> {
+    const existingRow = this.findCourseRowById(id);
+    if (!existingRow) {
+      throw new Error("Course not found");
+    }
+
+    this.validateParsArray(pars);
+
+    const updatedRow = this.updateCourseParsRow(id, pars);
+    return this.transformCourseRow(updatedRow);
+  }
+
+  async delete(id: number): Promise<void> {
+    const existingRow = this.findCourseRowById(id);
+    if (!existingRow) {
+      throw new Error("Course not found");
+    }
+
+    const competitions = this.findCompetitionsByCourse(id);
     if (competitions.length > 0) {
       throw new Error("Cannot delete course that is used in competitions");
     }
 
-    const stmt = this.db.prepare("DELETE FROM courses WHERE id = ?");
-    stmt.run(id);
+    this.deleteCourseRow(id);
   }
 }
