@@ -179,6 +179,9 @@ describe("Series API", () => {
       });
       const createdSeries = await expectJsonResponse(createResponse);
 
+      // Add a small delay BEFORE the update to ensure timestamp difference
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const updateData = {
         name: "Updated Series",
         description: "Updated description",
@@ -190,9 +193,6 @@ describe("Series API", () => {
         updateData
       );
       expect(response.status).toBe(200);
-
-      // Add a small delay to ensure timestamp difference
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const series = await expectJsonResponse(response);
       expect(series.name).toBe(updateData.name);

@@ -4,120 +4,121 @@ import type {
   Series,
   SeriesStandings,
   SeriesTeamStanding,
+  TeamLeaderboardEntry,
   UpdateSeriesDto,
 } from "../types";
 import type { CompetitionService } from "./competition-service";
 
+// ============================================================================
+// Internal Row Types (database representation)
+// ============================================================================
+
+interface SeriesRow {
+  id: number;
+  name: string;
+  description: string | null;
+  banner_image_url: string | null;
+  is_public: number; // SQLite boolean
+  landing_document_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CompetitionRow {
+  id: number;
+  name: string;
+  date: string;
+  course_id: number;
+  course_name: string;
+  participant_count: number;
+}
+
+interface TeamRow {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DocumentRow {
+  id: number;
+  series_id: number;
+}
+
+interface CompetitionInfo {
+  id: number;
+  name: string;
+  date: string;
+}
+
+interface CompetitionWithCourse {
+  id: number;
+  name: string;
+  date: string;
+  course_id: number;
+  course: {
+    id: number;
+    name: string;
+  };
+  participant_count: number;
+}
+
 export class SeriesService {
   constructor(private db: Database, private competitionService: CompetitionService) {}
 
-  async create(data: CreateSeriesDto): Promise<Series> {
-    if (!data.name?.trim()) {
+  // ============================================================================
+  // Validation Methods (private, no SQL)
+  // ============================================================================
+
+  private validateSeriesName(name: string): void {
+    if (!name?.trim()) {
       throw new Error("Series name is required");
     }
-
-    try {
-      const stmt = this.db.prepare(`
-        INSERT INTO series (name, description, banner_image_url, is_public, created_at, updated_at)
-        VALUES (?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S.%f', 'now'), strftime('%Y-%m-%d %H:%M:%S.%f', 'now'))
-        RETURNING *
-      `);
-
-      const result = stmt.get(
-        data.name,
-        data.description || null,
-        data.banner_image_url || null,
-        data.is_public !== undefined ? (data.is_public ? 1 : 0) : 1
-      ) as any;
-
-      // Convert is_public from integer to boolean
-      return {
-        ...result,
-        is_public: Boolean(result.is_public),
-      } as Series;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        throw new Error("Series name must be unique");
-      }
-      throw error;
-    }
   }
 
-  async findAll(): Promise<Series[]> {
-    const stmt = this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
-      FROM series
-      ORDER BY strftime('%s.%f', created_at) DESC
-    `);
-    const results = stmt.all() as any[];
-    return results.map((result) => ({
-      ...result,
-      is_public: Boolean(result.is_public),
-    })) as Series[];
-  }
-
-  async findPublic(): Promise<Series[]> {
-    const stmt = this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
-      FROM series
-      WHERE is_public = 1
-      ORDER BY strftime('%s.%f', created_at) DESC
-    `);
-    const results = stmt.all() as any[];
-    return results.map((result) => ({
-      ...result,
-      is_public: Boolean(result.is_public),
-    })) as Series[];
-  }
-
-  async findById(id: number): Promise<Series | null> {
-    const stmt = this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
-      FROM series
-      WHERE id = ?
-    `);
-    const result = stmt.get(id) as any;
-    if (!result) return null;
-
-    return {
-      ...result,
-      is_public: Boolean(result.is_public),
-    } as Series;
-  }
-
-  async update(id: number, data: UpdateSeriesDto): Promise<Series> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    if (data.name !== undefined && !data.name.trim()) {
+  private validateSeriesNameNotEmpty(name: string): void {
+    if (!name.trim()) {
       throw new Error("Series name cannot be empty");
     }
+  }
 
-    // Validate landing_document_id if provided
-    if (data.landing_document_id !== undefined) {
-      if (data.landing_document_id !== null) {
-        const documentStmt = this.db.prepare(`
-          SELECT id, series_id FROM documents WHERE id = ?
-        `);
-        const document = documentStmt.get(data.landing_document_id) as any;
-
-        if (!document) {
-          throw new Error("Landing document not found");
-        }
-
-        if (document.series_id !== id) {
-          throw new Error("Landing document must belong to the same series");
-        }
-      }
+  private translateUniqueConstraintError(error: Error): Error {
+    if (error.message.includes("UNIQUE constraint failed")) {
+      return new Error("Series name must be unique");
     }
+    return error;
+  }
 
+  // ============================================================================
+  // Transform Methods (private, no SQL)
+  // ============================================================================
+
+  private transformSeriesRow(row: SeriesRow): Series {
+    return {
+      ...row,
+      is_public: Boolean(row.is_public),
+    };
+  }
+
+  private transformCompetitionRow(row: CompetitionRow): CompetitionWithCourse {
+    return {
+      id: row.id,
+      name: row.name,
+      date: row.date,
+      course_id: row.course_id,
+      participant_count: row.participant_count,
+      course: {
+        id: row.course_id,
+        name: row.course_name,
+      },
+    };
+  }
+
+  private buildUpdateFields(
+    data: UpdateSeriesDto
+  ): { updates: string[]; values: (string | number | null)[] } {
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | null)[] = [];
 
     if (data.name !== undefined) {
       updates.push("name = ?");
@@ -144,189 +145,41 @@ export class SeriesService {
       values.push(data.landing_document_id);
     }
 
-    if (updates.length === 0) {
-      return series;
-    }
-
-    updates.push("updated_at = strftime('%Y-%m-%d %H:%M:%S.%f', 'now')");
-    values.push(id);
-
-    try {
-      const stmt = this.db.prepare(`
-        UPDATE series
-        SET ${updates.join(", ")}
-        WHERE id = ?
-        RETURNING *
-      `);
-
-      const result = stmt.get(...values) as any;
-      return {
-        ...result,
-        is_public: Boolean(result.is_public),
-      } as Series;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        throw new Error("Series name must be unique");
-      }
-      throw error;
-    }
+    return { updates, values };
   }
 
-  async delete(id: number): Promise<void> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    const stmt = this.db.prepare("DELETE FROM series WHERE id = ?");
-    stmt.run(id);
+  private isPastCompetition(competitionDate: Date): boolean {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const compDate = new Date(competitionDate);
+    compDate.setHours(0, 0, 0, 0);
+    return compDate < today;
   }
 
-  async getCompetitions(id: number): Promise<any[]> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    const stmt = this.db.prepare(`
-      SELECT 
-        c.*, 
-        co.name as course_name,
-        (SELECT COUNT(DISTINCT p.id) 
-         FROM participants p 
-         JOIN tee_times t ON p.tee_time_id = t.id 
-         WHERE t.competition_id = c.id) as participant_count
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.series_id = ?
-      ORDER BY c.date
-    `);
-
-    return stmt.all(id).map((row: any) => ({
-      ...row,
-      course: {
-        id: row.course_id,
-        name: row.course_name,
-      },
-    }));
+  private teamResultsHaveScores(teamResults: TeamLeaderboardEntry[]): boolean {
+    return teamResults.some((team) => team.totalShots && team.totalShots > 0);
   }
 
-  async getTeams(id: number): Promise<any[]> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    const stmt = this.db.prepare(`
-      SELECT t.id, t.name, t.created_at, t.updated_at
-      FROM teams t
-      JOIN series_teams st ON t.id = st.team_id
-      WHERE st.series_id = ?
-      ORDER BY t.name
-    `);
-
-    return stmt.all(id);
+  private shouldIncludeCompetition(
+    competitionDate: Date,
+    teamResults: TeamLeaderboardEntry[]
+  ): boolean {
+    // Include if it's a past competition OR has scores
+    return this.isPastCompetition(competitionDate) || this.teamResultsHaveScores(teamResults);
   }
 
-  async addTeam(seriesId: number, teamId: number): Promise<void> {
-    // Verify series exists
-    const series = await this.findById(seriesId);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    // Verify team exists
-    const teamStmt = this.db.prepare("SELECT id FROM teams WHERE id = ?");
-    const team = teamStmt.get(teamId);
-    if (!team) {
-      throw new Error("Team not found");
-    }
-
-    try {
-      const stmt = this.db.prepare(`
-        INSERT INTO series_teams (series_id, team_id)
-        VALUES (?, ?)
-      `);
-      stmt.run(seriesId, teamId);
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("UNIQUE constraint failed")
-      ) {
-        throw new Error("Team is already in this series");
-      }
-      throw error;
-    }
-  }
-
-  async removeTeam(seriesId: number, teamId: number): Promise<void> {
-    const stmt = this.db.prepare(`
-      DELETE FROM series_teams
-      WHERE series_id = ? AND team_id = ?
-    `);
-    const result = stmt.run(seriesId, teamId);
-
-    if (result.changes === 0) {
-      throw new Error("Team is not in this series");
-    }
-  }
-
-  async getAvailableTeams(seriesId: number): Promise<any[]> {
-    const stmt = this.db.prepare(`
-      SELECT t.id, t.name, t.created_at, t.updated_at
-      FROM teams t
-      WHERE t.id NOT IN (
-        SELECT team_id
-        FROM series_teams
-        WHERE series_id = ?
-      )
-      ORDER BY t.name
-    `);
-
-    return stmt.all(seriesId);
-  }
-
-  async getStandings(id: number): Promise<SeriesStandings> {
-    const series = await this.findById(id);
-    if (!series) {
-      throw new Error("Series not found");
-    }
-
-    // Get all competitions in the series
-    const competitionsStmt = this.db.prepare(`
-      SELECT c.id, c.name, c.date
-      FROM competitions c
-      WHERE c.series_id = ?
-      ORDER BY c.date
-    `);
-    const competitions = competitionsStmt.all(id) as any[];
-
-    // Get team results for each competition
+  private calculateTeamStandings(
+    competitions: CompetitionInfo[],
+    teamResultsByCompetition: Map<number, TeamLeaderboardEntry[]>
+  ): SeriesTeamStanding[] {
     const teamStandings: { [teamId: number]: SeriesTeamStanding } = {};
 
     for (const competition of competitions) {
-      // Calculate team results for this competition using CompetitionService
-      const teamResults = await this.competitionService.getTeamLeaderboard(
-        competition.id
-      );
+      const teamResults = teamResultsByCompetition.get(competition.id);
+      if (!teamResults) continue;
 
-      // Check if competition should be included in standings
       const competitionDate = new Date(competition.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
-      competitionDate.setHours(0, 0, 0, 0);
-
-      const isPastCompetition = competitionDate < today;
-      const hasAnyScores = teamResults.some((team) => team.totalShots && team.totalShots > 0);
-
-      // Include competition if:
-      // 1. It's a past competition (always include regardless of scores), OR
-      // 2. It's a current/future competition AND has at least one score reported
-      if (!isPastCompetition && !hasAnyScores) {
-        // Skip future competitions with no scores
+      if (!this.shouldIncludeCompetition(competitionDate, teamResults)) {
         continue;
       }
 
@@ -344,33 +197,325 @@ export class SeriesService {
         }
 
         if (teamResult.teamPoints !== null) {
-          // teamPoints already includes the multiplier from CompetitionService
           teamStandings[teamResult.teamId].total_points += teamResult.teamPoints;
           teamStandings[teamResult.teamId].competitions_played += 1;
           teamStandings[teamResult.teamId].competitions.push({
             competition_id: competition.id,
             competition_name: competition.name,
             competition_date: competition.date,
-            points: teamResult.teamPoints, // Already multiplied by CompetitionService
-            position: i + 1, // Position based on sorted order from getTeamLeaderboard
+            points: teamResult.teamPoints,
+            position: i + 1,
           });
         }
       }
     }
 
-    // Sort teams by total points (descending) and assign positions
-    const sortedTeams = Object.values(teamStandings)
+    return this.sortAndRankTeamStandings(Object.values(teamStandings));
+  }
+
+  private sortAndRankTeamStandings(standings: SeriesTeamStanding[]): SeriesTeamStanding[] {
+    return standings
       .sort((a, b) => b.total_points - a.total_points)
       .map((team, index) => ({
         ...team,
         position: index + 1,
       }));
+  }
+
+  // ============================================================================
+  // Query Methods (private, single SQL statement each)
+  // ============================================================================
+
+  private insertSeriesRow(
+    name: string,
+    description: string | null,
+    bannerImageUrl: string | null,
+    isPublic: number
+  ): SeriesRow {
+    return this.db.prepare(`
+      INSERT INTO series (name, description, banner_image_url, is_public, created_at, updated_at)
+      VALUES (?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S.%f', 'now'), strftime('%Y-%m-%d %H:%M:%S.%f', 'now'))
+      RETURNING *
+    `).get(name, description, bannerImageUrl, isPublic) as SeriesRow;
+  }
+
+  private findAllSeriesRows(): SeriesRow[] {
+    return this.db.prepare(`
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
+      FROM series
+      ORDER BY strftime('%s.%f', created_at) DESC
+    `).all() as SeriesRow[];
+  }
+
+  private findPublicSeriesRows(): SeriesRow[] {
+    return this.db.prepare(`
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
+      FROM series
+      WHERE is_public = 1
+      ORDER BY strftime('%s.%f', created_at) DESC
+    `).all() as SeriesRow[];
+  }
+
+  private findSeriesRowById(id: number): SeriesRow | null {
+    return this.db.prepare(`
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
+      FROM series
+      WHERE id = ?
+    `).get(id) as SeriesRow | null;
+  }
+
+  private findDocumentRow(id: number): DocumentRow | null {
+    return this.db.prepare("SELECT id, series_id FROM documents WHERE id = ?")
+      .get(id) as DocumentRow | null;
+  }
+
+  private updateSeriesRow(
+    id: number,
+    updates: string[],
+    values: (string | number | null)[]
+  ): SeriesRow {
+    updates.push("updated_at = strftime('%Y-%m-%d %H:%M:%S.%f', 'now')");
+    values.push(id);
+
+    return this.db.prepare(`
+      UPDATE series
+      SET ${updates.join(", ")}
+      WHERE id = ?
+      RETURNING *
+    `).get(...values) as SeriesRow;
+  }
+
+  private deleteSeriesRow(id: number): void {
+    this.db.prepare("DELETE FROM series WHERE id = ?").run(id);
+  }
+
+  private findCompetitionRowsBySeries(seriesId: number): CompetitionRow[] {
+    return this.db.prepare(`
+      SELECT
+        c.*,
+        co.name as course_name,
+        (SELECT COUNT(DISTINCT p.id)
+         FROM participants p
+         JOIN tee_times t ON p.tee_time_id = t.id
+         WHERE t.competition_id = c.id) as participant_count
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      WHERE c.series_id = ?
+      ORDER BY c.date
+    `).all(seriesId) as CompetitionRow[];
+  }
+
+  private findTeamRowsBySeries(seriesId: number): TeamRow[] {
+    return this.db.prepare(`
+      SELECT t.id, t.name, t.created_at, t.updated_at
+      FROM teams t
+      JOIN series_teams st ON t.id = st.team_id
+      WHERE st.series_id = ?
+      ORDER BY t.name
+    `).all(seriesId) as TeamRow[];
+  }
+
+  private findTeamExists(id: number): boolean {
+    const row = this.db.prepare("SELECT id FROM teams WHERE id = ?").get(id);
+    return row !== null;
+  }
+
+  private insertSeriesTeamRow(seriesId: number, teamId: number): void {
+    this.db.prepare(`
+      INSERT INTO series_teams (series_id, team_id)
+      VALUES (?, ?)
+    `).run(seriesId, teamId);
+  }
+
+  private deleteSeriesTeamRow(seriesId: number, teamId: number): number {
+    const result = this.db.prepare(`
+      DELETE FROM series_teams
+      WHERE series_id = ? AND team_id = ?
+    `).run(seriesId, teamId);
+    return result.changes;
+  }
+
+  private findAvailableTeamRows(seriesId: number): TeamRow[] {
+    return this.db.prepare(`
+      SELECT t.id, t.name, t.created_at, t.updated_at
+      FROM teams t
+      WHERE t.id NOT IN (
+        SELECT team_id
+        FROM series_teams
+        WHERE series_id = ?
+      )
+      ORDER BY t.name
+    `).all(seriesId) as TeamRow[];
+  }
+
+  private findCompetitionInfoBySeries(seriesId: number): CompetitionInfo[] {
+    return this.db.prepare(`
+      SELECT c.id, c.name, c.date
+      FROM competitions c
+      WHERE c.series_id = ?
+      ORDER BY c.date
+    `).all(seriesId) as CompetitionInfo[];
+  }
+
+  // ============================================================================
+  // Public API Methods (orchestration only)
+  // ============================================================================
+
+  async create(data: CreateSeriesDto): Promise<Series> {
+    this.validateSeriesName(data.name);
+
+    try {
+      const isPublic = data.is_public !== undefined ? (data.is_public ? 1 : 0) : 1;
+      const row = this.insertSeriesRow(
+        data.name,
+        data.description || null,
+        data.banner_image_url || null,
+        isPublic
+      );
+      return this.transformSeriesRow(row);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw this.translateUniqueConstraintError(error);
+      }
+      throw error;
+    }
+  }
+
+  async findAll(): Promise<Series[]> {
+    const rows = this.findAllSeriesRows();
+    return rows.map((row) => this.transformSeriesRow(row));
+  }
+
+  async findPublic(): Promise<Series[]> {
+    const rows = this.findPublicSeriesRows();
+    return rows.map((row) => this.transformSeriesRow(row));
+  }
+
+  async findById(id: number): Promise<Series | null> {
+    const row = this.findSeriesRowById(id);
+    if (!row) return null;
+    return this.transformSeriesRow(row);
+  }
+
+  async update(id: number, data: UpdateSeriesDto): Promise<Series> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error("Series not found");
+    }
+
+    if (data.name !== undefined) {
+      this.validateSeriesNameNotEmpty(data.name);
+    }
+
+    // Validate landing_document_id if provided
+    if (data.landing_document_id !== undefined && data.landing_document_id !== null) {
+      const document = this.findDocumentRow(data.landing_document_id);
+      if (!document) {
+        throw new Error("Landing document not found");
+      }
+      if (document.series_id !== id) {
+        throw new Error("Landing document must belong to the same series");
+      }
+    }
+
+    const { updates, values } = this.buildUpdateFields(data);
+
+    if (updates.length === 0) {
+      return existing;
+    }
+
+    try {
+      const row = this.updateSeriesRow(id, updates, values);
+      return this.transformSeriesRow(row);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw this.translateUniqueConstraintError(error);
+      }
+      throw error;
+    }
+  }
+
+  async delete(id: number): Promise<void> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error("Series not found");
+    }
+
+    this.deleteSeriesRow(id);
+  }
+
+  async getCompetitions(id: number): Promise<CompetitionWithCourse[]> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error("Series not found");
+    }
+
+    const rows = this.findCompetitionRowsBySeries(id);
+    return rows.map((row) => this.transformCompetitionRow(row));
+  }
+
+  async getTeams(id: number): Promise<TeamRow[]> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error("Series not found");
+    }
+
+    return this.findTeamRowsBySeries(id);
+  }
+
+  async addTeam(seriesId: number, teamId: number): Promise<void> {
+    const existing = await this.findById(seriesId);
+    if (!existing) {
+      throw new Error("Series not found");
+    }
+
+    if (!this.findTeamExists(teamId)) {
+      throw new Error("Team not found");
+    }
+
+    try {
+      this.insertSeriesTeamRow(seriesId, teamId);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("UNIQUE constraint failed")) {
+        throw new Error("Team is already in this series");
+      }
+      throw error;
+    }
+  }
+
+  async removeTeam(seriesId: number, teamId: number): Promise<void> {
+    const changes = this.deleteSeriesTeamRow(seriesId, teamId);
+
+    if (changes === 0) {
+      throw new Error("Team is not in this series");
+    }
+  }
+
+  async getAvailableTeams(seriesId: number): Promise<TeamRow[]> {
+    return this.findAvailableTeamRows(seriesId);
+  }
+
+  async getStandings(id: number): Promise<SeriesStandings> {
+    const series = await this.findById(id);
+    if (!series) {
+      throw new Error("Series not found");
+    }
+
+    const competitions = this.findCompetitionInfoBySeries(id);
+
+    // Collect team results for each competition
+    const teamResultsByCompetition = new Map<number, TeamLeaderboardEntry[]>();
+    for (const competition of competitions) {
+      const teamResults = await this.competitionService.getTeamLeaderboard(competition.id);
+      teamResultsByCompetition.set(competition.id, teamResults);
+    }
+
+    const teamStandings = this.calculateTeamStandings(competitions, teamResultsByCompetition);
 
     return {
       series,
-      team_standings: sortedTeams,
+      team_standings: teamStandings,
       total_competitions: competitions.length,
     };
   }
-
 }

@@ -304,40 +304,184 @@ Create supporting infrastructure before touching existing code.
 ## Phase 3: Complex Services
 
 ### 3.1 ParticipantService (`src/services/participant-service.ts`)
-**Complexity:** High
+**Complexity:** High (~667 lines after refactoring)
 **Tests:** `tests/participants.test.ts`
 
-- [ ] Replace `18` with `GOLF.HOLES_PER_ROUND`
-- [ ] Replace `-1` with `GOLF.UNREPORTED_HOLE`
-- [ ] Analyze method violations
-- [ ] Extract query methods
-- [ ] Extract logic methods
-- [ ] Add defensive JSON parsing
-- [ ] Fix any `any` types
-- [ ] Run tests: `bun test tests/participants.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Method Separation) - 2025-12-31
+
+**Internal types added:**
+- [x] `ParticipantRow`, `ParticipantRowWithTeam`, `ParticipantCourseInfo`
+
+**Validation methods extracted:**
+- [x] `validatePositionName(name: string): void`
+- [x] `validatePositionNameNotEmpty(name: string): void`
+- [x] `validateTeeOrder(order: number): void`
+- [x] `validateHoleNumber(hole: number, maxHoles: number): void`
+- [x] `validateShotsValue(shots: number): void`
+- [x] `validateTotalScore(score: number | null): void`
+- [x] `validateOutInScore(score: number | null | undefined, fieldName: string): void`
+- [x] `validateScoreArray(score: number[]): void`
+
+**Transform/Logic methods extracted:**
+- [x] `transformParticipantRow(row: ParticipantRow): Participant`
+- [x] `transformParticipantRowWithTeam(row: ParticipantRowWithTeam): Participant`
+- [x] `parseScoreJson(json: string | null): number[]`
+- [x] `initializeScoreArray(existingScore, length): number[]`
+- [x] `shouldCaptureHandicap(courseInfo, shots, existingScore): boolean`
+- [x] `buildUpdateFields(data: UpdateParticipantDto): { updates, values }`
+- [x] `buildManualScoreFields(scores): { updates, values }`
+- [x] `determineHandicapToCapture(courseInfo): number | null`
+
+**Query methods extracted:**
+- [x] `findTeamExists(id: number): boolean`
+- [x] `findTeeTimeExists(id: number): boolean`
+- [x] `findCompetitionExists(id: number): boolean`
+- [x] `insertParticipantRow(...): ParticipantRow`
+- [x] `findAllParticipantRows(): ParticipantRow[]`
+- [x] `findParticipantRowWithTeam(id: number): ParticipantRowWithTeam | null`
+- [x] `updateParticipantRow(id, updates, values): ParticipantRow`
+- [x] `findParticipantRowsByCompetition(competitionId): ParticipantRowWithTeam[]`
+- [x] `findParticipantCourseInfo(id: number): ParticipantCourseInfo | null`
+- [x] `findPlayerHandicapFromTour(tourId, playerId): number | null`
+- [x] `findPlayerHandicap(playerId): number | null`
+- [x] `updateScoreRow(id, scoreJson): void`
+- [x] `updateScoreWithHandicapRow(id, scoreJson, handicapIndex): void`
+- [x] `deleteParticipantRow(id: number): void`
+- [x] `updateLockedRow(id, isLocked): ParticipantRow`
+- [x] `updateManualScoreRow(id, updates, values): void`
+- [x] `updateDQRow(id, isDQ, adminNotes, adminUserId): void`
+- [x] `updateAdminScoreRow(id, scoreJson, adminNotes, adminUserId): void`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - validation, existence checks, insert, transform
+- [x] `findAll()` - query, transform each
+- [x] `findById()` - query, transform
+- [x] `update()` - validation, existence checks, build fields, update, transform
+- [x] `findAllForCompetition()` - existence check, query, transform each
+- [x] `updateScore()` - validation, course info, handicap capture, update
+- [x] `delete()` - existence check, delete
+- [x] `lock()` / `unlock()` - existence check, update, transform
+- [x] `updateManualScore()` - validation, build fields, update, transform
+- [x] `adminSetDQ()` / `adminUpdateScore()` - existence check, validation, update
+
+**Type safety fixed:**
+- [x] All `any[]` types replaced with proper typed arrays
+- [x] Using `GOLF.HOLES_PER_ROUND` and `GOLF.UNREPORTED_HOLE` constants
+- [x] Using `safeParseJson()` for defensive JSON parsing
+
+- [x] Run tests: `bun test tests/participants.test.ts` - 41 pass
+- [x] Run full suite: `bun test` - 677 pass
+
+---
 
 ### 3.2 SeriesService (`src/services/series-service.ts`)
-**Complexity:** High (has standings calculation)
+**Complexity:** High (~520 lines after refactoring)
 **Tests:** `tests/series.test.ts`
 
-- [ ] Analyze method violations
-- [ ] Extract query methods
-- [ ] Extract standings calculation logic
-- [ ] Fix any `any` types (especially `getTeams(): any[]`)
-- [ ] Run tests: `bun test tests/series.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Method Separation) - 2025-12-31
+
+**Internal types added:**
+- [x] `SeriesRow`, `CompetitionRow`, `TeamRow`, `DocumentRow`
+- [x] `CompetitionInfo`, `CompetitionWithCourse`
+
+**Validation methods extracted:**
+- [x] `validateSeriesName(name: string): void`
+- [x] `validateSeriesNameNotEmpty(name: string): void`
+- [x] `translateUniqueConstraintError(error: Error): Error`
+
+**Transform/Logic methods extracted:**
+- [x] `transformSeriesRow(row: SeriesRow): Series`
+- [x] `transformCompetitionRow(row: CompetitionRow): CompetitionWithCourse`
+- [x] `buildUpdateFields(data: UpdateSeriesDto): { updates, values }`
+- [x] `isPastCompetition(competitionDate: Date): boolean`
+- [x] `teamResultsHaveScores(teamResults: TeamLeaderboardEntry[]): boolean`
+- [x] `shouldIncludeCompetition(competitionDate, teamResults): boolean`
+- [x] `calculateTeamStandings(competitions, teamResultsByCompetition): SeriesTeamStanding[]`
+- [x] `sortAndRankTeamStandings(standings): SeriesTeamStanding[]`
+
+**Query methods extracted:**
+- [x] `insertSeriesRow(name, description, bannerImageUrl, isPublic): SeriesRow`
+- [x] `findAllSeriesRows(): SeriesRow[]`
+- [x] `findPublicSeriesRows(): SeriesRow[]`
+- [x] `findSeriesRowById(id: number): SeriesRow | null`
+- [x] `findDocumentRow(id: number): DocumentRow | null`
+- [x] `updateSeriesRow(id, updates, values): SeriesRow`
+- [x] `deleteSeriesRow(id: number): void`
+- [x] `findCompetitionRowsBySeries(seriesId): CompetitionRow[]`
+- [x] `findTeamRowsBySeries(seriesId): TeamRow[]`
+- [x] `findTeamExists(id: number): boolean`
+- [x] `insertSeriesTeamRow(seriesId, teamId): void`
+- [x] `deleteSeriesTeamRow(seriesId, teamId): number`
+- [x] `findAvailableTeamRows(seriesId): TeamRow[]`
+- [x] `findCompetitionInfoBySeries(seriesId): CompetitionInfo[]`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - validation, insert, transform
+- [x] `findAll()` / `findPublic()` - query, transform each
+- [x] `findById()` - query, transform
+- [x] `update()` - existence check, validation, document validation, build fields, update, transform
+- [x] `delete()` - existence check, delete
+- [x] `getCompetitions()` - existence check, query, transform each
+- [x] `getTeams()` - existence check, query
+- [x] `addTeam()` - existence checks, insert
+- [x] `removeTeam()` - delete, check changes
+- [x] `getAvailableTeams()` - query
+- [x] `getStandings()` - existence check, query competitions, collect team results, calculate standings
+
+**Type safety fixed:**
+- [x] All `any` types replaced with proper typed interfaces
+- [x] Return types `CompetitionWithCourse[]` and `TeamRow[]` instead of `any[]`
+
+- [x] Run tests: `bun test tests/series.test.ts` - 35 pass
+- [x] Run full suite: `bun test` - 677 pass
+
+---
 
 ### 3.3 AuthService (`src/services/auth.service.ts`)
-**Complexity:** Medium
+**Complexity:** Medium (~317 lines after refactoring)
 **Tests:** `tests/auth-auto-enrollment.test.ts`
 
-- [ ] Extract session expiry to named constant
-- [ ] Analyze method violations
-- [ ] Extract query methods
-- [ ] Fix any `any` types
-- [ ] Run tests: `bun test tests/auth-auto-enrollment.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Method Separation) - 2025-12-31
+
+**Constants added:**
+- [x] `SESSION_EXPIRY_MS = 1000 * 60 * 60 * 24 * 7` (7 days)
+- [x] `MIN_PASSWORD_LENGTH = 6`
+
+**Internal types added:**
+- [x] `UserRow`, `SessionRow`
+
+**Validation methods extracted:**
+- [x] `validateNewPassword(password: string): void`
+- [x] `extractEmailName(email: string): string`
+
+**Query methods extracted:**
+- [x] `findUserByEmail(email: string): UserRow | null`
+- [x] `findUserById(id: number): UserRow | null`
+- [x] `findUserExistsByEmail(email: string): boolean`
+- [x] `findUserExistsByEmailExcluding(email, excludeUserId): boolean`
+- [x] `insertUserRow(email, passwordHash, role): RegisterResult`
+- [x] `findSessionWithUser(sessionId: string): SessionRow | null`
+- [x] `insertSessionRow(sessionId, userId, expiresAt): void`
+- [x] `deleteSessionRow(sessionId: string): void`
+- [x] `updateUserEmailRow(userId, email): void`
+- [x] `updateUserPasswordRow(userId, passwordHash): void`
+- [x] `findTourName(tourId: number): string | null`
+- [x] `findAllUsersRows(): Array<{ id, email, role }>`
+
+**Public methods refactored to orchestration:**
+- [x] `register()` - existence check, hash password, insert, process auto-enrollments
+- [x] `login()` - find user, verify password, create session
+- [x] `validateSession()` - find session, check expiry
+- [x] `logout()` - delete session
+- [x] `updateEmail()` - find user, verify password, check email unique, update
+- [x] `updatePassword()` - find user, verify password, validate, hash, update
+- [x] `getAllUsers()` - query
+
+**Type safety fixed:**
+- [x] All `any` types replaced with proper typed interfaces
+
+- [x] Run tests: `bun test tests/auth-auto-enrollment.test.ts` - 15 pass
+- [x] Run full suite: `bun test` - 677 pass
 
 ---
 
@@ -506,7 +650,7 @@ Lines 835-844:   Return response
 | Phase 0: Foundation | Complete | 2025-12-31 | 2025-12-31 |
 | Phase 1: Simple Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 2: Medium Services | **Complete** | 2025-12-31 | 2025-12-31 |
-| Phase 3: Complex Services | Not Started | | |
+| Phase 3: Complex Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 4: Tour Services | Not Started | | |
 | Phase 5: CompetitionService | Not Started | | |
 | Phase 6: CompetitionResultsService | Not Started | | |
