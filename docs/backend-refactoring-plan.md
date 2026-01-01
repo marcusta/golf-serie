@@ -787,66 +787,84 @@ Create supporting infrastructure before touching existing code.
 ## Phase 5: CompetitionService (The Big One)
 
 **File:** `src/services/competition-service.ts`
-**Complexity:** Highest (~1136 lines)
-**Critical Method:** `getLeaderboardWithDetails()` (530 lines)
+**Complexity:** Highest (~1405 lines after refactoring)
+**Critical Method:** `getLeaderboardWithDetails()` (220 lines after refactoring, was 530)
 **Tests:** `tests/competitions.test.ts`, `tests/competition-leaderboard-net-scores.test.ts`
 
-### 5.1 Document Current Structure
+#### Completed (Constants & Type Safety Pass) - 2026-01-01
 
-Before touching code, map what `getLeaderboardWithDetails()` does:
+- [x] Import `GOLF` constants and replace magic numbers (`18`, `72`, `113`)
+- [x] Import `parseParsArray`, `safeParseJson` utilities
+- [x] Fix `any` types - replaced with proper typed interfaces
+- [x] Add internal types: `CompetitionRow`, `CompetitionWithCourseRow`, `TeeRow`, `TeeRating`, `ParticipantWithDetailsRow`, `CategoryRow`, `CategoryTeeRow`, `CategoryTeeRating`, `PlayerHandicapRow`, `StoredResultRow`, `PointTemplateRow`
 
-```
-Lines 317-330:   Load competition with course
-Lines 336-341:   Get scoring mode from tour
-Lines 344-399:   Get tee info
-Lines 413-427:   Get handicaps from enrollments
-Lines 430-450:   Get participants
-Lines 453-465:   Get categories
-Lines 476-547:   Get category tee ratings
-Lines 549-555:   Parse course pars
-Lines 563-700:   Calculate leaderboard entries
-Lines 703-724:   Sort leaderboard
-Lines 727-747:   Build category tees response
-Lines 750-833:   Add points for tour competitions
-Lines 835-844:   Return response
-```
+#### Completed (Query Methods) - 2026-01-01
 
-### 5.2 Extract Query Methods (one at a time)
+- [x] `findCourseExists(id: number): boolean`
+- [x] `findSeriesExists(id: number): boolean`
+- [x] `findTourExists(id: number): boolean`
+- [x] `findTeeWithCourse(id: number): { id, course_id } | null`
+- [x] `findTeeTimesForCompetition(competitionId: number): { id }[]`
+- [x] `findAllCompetitionRows(): CompetitionWithCourseRow[]`
+- [x] `findCompetitionRowById(id: number): CompetitionWithCourseRow | null`
+- [x] `findCompetitionWithPars(id: number): CompetitionRow | null`
+- [x] `findTourScoringMode(tourId: number): TourScoringMode | undefined`
+- [x] `findTeeWithRatings(teeId: number): TeeRow | null`
+- [x] `findPlayerHandicapRows(tourId: number): PlayerHandicapRow[]`
+- [x] `findParticipantsForCompetition(competitionId: number): ParticipantWithDetailsRow[]`
+- [x] `findCategoriesForCompetition(tourId, competitionId): CategoryRow[]`
+- [x] `findCategoryTeeRows(competitionId: number): CategoryTeeRow[]`
+- [x] `findStoredResultRows(competitionId: number): StoredResultRow[]`
+- [x] `findPointTemplateRow(templateId: number): PointTemplateRow | null`
+- [x] `findSeriesTeamCount(seriesId: number): number`
+- [x] `insertCompetitionRow(data: CreateCompetitionDto): Competition`
+- [x] `updateCompetitionRow(id, updates, values): Competition`
+- [x] `deleteCompetitionRow(id: number): void`
 
-- [ ] `findCompetitionWithCourse(id: number)`
-- [ ] `findTourScoringMode(tourId: number)`
-- [ ] `findTeeWithRatings(teeId: number)`
-- [ ] `findPlayerHandicaps(tourId: number)`
-- [ ] `findParticipantsForCompetition(competitionId: number)`
-- [ ] `findCategoriesForCompetition(tourId: number, competitionId: number)`
-- [ ] `findCategoryTeeRatings(competitionId: number)`
-- [ ] `findStoredResults(competitionId: number)`
-- [ ] Run tests after EACH extraction
+#### Completed (Logic Methods) - 2026-01-01
 
-### 5.3 Extract Logic Methods (one at a time)
+- [x] `transformCompetitionRowToResult(row): Competition & { course }`
+- [x] `parseStrokeIndex(json: string | null): number[]`
+- [x] `extractTeeRatings(tee: TeeRow): { courseRating, slopeRating }`
+- [x] `buildTeeInfo(tee, strokeIndex, courseRating, slopeRating): LeaderboardResponse["tee"]`
+- [x] `buildDefaultTeeInfo(courseRating, slopeRating, strokeIndex): LeaderboardResponse["tee"]`
+- [x] `buildPlayerHandicapMap(rows: PlayerHandicapRow[]): Map<number, number>`
+- [x] `transformCategoryTeeRow(row: CategoryTeeRow): CategoryTeeRating`
+- [x] `buildCategoryTeeRatingsMap(rows: CategoryTeeRow[]): Map<number, CategoryTeeRating>`
+- [x] `parseParticipantScore(score): number[]`
+- [x] `calculateHolesPlayed(score: number[]): number`
+- [x] `calculateTotalShots(score: number[]): number`
+- [x] `calculateRelativeToPar(score, pars): number`
+- [x] `calculateNetScores(score, pars, holesPlayed, totalShots, courseHandicap, handicapStrokes): { netTotalShots, netRelativeToPar }`
+- [x] `isCompetitionWindowClosed(competition: CompetitionRow): boolean`
+- [x] `getTeeInfoForCompetition(teeId, scoringMode): { teeInfo, strokeIndex, courseRating, slopeRating }`
+- [x] `getPlayerHandicapsForCompetition(tourId, scoringMode): Map<number, number>`
+- [x] `getCategoryTeeRatingsForCompetition(competitionId, tourId, scoringMode): Map<number, CategoryTeeRating>`
+- [x] `sortLeaderboard(entries: LeaderboardEntry[]): LeaderboardEntry[]`
+- [x] `buildCategoryTeesResponse(categories, categoryTeeRatings): LeaderboardResponse["categoryTees"]`
+- [x] `addStoredPointsToLeaderboard(entries, storedResults): LeaderboardEntry[]`
+- [x] `addProjectedPointsToLeaderboard(sortedEntries, pointTemplate, pointsMultiplier): LeaderboardEntry[]`
+- [x] `validateCompetitionName(name: string): void`
+- [x] `validateCompetitionDate(date: string): void`
+- [x] `validateCompetitionNameNotEmpty(name: string): void`
+- [x] `validateCompetitionDateFormat(date: string): void`
+- [x] `buildUpdateFields(data: UpdateCompetitionDto): { updates, values }`
 
-- [ ] `parseTeeInfo(tee: TeeRow): TeeInfo`
-- [ ] `parseStrokeIndex(json: string): number[]`
-- [ ] `calculateEntryScore(participant, pars, handicapInfo): LeaderboardEntry`
-- [ ] `calculateNetScore(grossScore, handicapStrokes, pars): NetScoreResult`
-- [ ] `sortLeaderboard(entries: LeaderboardEntry[]): LeaderboardEntry[]`
-- [ ] `calculateProjectedPoints(position, numPlayers, template, multiplier)`
-- [ ] `buildLeaderboardResponse(entries, competition, teeInfo, ...)`
-- [ ] Run tests after EACH extraction
+#### Completed (Public Methods to Orchestration) - 2026-01-01
 
-### 5.4 Refactor Other Methods
+- [x] `create()` - validation, existence checks, insert
+- [x] `findAll()` - query, transform each
+- [x] `findById()` - query, transform
+- [x] `update()` - validation, existence checks, build fields, update
+- [x] `delete()` - existence check, check tee times, delete
+- [x] `getLeaderboardWithDetails()` - refactored to use extracted query and logic methods
+- [x] `getTeamLeaderboard()` - uses query methods
 
-- [ ] `create()` - extract validation
-- [ ] `update()` - extract dynamic SQL building
-- [ ] `getTeamLeaderboard()` - extract team grouping logic
-- [ ] `transformLeaderboardToTeamLeaderboard()` - break into smaller methods
+#### Completed (Final Verification) - 2026-01-01
 
-### 5.5 Final Verification
-
-- [ ] Run: `bun test tests/competitions.test.ts`
-- [ ] Run: `bun test tests/competition-leaderboard-net-scores.test.ts`
-- [ ] Run full suite: `bun test`
-- [ ] Run type check: `bun run type-check`
+- [x] Run: `bun test tests/competitions.test.ts` - 28 pass
+- [x] Run: `bun test tests/competition-leaderboard-net-scores.test.ts` - 7 pass
+- [x] Run full suite: `bun run test:server` - 677 pass
 
 ---
 
@@ -900,7 +918,7 @@ Lines 835-844:   Return response
 | Phase 2: Medium Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 3: Complex Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 4: Tour Services | **Complete** | 2025-12-31 | 2026-01-01 |
-| Phase 5: CompetitionService | Not Started | | |
+| Phase 5: CompetitionService | **Complete** | 2026-01-01 | 2026-01-01 |
 | Phase 6: CompetitionResultsService | Not Started | | |
 | Phase 7: Player Services | Not Started | | |
 | Phase 8: Final Cleanup | Not Started | | |

@@ -14,6 +14,94 @@ import {
     distributeHandicapStrokes,
     getDefaultStrokeIndex,
 } from "../utils/handicap";
+import { GOLF } from "../constants/golf";
+import { parseParsArray, safeParseJson } from "../utils/parsing";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal Types (for database rows)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CompetitionRow extends Competition {
+    pars: string;
+    is_results_final?: number;
+    point_template_id?: number;
+}
+
+interface CompetitionWithCourseRow extends Competition {
+    course_name: string;
+    participant_count?: number;
+}
+
+interface TeeRow {
+    id: number;
+    name: string;
+    color?: string;
+    course_rating: number | null;
+    slope_rating: number | null;
+    stroke_index: string | null;
+    ratings_json: string | null;
+}
+
+interface TeeRating {
+    gender: string;
+    course_rating: number;
+    slope_rating: number;
+}
+
+interface ParticipantWithDetailsRow extends Participant {
+    team_name: string;
+    team_id: number;
+    teetime: string;
+    player_id: number | null;
+    handicap_index: number | null;
+    category_id: number | null;
+    category_name: string | null;
+}
+
+interface CategoryRow {
+    id: number;
+    tour_id: number;
+    name: string;
+    description?: string;
+    sort_order: number;
+    created_at: string;
+}
+
+interface CategoryTeeRow {
+    category_id: number;
+    tee_id: number;
+    tee_name: string;
+    stroke_index: string | null;
+    legacy_course_rating: number | null;
+    legacy_slope_rating: number | null;
+    ratings_json: string | null;
+}
+
+interface CategoryTeeRating {
+    categoryId: number;
+    teeId: number;
+    teeName: string;
+    courseRating: number;
+    slopeRating: number;
+    strokeIndex: number[];
+}
+
+interface PlayerHandicapRow {
+    player_id: number;
+    handicap_index: number | null;
+}
+
+interface StoredResultRow {
+    participant_id: number;
+    position: number;
+    points: number;
+}
+
+interface PointTemplateRow {
+    id: number;
+    name: string;
+    points_structure: string;
+}
 
 function isValidYYYYMMDD(date: string): boolean {
   const parsed = Date.parse(date);
@@ -24,48 +112,28 @@ export class CompetitionService {
   constructor(private db: Database) {}
 
   async create(data: CreateCompetitionDto): Promise<Competition> {
-    if (!data.name?.trim()) {
-      throw new Error("Competition name is required");
-    }
-
-    if (!data.date?.trim()) {
-      throw new Error("Competition date is required");
-    }
-
-    // Validate YYYY-MM-DD format
-    if (!isValidYYYYMMDD(data.date)) {
-      throw new Error("Date must be in YYYY-MM-DD format (e.g., 2024-03-21)");
-    }
+    // Validation
+    this.validateCompetitionName(data.name);
+    this.validateCompetitionDate(data.date);
 
     // Verify course exists
-    const courseStmt = this.db.prepare("SELECT id FROM courses WHERE id = ?");
-    const course = courseStmt.get(data.course_id);
-    if (!course) {
+    if (!this.findCourseExists(data.course_id)) {
       throw new Error("Course not found");
     }
 
     // Verify series exists if provided
-    if (data.series_id) {
-      const seriesStmt = this.db.prepare("SELECT id FROM series WHERE id = ?");
-      const series = seriesStmt.get(data.series_id);
-      if (!series) {
-        throw new Error("Series not found");
-      }
+    if (data.series_id && !this.findSeriesExists(data.series_id)) {
+      throw new Error("Series not found");
     }
 
     // Verify tour exists if provided
-    if (data.tour_id) {
-      const tourStmt = this.db.prepare("SELECT id FROM tours WHERE id = ?");
-      const tour = tourStmt.get(data.tour_id);
-      if (!tour) {
-        throw new Error("Tour not found");
-      }
+    if (data.tour_id && !this.findTourExists(data.tour_id)) {
+      throw new Error("Tour not found");
     }
 
     // Verify tee exists and belongs to the course if provided
     if (data.tee_id) {
-      const teeStmt = this.db.prepare("SELECT id, course_id FROM course_tees WHERE id = ?");
-      const tee = teeStmt.get(data.tee_id) as { id: number; course_id: number } | null;
+      const tee = this.findTeeWithCourse(data.tee_id);
       if (!tee) {
         throw new Error("Tee not found");
       }
@@ -74,26 +142,7 @@ export class CompetitionService {
       }
     }
 
-    const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      RETURNING *
-    `);
-
-    return stmt.get(
-      data.name,
-      data.date,
-      data.course_id,
-      data.series_id || null,
-      data.tour_id || null,
-      data.tee_id || null,
-      data.manual_entry_format || "out_in_total",
-      data.points_multiplier ?? 1,
-      data.venue_type || "outdoor",
-      data.start_mode || "scheduled",
-      data.open_start || null,
-      data.open_end || null
-    ) as Competition;
+    return this.insertCompetitionRow(data);
   }
 
   async findAll(): Promise<
@@ -102,45 +151,16 @@ export class CompetitionService {
       participant_count: number;
     })[]
   > {
-    const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name,
-        (SELECT COUNT(*) 
-         FROM participants p 
-         JOIN tee_times t ON p.tee_time_id = t.id 
-         WHERE t.competition_id = c.id) as participant_count
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-    `);
-    return stmt.all().map((row: any) => ({
-      ...row,
-      course: {
-        id: row.course_id,
-        name: row.course_name,
-      },
-      participant_count: row.participant_count,
-    }));
+    const rows = this.findAllCompetitionRows();
+    return rows.map((row) => this.transformCompetitionRowToResult(row));
   }
 
   async findById(
     id: number
   ): Promise<(Competition & { course: { id: number; name: string } }) | null> {
-    const stmt = this.db.prepare(`
-      SELECT c.*, co.name as course_name
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.id = ?
-    `);
-    const row = stmt.get(id) as any;
-
+    const row = this.findCompetitionRowById(id);
     if (!row) return null;
-
-    return {
-      ...row,
-      course: {
-        id: row.course_id,
-        name: row.course_name,
-      },
-    };
+    return this.transformCompetitionRowToResult(row);
   }
 
   async update(id: number, data: UpdateCompetitionDto): Promise<Competition> {
@@ -149,142 +169,48 @@ export class CompetitionService {
       throw new Error("Competition not found");
     }
 
-    if (data.name && !data.name.trim()) {
-      throw new Error("Competition name cannot be empty");
+    // Validation
+    this.validateCompetitionNameNotEmpty(data.name);
+    this.validateCompetitionDateFormat(data.date);
+
+    // Verify course exists if provided
+    if (data.course_id && !this.findCourseExists(data.course_id)) {
+      throw new Error("Course not found");
     }
 
-    if (data.date && !isValidYYYYMMDD(data.date)) {
-      throw new Error("Date must be in YYYY-MM-DD format (e.g., 2024-03-21)");
-    }
-
-    if (data.course_id) {
-      const courseStmt = this.db.prepare("SELECT id FROM courses WHERE id = ?");
-      const course = courseStmt.get(data.course_id);
-      if (!course) {
-        throw new Error("Course not found");
+    // Verify series exists if provided (null allowed to clear)
+    if (data.series_id !== undefined && data.series_id !== null) {
+      if (!this.findSeriesExists(data.series_id)) {
+        throw new Error("Series not found");
       }
     }
 
-    if (data.series_id !== undefined) {
-      if (data.series_id === null) {
-        // Allow setting series_id to null
-      } else {
-        const seriesStmt = this.db.prepare(
-          "SELECT id FROM series WHERE id = ?"
-        );
-        const series = seriesStmt.get(data.series_id);
-        if (!series) {
-          throw new Error("Series not found");
-        }
-      }
-    }
-
-    if (data.tour_id !== undefined) {
-      if (data.tour_id === null) {
-        // Allow setting tour_id to null
-      } else {
-        const tourStmt = this.db.prepare(
-          "SELECT id FROM tours WHERE id = ?"
-        );
-        const tour = tourStmt.get(data.tour_id);
-        if (!tour) {
-          throw new Error("Tour not found");
-        }
+    // Verify tour exists if provided (null allowed to clear)
+    if (data.tour_id !== undefined && data.tour_id !== null) {
+      if (!this.findTourExists(data.tour_id)) {
+        throw new Error("Tour not found");
       }
     }
 
     // Verify tee exists and belongs to the course if provided
     if (data.tee_id !== undefined && data.tee_id !== null) {
-      const teeStmt = this.db.prepare("SELECT id, course_id FROM course_tees WHERE id = ?");
-      const tee = teeStmt.get(data.tee_id) as { id: number; course_id: number } | null;
+      const tee = this.findTeeWithCourse(data.tee_id);
       if (!tee) {
         throw new Error("Tee not found");
       }
-      // Check against the current or new course_id
       const effectiveCourseId = data.course_id ?? competition.course_id;
       if (tee.course_id !== effectiveCourseId) {
         throw new Error("Tee must belong to the competition's course");
       }
     }
 
-    const updates: string[] = [];
-    const values: any[] = [];
-
-    if (data.name) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (data.date) {
-      updates.push("date = ?");
-      values.push(data.date);
-    }
-
-    if (data.course_id) {
-      updates.push("course_id = ?");
-      values.push(data.course_id);
-    }
-
-    if (data.series_id !== undefined) {
-      updates.push("series_id = ?");
-      values.push(data.series_id);
-    }
-
-    if (data.tour_id !== undefined) {
-      updates.push("tour_id = ?");
-      values.push(data.tour_id);
-    }
-
-    if (data.tee_id !== undefined) {
-      updates.push("tee_id = ?");
-      values.push(data.tee_id);
-    }
-
-    if (data.manual_entry_format) {
-      updates.push("manual_entry_format = ?");
-      values.push(data.manual_entry_format);
-    }
-
-    if (data.points_multiplier !== undefined) {
-      updates.push("points_multiplier = ?");
-      values.push(data.points_multiplier);
-    }
-
-    if (data.venue_type !== undefined) {
-      updates.push("venue_type = ?");
-      values.push(data.venue_type);
-    }
-
-    if (data.start_mode !== undefined) {
-      updates.push("start_mode = ?");
-      values.push(data.start_mode);
-    }
-
-    if (data.open_start !== undefined) {
-      updates.push("open_start = ?");
-      values.push(data.open_start);
-    }
-
-    if (data.open_end !== undefined) {
-      updates.push("open_end = ?");
-      values.push(data.open_end);
-    }
+    const { updates, values } = this.buildUpdateFields(data);
 
     if (updates.length === 0) {
       return competition;
     }
 
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    const stmt = this.db.prepare(`
-      UPDATE competitions
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `);
-
-    return stmt.get(...values) as Competition;
+    return this.updateCompetitionRow(id, updates, values);
   }
 
   async delete(id: number): Promise<void> {
@@ -294,16 +220,12 @@ export class CompetitionService {
     }
 
     // Check if competition has any tee times
-    const teeTimesStmt = this.db.prepare(
-      "SELECT id FROM tee_times WHERE competition_id = ?"
-    );
-    const teeTimes = teeTimesStmt.all(id);
+    const teeTimes = this.findTeeTimesForCompetition(id);
     if (teeTimes.length > 0) {
       throw new Error("Cannot delete competition that has tee times");
     }
 
-    const stmt = this.db.prepare("DELETE FROM competitions WHERE id = ?");
-    stmt.run(id);
+    this.deleteCompetitionRow(id);
   }
 
   async getLeaderboard(competitionId: number): Promise<LeaderboardEntry[]> {
@@ -315,16 +237,8 @@ export class CompetitionService {
    * Get leaderboard with full details including tee info and net scores
    */
   async getLeaderboardWithDetails(competitionId: number): Promise<LeaderboardResponse> {
-    // Verify competition exists and get course info
-    const competitionStmt = this.db.prepare(`
-      SELECT c.*, co.pars
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.id = ?
-    `);
-    const competition = competitionStmt.get(competitionId) as
-      | (Competition & { pars: string; is_results_final?: number; point_template_id?: number })
-      | null;
+    // Get competition with course pars
+    const competition = this.findCompetitionWithPars(competitionId);
     if (!competition) {
       throw new Error("Competition not found");
     }
@@ -333,231 +247,39 @@ export class CompetitionService {
     const isResultsFinal = !!competition.is_results_final;
 
     // Get tour scoring mode if this is a tour competition
-    let scoringMode: TourScoringMode | undefined;
-    if (competition.tour_id) {
-      const tourStmt = this.db.prepare("SELECT scoring_mode FROM tours WHERE id = ?");
-      const tour = tourStmt.get(competition.tour_id) as { scoring_mode: string } | null;
-      scoringMode = tour?.scoring_mode as TourScoringMode | undefined;
-    }
+    const scoringMode = competition.tour_id
+      ? this.findTourScoringMode(competition.tour_id)
+      : undefined;
 
-    // Get tee info if competition has a tee assigned
-    let teeInfo: LeaderboardResponse["tee"] | undefined;
-    let strokeIndex: number[] = getDefaultStrokeIndex();
-    let courseRating = 72; // Default CR
-    let slopeRating = 113; // Default SR (standard)
+    // Get tee info and ratings
+    const { teeInfo, strokeIndex, courseRating, slopeRating } = this.getTeeInfoForCompetition(
+      competition.tee_id,
+      scoringMode
+    );
 
-    if (competition.tee_id) {
-      const teeStmt = this.db.prepare(`
-        SELECT ct.*,
-               (SELECT json_group_array(json_object('gender', ctr.gender, 'course_rating', ctr.course_rating, 'slope_rating', ctr.slope_rating))
-                FROM course_tee_ratings ctr WHERE ctr.tee_id = ct.id) as ratings_json
-        FROM course_tees ct
-        WHERE ct.id = ?
-      `);
-      const tee = teeStmt.get(competition.tee_id) as any;
+    // Get player handicaps from tour enrollments if needed
+    const playerHandicaps = this.getPlayerHandicapsForCompetition(
+      competition.tour_id,
+      scoringMode
+    );
 
-      if (tee) {
-        // Parse stroke index if available
-        if (tee.stroke_index) {
-          try {
-            strokeIndex = typeof tee.stroke_index === "string"
-              ? JSON.parse(tee.stroke_index)
-              : tee.stroke_index;
-          } catch {
-            strokeIndex = getDefaultStrokeIndex();
-          }
-        }
-
-        // Get course rating and slope (use men's rating as default for now)
-        // TODO: In future, get player gender and use appropriate rating
-        courseRating = tee.course_rating || 72;
-        slopeRating = tee.slope_rating || 113;
-
-        // Try to get men's rating from ratings table
-        if (tee.ratings_json) {
-          try {
-            const ratings = JSON.parse(tee.ratings_json);
-            const menRating = ratings.find((r: any) => r.gender === "men");
-            if (menRating) {
-              courseRating = menRating.course_rating;
-              slopeRating = menRating.slope_rating;
-            }
-          } catch {
-            // Use legacy values
-          }
-        }
-
-        teeInfo = {
-          id: tee.id,
-          name: tee.name,
-          color: tee.color,
-          courseRating,
-          slopeRating,
-          strokeIndex,
-        };
-      }
-    }
-
-    // If no tee but net scoring is enabled, still return strokeIndex for UI
-    if (!teeInfo && scoringMode && scoringMode !== "gross") {
-      teeInfo = {
-        id: 0,
-        name: "Default",
-        courseRating,
-        slopeRating,
-        strokeIndex,
-      };
-    }
-
-    // Get player handicaps from tour enrollments if this is a tour competition
-    const playerHandicaps = new Map<number, number>();
-    if (competition.tour_id && scoringMode && scoringMode !== "gross") {
-      const handicapsStmt = this.db.prepare(`
-        SELECT te.player_id, COALESCE(te.playing_handicap, p.handicap) as handicap_index
-        FROM tour_enrollments te
-        JOIN players p ON te.player_id = p.id
-        WHERE te.tour_id = ? AND te.player_id IS NOT NULL AND te.status = 'active'
-      `);
-      const handicaps = handicapsStmt.all(competition.tour_id) as { player_id: number; handicap_index: number | null }[];
-      for (const h of handicaps) {
-        if (h.handicap_index !== null) {
-          playerHandicaps.set(h.player_id, h.handicap_index);
-        }
-      }
-    }
-
-    // Get all participants for this competition, including category info for tour competitions
-    const participantsStmt = this.db.prepare(`
-      SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime, p.player_id,
-             te.category_id, tc.name as category_name
-      FROM participants p
-      JOIN tee_times t ON p.tee_time_id = t.id
-      JOIN teams tm ON p.team_id = tm.id
-      LEFT JOIN competitions c ON t.competition_id = c.id
-      LEFT JOIN tour_enrollments te ON p.player_id = te.player_id AND c.tour_id = te.tour_id
-      LEFT JOIN tour_categories tc ON te.category_id = tc.id
-      WHERE t.competition_id = ?
-      ORDER BY t.teetime, p.tee_order
-    `);
-    const participants = participantsStmt.all(competitionId) as (Participant & {
-      team_name: string;
-      team_id: number;
-      teetime: string;
-      player_id: number | null;
-      handicap_index: number | null; // Stored snapshot from time of playing
-      category_id: number | null;
-      category_name: string | null;
-    })[];
-
-    // Get categories that have players in this competition (not all tour categories)
-    let categories: { id: number; tour_id: number; name: string; description?: string; sort_order: number; created_at: string }[] = [];
-    if (competition.tour_id) {
-      const categoriesStmt = this.db.prepare(`
-        SELECT DISTINCT tc.id, tc.tour_id, tc.name, tc.description, tc.sort_order, tc.created_at
-        FROM tour_categories tc
-        INNER JOIN tour_enrollments te ON tc.id = te.category_id
-        INNER JOIN participants p ON te.player_id = p.player_id
-        INNER JOIN tee_times t ON p.tee_time_id = t.id
-        WHERE tc.tour_id = ? AND t.competition_id = ?
-        ORDER BY tc.sort_order ASC, tc.name ASC
-      `);
-      categories = categoriesStmt.all(competition.tour_id, competitionId) as typeof categories;
-    }
-
-    // Get category tee assignments with full tee details for handicap calculations
-    interface CategoryTeeRating {
-      categoryId: number;
-      teeId: number;
-      teeName: string;
-      courseRating: number;
-      slopeRating: number;
-      strokeIndex: number[];
-    }
-    const categoryTeeRatings = new Map<number, CategoryTeeRating>();
-
-    if (competition.tour_id && scoringMode && scoringMode !== "gross") {
-      const categoryTeesStmt = this.db.prepare(`
-        SELECT
-          cct.category_id,
-          cct.tee_id,
-          ct.name as tee_name,
-          ct.stroke_index,
-          ct.course_rating as legacy_course_rating,
-          ct.slope_rating as legacy_slope_rating,
-          (SELECT json_group_array(json_object('gender', ctr.gender, 'course_rating', ctr.course_rating, 'slope_rating', ctr.slope_rating))
-           FROM course_tee_ratings ctr WHERE ctr.tee_id = ct.id) as ratings_json
-        FROM competition_category_tees cct
-        JOIN course_tees ct ON cct.tee_id = ct.id
-        WHERE cct.competition_id = ?
-      `);
-      const categoryTees = categoryTeesStmt.all(competitionId) as {
-        category_id: number;
-        tee_id: number;
-        tee_name: string;
-        stroke_index: string | null;
-        legacy_course_rating: number | null;
-        legacy_slope_rating: number | null;
-        ratings_json: string | null;
-      }[];
-
-      for (const ct of categoryTees) {
-        // Parse stroke index
-        let catStrokeIndex = getDefaultStrokeIndex();
-        if (ct.stroke_index) {
-          try {
-            catStrokeIndex = typeof ct.stroke_index === "string"
-              ? JSON.parse(ct.stroke_index)
-              : ct.stroke_index;
-          } catch {
-            catStrokeIndex = getDefaultStrokeIndex();
-          }
-        }
-
-        // Get course rating and slope - prefer gender-specific ratings
-        let catCourseRating = ct.legacy_course_rating || 72;
-        let catSlopeRating = ct.legacy_slope_rating || 113;
-
-        if (ct.ratings_json) {
-          try {
-            const ratings = JSON.parse(ct.ratings_json);
-            // Use men's rating as default (TODO: match player gender to category gender)
-            const menRating = ratings.find((r: { gender: string }) => r.gender === "men");
-            if (menRating) {
-              catCourseRating = menRating.course_rating;
-              catSlopeRating = menRating.slope_rating;
-            } else if (ratings.length > 0) {
-              // Fall back to first available rating
-              catCourseRating = ratings[0].course_rating;
-              catSlopeRating = ratings[0].slope_rating;
-            }
-          } catch {
-            // Use legacy values
-          }
-        }
-
-        categoryTeeRatings.set(ct.category_id, {
-          categoryId: ct.category_id,
-          teeId: ct.tee_id,
-          teeName: ct.tee_name,
-          courseRating: catCourseRating,
-          slopeRating: catSlopeRating,
-          strokeIndex: catStrokeIndex,
-        });
-      }
-    }
+    // Get participants, categories, and category tee ratings
+    const participants = this.findParticipantsForCompetition(competitionId);
+    const categories = competition.tour_id
+      ? this.findCategoriesForCompetition(competition.tour_id, competitionId)
+      : [];
+    const categoryTeeRatings = this.getCategoryTeeRatingsForCompetition(
+      competitionId,
+      competition.tour_id,
+      scoringMode
+    );
 
     // Parse course pars
-    const coursePars = JSON.parse(competition.pars);
-    if (!coursePars || coursePars.length === 0) {
-      throw new Error("Invalid course pars data structure, no pars found");
-    }
-    const pars = coursePars;
-    const totalPar = pars.reduce((sum: number, par: number) => sum + par, 0);
+    const pars = parseParsArray(competition.pars);
+    const totalPar = pars.reduce((sum, par) => sum + par, 0);
 
-    // Check if this is an open competition with a closed window (for DNF detection)
-    const isOpenCompetitionClosed = competition.start_mode === "open" &&
-      competition.open_end &&
-      new Date(competition.open_end) < new Date();
+    // Check if competition window is closed
+    const isOpenCompetitionClosed = this.isCompetitionWindowClosed(competition);
 
     // Calculate leaderboard entries
     const leaderboard: LeaderboardEntry[] = participants.map((participant) => {
@@ -605,7 +327,7 @@ export class CompetitionService {
       ) {
         // Use manual scores
         const totalShots = participant.manual_score_total;
-        const holesPlayed = 18; // Manual scores represent a full round
+        const holesPlayed = GOLF.HOLES_PER_ROUND; // Manual scores represent a full round
         const relativeToPar = totalShots - totalPar;
 
         // Calculate net scores
@@ -670,13 +392,13 @@ export class CompetitionService {
           netRelativeToPar = netScore - parForHolesPlayed;
 
           // Only set netTotalShots for completed rounds (for display purposes)
-          if (holesPlayed === 18) {
+          if (holesPlayed === GOLF.HOLES_PER_ROUND) {
             netTotalShots = totalShots - courseHandicap;
           }
         }
 
-        // DNF if competition window closed and round not complete (less than 18 holes)
-        const isDNF = isOpenCompetitionClosed && holesPlayed < 18;
+        // DNF if competition window closed and round not complete
+        const isDNF = isOpenCompetitionClosed && holesPlayed < GOLF.HOLES_PER_ROUND;
 
         return {
           participant: {
@@ -699,136 +421,27 @@ export class CompetitionService {
       }
     });
 
-    // Sort by relative to par (ascending), with DQ at very bottom, then DNF entries
-    const sortedLeaderboard = leaderboard.sort((a, b) => {
-      // DQ entries always go to the very bottom
-      const aIsDQ = a.participant.is_dq;
-      const bIsDQ = b.participant.is_dq;
-      if (aIsDQ && !bIsDQ) return 1;
-      if (!aIsDQ && bIsDQ) return -1;
-      // Among DQ entries, sort alphabetically by name
-      if (aIsDQ && bIsDQ) {
-        const aName = a.participant.player_names || a.participant.team_name || '';
-        const bName = b.participant.player_names || b.participant.team_name || '';
-        return aName.localeCompare(bName);
-      }
-      // DNF entries go above DQ but below normal entries
-      if (a.isDNF && !b.isDNF) return 1;
-      if (!a.isDNF && b.isDNF) return -1;
-      // Among DNF entries, sort by holes played (more holes = higher)
-      if (a.isDNF && b.isDNF) {
-        return b.holesPlayed - a.holesPlayed;
-      }
-      // Normal sorting by relative to par
-      return a.relativeToPar - b.relativeToPar;
-    });
+    // Sort leaderboard
+    const sortedLeaderboard = this.sortLeaderboard(leaderboard);
 
-    // Build categoryTees for the response if category-based tee assignments are used
-    let categoryTeesResponse: LeaderboardResponse["categoryTees"] = undefined;
-    if (categoryTeeRatings.size > 0 && categories.length > 0) {
-      categoryTeesResponse = [];
-      for (const cat of categories) {
-        const catTee = categoryTeeRatings.get(cat.id);
-        if (catTee) {
-          categoryTeesResponse.push({
-            categoryId: cat.id,
-            categoryName: cat.name,
-            teeId: catTee.teeId,
-            teeName: catTee.teeName,
-            courseRating: catTee.courseRating,
-            slopeRating: catTee.slopeRating,
-          });
-        }
-      }
-      // Only include if we actually have assignments
-      if (categoryTeesResponse.length === 0) {
-        categoryTeesResponse = undefined;
-      }
-    }
+    // Build categoryTees for the response
+    const categoryTeesResponse = this.buildCategoryTeesResponse(categories, categoryTeeRatings);
 
     // Add points and positions for tour competitions
     let leaderboardWithPoints = sortedLeaderboard;
     if (isTourCompetition) {
       if (isResultsFinal) {
-        // Fetch stored results and map points to entries
-        const storedResultsStmt = this.db.prepare(`
-          SELECT participant_id, position, points
-          FROM competition_results
-          WHERE competition_id = ? AND scoring_type = 'gross'
-        `);
-        const storedResults = storedResultsStmt.all(competitionId) as {
-          participant_id: number;
-          position: number;
-          points: number;
-        }[];
-
-        const resultsMap = new Map(storedResults.map(r => [r.participant_id, r]));
-
-        leaderboardWithPoints = sortedLeaderboard.map(entry => {
-          const stored = resultsMap.get(entry.participant.id);
-          return {
-            ...entry,
-            position: stored?.position || 0,
-            points: stored?.points || 0,
-            isProjected: false,
-          };
-        });
+        const storedResults = this.findStoredResultRows(competitionId);
+        leaderboardWithPoints = this.addStoredPointsToLeaderboard(sortedLeaderboard, storedResults);
       } else {
-        // Calculate projected points on-the-fly
-        // Get point template if one is assigned
-        let pointTemplate: { id: number; name: string; points_structure: string } | null = null;
-        if (competition.point_template_id) {
-          const templateStmt = this.db.prepare(`
-            SELECT id, name, points_structure FROM point_templates WHERE id = ?
-          `);
-          pointTemplate = templateStmt.get(competition.point_template_id) as typeof pointTemplate;
-        }
-
-        // Count finished players for points calculation
-        const finishedPlayers = sortedLeaderboard.filter(
-          e => e.holesPlayed === 18 && !e.participant.is_dq && !e.isDNF
+        const pointTemplate = competition.point_template_id
+          ? this.findPointTemplateRow(competition.point_template_id)
+          : null;
+        leaderboardWithPoints = this.addProjectedPointsToLeaderboard(
+          sortedLeaderboard,
+          pointTemplate,
+          competition.points_multiplier || 1
         );
-        const numberOfPlayers = finishedPlayers.length;
-
-        // Assign positions and calculate projected points
-        let currentPosition = 1;
-        let previousScore = Number.MIN_SAFE_INTEGER;
-
-        leaderboardWithPoints = sortedLeaderboard.map((entry, index) => {
-          // Only assign positions to finished, non-DQ, non-DNF players
-          if (entry.holesPlayed < 18 || entry.participant.is_dq || entry.isDNF) {
-            return {
-              ...entry,
-              position: 0,
-              points: 0,
-              isProjected: true,
-            };
-          }
-
-          // Update position for new scores
-          if (entry.relativeToPar !== previousScore) {
-            // Count how many finished players are ahead
-            currentPosition = sortedLeaderboard
-              .slice(0, index)
-              .filter(e => e.holesPlayed === 18 && !e.participant.is_dq && !e.isDNF).length + 1;
-          }
-          previousScore = entry.relativeToPar;
-
-          // Calculate points
-          const points = this.calculateProjectedPoints(
-            currentPosition,
-            numberOfPlayers,
-            pointTemplate,
-            competition.points_multiplier || 1
-          );
-
-          return {
-            ...entry,
-            position: currentPosition,
-            points,
-            isProjected: true,
-          };
-        });
       }
     }
 
@@ -886,36 +499,19 @@ export class CompetitionService {
   async getTeamLeaderboard(
     competitionId: number
   ): Promise<TeamLeaderboardEntry[]> {
-    // First get the regular leaderboard
+    // Get the regular leaderboard
     const leaderboard = await this.getLeaderboard(competitionId);
 
     // Get the competition to check if it belongs to a series
-    const competitionStmt = this.db.prepare(`
-      SELECT c.*, co.pars
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      WHERE c.id = ?
-    `);
-    const competition = competitionStmt.get(competitionId) as
-      | (Competition & { pars: string })
-      | null;
+    const competition = this.findCompetitionWithPars(competitionId);
     if (!competition) {
       throw new Error("Competition not found");
     }
 
     // Get number of teams in the series (if competition belongs to a series)
-    let numberOfTeams = 0;
-    if (competition.series_id) {
-      const teamsCountStmt = this.db.prepare(`
-        SELECT COUNT(*) as count
-        FROM series_teams
-        WHERE series_id = ?
-      `);
-      const result = teamsCountStmt.get(competition.series_id) as {
-        count: number;
-      } | null;
-      numberOfTeams = result?.count || 0;
-    }
+    const numberOfTeams = competition.series_id
+      ? this.findSeriesTeamCount(competition.series_id)
+      : 0;
 
     // Transform leaderboard data into team leaderboard format
     return this.transformLeaderboardToTeamLeaderboard(
@@ -1118,7 +714,7 @@ export class CompetitionService {
 
   private calculateTeamPoints(position: number, numberOfTeams: number, multiplier: number = 1): number {
     if (position <= 0) return 0;
-    
+
     let basePoints: number;
     if (position === 1) {
       basePoints = numberOfTeams + 2;
@@ -1129,7 +725,619 @@ export class CompetitionService {
       basePoints = numberOfTeams - (position - 1);
       basePoints = Math.max(0, basePoints);
     }
-    
+
     return basePoints * multiplier;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Logic Methods (pure business logic, no SQL)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private transformCompetitionRowToResult(row: CompetitionWithCourseRow): Competition & { course: { id: number; name: string }; participant_count?: number } {
+    return {
+      ...row,
+      course: {
+        id: row.course_id,
+        name: row.course_name,
+      },
+      participant_count: row.participant_count ?? 0,
+    };
+  }
+
+  private parseStrokeIndex(json: string | null): number[] {
+    if (!json) return getDefaultStrokeIndex();
+    try {
+      const parsed = typeof json === "string" ? JSON.parse(json) : json;
+      return Array.isArray(parsed) ? parsed : getDefaultStrokeIndex();
+    } catch {
+      return getDefaultStrokeIndex();
+    }
+  }
+
+  private extractTeeRatings(tee: TeeRow): { courseRating: number; slopeRating: number } {
+    let courseRating = tee.course_rating || GOLF.STANDARD_COURSE_RATING;
+    let slopeRating = tee.slope_rating || GOLF.STANDARD_SLOPE_RATING;
+
+    if (tee.ratings_json) {
+      const ratings = safeParseJson<TeeRating[]>(tee.ratings_json, []);
+      const menRating = ratings.find((r) => r.gender === "men");
+      if (menRating) {
+        courseRating = menRating.course_rating;
+        slopeRating = menRating.slope_rating;
+      }
+    }
+
+    return { courseRating, slopeRating };
+  }
+
+  private buildTeeInfo(tee: TeeRow, strokeIndex: number[], courseRating: number, slopeRating: number): LeaderboardResponse["tee"] {
+    return {
+      id: tee.id,
+      name: tee.name,
+      color: tee.color,
+      courseRating,
+      slopeRating,
+      strokeIndex,
+    };
+  }
+
+  private buildDefaultTeeInfo(courseRating: number, slopeRating: number, strokeIndex: number[]): LeaderboardResponse["tee"] {
+    return {
+      id: 0,
+      name: "Default",
+      courseRating,
+      slopeRating,
+      strokeIndex,
+    };
+  }
+
+  private buildPlayerHandicapMap(rows: PlayerHandicapRow[]): Map<number, number> {
+    const map = new Map<number, number>();
+    for (const row of rows) {
+      if (row.handicap_index !== null) {
+        map.set(row.player_id, row.handicap_index);
+      }
+    }
+    return map;
+  }
+
+  private transformCategoryTeeRow(row: CategoryTeeRow): CategoryTeeRating {
+    const strokeIndex = this.parseStrokeIndex(row.stroke_index);
+
+    let courseRating = row.legacy_course_rating || GOLF.STANDARD_COURSE_RATING;
+    let slopeRating = row.legacy_slope_rating || GOLF.STANDARD_SLOPE_RATING;
+
+    if (row.ratings_json) {
+      const ratings = safeParseJson<TeeRating[]>(row.ratings_json, []);
+      const menRating = ratings.find((r) => r.gender === "men");
+      if (menRating) {
+        courseRating = menRating.course_rating;
+        slopeRating = menRating.slope_rating;
+      } else if (ratings.length > 0) {
+        courseRating = ratings[0].course_rating;
+        slopeRating = ratings[0].slope_rating;
+      }
+    }
+
+    return {
+      categoryId: row.category_id,
+      teeId: row.tee_id,
+      teeName: row.tee_name,
+      courseRating,
+      slopeRating,
+      strokeIndex,
+    };
+  }
+
+  private buildCategoryTeeRatingsMap(rows: CategoryTeeRow[]): Map<number, CategoryTeeRating> {
+    const map = new Map<number, CategoryTeeRating>();
+    for (const row of rows) {
+      map.set(row.category_id, this.transformCategoryTeeRow(row));
+    }
+    return map;
+  }
+
+  private parseParticipantScore(score: string | number[] | null): number[] {
+    if (typeof score === "string") {
+      return safeParseJson<number[]>(score, []);
+    }
+    return Array.isArray(score) ? score : [];
+  }
+
+  private calculateHolesPlayed(score: number[]): number {
+    return score.filter((s) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
+  }
+
+  private calculateTotalShots(score: number[]): number {
+    return score.reduce((sum, shots) => sum + (shots > 0 ? shots : 0), 0);
+  }
+
+  private calculateRelativeToPar(score: number[], pars: number[]): number {
+    let relativeToPar = 0;
+    for (let i = 0; i < score.length; i++) {
+      if (score[i] > 0 && pars[i] !== undefined) {
+        relativeToPar += score[i] - pars[i];
+      }
+    }
+    return relativeToPar;
+  }
+
+  private calculateNetScores(
+    score: number[],
+    pars: number[],
+    holesPlayed: number,
+    totalShots: number,
+    courseHandicap: number,
+    handicapStrokesPerHole: number[]
+  ): { netTotalShots: number | undefined; netRelativeToPar: number | undefined } {
+    if (holesPlayed === 0 || score.includes(GOLF.UNREPORTED_HOLE)) {
+      return { netTotalShots: undefined, netRelativeToPar: undefined };
+    }
+
+    let netScore = 0;
+    let parForHolesPlayed = 0;
+    for (let i = 0; i < score.length; i++) {
+      if (score[i] > 0) {
+        netScore += score[i] - handicapStrokesPerHole[i];
+        parForHolesPlayed += pars[i] || 0;
+      }
+    }
+    const netRelativeToPar = netScore - parForHolesPlayed;
+
+    // Only set netTotalShots for completed rounds
+    const netTotalShots = holesPlayed === GOLF.HOLES_PER_ROUND ? totalShots - courseHandicap : undefined;
+
+    return { netTotalShots, netRelativeToPar };
+  }
+
+  private isCompetitionWindowClosed(competition: CompetitionRow): boolean {
+    return competition.start_mode === "open" &&
+      !!competition.open_end &&
+      new Date(competition.open_end) < new Date();
+  }
+
+  private getTeeInfoForCompetition(
+    teeId: number | null | undefined,
+    scoringMode: TourScoringMode | undefined
+  ): {
+    teeInfo: LeaderboardResponse["tee"] | undefined;
+    strokeIndex: number[];
+    courseRating: number;
+    slopeRating: number;
+  } {
+    let strokeIndex = getDefaultStrokeIndex();
+    let courseRating = GOLF.STANDARD_COURSE_RATING;
+    let slopeRating = GOLF.STANDARD_SLOPE_RATING;
+    let teeInfo: LeaderboardResponse["tee"] | undefined;
+
+    if (teeId) {
+      const tee = this.findTeeWithRatings(teeId);
+      if (tee) {
+        strokeIndex = this.parseStrokeIndex(tee.stroke_index);
+        const ratings = this.extractTeeRatings(tee);
+        courseRating = ratings.courseRating;
+        slopeRating = ratings.slopeRating;
+        teeInfo = this.buildTeeInfo(tee, strokeIndex, courseRating, slopeRating);
+      }
+    }
+
+    // If no tee but net scoring is enabled, still return default tee info for UI
+    if (!teeInfo && scoringMode && scoringMode !== "gross") {
+      teeInfo = this.buildDefaultTeeInfo(courseRating, slopeRating, strokeIndex);
+    }
+
+    return { teeInfo, strokeIndex, courseRating, slopeRating };
+  }
+
+  private getPlayerHandicapsForCompetition(
+    tourId: number | null | undefined,
+    scoringMode: TourScoringMode | undefined
+  ): Map<number, number> {
+    if (!tourId || !scoringMode || scoringMode === "gross") {
+      return new Map<number, number>();
+    }
+    const handicapRows = this.findPlayerHandicapRows(tourId);
+    return this.buildPlayerHandicapMap(handicapRows);
+  }
+
+  private getCategoryTeeRatingsForCompetition(
+    competitionId: number,
+    tourId: number | null | undefined,
+    scoringMode: TourScoringMode | undefined
+  ): Map<number, CategoryTeeRating> {
+    if (!tourId || !scoringMode || scoringMode === "gross") {
+      return new Map<number, CategoryTeeRating>();
+    }
+    const categoryTeeRows = this.findCategoryTeeRows(competitionId);
+    return this.buildCategoryTeeRatingsMap(categoryTeeRows);
+  }
+
+  private sortLeaderboard(entries: LeaderboardEntry[]): LeaderboardEntry[] {
+    return entries.sort((a, b) => {
+      // DQ entries always go to the very bottom
+      const aIsDQ = a.participant.is_dq;
+      const bIsDQ = b.participant.is_dq;
+      if (aIsDQ && !bIsDQ) return 1;
+      if (!aIsDQ && bIsDQ) return -1;
+      if (aIsDQ && bIsDQ) {
+        const aName = a.participant.player_names || a.participant.team_name || '';
+        const bName = b.participant.player_names || b.participant.team_name || '';
+        return aName.localeCompare(bName);
+      }
+      // DNF entries go above DQ but below normal entries
+      if (a.isDNF && !b.isDNF) return 1;
+      if (!a.isDNF && b.isDNF) return -1;
+      if (a.isDNF && b.isDNF) {
+        return b.holesPlayed - a.holesPlayed;
+      }
+      // Normal sorting by relative to par
+      return a.relativeToPar - b.relativeToPar;
+    });
+  }
+
+  private buildCategoryTeesResponse(
+    categories: CategoryRow[],
+    categoryTeeRatings: Map<number, CategoryTeeRating>
+  ): LeaderboardResponse["categoryTees"] | undefined {
+    if (categoryTeeRatings.size === 0 || categories.length === 0) {
+      return undefined;
+    }
+
+    const response: LeaderboardResponse["categoryTees"] = [];
+    for (const cat of categories) {
+      const catTee = categoryTeeRatings.get(cat.id);
+      if (catTee) {
+        response.push({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          teeId: catTee.teeId,
+          teeName: catTee.teeName,
+          courseRating: catTee.courseRating,
+          slopeRating: catTee.slopeRating,
+        });
+      }
+    }
+
+    return response.length > 0 ? response : undefined;
+  }
+
+  private addStoredPointsToLeaderboard(
+    entries: LeaderboardEntry[],
+    storedResults: StoredResultRow[]
+  ): LeaderboardEntry[] {
+    const resultsMap = new Map(storedResults.map(r => [r.participant_id, r]));
+    return entries.map(entry => {
+      const stored = resultsMap.get(entry.participant.id);
+      return {
+        ...entry,
+        position: stored?.position || 0,
+        points: stored?.points || 0,
+        isProjected: false,
+      };
+    });
+  }
+
+  private addProjectedPointsToLeaderboard(
+    sortedEntries: LeaderboardEntry[],
+    pointTemplate: PointTemplateRow | null,
+    pointsMultiplier: number
+  ): LeaderboardEntry[] {
+    const finishedPlayers = sortedEntries.filter(
+      e => e.holesPlayed === GOLF.HOLES_PER_ROUND && !e.participant.is_dq && !e.isDNF
+    );
+    const numberOfPlayers = finishedPlayers.length;
+
+    let currentPosition = 1;
+    let previousScore = Number.MIN_SAFE_INTEGER;
+
+    return sortedEntries.map((entry, index) => {
+      if (entry.holesPlayed < GOLF.HOLES_PER_ROUND || entry.participant.is_dq || entry.isDNF) {
+        return {
+          ...entry,
+          position: 0,
+          points: 0,
+          isProjected: true,
+        };
+      }
+
+      if (entry.relativeToPar !== previousScore) {
+        currentPosition = sortedEntries
+          .slice(0, index)
+          .filter(e => e.holesPlayed === GOLF.HOLES_PER_ROUND && !e.participant.is_dq && !e.isDNF).length + 1;
+      }
+      previousScore = entry.relativeToPar;
+
+      const points = this.calculateProjectedPoints(
+        currentPosition,
+        numberOfPlayers,
+        pointTemplate,
+        pointsMultiplier
+      );
+
+      return {
+        ...entry,
+        position: currentPosition,
+        points,
+        isProjected: true,
+      };
+    });
+  }
+
+  private validateCompetitionName(name: string | undefined): void {
+    if (!name?.trim()) {
+      throw new Error("Competition name is required");
+    }
+  }
+
+  private validateCompetitionDate(date: string | undefined): void {
+    if (!date?.trim()) {
+      throw new Error("Competition date is required");
+    }
+    if (!isValidYYYYMMDD(date)) {
+      throw new Error("Date must be in YYYY-MM-DD format (e.g., 2024-03-21)");
+    }
+  }
+
+  private validateCompetitionNameNotEmpty(name: string | undefined): void {
+    if (name && !name.trim()) {
+      throw new Error("Competition name cannot be empty");
+    }
+  }
+
+  private validateCompetitionDateFormat(date: string | undefined): void {
+    if (date && !isValidYYYYMMDD(date)) {
+      throw new Error("Date must be in YYYY-MM-DD format (e.g., 2024-03-21)");
+    }
+  }
+
+  private buildUpdateFields(data: UpdateCompetitionDto): { updates: string[]; values: (string | number | null)[] } {
+    const updates: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.name) {
+      updates.push("name = ?");
+      values.push(data.name);
+    }
+    if (data.date) {
+      updates.push("date = ?");
+      values.push(data.date);
+    }
+    if (data.course_id) {
+      updates.push("course_id = ?");
+      values.push(data.course_id);
+    }
+    if (data.series_id !== undefined) {
+      updates.push("series_id = ?");
+      values.push(data.series_id);
+    }
+    if (data.tour_id !== undefined) {
+      updates.push("tour_id = ?");
+      values.push(data.tour_id);
+    }
+    if (data.tee_id !== undefined) {
+      updates.push("tee_id = ?");
+      values.push(data.tee_id);
+    }
+    if (data.manual_entry_format) {
+      updates.push("manual_entry_format = ?");
+      values.push(data.manual_entry_format);
+    }
+    if (data.points_multiplier !== undefined) {
+      updates.push("points_multiplier = ?");
+      values.push(data.points_multiplier);
+    }
+    if (data.venue_type !== undefined) {
+      updates.push("venue_type = ?");
+      values.push(data.venue_type);
+    }
+    if (data.start_mode !== undefined) {
+      updates.push("start_mode = ?");
+      values.push(data.start_mode);
+    }
+    if (data.open_start !== undefined) {
+      updates.push("open_start = ?");
+      values.push(data.open_start);
+    }
+    if (data.open_end !== undefined) {
+      updates.push("open_end = ?");
+      values.push(data.open_end);
+    }
+
+    return { updates, values };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Query Methods (single SQL statement each)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private findCourseExists(id: number): boolean {
+    const stmt = this.db.prepare("SELECT 1 FROM courses WHERE id = ?");
+    return stmt.get(id) !== null;
+  }
+
+  private findSeriesExists(id: number): boolean {
+    const stmt = this.db.prepare("SELECT 1 FROM series WHERE id = ?");
+    return stmt.get(id) !== null;
+  }
+
+  private findTourExists(id: number): boolean {
+    const stmt = this.db.prepare("SELECT 1 FROM tours WHERE id = ?");
+    return stmt.get(id) !== null;
+  }
+
+  private findTeeWithCourse(id: number): { id: number; course_id: number } | null {
+    const stmt = this.db.prepare("SELECT id, course_id FROM course_tees WHERE id = ?");
+    return stmt.get(id) as { id: number; course_id: number } | null;
+  }
+
+  private findTeeTimesForCompetition(competitionId: number): { id: number }[] {
+    const stmt = this.db.prepare("SELECT id FROM tee_times WHERE competition_id = ?");
+    return stmt.all(competitionId) as { id: number }[];
+  }
+
+  private findAllCompetitionRows(): CompetitionWithCourseRow[] {
+    const stmt = this.db.prepare(`
+      SELECT c.*, co.name as course_name,
+        (SELECT COUNT(*)
+         FROM participants p
+         JOIN tee_times t ON p.tee_time_id = t.id
+         WHERE t.competition_id = c.id) as participant_count
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+    `);
+    return stmt.all() as CompetitionWithCourseRow[];
+  }
+
+  private findCompetitionRowById(id: number): CompetitionWithCourseRow | null {
+    const stmt = this.db.prepare(`
+      SELECT c.*, co.name as course_name
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      WHERE c.id = ?
+    `);
+    return stmt.get(id) as CompetitionWithCourseRow | null;
+  }
+
+  private findCompetitionWithPars(id: number): CompetitionRow | null {
+    const stmt = this.db.prepare(`
+      SELECT c.*, co.pars
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      WHERE c.id = ?
+    `);
+    return stmt.get(id) as CompetitionRow | null;
+  }
+
+  private findTourScoringMode(tourId: number): TourScoringMode | undefined {
+    const stmt = this.db.prepare("SELECT scoring_mode FROM tours WHERE id = ?");
+    const tour = stmt.get(tourId) as { scoring_mode: string } | null;
+    return tour?.scoring_mode as TourScoringMode | undefined;
+  }
+
+  private findTeeWithRatings(teeId: number): TeeRow | null {
+    const stmt = this.db.prepare(`
+      SELECT ct.*,
+             (SELECT json_group_array(json_object('gender', ctr.gender, 'course_rating', ctr.course_rating, 'slope_rating', ctr.slope_rating))
+              FROM course_tee_ratings ctr WHERE ctr.tee_id = ct.id) as ratings_json
+      FROM course_tees ct
+      WHERE ct.id = ?
+    `);
+    return stmt.get(teeId) as TeeRow | null;
+  }
+
+  private findPlayerHandicapRows(tourId: number): PlayerHandicapRow[] {
+    const stmt = this.db.prepare(`
+      SELECT te.player_id, COALESCE(te.playing_handicap, p.handicap) as handicap_index
+      FROM tour_enrollments te
+      JOIN players p ON te.player_id = p.id
+      WHERE te.tour_id = ? AND te.player_id IS NOT NULL AND te.status = 'active'
+    `);
+    return stmt.all(tourId) as PlayerHandicapRow[];
+  }
+
+  private findParticipantsForCompetition(competitionId: number): ParticipantWithDetailsRow[] {
+    const stmt = this.db.prepare(`
+      SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime, p.player_id,
+             te.category_id, tc.name as category_name
+      FROM participants p
+      JOIN tee_times t ON p.tee_time_id = t.id
+      JOIN teams tm ON p.team_id = tm.id
+      LEFT JOIN competitions c ON t.competition_id = c.id
+      LEFT JOIN tour_enrollments te ON p.player_id = te.player_id AND c.tour_id = te.tour_id
+      LEFT JOIN tour_categories tc ON te.category_id = tc.id
+      WHERE t.competition_id = ?
+      ORDER BY t.teetime, p.tee_order
+    `);
+    return stmt.all(competitionId) as ParticipantWithDetailsRow[];
+  }
+
+  private findCategoriesForCompetition(tourId: number, competitionId: number): CategoryRow[] {
+    const stmt = this.db.prepare(`
+      SELECT DISTINCT tc.id, tc.tour_id, tc.name, tc.description, tc.sort_order, tc.created_at
+      FROM tour_categories tc
+      INNER JOIN tour_enrollments te ON tc.id = te.category_id
+      INNER JOIN participants p ON te.player_id = p.player_id
+      INNER JOIN tee_times t ON p.tee_time_id = t.id
+      WHERE tc.tour_id = ? AND t.competition_id = ?
+      ORDER BY tc.sort_order ASC, tc.name ASC
+    `);
+    return stmt.all(tourId, competitionId) as CategoryRow[];
+  }
+
+  private findCategoryTeeRows(competitionId: number): CategoryTeeRow[] {
+    const stmt = this.db.prepare(`
+      SELECT
+        cct.category_id,
+        cct.tee_id,
+        ct.name as tee_name,
+        ct.stroke_index,
+        ct.course_rating as legacy_course_rating,
+        ct.slope_rating as legacy_slope_rating,
+        (SELECT json_group_array(json_object('gender', ctr.gender, 'course_rating', ctr.course_rating, 'slope_rating', ctr.slope_rating))
+         FROM course_tee_ratings ctr WHERE ctr.tee_id = ct.id) as ratings_json
+      FROM competition_category_tees cct
+      JOIN course_tees ct ON cct.tee_id = ct.id
+      WHERE cct.competition_id = ?
+    `);
+    return stmt.all(competitionId) as CategoryTeeRow[];
+  }
+
+  private findStoredResultRows(competitionId: number): StoredResultRow[] {
+    const stmt = this.db.prepare(`
+      SELECT participant_id, position, points
+      FROM competition_results
+      WHERE competition_id = ? AND scoring_type = 'gross'
+    `);
+    return stmt.all(competitionId) as StoredResultRow[];
+  }
+
+  private findPointTemplateRow(templateId: number): PointTemplateRow | null {
+    const stmt = this.db.prepare("SELECT id, name, points_structure FROM point_templates WHERE id = ?");
+    return stmt.get(templateId) as PointTemplateRow | null;
+  }
+
+  private findSeriesTeamCount(seriesId: number): number {
+    const stmt = this.db.prepare("SELECT COUNT(*) as count FROM series_teams WHERE series_id = ?");
+    const result = stmt.get(seriesId) as { count: number } | null;
+    return result?.count || 0;
+  }
+
+  private insertCompetitionRow(data: CreateCompetitionDto): Competition {
+    const stmt = this.db.prepare(`
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `);
+    return stmt.get(
+      data.name,
+      data.date,
+      data.course_id,
+      data.series_id || null,
+      data.tour_id || null,
+      data.tee_id || null,
+      data.manual_entry_format || "out_in_total",
+      data.points_multiplier ?? 1,
+      data.venue_type || "outdoor",
+      data.start_mode || "scheduled",
+      data.open_start || null,
+      data.open_end || null
+    ) as Competition;
+  }
+
+  private updateCompetitionRow(id: number, updates: string[], values: (string | number | null)[]): Competition {
+    updates.push("updated_at = CURRENT_TIMESTAMP");
+    values.push(id);
+    const stmt = this.db.prepare(`
+      UPDATE competitions
+      SET ${updates.join(", ")}
+      WHERE id = ?
+      RETURNING *
+    `);
+    return stmt.get(...values) as Competition;
+  }
+
+  private deleteCompetitionRow(id: number): void {
+    const stmt = this.db.prepare("DELETE FROM competitions WHERE id = ?");
+    stmt.run(id);
   }
 }
