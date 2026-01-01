@@ -26,11 +26,9 @@ describe("Course Tee Ratings", () => {
     courseService = new CourseService(db);
 
     // Create a test course
-    const course = await courseService.create({
-      name: "Test Golf Course",
-      holes: [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4],
-    });
+    const course = await courseService.create({ name: "Test Golf Course" });
     courseId = course.id;
+    await courseService.updateHoles(courseId, [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4]);
 
     // Create a test tee
     const tee = courseTeeService.create(courseId, {

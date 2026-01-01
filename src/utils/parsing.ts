@@ -95,3 +95,24 @@ export function safeParseJsonOrPassthrough<T>(
   }
   return value;
 }
+
+/**
+ * Safely parse JSON with a default value on failure.
+ * Use this when you want to return a default value instead of throwing.
+ * @param json - The JSON string to parse (can be null)
+ * @param defaultValue - Value to return if parsing fails or json is null/empty
+ * @returns The parsed value or the default value
+ */
+export function safeParseJsonWithDefault<T>(
+  json: string | null | undefined,
+  defaultValue: T
+): T {
+  if (!json) {
+    return defaultValue;
+  }
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    return defaultValue;
+  }
+}

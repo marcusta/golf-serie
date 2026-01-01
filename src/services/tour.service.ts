@@ -403,7 +403,7 @@ export class TourService {
     }
 
     // Parse hole-by-hole scores
-    const score = parseScoreArray(participant.score);
+    const score = parseScoreArray(participant.score || "");
     const hasInvalidRound = score.includes(GOLF.UNREPORTED_HOLE);
     const holesPlayed = score.filter((s: number) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
 
@@ -823,7 +823,7 @@ export class TourService {
         if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
           relativeToPar = totalShots - totalPar;
         } else {
-          const score = parseScoreArray(participant.score);
+          const score = parseScoreArray(participant.score || "");
           relativeToPar = this.calculateRelativeToPar(score, pars);
         }
       }
@@ -879,10 +879,10 @@ export class TourService {
   ): number {
     if (pointTemplate) {
       // Use point template
-      const structure = safeParseJson<PointsStructure>(pointTemplate.points_structure);
-      if (!structure) {
-        return 0;
-      }
+      const structure = safeParseJson<PointsStructure>(
+        pointTemplate.points_structure,
+        "points_structure"
+      );
 
       // Try exact position match
       if (structure[position.toString()]) {

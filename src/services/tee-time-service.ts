@@ -301,7 +301,7 @@ export class TeeTimeService {
     // Merge with existing values
     const teetime = data.teetime ?? existingTeeTime.teetime;
     const startHole = data.start_hole ?? existingTeeTime.start_hole;
-    const hittingBay = data.hitting_bay !== undefined ? (data.hitting_bay ?? null) : existingTeeTime.hitting_bay;
+    const hittingBay = data.hitting_bay !== undefined ? (data.hitting_bay ?? null) : (existingTeeTime.hitting_bay ?? null);
 
     return this.updateTeeTimeRow(id, teetime, competitionId, startHole, hittingBay);
   }

@@ -20,11 +20,9 @@ describe("Course Tee Ratings API", () => {
     courseTeeService = createCourseTeeService(db);
 
     // Create a test course
-    const course = await courseService.create({
-      name: "Test Golf Course",
-      holes: [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4],
-    });
+    const course = await courseService.create({ name: "Test Golf Course" });
     courseId = course.id;
+    await courseService.updateHoles(courseId, [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4]);
 
     // Create a test tee
     const tee = courseTeeService.create(courseId, {
@@ -70,10 +68,8 @@ describe("Course Tee Ratings API", () => {
 
     test("should return 404 when tee belongs to different course", async () => {
       // Create another course
-      const course2 = await courseService.create({
-        name: "Another Golf Course",
-        holes: [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4],
-      });
+      const course2 = await courseService.create({ name: "Another Golf Course" });
+      await courseService.updateHoles(course2.id, [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4]);
 
       const response = await api().getTeeRatings(course2.id, teeId);
       expect(response.status).toBe(404);

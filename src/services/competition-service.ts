@@ -15,7 +15,7 @@ import {
     getDefaultStrokeIndex,
 } from "../utils/handicap";
 import { GOLF } from "../constants/golf";
-import { parseParsArray, safeParseJson } from "../utils/parsing";
+import { parseParsArray, safeParseJsonWithDefault } from "../utils/parsing";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -48,12 +48,32 @@ interface TeeRating {
     slope_rating: number;
 }
 
-interface ParticipantWithDetailsRow extends Participant {
-    team_name: string;
+// Row type for participant with joined details (uses null for nullable DB fields)
+interface ParticipantWithDetailsRow {
+    // Core participant fields
+    id: number;
+    tee_order: number;
     team_id: number;
-    teetime: string;
+    tee_time_id: number;
+    position_name: string;
+    player_names: string | null;
     player_id: number | null;
+    score: string | number[]; // Raw from DB is string, parsed is number[]
+    is_locked: number; // SQLite boolean
+    locked_at: string | null;
     handicap_index: number | null;
+    manual_score_out: number | null;
+    manual_score_in: number | null;
+    manual_score_total: number | null;
+    is_dq: number; // SQLite boolean
+    admin_notes: string | null;
+    admin_modified_by: number | null;
+    admin_modified_at: string | null;
+    created_at: string;
+    updated_at: string;
+    // Joined fields
+    team_name: string;
+    teetime: string;
     category_id: number | null;
     category_name: string | null;
 }
@@ -293,12 +313,12 @@ export class CompetitionService {
           : [];
 
       // Get player handicap - prefer stored snapshot, fall back to live lookup for backwards compatibility
-      const handicapIndex =
+      const handicapIndex: number | null =
         participant.handicap_index !== null && participant.handicap_index !== undefined
           ? participant.handicap_index
           : participant.player_id
-            ? playerHandicaps.get(participant.player_id)
-            : undefined;
+            ? (playerHandicaps.get(participant.player_id) ?? null)
+            : null;
 
       // Calculate course handicap and stroke distribution
       // Use category-specific tee ratings if available, otherwise fall back to default/competition tee
@@ -308,7 +328,7 @@ export class CompetitionService {
       let playerSlopeRating = slopeRating;
       let playerStrokeIndex = strokeIndex;
 
-      if (handicapIndex !== undefined && scoringMode && scoringMode !== "gross") {
+      if (handicapIndex !== null && scoringMode && scoringMode !== "gross") {
         // Check if participant has a category with a specific tee assignment
         if (participant.category_id && categoryTeeRatings.has(participant.category_id)) {
           const catTee = categoryTeeRatings.get(participant.category_id)!;
@@ -340,13 +360,13 @@ export class CompetitionService {
         }
 
         return {
-          participant: {
-            ...participant,
+          participant: this.transformParticipantRowForLeaderboard(
+            participant,
             score,
-            handicap_index: handicapIndex,
-            category_id: participant.category_id ?? undefined,
-            category_name: participant.category_name ?? undefined,
-          },
+            handicapIndex,
+            participant.category_id,
+            participant.category_name
+          ),
           totalShots,
           holesPlayed,
           relativeToPar,
@@ -402,13 +422,13 @@ export class CompetitionService {
         const isDNF = isOpenCompetitionClosed && holesPlayed < GOLF.HOLES_PER_ROUND;
 
         return {
-          participant: {
-            ...participant,
+          participant: this.transformParticipantRowForLeaderboard(
+            participant,
             score,
-            handicap_index: handicapIndex,
-            category_id: participant.category_id ?? undefined,
-            category_name: participant.category_name ?? undefined,
-          },
+            handicapIndex,
+            participant.category_id,
+            participant.category_name
+          ),
           totalShots,
           holesPlayed,
           relativeToPar,
@@ -734,7 +754,7 @@ export class CompetitionService {
   // Logic Methods (pure business logic, no SQL)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  private transformCompetitionRowToResult(row: CompetitionWithCourseRow): Competition & { course: { id: number; name: string }; participant_count?: number } {
+  private transformCompetitionRowToResult(row: CompetitionWithCourseRow): Competition & { course: { id: number; name: string }; participant_count: number } {
     return {
       ...row,
       course: {
@@ -742,6 +762,40 @@ export class CompetitionService {
         name: row.course_name,
       },
       participant_count: row.participant_count ?? 0,
+    };
+  }
+
+  private transformParticipantRowForLeaderboard(
+    row: ParticipantWithDetailsRow,
+    parsedScore: number[],
+    handicapIndex: number | null,
+    categoryId: number | null,
+    categoryName: string | null
+  ): Participant & { team_name: string; category_id?: number; category_name?: string } {
+    return {
+      id: row.id,
+      tee_order: row.tee_order,
+      team_id: row.team_id,
+      tee_time_id: row.tee_time_id,
+      position_name: row.position_name,
+      player_names: row.player_names,
+      player_id: row.player_id,
+      score: parsedScore,
+      is_locked: Boolean(row.is_locked),
+      locked_at: row.locked_at,
+      handicap_index: handicapIndex,
+      manual_score_out: row.manual_score_out,
+      manual_score_in: row.manual_score_in,
+      manual_score_total: row.manual_score_total,
+      is_dq: Boolean(row.is_dq),
+      admin_notes: row.admin_notes,
+      admin_modified_by: row.admin_modified_by,
+      admin_modified_at: row.admin_modified_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      team_name: row.team_name,
+      category_id: categoryId ?? undefined,
+      category_name: categoryName ?? undefined,
     };
   }
 
@@ -760,7 +814,7 @@ export class CompetitionService {
     let slopeRating = tee.slope_rating || GOLF.STANDARD_SLOPE_RATING;
 
     if (tee.ratings_json) {
-      const ratings = safeParseJson<TeeRating[]>(tee.ratings_json, []);
+      const ratings = safeParseJsonWithDefault<TeeRating[]>(tee.ratings_json, []);
       const menRating = ratings.find((r) => r.gender === "men");
       if (menRating) {
         courseRating = menRating.course_rating;
@@ -809,7 +863,7 @@ export class CompetitionService {
     let slopeRating = row.legacy_slope_rating || GOLF.STANDARD_SLOPE_RATING;
 
     if (row.ratings_json) {
-      const ratings = safeParseJson<TeeRating[]>(row.ratings_json, []);
+      const ratings = safeParseJsonWithDefault<TeeRating[]>(row.ratings_json, []);
       const menRating = ratings.find((r) => r.gender === "men");
       if (menRating) {
         courseRating = menRating.course_rating;
@@ -840,7 +894,7 @@ export class CompetitionService {
 
   private parseParticipantScore(score: string | number[] | null): number[] {
     if (typeof score === "string") {
-      return safeParseJson<number[]>(score, []);
+      return safeParseJsonWithDefault<number[]>(score, []);
     }
     return Array.isArray(score) ? score : [];
   }
@@ -907,8 +961,8 @@ export class CompetitionService {
     slopeRating: number;
   } {
     let strokeIndex = getDefaultStrokeIndex();
-    let courseRating = GOLF.STANDARD_COURSE_RATING;
-    let slopeRating = GOLF.STANDARD_SLOPE_RATING;
+    let courseRating: number = GOLF.STANDARD_COURSE_RATING;
+    let slopeRating: number = GOLF.STANDARD_SLOPE_RATING;
     let teeInfo: LeaderboardResponse["tee"] | undefined;
 
     if (teeId) {

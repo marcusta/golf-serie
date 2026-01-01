@@ -5,7 +5,7 @@ import type {
   UpdateParticipantDto,
 } from "../types";
 import { GOLF } from "../constants/golf";
-import { safeParseJson } from "../utils/parsing";
+import { safeParseJsonWithDefault } from "../utils/parsing";
 
 // ============================================================================
 // Internal Row Types (database representation)
@@ -122,22 +122,18 @@ export class ParticipantService {
   private transformParticipantRow(row: ParticipantRow): Participant {
     return {
       ...row,
-      is_locked: Boolean(row.is_locked),
       score: this.parseScoreJson(row.score),
+      is_locked: Boolean(row.is_locked),
+      is_dq: Boolean(row.is_dq),
     };
   }
 
   private transformParticipantRowWithTeam(row: ParticipantRowWithTeam): Participant {
-    return {
-      ...row,
-      is_locked: Boolean(row.is_locked),
-      score: this.parseScoreJson(row.score),
-    };
+    return this.transformParticipantRow(row);
   }
 
   private parseScoreJson(json: string | null): number[] {
-    if (!json) return [];
-    return safeParseJson<number[]>(json, []);
+    return safeParseJsonWithDefault<number[]>(json, []);
   }
 
   private initializeScoreArray(existingScore: number[] | null | undefined, length: number): number[] {
@@ -477,7 +473,7 @@ export class ParticipantService {
     const participant = this.transformParticipantRowWithTeam(row);
     return {
       ...participant,
-      handicap_index: row.handicap_index ?? undefined,
+      handicap_index: row.handicap_index,
     };
   }
 
@@ -541,7 +537,7 @@ export class ParticipantService {
       throw new Error("Could not find course for participant");
     }
 
-    const pars = safeParseJson<number[]>(courseInfo.pars, []);
+    const pars = safeParseJsonWithDefault<number[]>(courseInfo.pars, []);
     this.validateHoleNumber(hole, pars.length);
     this.validateShotsValue(shots);
 

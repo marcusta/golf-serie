@@ -13,7 +13,7 @@ import type {
   CompetitionGroupMember,
 } from "../types";
 import { GOLF } from "../constants/golf";
-import { safeParseJson } from "../utils/parsing";
+import { safeParseJsonWithDefault } from "../utils/parsing";
 
 // ============================================================================
 // Constants
@@ -547,7 +547,7 @@ export class TourCompetitionRegistrationService {
 
   private parseScoreArray(scoreJson: string | null): number[] {
     if (!scoreJson) return [];
-    return safeParseJson<number[]>(scoreJson, []);
+    return safeParseJsonWithDefault<number[]>(scoreJson, []);
   }
 
   private calculateHolesPlayed(scores: number[]): number {

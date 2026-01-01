@@ -213,13 +213,13 @@ describe("TourCompetitionRegistrationService", () => {
       // Verify tee_time was created
       const teeTime = db
         .prepare("SELECT * FROM tee_times WHERE id = ?")
-        .get(result.registration.tee_time_id);
+        .get(result.registration.tee_time_id!);
       expect(teeTime).toBeDefined();
 
       // Verify participant was created with player_id
       const participant = db
         .prepare("SELECT * FROM participants WHERE id = ?")
-        .get(result.registration.participant_id) as any;
+        .get(result.registration.participant_id!) as any;
       expect(participant).toBeDefined();
       expect(participant.player_id).toBe(player.id);
     });
@@ -243,7 +243,7 @@ describe("TourCompetitionRegistrationService", () => {
       // Verify participant was deleted
       const participant = db
         .prepare("SELECT * FROM participants WHERE id = ?")
-        .get(result.registration.participant_id);
+        .get(result.registration.participant_id!);
       expect(participant).toBeNull();
     });
 

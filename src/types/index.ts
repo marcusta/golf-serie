@@ -16,10 +16,10 @@ export interface Course {
 export interface Series {
   id: number;
   name: string;
-  description?: string;
-  banner_image_url?: string;
+  description: string | null;
+  banner_image_url: string | null;
   is_public: boolean;
-  landing_document_id?: number;
+  landing_document_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -160,20 +160,20 @@ export interface Participant {
   team_id: number;
   tee_time_id: number;
   position_name: string;
-  player_names?: string;
-  player_id?: number;
-  handicap_index?: number; // Snapshot of handicap at time of playing
+  player_names: string | null;
+  player_id: number | null;
+  handicap_index: number | null; // Snapshot of handicap at time of playing
   score: number[];
   is_locked: boolean;
-  locked_at?: string;
-  manual_score_out?: number;
-  manual_score_in?: number;
-  manual_score_total?: number;
+  locked_at: string | null;
+  manual_score_out: number | null;
+  manual_score_in: number | null;
+  manual_score_total: number | null;
   // DQ and audit fields
   is_dq: boolean;
-  admin_notes?: string;
-  admin_modified_by?: number;
-  admin_modified_at?: string;
+  admin_notes: string | null;
+  admin_modified_by: number | null;
+  admin_modified_at: string | null;
   created_at: string;
   updated_at: string;
 }

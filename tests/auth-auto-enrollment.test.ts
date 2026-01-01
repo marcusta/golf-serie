@@ -187,8 +187,8 @@ describe("AuthService - Auto-Enrollment", () => {
         "multi@test.com"
       );
 
-      expect(enrollment1!.player_id).toBe(result.player_id);
-      expect(enrollment2!.player_id).toBe(result.player_id);
+      expect(enrollment1!.player_id).toBe(result.player_id!);
+      expect(enrollment2!.player_id).toBe(result.player_id!);
     });
   });
 

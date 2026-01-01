@@ -293,8 +293,8 @@ describe("TourService.getFullStandings", () => {
       const p2Standing = standings.player_standings.find((s) => s.player_name === "Player2");
       const p3Standing = standings.player_standings.find((s) => s.player_name === "Player3");
 
-      expect(p1Standing?.total_points).toBe(p2Standing?.total_points);
-      expect(p3Standing?.total_points).toBeLessThan(p1Standing!.total_points);
+      expect(p1Standing!.total_points).toBe(p2Standing!.total_points);
+      expect(p3Standing!.total_points).toBeLessThan(p1Standing!.total_points!);
     });
 
     test("should handle player missing a competition", async () => {
