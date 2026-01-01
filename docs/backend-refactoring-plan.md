@@ -551,14 +551,60 @@ Create supporting infrastructure before touching existing code.
 ---
 
 ### 4.2 TourEnrollmentService (`src/services/tour-enrollment.service.ts`)
-**Complexity:** Medium
+**Complexity:** Medium (~280 lines after refactoring)
 **Tests:** `tests/tour-enrollment-service.test.ts`, `tests/tour-api-enrollments.test.ts`
 
-- [ ] Analyze method violations
-- [ ] Extract query methods
-- [ ] Fix any `any` types
-- [ ] Run tests
-- [ ] Run full suite: `bun test`
+#### Completed (Method Separation) - 2026-01-01
+
+**Internal types added:**
+- [x] `TourRow`, `UserRow`, `PlayerWithEmailRow`
+
+**Query methods extracted:**
+- [x] `findTourExists(tourId: number): boolean`
+- [x] `findTourWithMode(tourId): { id, enrollment_mode } | null`
+- [x] `findTourVisibility(tourId): { id, visibility, owner_id } | null`
+- [x] `findTourOwnerId(tourId: number): number | null`
+- [x] `findUserByEmailLower(email: string): UserRow | null`
+- [x] `findUserRole(userId: number): string | null`
+- [x] `findPlayerByUserId(userId: number): { id } | null`
+- [x] `findPlayerWithEmail(playerId): PlayerWithEmailRow | null`
+- [x] `findTourAdminExists(tourId, userId): boolean`
+- [x] `findActiveEnrollmentByUser(tourId, userId): boolean`
+- [x] `insertPlayerRow(name, userId): { id }`
+- [x] `insertActiveEnrollmentRow(tourId, playerId, email): TourEnrollment`
+- [x] `insertPendingEnrollmentRow(tourId, email): TourEnrollment`
+- [x] `insertRequestedEnrollmentRow(tourId, playerId, email): TourEnrollment`
+- [x] `updateEnrollmentStatusRow(enrollmentId, status): TourEnrollment`
+- [x] `updateEnrollmentWithPlayerRow(enrollmentId, playerId): TourEnrollment`
+- [x] `deleteEnrollmentRow(enrollmentId): number`
+- [x] `deleteEnrollmentByTourRow(enrollmentId, tourId): number`
+- [x] `findEnrollmentsByTour(tourId): TourEnrollmentWithPlayer[]`
+- [x] `findEnrollmentsByTourAndStatus(tourId, status): TourEnrollmentWithPlayer[]`
+- [x] `findEnrollmentsByPlayer(playerId): TourEnrollment[]`
+
+**Logic methods extracted:**
+- [x] `extractEmailName(email: string): string`
+- [x] `validateEnrollmentStatus(enrollment, expectedStatus, action): void`
+
+**Public methods refactored to orchestration:**
+- [x] `addPendingEnrollment()` - tour exists check, email check, user lookup, player lookup/create, insert
+- [x] `requestEnrollment()` - tour mode check, player lookup, email check, insert
+- [x] `approveEnrollment()` - find by id, validate status, update
+- [x] `rejectEnrollment()` - delete, check changes
+- [x] `getEnrollments()` - uses extracted query methods (no more `any` type)
+- [x] `activateEnrollment()` - find by email, validate status, update with player
+- [x] `canViewTour()` - tour visibility, user role, owner check, admin check, enrollment check
+- [x] `canManageTour()` - user role, owner check, admin check
+- [x] `getEnrollmentsForPlayer()` - uses extracted query method
+- [x] `removeEnrollment()` - delete by tour, check changes
+
+**Type safety fixed:**
+- [x] Removed `any[]` type (was `params: any[]` in `getEnrollments`)
+
+- [x] Run tests: `bun test tests/tour-enrollment-service.test.ts tests/tour-api-enrollments.test.ts` - 65 pass
+- [x] Run full suite: `bun test` - 677 pass
+
+---
 
 ### 4.3 TourCompetitionRegistrationService
 **Complexity:** High
@@ -694,7 +740,7 @@ Lines 835-844:   Return response
 | Phase 1: Simple Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 2: Medium Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 3: Complex Services | **Complete** | 2025-12-31 | 2025-12-31 |
-| Phase 4: Tour Services | **In Progress** (4.1 TourService done) | 2025-12-31 | |
+| Phase 4: Tour Services | **In Progress** (4.1-4.2 done) | 2025-12-31 | |
 | Phase 5: CompetitionService | Not Started | | |
 | Phase 6: CompetitionResultsService | Not Started | | |
 | Phase 7: Player Services | Not Started | | |
