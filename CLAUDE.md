@@ -105,6 +105,42 @@ private validateCompetitionData(data: CreateCompetitionDto): void {
 }
 ```
 
+**Row-to-Domain Transform Methods**
+
+Transform methods convert database rows to domain types. They must:
+- Have explicit return type annotations (enforces compile-time checking)
+- Use separate Row interface (not extending domain type) when representations differ
+- Handle type conversions: SQLite booleans (0/1 → boolean), JSON strings → arrays, null handling
+
+```typescript
+// Row type: database representation (uses null, number for bools, JSON strings)
+interface ParticipantRow {
+  id: number;
+  score: string;           // JSON string in DB
+  is_locked: number;       // SQLite boolean (0/1)
+  player_id: number | null;
+}
+
+// Domain type: application representation (uses boolean, parsed arrays)
+interface Participant {
+  id: number;
+  score: number[];         // Parsed array
+  is_locked: boolean;      // Proper boolean
+  player_id: number | null;
+}
+
+// Transform with EXPLICIT return type - catches missing fields at compile time
+private transformParticipantRow(row: ParticipantRow): Participant {
+  return {
+    ...row,
+    score: JSON.parse(row.score),
+    is_locked: Boolean(row.is_locked),
+  };
+}
+```
+
+If `Participant` gains a new required field, TypeScript will error because the spread won't include it. This catches schema drift between Row and Domain types.
+
 **3. Public API Methods** (orchestration)
 - Combines query methods and logic methods
 - Defines transaction boundaries when needed
