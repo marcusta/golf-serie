@@ -28,39 +28,44 @@ export type PlayerProfile = Player & {
   average_score: number | null;
 };
 
+// Internal types for query results
+interface PlayerStatsRow {
+  competitions_played: number;
+  total_rounds: number;
+  best_score: number | null;
+  average_score: number | null;
+}
+
 export class PlayerService {
   constructor(private db: Database) {}
 
-  findAll(): Player[] {
+  // ============================================================
+  // Query Methods (private, single SQL statement)
+  // ============================================================
+
+  private findAllPlayerRows(): Player[] {
     return this.db
       .prepare("SELECT * FROM players ORDER BY name ASC")
       .all() as Player[];
   }
 
-  findById(id: number): Player | null {
+  private findPlayerRowById(id: number): Player | null {
     return this.db
       .prepare("SELECT * FROM players WHERE id = ?")
       .get(id) as Player | null;
   }
 
-  findByUserId(userId: number): Player | null {
+  private findPlayerRowByUserId(userId: number): Player | null {
     return this.db
       .prepare("SELECT * FROM players WHERE user_id = ?")
       .get(userId) as Player | null;
   }
 
-  getPlayerProfile(id: number): PlayerProfile | null {
-    const player = this.findById(id);
-    if (!player) {
-      return null;
-    }
-
-    // Aggregate stats from participants table
-    try {
-      const stats = this.db
-        .prepare(
-          `
-        SELECT 
+  private findPlayerStatsRow(playerId: number): PlayerStatsRow | null {
+    return this.db
+      .prepare(
+        `
+        SELECT
           COUNT(DISTINCT p.competition_id) as competitions_played,
           COUNT(p.id) as total_rounds,
           MIN(p.total_score) as best_score,
@@ -68,55 +73,72 @@ export class PlayerService {
         FROM participants p
         WHERE p.player_id = ? AND p.total_score IS NOT NULL
       `
-        )
-        .get(id) as any;
-
-      return {
-        ...player,
-        competitions_played: stats?.competitions_played || 0,
-        total_rounds: stats?.total_rounds || 0,
-        best_score: stats?.best_score || null,
-        average_score: stats?.average_score ? Math.round(stats.average_score * 10) / 10 : null,
-      };
-    } catch (error) {
-      // If player_id column doesn't exist yet, return player with zero stats
-      console.warn("Error fetching player stats, returning zero stats:", error);
-      return {
-        ...player,
-        competitions_played: 0,
-        total_rounds: 0,
-        best_score: null,
-        average_score: null,
-      };
-    }
+      )
+      .get(playerId) as PlayerStatsRow | null;
   }
 
-  create(data: CreatePlayerInput, createdBy?: number): Player {
-    const handicap = data.handicap ?? 0;
-    const userId = data.user_id ?? null;
-    const createdById = createdBy ?? null;
-
-    const result = this.db
+  private insertPlayerRow(
+    name: string,
+    handicap: number,
+    userId: number | null,
+    createdBy: number | null
+  ): Player {
+    return this.db
       .prepare(
         `
-      INSERT INTO players (name, handicap, user_id, created_by)
-      VALUES (?, ?, ?, ?)
-      RETURNING *
-    `
+        INSERT INTO players (name, handicap, user_id, created_by)
+        VALUES (?, ?, ?, ?)
+        RETURNING *
+      `
       )
-      .get(data.name, handicap, userId, createdById) as Player;
-
-    return result;
+      .get(name, handicap, userId, createdBy) as Player;
   }
 
-  update(id: number, data: UpdatePlayerInput): Player {
-    const player = this.findById(id);
-    if (!player) {
-      throw new Error("Player not found");
-    }
+  private updatePlayerRow(
+    id: number,
+    updates: string[],
+    values: (string | number)[]
+  ): Player {
+    return this.db
+      .prepare(
+        `
+        UPDATE players
+        SET ${updates.join(", ")}
+        WHERE id = ?
+        RETURNING *
+      `
+      )
+      .get(...values, id) as Player;
+  }
 
+  private updatePlayerLinkRow(playerId: number, userId: number): Player {
+    return this.db
+      .prepare(
+        `
+        UPDATE players
+        SET user_id = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        RETURNING *
+      `
+      )
+      .get(userId, playerId) as Player;
+  }
+
+  private deletePlayerRow(id: number): number {
+    const result = this.db.prepare("DELETE FROM players WHERE id = ?").run(id);
+    return result.changes;
+  }
+
+  // ============================================================
+  // Logic Methods (private, no SQL)
+  // ============================================================
+
+  private buildUpdateFields(data: UpdatePlayerInput): {
+    updates: string[];
+    values: (string | number)[];
+  } {
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | number)[] = [];
 
     if (data.name !== undefined) {
       updates.push("name = ?");
@@ -128,58 +150,108 @@ export class PlayerService {
       values.push(data.handicap);
     }
 
+    if (updates.length > 0) {
+      updates.push("updated_at = CURRENT_TIMESTAMP");
+    }
+
+    return { updates, values };
+  }
+
+  private transformToPlayerProfile(
+    player: Player,
+    stats: PlayerStatsRow | null
+  ): PlayerProfile {
+    return {
+      ...player,
+      competitions_played: stats?.competitions_played || 0,
+      total_rounds: stats?.total_rounds || 0,
+      best_score: stats?.best_score || null,
+      average_score: this.calculateRoundedAverage(stats?.average_score),
+    };
+  }
+
+  private calculateRoundedAverage(avgScore: number | null | undefined): number | null {
+    if (avgScore === null || avgScore === undefined) {
+      return null;
+    }
+    return Math.round(avgScore * 10) / 10;
+  }
+
+  // ============================================================
+  // Public API Methods (orchestration)
+  // ============================================================
+
+  findAll(): Player[] {
+    return this.findAllPlayerRows();
+  }
+
+  findById(id: number): Player | null {
+    return this.findPlayerRowById(id);
+  }
+
+  findByUserId(userId: number): Player | null {
+    return this.findPlayerRowByUserId(userId);
+  }
+
+  getPlayerProfile(id: number): PlayerProfile | null {
+    const player = this.findPlayerRowById(id);
+    if (!player) {
+      return null;
+    }
+
+    try {
+      const stats = this.findPlayerStatsRow(id);
+      return this.transformToPlayerProfile(player, stats);
+    } catch (error) {
+      // If player_id column doesn't exist yet, return player with zero stats
+      console.warn("Error fetching player stats, returning zero stats:", error);
+      return this.transformToPlayerProfile(player, null);
+    }
+  }
+
+  create(data: CreatePlayerInput, createdBy?: number): Player {
+    const handicap = data.handicap ?? 0;
+    const userId = data.user_id ?? null;
+    const createdById = createdBy ?? null;
+
+    return this.insertPlayerRow(data.name, handicap, userId, createdById);
+  }
+
+  update(id: number, data: UpdatePlayerInput): Player {
+    const player = this.findPlayerRowById(id);
+    if (!player) {
+      throw new Error("Player not found");
+    }
+
+    const { updates, values } = this.buildUpdateFields(data);
+
     if (updates.length === 0) {
       return player;
     }
 
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    const result = this.db
-      .prepare(
-        `
-      UPDATE players 
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `
-      )
-      .get(...values) as Player;
-
-    return result;
+    return this.updatePlayerRow(id, updates, values);
   }
 
   delete(id: number): void {
-    const result = this.db.prepare("DELETE FROM players WHERE id = ?").run(id);
-    if (result.changes === 0) {
+    const changes = this.deletePlayerRow(id);
+    if (changes === 0) {
       throw new Error("Player not found");
     }
   }
 
   linkToUser(playerId: number, userId: number): Player {
-    const player = this.findById(playerId);
+    const player = this.findPlayerRowById(playerId);
     if (!player) {
       throw new Error("Player not found");
     }
 
     // Check if user is already linked to another player
-    const existingLink = this.findByUserId(userId);
+    const existingLink = this.findPlayerRowByUserId(userId);
     if (existingLink && existingLink.id !== playerId) {
       throw new Error("User is already linked to another player");
     }
 
-    const result = this.db
-      .prepare(
-        `
-      UPDATE players 
-      SET user_id = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-      RETURNING *
-    `
-      )
-      .get(userId, playerId) as Player;
-
-    return result;
+    return this.updatePlayerLinkRow(playerId, userId);
   }
 
   updateHandicap(id: number, handicap: number): Player {

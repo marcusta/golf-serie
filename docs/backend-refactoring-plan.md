@@ -3,7 +3,7 @@
 **Created:** 2025-12-31
 **Updated:** 2026-01-01
 **Goal:** Refactor backend services to comply with new code quality rules in CLAUDE.md
-**Safety Net:** 670+ integration tests must pass after each change
+**Safety Net:** 760+ integration tests must pass after each change
 
 ---
 
@@ -939,18 +939,103 @@ Create supporting infrastructure before touching existing code.
 ## Phase 7: Player Services
 
 ### 7.1 PlayerService (`src/services/player.service.ts`)
-- [ ] Analyze method violations
-- [ ] Fix any `any` types
-- [ ] Extract query methods
-- [ ] Run tests
+**Complexity:** Low (~264 lines after refactoring)
+**Tests:** `tests/players.test.ts`
+
+#### Completed (Method Separation) - 2026-01-01
+
+**Internal types added:**
+- [x] `PlayerStatsRow` - typed stats query result
+
+**Query methods extracted:**
+- [x] `findAllPlayerRows(): Player[]`
+- [x] `findPlayerRowById(id): Player | null`
+- [x] `findPlayerRowByUserId(userId): Player | null`
+- [x] `findPlayerStatsRow(playerId): PlayerStatsRow | null`
+- [x] `insertPlayerRow(...): Player`
+- [x] `updatePlayerRow(id, updates, values): Player`
+- [x] `updatePlayerLinkRow(playerId, userId): Player`
+- [x] `deletePlayerRow(id): number`
+
+**Logic methods extracted:**
+- [x] `buildUpdateFields(data): { updates, values }`
+- [x] `transformToPlayerProfile(player, stats): PlayerProfile`
+- [x] `calculateRoundedAverage(avgScore): number | null`
+
+**Public methods refactored to orchestration:**
+- [x] `findAll()`, `findById()`, `findByUserId()` - delegates to query methods
+- [x] `getPlayerProfile()` - query player, query stats, transform
+- [x] `create()` - delegates to insert query
+- [x] `update()` - existence check, build fields, update
+- [x] `delete()` - delete, check changes
+- [x] `linkToUser()` - validation, update
+
+**Type safety fixed:**
+- [x] Removed `any` type (was `as any` for stats row)
+- [x] Removed `any[]` type (was `values: any[]` in update)
+
+- [x] Run tests: `bun test tests/players.test.ts` - 25 pass
+
+---
 
 ### 7.2 PlayerProfileService (`src/services/player-profile.service.ts`)
-- [ ] Replace handicap range with `GOLF.*` constants
-- [ ] Replace `72` default par with `GOLF.STANDARD_COURSE_RATING`
-- [ ] Analyze method violations
-- [ ] Extract query methods
-- [ ] Fix any `any` types
-- [ ] Run tests
+**Complexity:** High (~845 lines after refactoring)
+**Tests:** `tests/player-profile-service.test.ts` (new, 37 tests)
+
+#### Test Coverage Added - 2026-01-01
+- [x] Created comprehensive test file: `tests/player-profile-service.test.ts`
+- [x] 37 new tests covering all public API methods
+- [x] Tests for profile CRUD, handicap history, rounds, visibility, friend detection
+
+#### Completed (Constants & Type Safety Pass) - 2026-01-01
+
+- [x] Import `GOLF` constants
+- [x] Replace `72` default par with `GOLF.STANDARD_COURSE_RATING`
+- [x] Replace `-10` and `54` handicap bounds with `GOLF.MIN_HANDICAP_INDEX`, `GOLF.MAX_HANDICAP_INDEX`
+
+#### Completed (Method Separation) - 2026-01-01
+
+**Internal types added:**
+- [x] `TourEnrollmentRow`, `SeriesParticipationRow`
+- [x] `PlayerTourStatsRow`, `TourStandingRow`
+
+**Query methods extracted:**
+- [x] `findProfileRowWithCourse(playerId)` - SELECT with course join
+- [x] `findPlayerExists(playerId)`, `findCourseExists(courseId)` - existence checks
+- [x] `insertDefaultProfileRow(playerId)` - INSERT default profile
+- [x] `updateProfileRow(playerId, updates, values)` - UPDATE profile
+- [x] `findPlayerRow(playerId)`, `findPlayerStatsRow(playerId)` - player queries
+- [x] `findHandicapHistoryRows(playerId, limit)` - handicap history
+- [x] `findPlayerHandicap(playerId)` - current handicap
+- [x] `insertHandicapHistoryRow(...)`, `updatePlayerHandicapRow(...)` - handicap updates
+- [x] `findRoundHistoryRows(playerId, limit, offset)` - round history
+- [x] `findCommonTourExists(viewerPlayerId, targetPlayerId)` - friend check
+- [x] `findCommonToursRows(viewerPlayerId, targetPlayerId)` - common tours
+- [x] `findTourEnrollmentRows(playerId)`, `findSeriesParticipationRows(playerId)` - tours/series
+- [x] `findPlayerTourStatsRow(playerId, tourId)`, `findAllTourStandingsRows(tourId)` - standings
+
+**Logic methods extracted:**
+- [x] `transformProfileRow(row)`, `transformHistoryRow(row)`, `transformStatsRow(stats)`
+- [x] `transformRoundRow(row)`, `transformToFullProfile(...)`
+- [x] `transformTourEnrollmentRow(enrollment, standingInfo)`, `transformSeriesParticipationRow(row)`
+- [x] `calculateRoundedAverage(avgScore)` - rounds to 1 decimal
+- [x] `validateVisibility(visibility)` - validates visibility setting
+- [x] `validateHandicapIndex(index)` - validates handicap range using GOLF constants
+- [x] `buildProfileUpdateFields(data)` - builds update SQL parts
+- [x] `calculatePlayerPosition(allStandings, playerId, totalPoints, competitionsPlayed)` - calculates position
+- [x] `canViewPrivateProfile(profileUserId, viewerId)` - visibility check
+- [x] `getTodayDateString()` - date helper
+
+**Public methods refactored to orchestration:**
+- [x] `getProfile()`, `getOrCreateProfile()`, `updateProfile()` - uses query and logic methods
+- [x] `getFullProfile()`, `getPublicProfile()` - orchestrates multiple queries
+- [x] `getHandicapHistory()`, `getHandicapWithHistory()`, `recordHandicap()` - handicap operations
+- [x] `getRoundHistory()` - query and transform
+- [x] `isFriend()`, `getCommonTours()` - friend/tour queries
+- [x] `getPlayerToursAndSeries()` - complex orchestration with standings
+
+- [x] Run tests: `bun test tests/player-profile-service.test.ts` - 37 pass
+- [x] Run full suite: `bun run test:server` - 761 pass
 
 ---
 
@@ -975,7 +1060,7 @@ Create supporting infrastructure before touching existing code.
 | Phase 4: Tour Services | **Complete** | 2025-12-31 | 2026-01-01 |
 | Phase 5: CompetitionService | **Complete** | 2026-01-01 | 2026-01-01 |
 | Phase 6: CompetitionResultsService | **Complete** | 2026-01-01 | 2026-01-01 |
-| Phase 7: Player Services | Not Started | | |
+| Phase 7: Player Services | **Complete** | 2026-01-01 | 2026-01-01 |
 | Phase 8: Final Cleanup | Not Started | | |
 
 ---

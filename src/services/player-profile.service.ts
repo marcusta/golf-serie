@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { GOLF } from "../constants/golf";
 import type {
   HandicapHistoryEntry,
   HandicapSource,
@@ -35,6 +36,7 @@ export interface PlayerToursAndSeries {
   series: PlayerSeriesInfo[];
 }
 
+// Internal row types for query results
 interface PlayerProfileRow {
   player_id: number;
   display_name: string | null;
@@ -85,14 +87,43 @@ interface RoundRow {
   holes_played: number;
 }
 
+interface TourEnrollmentRow {
+  tour_id: number;
+  tour_name: string;
+  enrollment_status: string;
+  category_name: string | null;
+}
+
+interface SeriesParticipationRow {
+  series_id: number;
+  series_name: string;
+  competitions_played: number;
+  last_played_date: string;
+}
+
+interface PlayerTourStatsRow {
+  total_points: number | null;
+  competitions_played: number;
+}
+
+interface TourStandingRow {
+  player_id: number;
+  total_points: number;
+}
+
+const VALID_VISIBILITY_VALUES = ["public", "friends", "private"] as const;
+
 export class PlayerProfileService {
   constructor(private db: Database) {}
 
-  /**
-   * Get profile for a player (basic profile data only)
-   */
-  getProfile(playerId: number): PlayerProfile | null {
-    const row = this.db
+  // ============================================================
+  // Query Methods (private, single SQL statement)
+  // ============================================================
+
+  private findProfileRowWithCourse(
+    playerId: number
+  ): (PlayerProfileRow & { home_course_name: string | null }) | null {
+    return this.db
       .prepare(
         `
         SELECT pp.*, c.name as home_course_name
@@ -102,33 +133,23 @@ export class PlayerProfileService {
       `
       )
       .get(playerId) as (PlayerProfileRow & { home_course_name: string | null }) | null;
-
-    if (!row) {
-      return null;
-    }
-
-    return this.parseProfileRow(row);
   }
 
-  /**
-   * Get or create profile for a player
-   * Creates a default profile if one doesn't exist
-   */
-  getOrCreateProfile(playerId: number): PlayerProfile {
-    const existing = this.getProfile(playerId);
-    if (existing) {
-      return existing;
-    }
-
-    // Verify player exists
-    const player = this.db
+  private findPlayerExists(playerId: number): boolean {
+    const row = this.db
       .prepare("SELECT id FROM players WHERE id = ?")
       .get(playerId);
-    if (!player) {
-      throw new Error("Player not found");
-    }
+    return !!row;
+  }
 
-    // Create default profile
+  private findCourseExists(courseId: number): boolean {
+    const row = this.db
+      .prepare("SELECT id FROM courses WHERE id = ?")
+      .get(courseId);
+    return !!row;
+  }
+
+  private insertDefaultProfileRow(playerId: number): void {
     this.db
       .prepare(
         `
@@ -137,64 +158,13 @@ export class PlayerProfileService {
       `
       )
       .run(playerId);
-
-    return this.getProfile(playerId)!;
   }
 
-  /**
-   * Update player profile
-   */
-  updateProfile(playerId: number, data: UpdatePlayerProfileDto): PlayerProfile {
-    // Ensure profile exists
-    this.getOrCreateProfile(playerId);
-
-    const updates: string[] = [];
-    const values: (string | number | null)[] = [];
-
-    if (data.display_name !== undefined) {
-      updates.push("display_name = ?");
-      values.push(data.display_name || null);
-    }
-
-    if (data.bio !== undefined) {
-      updates.push("bio = ?");
-      values.push(data.bio || null);
-    }
-
-    if (data.avatar_url !== undefined) {
-      updates.push("avatar_url = ?");
-      values.push(data.avatar_url || null);
-    }
-
-    if (data.home_course_id !== undefined) {
-      // Validate course exists if provided
-      if (data.home_course_id !== null) {
-        const course = this.db
-          .prepare("SELECT id FROM courses WHERE id = ?")
-          .get(data.home_course_id);
-        if (!course) {
-          throw new Error("Course not found");
-        }
-      }
-      updates.push("home_course_id = ?");
-      values.push(data.home_course_id);
-    }
-
-    if (data.visibility !== undefined) {
-      if (!["public", "friends", "private"].includes(data.visibility)) {
-        throw new Error("Invalid visibility setting");
-      }
-      updates.push("visibility = ?");
-      values.push(data.visibility);
-    }
-
-    if (updates.length === 0) {
-      return this.getProfile(playerId)!;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(playerId);
-
+  private updateProfileRow(
+    playerId: number,
+    updates: string[],
+    values: (string | number | null)[]
+  ): void {
     this.db
       .prepare(
         `
@@ -203,204 +173,78 @@ export class PlayerProfileService {
         WHERE player_id = ?
       `
       )
-      .run(...values);
-
-    return this.getProfile(playerId)!;
+      .run(...values, playerId);
   }
 
-  /**
-   * Get full profile with stats and handicap history
-   */
-  getFullProfile(playerId: number): PlayerProfileFull | null {
-    // Get player base data
-    const player = this.db
+  private findPlayerRow(playerId: number): PlayerRow | null {
+    return this.db
       .prepare("SELECT * FROM players WHERE id = ?")
       .get(playerId) as PlayerRow | null;
-
-    if (!player) {
-      return null;
-    }
-
-    // Get or create profile
-    const profile = this.getOrCreateProfile(playerId);
-
-    // Get stats
-    const stats = this.getPlayerStats(playerId);
-
-    // Get handicap history
-    const handicapHistory = this.getHandicapHistory(playerId, 10);
-
-    return {
-      // Player base
-      id: player.id,
-      name: player.name,
-      handicap: player.handicap,
-      user_id: player.user_id ?? undefined,
-
-      // Profile extended
-      display_name: profile.display_name,
-      bio: profile.bio,
-      avatar_url: profile.avatar_url,
-      home_course_id: profile.home_course_id,
-      home_course_name: profile.home_course_name,
-      visibility: profile.visibility,
-
-      // Stats
-      competitions_played: stats.competitions_played,
-      total_rounds: stats.total_rounds,
-      best_score: stats.best_score ?? undefined,
-      average_score: stats.average_score ?? undefined,
-
-      // Handicap history
-      handicap_history: handicapHistory,
-    };
   }
 
-  /**
-   * Get public profile (respects visibility settings)
-   */
-  getPublicProfile(playerId: number, viewerId?: number): PlayerProfileFull | null {
-    const fullProfile = this.getFullProfile(playerId);
-    if (!fullProfile) {
-      return null;
-    }
-
-    // Check visibility
-    if (fullProfile.visibility === "private") {
-      // Only the owner can see private profiles
-      if (!viewerId || fullProfile.user_id !== viewerId) {
-        return null;
-      }
-    }
-
-    // For "friends" visibility, we'd check friend relationship here
-    // For MVP, treat "friends" same as "public"
-    if (fullProfile.visibility === "friends") {
-      // TODO: Check friend relationship when friends feature is implemented
-      // For now, allow access
-    }
-
-    return fullProfile;
-  }
-
-  /**
-   * Get player stats from participants table
-   */
-  private getPlayerStats(playerId: number): StatsRow {
-    try {
-      // Calculate total score from manual_score_total or sum of score array
-      const stats = this.db
-        .prepare(
-          `
-          SELECT
-            COUNT(DISTINCT tt.competition_id) as competitions_played,
-            COUNT(p.id) as total_rounds,
-            MIN(
-              CASE
-                WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
-                WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
-                  SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
-                )
-                ELSE NULL
-              END
-            ) as best_score,
-            AVG(
-              CASE
-                WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
-                WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
-                  SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
-                )
-                ELSE NULL
-              END
-            ) as average_score
-          FROM participants p
-          JOIN tee_times tt ON p.tee_time_id = tt.id
-          WHERE p.player_id = ?
-            AND (
-              p.manual_score_total IS NOT NULL
-              OR (p.score IS NOT NULL AND p.score != '[]' AND EXISTS (SELECT 1 FROM json_each(p.score) WHERE value > 0))
-            )
+  private findPlayerStatsRow(playerId: number): StatsRow | null {
+    return this.db
+      .prepare(
         `
-        )
-        .get(playerId) as StatsRow;
-
-      return {
-        competitions_played: stats?.competitions_played || 0,
-        total_rounds: stats?.total_rounds || 0,
-        best_score: stats?.best_score || null,
-        average_score: stats?.average_score
-          ? Math.round(stats.average_score * 10) / 10
-          : null,
-      };
-    } catch (error) {
-      console.error("Error getting player stats:", error);
-      return {
-        competitions_played: 0,
-        total_rounds: 0,
-        best_score: null,
-        average_score: null,
-      };
-    }
+        SELECT
+          COUNT(DISTINCT tt.competition_id) as competitions_played,
+          COUNT(p.id) as total_rounds,
+          MIN(
+            CASE
+              WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
+              WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
+                SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
+              )
+              ELSE NULL
+            END
+          ) as best_score,
+          AVG(
+            CASE
+              WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
+              WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
+                SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
+              )
+              ELSE NULL
+            END
+          ) as average_score
+        FROM participants p
+        JOIN tee_times tt ON p.tee_time_id = tt.id
+        WHERE p.player_id = ?
+          AND (
+            p.manual_score_total IS NOT NULL
+            OR (p.score IS NOT NULL AND p.score != '[]' AND EXISTS (SELECT 1 FROM json_each(p.score) WHERE value > 0))
+          )
+      `
+      )
+      .get(playerId) as StatsRow | null;
   }
 
-  /**
-   * Get handicap history for a player
-   */
-  getHandicapHistory(playerId: number, limit?: number): HandicapHistoryEntry[] {
+  private findHandicapHistoryRows(
+    playerId: number,
+    limit?: number
+  ): HandicapHistoryRow[] {
     const sql = `
       SELECT * FROM handicap_history
       WHERE player_id = ?
       ORDER BY effective_date DESC, created_at DESC
       ${limit ? `LIMIT ${limit}` : ""}
     `;
-
-    const rows = this.db.prepare(sql).all(playerId) as HandicapHistoryRow[];
-    return rows.map((row) => this.parseHistoryRow(row));
+    return this.db.prepare(sql).all(playerId) as HandicapHistoryRow[];
   }
 
-  /**
-   * Get current handicap with history
-   */
-  getHandicapWithHistory(playerId: number): HandicapWithHistory | null {
-    const player = this.db
+  private findPlayerHandicap(playerId: number): { handicap: number } | null {
+    return this.db
       .prepare("SELECT handicap FROM players WHERE id = ?")
       .get(playerId) as { handicap: number } | null;
-
-    if (!player) {
-      return null;
-    }
-
-    const history = this.getHandicapHistory(playerId);
-
-    return {
-      current: player.handicap,
-      history,
-    };
   }
 
-  /**
-   * Record a new handicap entry
-   * Updates both the history table and the current handicap in players
-   */
-  recordHandicap(playerId: number, data: RecordHandicapDto): HandicapHistoryEntry {
-    // Verify player exists
-    const player = this.db
-      .prepare("SELECT id FROM players WHERE id = ?")
-      .get(playerId);
-    if (!player) {
-      throw new Error("Player not found");
-    }
-
-    // Validate handicap index
-    if (data.handicap_index < -10 || data.handicap_index > 54) {
-      throw new Error("Handicap index must be between -10 and 54");
-    }
-
-    // Default to today if no date provided
-    const effectiveDate = data.effective_date || new Date().toISOString().split("T")[0];
-
-    // Insert into history
-    const historyEntry = this.db
+  private insertHandicapHistoryRow(
+    playerId: number,
+    handicapIndex: number,
+    effectiveDate: string,
+    notes: string | null
+  ): HandicapHistoryRow {
+    return this.db
       .prepare(
         `
         INSERT INTO handicap_history (player_id, handicap_index, effective_date, source, notes)
@@ -408,9 +252,10 @@ export class PlayerProfileService {
         RETURNING *
       `
       )
-      .get(playerId, data.handicap_index, effectiveDate, data.notes || null) as HandicapHistoryRow;
+      .get(playerId, handicapIndex, effectiveDate, notes) as HandicapHistoryRow;
+  }
 
-    // Update current handicap in players table
+  private updatePlayerHandicapRow(playerId: number, handicap: number): void {
     this.db
       .prepare(
         `
@@ -419,15 +264,14 @@ export class PlayerProfileService {
         WHERE id = ?
       `
       )
-      .run(data.handicap_index, playerId);
-
-    return this.parseHistoryRow(historyEntry);
+      .run(handicap, playerId);
   }
 
-  /**
-   * Get round history for a player
-   */
-  getRoundHistory(playerId: number, limit?: number, offset?: number): PlayerRoundHistory[] {
+  private findRoundHistoryRows(
+    playerId: number,
+    limit?: number,
+    offset?: number
+  ): RoundRow[] {
     const sql = `
       SELECT
         p.id as participant_id,
@@ -462,68 +306,14 @@ export class PlayerProfileService {
       ${limit ? `LIMIT ${limit}` : ""}
       ${offset ? `OFFSET ${offset}` : ""}
     `;
-
-    const rows = this.db.prepare(sql).all(playerId) as RoundRow[];
-
-    return rows.map((row) => ({
-      participant_id: row.participant_id,
-      competition_id: row.competition_id,
-      competition_name: row.competition_name,
-      competition_date: row.competition_date,
-      course_id: row.course_id,
-      course_name: row.course_name,
-      gross_score: row.total_score,
-      relative_to_par: row.total_score - (row.par_total || 72),
-      holes_played: row.holes_played || 0,
-    }));
+    return this.db.prepare(sql).all(playerId) as RoundRow[];
   }
 
-  /**
-   * Parse a profile row from the database
-   */
-  private parseProfileRow(
-    row: PlayerProfileRow & { home_course_name: string | null }
-  ): PlayerProfile {
-    return {
-      player_id: row.player_id,
-      display_name: row.display_name ?? undefined,
-      bio: row.bio ?? undefined,
-      avatar_url: row.avatar_url ?? undefined,
-      home_course_id: row.home_course_id ?? undefined,
-      home_course_name: row.home_course_name ?? undefined,
-      visibility: row.visibility as ProfileVisibility,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    };
-  }
-
-  /**
-   * Parse a handicap history row from the database
-   */
-  private parseHistoryRow(row: HandicapHistoryRow): HandicapHistoryEntry {
-    return {
-      id: row.id,
-      player_id: row.player_id,
-      handicap_index: row.handicap_index,
-      effective_date: row.effective_date,
-      source: row.source as HandicapSource,
-      notes: row.notes ?? undefined,
-      created_at: row.created_at,
-    };
-  }
-
-  /**
-   * Check if two players are "friends" (enrolled in at least one common tour)
-   * This determines whether one player can view another's profile
-   */
-  isFriend(viewerPlayerId: number, targetPlayerId: number): boolean {
-    // Same player always has access
-    if (viewerPlayerId === targetPlayerId) {
-      return true;
-    }
-
-    // Check if both players are enrolled in at least one common tour (active status)
-    const commonTour = this.db
+  private findCommonTourExists(
+    viewerPlayerId: number,
+    targetPlayerId: number
+  ): boolean {
+    const row = this.db
       .prepare(
         `
         SELECT 1 FROM tour_enrollments e1
@@ -536,18 +326,14 @@ export class PlayerProfileService {
       `
       )
       .get(viewerPlayerId, targetPlayerId);
-
-    return !!commonTour;
+    return !!row;
   }
 
-  /**
-   * Get the list of common tours between two players
-   */
-  getCommonTours(
+  private findCommonToursRows(
     viewerPlayerId: number,
     targetPlayerId: number
   ): Array<{ id: number; name: string }> {
-    const tours = this.db
+    return this.db
       .prepare(
         `
         SELECT DISTINCT t.id, t.name
@@ -562,18 +348,10 @@ export class PlayerProfileService {
       `
       )
       .all(viewerPlayerId, targetPlayerId) as Array<{ id: number; name: string }>;
-
-    return tours;
   }
 
-  /**
-   * Get all tours and series for a player
-   * Tours: Shows enrollment status and standings
-   * Series: Shows participation history based on rounds played
-   */
-  getPlayerToursAndSeries(playerId: number): PlayerToursAndSeries {
-    // Get tour enrollments with tour details
-    const tourEnrollments = this.db
+  private findTourEnrollmentRows(playerId: number): TourEnrollmentRow[] {
+    return this.db
       .prepare(
         `
         SELECT
@@ -588,32 +366,11 @@ export class PlayerProfileService {
         ORDER BY t.name
       `
       )
-      .all(playerId) as Array<{
-        tour_id: number;
-        tour_name: string;
-        enrollment_status: string;
-        category_name: string | null;
-      }>;
+      .all(playerId) as TourEnrollmentRow[];
+  }
 
-    // Get standings info for each tour (position, points, competitions played)
-    const tours: PlayerTourInfo[] = tourEnrollments.map((enrollment) => {
-      // Get player's standing in this tour
-      const standingInfo = this.getPlayerTourStanding(playerId, enrollment.tour_id);
-
-      return {
-        tour_id: enrollment.tour_id,
-        tour_name: enrollment.tour_name,
-        enrollment_status: enrollment.enrollment_status as TourEnrollmentStatus,
-        category_name: enrollment.category_name ?? undefined,
-        position: standingInfo?.position,
-        total_points: standingInfo?.total_points,
-        competitions_played: standingInfo?.competitions_played ?? 0,
-      };
-    });
-
-    // Get series participation based on rounds played
-    // A player has played if they have manual_score_total OR score array with values > 0
-    const seriesParticipation = this.db
+  private findSeriesParticipationRows(playerId: number): SeriesParticipationRow[] {
+    return this.db
       .prepare(
         `
         SELECT
@@ -639,98 +396,443 @@ export class PlayerProfileService {
         ORDER BY last_played_date DESC
       `
       )
-      .all(playerId) as Array<{
-        series_id: number;
-        series_name: string;
-        competitions_played: number;
-        last_played_date: string;
-      }>;
+      .all(playerId) as SeriesParticipationRow[];
+  }
 
-    const series: PlayerSeriesInfo[] = seriesParticipation.map((s) => ({
-      series_id: s.series_id,
-      series_name: s.series_name,
-      competitions_played: s.competitions_played,
-      last_played_date: s.last_played_date,
-    }));
+  private findPlayerTourStatsRow(
+    playerId: number,
+    tourId: number
+  ): PlayerTourStatsRow | null {
+    return this.db
+      .prepare(
+        `
+        SELECT
+          SUM(cr.points) as total_points,
+          COUNT(DISTINCT cr.competition_id) as competitions_played
+        FROM competition_results cr
+        JOIN competitions c ON cr.competition_id = c.id
+        WHERE cr.player_id = ?
+          AND c.tour_id = ?
+          AND cr.scoring_type = 'gross'
+          AND c.is_results_final = 1
+      `
+      )
+      .get(playerId, tourId) as PlayerTourStatsRow | null;
+  }
+
+  private findAllTourStandingsRows(tourId: number): TourStandingRow[] {
+    return this.db
+      .prepare(
+        `
+        SELECT
+          cr.player_id,
+          SUM(cr.points) as total_points
+        FROM competition_results cr
+        JOIN competitions c ON cr.competition_id = c.id
+        WHERE c.tour_id = ?
+          AND cr.scoring_type = 'gross'
+          AND c.is_results_final = 1
+        GROUP BY cr.player_id
+        ORDER BY total_points DESC
+      `
+      )
+      .all(tourId) as TourStandingRow[];
+  }
+
+  // ============================================================
+  // Logic Methods (private, no SQL)
+  // ============================================================
+
+  private transformProfileRow(
+    row: PlayerProfileRow & { home_course_name: string | null }
+  ): PlayerProfile {
+    return {
+      player_id: row.player_id,
+      display_name: row.display_name ?? undefined,
+      bio: row.bio ?? undefined,
+      avatar_url: row.avatar_url ?? undefined,
+      home_course_id: row.home_course_id ?? undefined,
+      home_course_name: row.home_course_name ?? undefined,
+      visibility: row.visibility as ProfileVisibility,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  }
+
+  private transformHistoryRow(row: HandicapHistoryRow): HandicapHistoryEntry {
+    return {
+      id: row.id,
+      player_id: row.player_id,
+      handicap_index: row.handicap_index,
+      effective_date: row.effective_date,
+      source: row.source as HandicapSource,
+      notes: row.notes ?? undefined,
+      created_at: row.created_at,
+    };
+  }
+
+  private transformStatsRow(stats: StatsRow | null): StatsRow {
+    return {
+      competitions_played: stats?.competitions_played || 0,
+      total_rounds: stats?.total_rounds || 0,
+      best_score: stats?.best_score || null,
+      average_score: this.calculateRoundedAverage(stats?.average_score),
+    };
+  }
+
+  private transformRoundRow(row: RoundRow): PlayerRoundHistory {
+    const parTotal = row.par_total || GOLF.STANDARD_COURSE_RATING;
+    return {
+      participant_id: row.participant_id,
+      competition_id: row.competition_id,
+      competition_name: row.competition_name,
+      competition_date: row.competition_date,
+      course_id: row.course_id,
+      course_name: row.course_name,
+      gross_score: row.total_score,
+      relative_to_par: row.total_score - parTotal,
+      holes_played: row.holes_played || 0,
+    };
+  }
+
+  private transformToFullProfile(
+    player: PlayerRow,
+    profile: PlayerProfile,
+    stats: StatsRow,
+    handicapHistory: HandicapHistoryEntry[]
+  ): PlayerProfileFull {
+    return {
+      id: player.id,
+      name: player.name,
+      handicap: player.handicap,
+      user_id: player.user_id ?? undefined,
+      display_name: profile.display_name,
+      bio: profile.bio,
+      avatar_url: profile.avatar_url,
+      home_course_id: profile.home_course_id,
+      home_course_name: profile.home_course_name,
+      visibility: profile.visibility,
+      competitions_played: stats.competitions_played,
+      total_rounds: stats.total_rounds,
+      best_score: stats.best_score ?? undefined,
+      average_score: stats.average_score ?? undefined,
+      handicap_history: handicapHistory,
+    };
+  }
+
+  private transformTourEnrollmentRow(
+    enrollment: TourEnrollmentRow,
+    standingInfo: { position: number; total_points: number; competitions_played: number } | null
+  ): PlayerTourInfo {
+    return {
+      tour_id: enrollment.tour_id,
+      tour_name: enrollment.tour_name,
+      enrollment_status: enrollment.enrollment_status as TourEnrollmentStatus,
+      category_name: enrollment.category_name ?? undefined,
+      position: standingInfo?.position,
+      total_points: standingInfo?.total_points,
+      competitions_played: standingInfo?.competitions_played ?? 0,
+    };
+  }
+
+  private transformSeriesParticipationRow(row: SeriesParticipationRow): PlayerSeriesInfo {
+    return {
+      series_id: row.series_id,
+      series_name: row.series_name,
+      competitions_played: row.competitions_played,
+      last_played_date: row.last_played_date,
+    };
+  }
+
+  private calculateRoundedAverage(
+    avgScore: number | null | undefined
+  ): number | null {
+    if (avgScore === null || avgScore === undefined) {
+      return null;
+    }
+    return Math.round(avgScore * 10) / 10;
+  }
+
+  private validateVisibility(visibility: string): void {
+    if (!VALID_VISIBILITY_VALUES.includes(visibility as ProfileVisibility)) {
+      throw new Error("Invalid visibility setting");
+    }
+  }
+
+  private validateHandicapIndex(handicapIndex: number): void {
+    if (
+      handicapIndex < GOLF.MIN_HANDICAP_INDEX ||
+      handicapIndex > GOLF.MAX_HANDICAP_INDEX
+    ) {
+      throw new Error(
+        `Handicap index must be between ${GOLF.MIN_HANDICAP_INDEX} and ${GOLF.MAX_HANDICAP_INDEX}`
+      );
+    }
+  }
+
+  private buildProfileUpdateFields(data: UpdatePlayerProfileDto): {
+    updates: string[];
+    values: (string | number | null)[];
+  } {
+    const updates: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.display_name !== undefined) {
+      updates.push("display_name = ?");
+      values.push(data.display_name || null);
+    }
+
+    if (data.bio !== undefined) {
+      updates.push("bio = ?");
+      values.push(data.bio || null);
+    }
+
+    if (data.avatar_url !== undefined) {
+      updates.push("avatar_url = ?");
+      values.push(data.avatar_url || null);
+    }
+
+    if (data.home_course_id !== undefined) {
+      updates.push("home_course_id = ?");
+      values.push(data.home_course_id);
+    }
+
+    if (data.visibility !== undefined) {
+      updates.push("visibility = ?");
+      values.push(data.visibility);
+    }
+
+    if (updates.length > 0) {
+      updates.push("updated_at = CURRENT_TIMESTAMP");
+    }
+
+    return { updates, values };
+  }
+
+  private calculatePlayerPosition(
+    allStandings: TourStandingRow[],
+    playerId: number,
+    playerTotalPoints: number,
+    competitionsPlayed: number
+  ): { position: number; total_points: number; competitions_played: number } {
+    let position = 1;
+    let previousPoints = Number.MAX_SAFE_INTEGER;
+
+    for (let i = 0; i < allStandings.length; i++) {
+      if (allStandings[i].total_points !== previousPoints) {
+        position = i + 1;
+      }
+      previousPoints = allStandings[i].total_points;
+
+      if (allStandings[i].player_id === playerId) {
+        return {
+          position,
+          total_points: playerTotalPoints,
+          competitions_played: competitionsPlayed,
+        };
+      }
+    }
+
+    return {
+      position: allStandings.length + 1,
+      total_points: playerTotalPoints,
+      competitions_played: competitionsPlayed,
+    };
+  }
+
+  private canViewPrivateProfile(
+    profileUserId: number | undefined,
+    viewerId: number | undefined
+  ): boolean {
+    return !!viewerId && profileUserId === viewerId;
+  }
+
+  private getTodayDateString(): string {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  // ============================================================
+  // Public API Methods (orchestration)
+  // ============================================================
+
+  getProfile(playerId: number): PlayerProfile | null {
+    const row = this.findProfileRowWithCourse(playerId);
+    if (!row) {
+      return null;
+    }
+    return this.transformProfileRow(row);
+  }
+
+  getOrCreateProfile(playerId: number): PlayerProfile {
+    const existing = this.getProfile(playerId);
+    if (existing) {
+      return existing;
+    }
+
+    if (!this.findPlayerExists(playerId)) {
+      throw new Error("Player not found");
+    }
+
+    this.insertDefaultProfileRow(playerId);
+    return this.getProfile(playerId)!;
+  }
+
+  updateProfile(playerId: number, data: UpdatePlayerProfileDto): PlayerProfile {
+    this.getOrCreateProfile(playerId);
+
+    if (data.home_course_id !== undefined && data.home_course_id !== null) {
+      if (!this.findCourseExists(data.home_course_id)) {
+        throw new Error("Course not found");
+      }
+    }
+
+    if (data.visibility !== undefined) {
+      this.validateVisibility(data.visibility);
+    }
+
+    const { updates, values } = this.buildProfileUpdateFields(data);
+
+    if (updates.length === 0) {
+      return this.getProfile(playerId)!;
+    }
+
+    this.updateProfileRow(playerId, updates, values);
+    return this.getProfile(playerId)!;
+  }
+
+  getFullProfile(playerId: number): PlayerProfileFull | null {
+    const player = this.findPlayerRow(playerId);
+    if (!player) {
+      return null;
+    }
+
+    const profile = this.getOrCreateProfile(playerId);
+    const stats = this.getPlayerStats(playerId);
+    const handicapHistory = this.getHandicapHistory(playerId, 10);
+
+    return this.transformToFullProfile(player, profile, stats, handicapHistory);
+  }
+
+  getPublicProfile(playerId: number, viewerId?: number): PlayerProfileFull | null {
+    const fullProfile = this.getFullProfile(playerId);
+    if (!fullProfile) {
+      return null;
+    }
+
+    if (fullProfile.visibility === "private") {
+      if (!this.canViewPrivateProfile(fullProfile.user_id, viewerId)) {
+        return null;
+      }
+    }
+
+    return fullProfile;
+  }
+
+  private getPlayerStats(playerId: number): StatsRow {
+    try {
+      const stats = this.findPlayerStatsRow(playerId);
+      return this.transformStatsRow(stats);
+    } catch (error) {
+      console.error("Error getting player stats:", error);
+      return this.transformStatsRow(null);
+    }
+  }
+
+  getHandicapHistory(playerId: number, limit?: number): HandicapHistoryEntry[] {
+    const rows = this.findHandicapHistoryRows(playerId, limit);
+    return rows.map((row) => this.transformHistoryRow(row));
+  }
+
+  getHandicapWithHistory(playerId: number): HandicapWithHistory | null {
+    const player = this.findPlayerHandicap(playerId);
+    if (!player) {
+      return null;
+    }
+
+    const history = this.getHandicapHistory(playerId);
+    return {
+      current: player.handicap,
+      history,
+    };
+  }
+
+  recordHandicap(playerId: number, data: RecordHandicapDto): HandicapHistoryEntry {
+    if (!this.findPlayerExists(playerId)) {
+      throw new Error("Player not found");
+    }
+
+    this.validateHandicapIndex(data.handicap_index);
+
+    const effectiveDate = data.effective_date || this.getTodayDateString();
+
+    const historyEntry = this.insertHandicapHistoryRow(
+      playerId,
+      data.handicap_index,
+      effectiveDate,
+      data.notes || null
+    );
+
+    this.updatePlayerHandicapRow(playerId, data.handicap_index);
+
+    return this.transformHistoryRow(historyEntry);
+  }
+
+  getRoundHistory(
+    playerId: number,
+    limit?: number,
+    offset?: number
+  ): PlayerRoundHistory[] {
+    const rows = this.findRoundHistoryRows(playerId, limit, offset);
+    return rows.map((row) => this.transformRoundRow(row));
+  }
+
+  isFriend(viewerPlayerId: number, targetPlayerId: number): boolean {
+    if (viewerPlayerId === targetPlayerId) {
+      return true;
+    }
+    return this.findCommonTourExists(viewerPlayerId, targetPlayerId);
+  }
+
+  getCommonTours(
+    viewerPlayerId: number,
+    targetPlayerId: number
+  ): Array<{ id: number; name: string }> {
+    return this.findCommonToursRows(viewerPlayerId, targetPlayerId);
+  }
+
+  getPlayerToursAndSeries(playerId: number): PlayerToursAndSeries {
+    const tourEnrollments = this.findTourEnrollmentRows(playerId);
+
+    const tours: PlayerTourInfo[] = tourEnrollments.map((enrollment) => {
+      const standingInfo = this.getPlayerTourStanding(playerId, enrollment.tour_id);
+      return this.transformTourEnrollmentRow(enrollment, standingInfo);
+    });
+
+    const seriesRows = this.findSeriesParticipationRows(playerId);
+    const series = seriesRows.map((row) => this.transformSeriesParticipationRow(row));
 
     return { tours, series };
   }
 
-  /**
-   * Get a player's standing within a specific tour
-   * Returns position, total points, and competitions played
-   * Uses stored competition_results for finalized competitions
-   */
   private getPlayerTourStanding(
     playerId: number,
     tourId: number
   ): { position: number; total_points: number; competitions_played: number } | null {
     try {
-      // Get player's stats from stored competition results
-      const playerStats = this.db
-        .prepare(
-          `
-          SELECT
-            SUM(cr.points) as total_points,
-            COUNT(DISTINCT cr.competition_id) as competitions_played
-          FROM competition_results cr
-          JOIN competitions c ON cr.competition_id = c.id
-          WHERE cr.player_id = ?
-            AND c.tour_id = ?
-            AND cr.scoring_type = 'gross'
-            AND c.is_results_final = 1
-        `
-        )
-        .get(playerId, tourId) as {
-          total_points: number | null;
-          competitions_played: number;
-        } | null;
+      const playerStats = this.findPlayerTourStatsRow(playerId, tourId);
 
       if (!playerStats || playerStats.total_points === null) {
         return null;
       }
 
-      // Calculate position among all players in this tour
-      const allStandings = this.db
-        .prepare(
-          `
-          SELECT
-            cr.player_id,
-            SUM(cr.points) as total_points
-          FROM competition_results cr
-          JOIN competitions c ON cr.competition_id = c.id
-          WHERE c.tour_id = ?
-            AND cr.scoring_type = 'gross'
-            AND c.is_results_final = 1
-          GROUP BY cr.player_id
-          ORDER BY total_points DESC
-        `
-        )
-        .all(tourId) as { player_id: number; total_points: number }[];
+      const allStandings = this.findAllTourStandingsRows(tourId);
 
-      // Find this player's position
-      let position = 1;
-      let previousPoints = Number.MAX_SAFE_INTEGER;
-      for (let i = 0; i < allStandings.length; i++) {
-        if (allStandings[i].total_points !== previousPoints) {
-          position = i + 1;
-        }
-        previousPoints = allStandings[i].total_points;
-
-        if (allStandings[i].player_id === playerId) {
-          return {
-            position,
-            total_points: playerStats.total_points,
-            competitions_played: playerStats.competitions_played,
-          };
-        }
-      }
-
-      return {
-        position: allStandings.length + 1,
-        total_points: playerStats.total_points,
-        competitions_played: playerStats.competitions_played,
-      };
+      return this.calculatePlayerPosition(
+        allStandings,
+        playerId,
+        playerStats.total_points,
+        playerStats.competitions_played
+      );
     } catch {
       return null;
     }
