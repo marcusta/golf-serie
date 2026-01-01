@@ -488,24 +488,67 @@ Create supporting infrastructure before touching existing code.
 ## Phase 4: Tour Services
 
 ### 4.1 TourService (`src/services/tour.service.ts`)
-**Complexity:** Very High (~755 lines, has `getFullStandings()`)
+**Complexity:** Very High (~900 lines after refactoring)
 **Tests:** `tests/tours.test.ts`, `tests/tour-standings.test.ts`
 
-- [ ] Replace all magic numbers with `GOLF.*` constants
-- [ ] Map `getFullStandings()` structure (document what each section does)
-- [ ] Extract query methods:
-  - [ ] `findTourById()`
-  - [ ] `findCompetitionsForTour()`
-  - [ ] `findEnrollmentsForTour()`
-  - [ ] `findStoredResults()`
-- [ ] Extract logic methods:
-  - [ ] `calculatePlayerPoints()`
-  - [ ] `rankPlayersByScore()`
-  - [ ] `getCompetitionPlayerResults()`
-- [ ] Add defensive JSON parsing
-- [ ] Fix `getCompetitions(): any[]` return type
-- [ ] Run tests: `bun test tests/tours.test.ts tests/tour-standings.test.ts`
-- [ ] Run full suite: `bun test`
+#### Completed (Method Separation) - 2025-12-31
+
+**Constants & Type Safety:**
+- [x] Replace all magic numbers with `GOLF.*` constants (`18`, `113`, `72`, `-1`)
+- [x] Fix `getCompetitions(): any[]` → `CompetitionWithCourseRow[]`
+- [x] Fix `enrollmentParams: any[]` → `number[]`
+- [x] Add internal types: `TourRow`, `CompetitionWithCourseRow`, `ParticipantRow`, `EnrollmentRow`, `StoredResultRow`, `PointTemplateRow`, `DocumentRow`
+
+**Validation methods extracted:**
+- [x] `validateScoringMode(mode: string): void`
+- [x] `validatePointTemplateExists(templateId: number): void`
+- [x] `validateLandingDocument(documentId: number, tourId: number): void`
+
+**Query methods extracted:**
+- [x] `findPointTemplateExists(id: number): boolean`
+- [x] `findDocumentRow(id: number): DocumentRow | null`
+- [x] `findCategoriesByTour(tourId: number): TourCategory[]`
+- [x] `findPointTemplateRow(id: number): PointTemplateRow | null`
+- [x] `findEnrollmentCount(tourId: number, categoryId?: number): number`
+- [x] `findEnrollmentRows(tourId: number): EnrollmentRow[]`
+- [x] `findFinalizedCompetitionIds(tourId: number): Set<number>`
+- [x] `findStoredResultRows(tourId: number, scoringType: string): StoredResultRow[]`
+- [x] `findCompetitionStartInfo(competitionId: number): { start_mode, open_end } | null`
+- [x] `findParticipantRowsForCompetition(competitionId: number): ParticipantRow[]`
+- [x] `insertTourRow(...): Tour`
+- [x] `updateTourRow(...): Tour`
+
+**Logic methods extracted:**
+- [x] `buildUpdateFields(data: UpdateTourInput): { updates, values }`
+- [x] `isPastCompetition(competitionDate: string): boolean`
+- [x] `buildEnrollmentMaps(enrollments): { playerCategories, playerHandicaps, playerNames }`
+- [x] `sortAndRankStandings(standings): TourPlayerStanding[]`
+- [x] `initializePlayerStanding(playerId, playerName, category): TourPlayerStanding`
+- [x] `isCompetitionWindowClosed(startInfo): boolean`
+- [x] `determineParticipantFinished(participant, isOpenCompetitionClosed): { isFinished, totalShots, relativeToPar }`
+- [x] `calculateRelativeToPar(score, pars): number`
+- [x] `adjustResultsForScoring(results, scoringType, handicaps, competition): CompetitionResult[]`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - validation, insert
+- [x] `update()` - validation, build fields, update
+- [x] `getFullStandings()` - broken into smaller methods
+- [x] `getCompetitionPlayerResults()` - uses extracted query/logic methods
+
+**Helper methods for `getFullStandings()`:**
+- [x] `buildEmptyStandingsResponse(tour, categories, categoryId): TourStandings`
+- [x] `processStoredResults(tourId, scoringType, categoryId, playerCategories, playerStandings): void`
+- [x] `processLiveCompetitions(...): boolean` (returns hasProjectedResults)
+
+**Defensive JSON parsing:**
+- [x] Using `parseParsArray()` for course pars
+- [x] Using `parseScoreArray()` for participant scores
+- [x] Using `safeParseJson<PointsStructure>()` for point templates
+
+- [x] Run tests: `bun test tests/tours.test.ts tests/tour-standings.test.ts` - 33 pass
+- [x] Run full suite: `bun test ./tests/*.test.ts` - 677 pass
+
+---
 
 ### 4.2 TourEnrollmentService (`src/services/tour-enrollment.service.ts`)
 **Complexity:** Medium
@@ -651,7 +694,7 @@ Lines 835-844:   Return response
 | Phase 1: Simple Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 2: Medium Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 3: Complex Services | **Complete** | 2025-12-31 | 2025-12-31 |
-| Phase 4: Tour Services | Not Started | | |
+| Phase 4: Tour Services | **In Progress** (4.1 TourService done) | 2025-12-31 | |
 | Phase 5: CompetitionService | Not Started | | |
 | Phase 6: CompetitionResultsService | Not Started | | |
 | Phase 7: Player Services | Not Started | | |

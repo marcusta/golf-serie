@@ -1,6 +1,8 @@
 import { Database } from "bun:sqlite";
 import type { TourCategory, TourPlayerStanding, TourStandings, Tour as TourType } from "../types";
 import { calculateCourseHandicap } from "../utils/handicap";
+import { GOLF } from "../constants/golf";
+import { safeParseJson, parseScoreArray, parseParsArray } from "../utils/parsing";
 
 export type ScoringType = "gross" | "net";
 
@@ -43,6 +45,69 @@ export type TourStanding = {
   competitions_played: number;
 };
 
+// Internal types for database rows
+type TourRow = Tour;
+
+type CompetitionWithCourseRow = {
+  id: number;
+  name: string;
+  date: string;
+  course_id: number;
+  tee_id: number | null;
+  tour_id: number | null;
+  series_id: number | null;
+  is_results_final: number;
+  start_mode: string;
+  open_end: string | null;
+  course_name: string;
+  pars: string;
+  slope_rating: number | null;
+  course_rating: number | null;
+};
+
+type ParticipantRow = {
+  id: number;
+  player_id: number;
+  score: string | null;
+  is_locked: number;
+  is_dq: number;
+  manual_score_total: number | null;
+  player_name: string;
+  competition_id: number;
+  competition_name: string;
+  competition_date: string;
+};
+
+type EnrollmentRow = {
+  player_id: number;
+  category_id: number | null;
+  category_name: string | null;
+  handicap: number | null;
+  player_name: string;
+};
+
+type StoredResultRow = {
+  player_id: number;
+  competition_id: number;
+  position: number;
+  points: number;
+  relative_to_par: number;
+  competition_name: string;
+  competition_date: string;
+  player_name: string;
+};
+
+type PointTemplateRow = {
+  id: number;
+  name: string;
+  points_structure: string;
+};
+
+type DocumentRow = {
+  id: number;
+  tour_id: number;
+};
+
 // Internal types for standings calculation
 type CompetitionResult = {
   competition_id: number;
@@ -62,241 +127,72 @@ type PointsStructure = {
 export class TourService {
   constructor(private db: Database) {}
 
-  findAll(): Tour[] {
-    return this.db
-      .prepare("SELECT * FROM tours ORDER BY name ASC")
-      .all() as Tour[];
-  }
+  // ==================== VALIDATION METHODS ====================
 
-  findById(id: number): Tour | null {
-    return this.db
-      .prepare("SELECT * FROM tours WHERE id = ?")
-      .get(id) as Tour | null;
-  }
-
-  create(data: CreateTourInput, ownerId: number): Tour {
-    // Validate point_template_id if provided
-    if (data.point_template_id) {
-      const template = this.db
-        .prepare("SELECT id FROM point_templates WHERE id = ?")
-        .get(data.point_template_id);
-      if (!template) {
-        throw new Error("Point template not found");
-      }
-    }
-
-    // Validate scoring_mode if provided
+  private validateScoringMode(mode: string): void {
     const validScoringModes = ["gross", "net", "both"];
-    const scoringMode = data.scoring_mode || "gross";
-    if (!validScoringModes.includes(scoringMode)) {
+    if (!validScoringModes.includes(mode)) {
       throw new Error("Invalid scoring mode. Must be 'gross', 'net', or 'both'");
     }
-
-    const result = this.db
-      .prepare(
-        `
-      INSERT INTO tours (name, description, owner_id, banner_image_url, point_template_id, scoring_mode)
-      VALUES (?, ?, ?, ?, ?, ?)
-      RETURNING *
-    `
-      )
-      .get(
-        data.name,
-        data.description || null,
-        ownerId,
-        data.banner_image_url || null,
-        data.point_template_id || null,
-        scoringMode
-      ) as Tour;
-
-    return result;
   }
 
-  update(id: number, data: UpdateTourInput): Tour {
-    const tour = this.findById(id);
-    if (!tour) {
-      throw new Error("Tour not found");
-    }
-
-    // Validate landing_document_id if provided
-    if (data.landing_document_id !== undefined && data.landing_document_id !== null) {
-      const documentStmt = this.db.prepare(`
-        SELECT id, tour_id FROM tour_documents WHERE id = ?
-      `);
-      const document = documentStmt.get(data.landing_document_id) as { id: number; tour_id: number } | undefined;
-
-      if (!document) {
-        throw new Error("Landing document not found");
-      }
-
-      if (document.tour_id !== id) {
-        throw new Error("Landing document must belong to the same tour");
-      }
-    }
-
-    // Validate point_template_id if provided
-    if (data.point_template_id !== undefined && data.point_template_id !== null) {
-      const template = this.db
-        .prepare("SELECT id FROM point_templates WHERE id = ?")
-        .get(data.point_template_id);
-      if (!template) {
-        throw new Error("Point template not found");
-      }
-    }
-
-    // Validate scoring_mode if provided
-    if (data.scoring_mode !== undefined) {
-      const validScoringModes = ["gross", "net", "both"];
-      if (!validScoringModes.includes(data.scoring_mode)) {
-        throw new Error("Invalid scoring mode. Must be 'gross', 'net', or 'both'");
-      }
-    }
-
-    const updates: string[] = [];
-    const values: (string | number | null)[] = [];
-
-    if (data.name !== undefined) {
-      updates.push("name = ?");
-      values.push(data.name);
-    }
-
-    if (data.description !== undefined) {
-      updates.push("description = ?");
-      values.push(data.description);
-    }
-
-    if (data.banner_image_url !== undefined) {
-      updates.push("banner_image_url = ?");
-      values.push(data.banner_image_url);
-    }
-
-    if (data.landing_document_id !== undefined) {
-      updates.push("landing_document_id = ?");
-      values.push(data.landing_document_id);
-    }
-
-    if (data.point_template_id !== undefined) {
-      updates.push("point_template_id = ?");
-      values.push(data.point_template_id);
-    }
-
-    if (data.scoring_mode !== undefined) {
-      updates.push("scoring_mode = ?");
-      values.push(data.scoring_mode);
-    }
-
-    if (updates.length === 0) {
-      return tour;
-    }
-
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
-
-    const result = this.db
-      .prepare(
-        `
-      UPDATE tours
-      SET ${updates.join(", ")}
-      WHERE id = ?
-      RETURNING *
-    `
-      )
-      .get(...values) as Tour;
-
-    return result;
-  }
-
-  delete(id: number): void {
-    const result = this.db.prepare("DELETE FROM tours WHERE id = ?").run(id);
-    if (result.changes === 0) {
-      throw new Error("Tour not found");
+  private validatePointTemplateExists(templateId: number): void {
+    const exists = this.findPointTemplateExists(templateId);
+    if (!exists) {
+      throw new Error("Point template not found");
     }
   }
 
-  getCompetitions(tourId: number): any[] {
+  private validateLandingDocument(documentId: number, tourId: number): void {
+    const document = this.findDocumentRow(documentId);
+    if (!document) {
+      throw new Error("Landing document not found");
+    }
+    if (document.tour_id !== tourId) {
+      throw new Error("Landing document must belong to the same tour");
+    }
+  }
+
+  // ==================== QUERY METHODS ====================
+
+  private findPointTemplateExists(id: number): boolean {
+    const row = this.db
+      .prepare("SELECT id FROM point_templates WHERE id = ?")
+      .get(id) as { id: number } | null;
+    return row !== null;
+  }
+
+  private findDocumentRow(id: number): DocumentRow | null {
     return this.db
-      .prepare(
-        `
-      SELECT c.*, co.name as course_name, co.pars,
-             ct.slope_rating, ct.course_rating
-      FROM competitions c
-      JOIN courses co ON c.course_id = co.id
-      LEFT JOIN course_tees ct ON c.tee_id = ct.id
-      WHERE c.tour_id = ?
-      ORDER BY c.date DESC
-    `
-      )
-      .all(tourId) as any[];
+      .prepare("SELECT id, tour_id FROM tour_documents WHERE id = ?")
+      .get(id) as DocumentRow | null;
   }
 
-  /**
-   * Get full standings for a tour with detailed competition breakdown
-   * Optionally filter by category and scoring type
-   *
-   * HYBRID APPROACH:
-   * - Uses stored results from competition_results for finalized competitions (fast)
-   * - Calculates on-the-fly for active/non-finalized competitions (live projections)
-   */
-  getFullStandings(tourId: number, categoryId?: number, scoringType?: ScoringType): TourStandings {
-    const tour = this.findById(tourId);
-    if (!tour) {
-      throw new Error("Tour not found");
-    }
-
-    // Get all categories for this tour
-    const categories = this.db
+  private findCategoriesByTour(tourId: number): TourCategory[] {
+    return this.db
       .prepare("SELECT * FROM tour_categories WHERE tour_id = ? ORDER BY sort_order ASC, name ASC")
       .all(tourId) as TourCategory[];
+  }
 
-    // If categoryId provided, validate it exists
+  private findPointTemplateRow(id: number): PointTemplateRow | null {
+    return this.db
+      .prepare("SELECT id, name, points_structure FROM point_templates WHERE id = ?")
+      .get(id) as PointTemplateRow | null;
+  }
+
+  private findEnrollmentCount(tourId: number, categoryId?: number): number {
+    let query = "SELECT COUNT(*) as count FROM tour_enrollments WHERE tour_id = ? AND status = 'active'";
+    const params: number[] = [tourId];
     if (categoryId !== undefined) {
-      const categoryExists = categories.some(c => c.id === categoryId);
-      if (!categoryExists) {
-        throw new Error("Category not found");
-      }
+      query += " AND category_id = ?";
+      params.push(categoryId);
     }
+    const result = this.db.prepare(query).get(...params) as { count: number };
+    return result.count;
+  }
 
-    // Get all competitions in this tour
-    const competitions = this.getCompetitions(tourId);
-
-    if (competitions.length === 0) {
-      return {
-        tour: tour as unknown as TourType,
-        player_standings: [],
-        total_competitions: 0,
-        scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
-        point_template: undefined,
-        categories,
-        selected_category_id: categoryId,
-      };
-    }
-
-    // Get point template if configured
-    let pointTemplate: { id: number; name: string; points_structure: string } | null = null;
-    if (tour.point_template_id) {
-      pointTemplate = this.db
-        .prepare("SELECT id, name, points_structure FROM point_templates WHERE id = ?")
-        .get(tour.point_template_id) as { id: number; name: string; points_structure: string } | null;
-    }
-
-    // Get number of active enrollments for default points calculation
-    // When filtering by category, use category enrollment count for points
-    let enrollmentQuery = "SELECT COUNT(*) as count FROM tour_enrollments WHERE tour_id = ? AND status = 'active'";
-    const enrollmentParams: any[] = [tourId];
-    if (categoryId !== undefined) {
-      enrollmentQuery += " AND category_id = ?";
-      enrollmentParams.push(categoryId);
-    }
-    const enrollmentCount = this.db
-      .prepare(enrollmentQuery)
-      .get(...enrollmentParams) as { count: number };
-    const numberOfPlayers = enrollmentCount.count;
-
-    // Get player to category mapping and handicaps
-    const playerCategories = new Map<number, { category_id: number | null; category_name: string | null }>();
-    const playerHandicaps = new Map<number, number>();
-    const playerNames = new Map<number, string>();
-    const enrollments = this.db
+  private findEnrollmentRows(tourId: number): EnrollmentRow[] {
+    return this.db
       .prepare(`
         SELECT te.player_id, te.category_id, tc.name as category_name,
                COALESCE(te.playing_handicap, p.handicap) as handicap,
@@ -306,275 +202,47 @@ export class TourService {
         LEFT JOIN players p ON te.player_id = p.id
         WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
       `)
-      .all(tourId) as { player_id: number; category_id: number | null; category_name: string | null; handicap: number | null; player_name: string }[];
-
-    for (const enrollment of enrollments) {
-      playerCategories.set(enrollment.player_id, {
-        category_id: enrollment.category_id,
-        category_name: enrollment.category_name,
-      });
-      if (enrollment.handicap !== null) {
-        playerHandicaps.set(enrollment.player_id, enrollment.handicap);
-      }
-      playerNames.set(enrollment.player_id, enrollment.player_name);
-    }
-
-    // Determine effective scoring type
-    const effectiveScoringType = scoringType || (tour.scoring_mode === "net" ? "net" : "gross");
-
-    // Track player standings
-    const playerStandings: Map<number, TourPlayerStanding> = new Map();
-
-    // Track which competitions have live (projected) data
-    let hasProjectedResults = false;
-
-    // Separate competitions into finalized and active
-    const finalizedCompetitionIds = new Set(
-      (this.db
-        .prepare("SELECT id FROM competitions WHERE tour_id = ? AND is_results_final = 1")
-        .all(tourId) as { id: number }[]).map(c => c.id)
-    );
-
-    // STEP 1: Load stored results for finalized competitions (FAST)
-    if (finalizedCompetitionIds.size > 0) {
-      const storedResults = this.db
-        .prepare(`
-          SELECT
-            cr.player_id,
-            cr.competition_id,
-            cr.position,
-            cr.points,
-            cr.relative_to_par,
-            c.name as competition_name,
-            c.date as competition_date,
-            pl.name as player_name
-          FROM competition_results cr
-          JOIN competitions c ON cr.competition_id = c.id
-          JOIN players pl ON cr.player_id = pl.id
-          WHERE c.tour_id = ?
-            AND cr.scoring_type = ?
-            AND c.is_results_final = 1
-          ORDER BY c.date ASC
-        `)
-        .all(tourId, effectiveScoringType) as {
-          player_id: number;
-          competition_id: number;
-          position: number;
-          points: number;
-          relative_to_par: number;
-          competition_name: string;
-          competition_date: string;
-          player_name: string;
-        }[];
-
-      for (const result of storedResults) {
-        // Filter by category if specified
-        const playerCategory = playerCategories.get(result.player_id);
-        if (categoryId !== undefined) {
-          if (!playerCategory || playerCategory.category_id !== categoryId) {
-            continue;
-          }
-        }
-
-        // Initialize or update player standing
-        if (!playerStandings.has(result.player_id)) {
-          playerStandings.set(result.player_id, {
-            player_id: result.player_id,
-            player_name: result.player_name,
-            category_id: playerCategory?.category_id ?? undefined,
-            category_name: playerCategory?.category_name ?? undefined,
-            total_points: 0,
-            competitions_played: 0,
-            position: 0,
-            competitions: [],
-          });
-        }
-
-        const standing = playerStandings.get(result.player_id)!;
-        standing.total_points += result.points;
-        standing.competitions_played += 1;
-        standing.competitions.push({
-          competition_id: result.competition_id,
-          competition_name: result.competition_name,
-          competition_date: result.competition_date,
-          points: result.points,
-          position: result.position,
-          score_relative_to_par: result.relative_to_par,
-          is_projected: false,
-        });
-      }
-    }
-
-    // STEP 2: Calculate on-the-fly for non-finalized competitions (LIVE)
-    for (const competition of competitions) {
-      // Skip finalized competitions - already loaded from stored results
-      if (finalizedCompetitionIds.has(competition.id)) {
-        continue;
-      }
-
-      // Check if competition should be included (past or has scores)
-      const competitionDate = new Date(competition.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      competitionDate.setHours(0, 0, 0, 0);
-      const isPastCompetition = competitionDate < today;
-
-      // Get player results for this competition
-      const results = this.getCompetitionPlayerResults(competition.id, competition.pars);
-
-      // Skip future competitions with no valid results
-      const hasFinishedPlayers = results.some(r => r.is_finished);
-      if (!isPastCompetition && !hasFinishedPlayers) {
-        continue;
-      }
-
-      // Mark that we have projected results
-      hasProjectedResults = true;
-
-      // Get course data for handicap calculations
-      const slopeRating = competition.slope_rating || 113;
-      const courseRating = competition.course_rating || 72;
-      let pars: number[];
-      try {
-        pars = JSON.parse(competition.pars);
-      } catch {
-        pars = [];
-      }
-      const totalPar = pars.reduce((sum: number, par: number) => sum + par, 0);
-
-      // Adjust scores for net scoring if needed
-      const finishedResults = results.filter(r => r.is_finished);
-      const adjustedResults = finishedResults.map(result => {
-        if (effectiveScoringType === "net") {
-          const handicapIndex = playerHandicaps.get(result.player_id) || 0;
-          const courseHandicap = calculateCourseHandicap(
-            handicapIndex,
-            slopeRating,
-            courseRating,
-            totalPar
-          );
-          return {
-            ...result,
-            relative_to_par: result.relative_to_par - courseHandicap,
-          };
-        }
-        return result;
-      });
-
-      // Rank players by their scores (only count finished players)
-      const rankedResults = this.rankPlayersByScore(adjustedResults);
-
-      // Calculate points for each player
-      for (const result of rankedResults) {
-        // Filter by category if specified
-        const playerCategory = playerCategories.get(result.player_id);
-        if (categoryId !== undefined) {
-          if (!playerCategory || playerCategory.category_id !== categoryId) {
-            continue;
-          }
-        }
-
-        const points = this.calculatePlayerPoints(
-          result.position,
-          numberOfPlayers,
-          pointTemplate
-        );
-
-        // Initialize or update player standing
-        if (!playerStandings.has(result.player_id)) {
-          playerStandings.set(result.player_id, {
-            player_id: result.player_id,
-            player_name: result.player_name,
-            category_id: playerCategory?.category_id ?? undefined,
-            category_name: playerCategory?.category_name ?? undefined,
-            total_points: 0,
-            competitions_played: 0,
-            position: 0,
-            competitions: [],
-          });
-        }
-
-        const standing = playerStandings.get(result.player_id)!;
-        standing.total_points += points;
-        standing.competitions_played += 1;
-        standing.competitions.push({
-          competition_id: competition.id,
-          competition_name: competition.name,
-          competition_date: competition.date,
-          points,
-          position: result.position,
-          score_relative_to_par: result.relative_to_par,
-          is_projected: true,
-        });
-      }
-    }
-
-    // Sort players by total points (descending) and assign final positions
-    const sortedStandings = Array.from(playerStandings.values())
-      .sort((a, b) => {
-        // Primary sort: total points descending
-        if (b.total_points !== a.total_points) {
-          return b.total_points - a.total_points;
-        }
-        // Secondary sort: more competitions played is better (tie-breaker)
-        if (b.competitions_played !== a.competitions_played) {
-          return b.competitions_played - a.competitions_played;
-        }
-        // Tertiary sort: alphabetical by name
-        return a.player_name.localeCompare(b.player_name);
-      });
-
-    // Assign positions with tie handling
-    let currentPosition = 1;
-    let previousPoints = -1;
-    let previousCompetitions = -1;
-
-    sortedStandings.forEach((standing, index) => {
-      if (standing.total_points !== previousPoints || standing.competitions_played !== previousCompetitions) {
-        currentPosition = index + 1;
-      }
-      standing.position = currentPosition;
-      previousPoints = standing.total_points;
-      previousCompetitions = standing.competitions_played;
-    });
-
-    return {
-      tour: tour as unknown as TourType,
-      player_standings: sortedStandings,
-      total_competitions: competitions.length,
-      scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
-      selected_scoring_type: effectiveScoringType,
-      point_template: pointTemplate ? { id: pointTemplate.id, name: pointTemplate.name } : undefined,
-      categories,
-      selected_category_id: categoryId,
-      has_projected_results: hasProjectedResults,
-    };
+      .all(tourId) as EnrollmentRow[];
   }
 
-  /**
-   * Get player results for a specific competition
-   */
-  private getCompetitionPlayerResults(competitionId: number, coursePars: string): (CompetitionResult & { position: number })[] {
-    // Parse course pars
-    let pars: number[];
-    try {
-      pars = JSON.parse(coursePars);
-    } catch {
-      pars = [];
-    }
-    const totalPar = pars.reduce((sum, par) => sum + par, 0);
+  private findFinalizedCompetitionIds(tourId: number): Set<number> {
+    const rows = this.db
+      .prepare("SELECT id FROM competitions WHERE tour_id = ? AND is_results_final = 1")
+      .all(tourId) as { id: number }[];
+    return new Set(rows.map(c => c.id));
+  }
 
-    // Check if this is a closed open competition (for DNF handling)
-    const competition = this.db
+  private findStoredResultRows(tourId: number, scoringType: string): StoredResultRow[] {
+    return this.db
+      .prepare(`
+        SELECT
+          cr.player_id,
+          cr.competition_id,
+          cr.position,
+          cr.points,
+          cr.relative_to_par,
+          c.name as competition_name,
+          c.date as competition_date,
+          pl.name as player_name
+        FROM competition_results cr
+        JOIN competitions c ON cr.competition_id = c.id
+        JOIN players pl ON cr.player_id = pl.id
+        WHERE c.tour_id = ?
+          AND cr.scoring_type = ?
+          AND c.is_results_final = 1
+        ORDER BY c.date ASC
+      `)
+      .all(tourId, scoringType) as StoredResultRow[];
+  }
+
+  private findCompetitionStartInfo(competitionId: number): { start_mode: string; open_end: string | null } | null {
+    return this.db
       .prepare("SELECT start_mode, open_end FROM competitions WHERE id = ?")
       .get(competitionId) as { start_mode: string; open_end: string | null } | null;
+  }
 
-    const isOpenCompetitionClosed = competition?.start_mode === "open" &&
-      competition.open_end &&
-      new Date(competition.open_end) < new Date();
-
-    // Get all participants with player_id for this competition
-    const participants = this.db
+  private findParticipantRowsForCompetition(competitionId: number): ParticipantRow[] {
+    return this.db
       .prepare(`
         SELECT
           p.id,
@@ -593,59 +261,574 @@ export class TourService {
         JOIN competitions c ON t.competition_id = c.id
         WHERE t.competition_id = ? AND p.player_id IS NOT NULL
       `)
-      .all(competitionId) as any[];
+      .all(competitionId) as ParticipantRow[];
+  }
 
-    const results: CompetitionResult[] = [];
+  private insertTourRow(
+    name: string,
+    description: string | null,
+    ownerId: number,
+    bannerImageUrl: string | null,
+    pointTemplateId: number | null,
+    scoringMode: string
+  ): Tour {
+    return this.db
+      .prepare(`
+        INSERT INTO tours (name, description, owner_id, banner_image_url, point_template_id, scoring_mode)
+        VALUES (?, ?, ?, ?, ?, ?)
+        RETURNING *
+      `)
+      .get(name, description, ownerId, bannerImageUrl, pointTemplateId, scoringMode) as Tour;
+  }
 
-    for (const participant of participants) {
-      let totalShots = 0;
-      let relativeToPar = 0;
-      let isFinished = false;
+  private updateTourRow(
+    id: number,
+    updates: string[],
+    values: (string | number | null)[]
+  ): Tour {
+    return this.db
+      .prepare(`
+        UPDATE tours
+        SET ${updates.join(", ")}
+        WHERE id = ?
+        RETURNING *
+      `)
+      .get(...values, id) as Tour;
+  }
 
-      // DQ'd players are never considered finished (no points awarded)
-      if (participant.is_dq) {
-        isFinished = false;
-      } else if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
-        // Use manual scores
-        totalShots = participant.manual_score_total;
-        relativeToPar = totalShots - totalPar;
-        isFinished = true;
-      } else {
-        // Parse hole-by-hole scores
-        let score: number[];
-        try {
-          score = typeof participant.score === 'string'
-            ? JSON.parse(participant.score)
-            : (Array.isArray(participant.score) ? participant.score : []);
-        } catch {
-          score = [];
-        }
+  // ==================== LOGIC METHODS ====================
 
-        // Check if player has finished
-        const hasInvalidRound = score.includes(-1);
-        const holesPlayed = score.filter((s: number) => s > 0 || s === -1).length;
+  private isPastCompetition(competitionDate: string): boolean {
+    const compDate = new Date(competitionDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    compDate.setHours(0, 0, 0, 0);
+    return compDate < today;
+  }
 
-        // For closed open competitions, consider finished if 18 holes played (regardless of is_locked)
-        // Otherwise require is_locked to be true
-        if (isOpenCompetitionClosed) {
-          // Competition window closed: finished if 18 holes, DNF otherwise (no points for < 18)
-          isFinished = holesPlayed === 18 && !hasInvalidRound;
-        } else {
-          // Competition still open: require is_locked
-          isFinished = participant.is_locked && holesPlayed === 18 && !hasInvalidRound;
-        }
+  private buildEnrollmentMaps(enrollments: EnrollmentRow[]): {
+    playerCategories: Map<number, { category_id: number | null; category_name: string | null }>;
+    playerHandicaps: Map<number, number>;
+    playerNames: Map<number, string>;
+  } {
+    const playerCategories = new Map<number, { category_id: number | null; category_name: string | null }>();
+    const playerHandicaps = new Map<number, number>();
+    const playerNames = new Map<number, string>();
 
-        if (isFinished) {
-          totalShots = score.reduce((sum: number, s: number) => sum + (s > 0 ? s : 0), 0);
-          for (let i = 0; i < score.length && i < pars.length; i++) {
-            if (score[i] > 0) {
-              relativeToPar += score[i] - pars[i];
-            }
-          }
+    for (const enrollment of enrollments) {
+      playerCategories.set(enrollment.player_id, {
+        category_id: enrollment.category_id,
+        category_name: enrollment.category_name,
+      });
+      if (enrollment.handicap !== null) {
+        playerHandicaps.set(enrollment.player_id, enrollment.handicap);
+      }
+      playerNames.set(enrollment.player_id, enrollment.player_name);
+    }
+
+    return { playerCategories, playerHandicaps, playerNames };
+  }
+
+  private sortAndRankStandings(standings: TourPlayerStanding[]): TourPlayerStanding[] {
+    // Sort players by total points (descending)
+    const sortedStandings = standings.sort((a, b) => {
+      // Primary: total points descending
+      if (b.total_points !== a.total_points) {
+        return b.total_points - a.total_points;
+      }
+      // Secondary: more competitions played is better
+      if (b.competitions_played !== a.competitions_played) {
+        return b.competitions_played - a.competitions_played;
+      }
+      // Tertiary: alphabetical by name
+      return a.player_name.localeCompare(b.player_name);
+    });
+
+    // Assign positions with tie handling
+    let currentPosition = 1;
+    let previousPoints = -1;
+    let previousCompetitions = -1;
+
+    sortedStandings.forEach((standing, index) => {
+      if (standing.total_points !== previousPoints || standing.competitions_played !== previousCompetitions) {
+        currentPosition = index + 1;
+      }
+      standing.position = currentPosition;
+      previousPoints = standing.total_points;
+      previousCompetitions = standing.competitions_played;
+    });
+
+    return sortedStandings;
+  }
+
+  private initializePlayerStanding(
+    playerId: number,
+    playerName: string,
+    playerCategory: { category_id: number | null; category_name: string | null } | undefined
+  ): TourPlayerStanding {
+    return {
+      player_id: playerId,
+      player_name: playerName,
+      category_id: playerCategory?.category_id ?? undefined,
+      category_name: playerCategory?.category_name ?? undefined,
+      total_points: 0,
+      competitions_played: 0,
+      position: 0,
+      competitions: [],
+    };
+  }
+
+  private isCompetitionWindowClosed(startInfo: { start_mode: string; open_end: string | null } | null): boolean {
+    return startInfo?.start_mode === "open" &&
+      startInfo.open_end !== null &&
+      new Date(startInfo.open_end) < new Date();
+  }
+
+  private determineParticipantFinished(
+    participant: ParticipantRow,
+    isOpenCompetitionClosed: boolean
+  ): { isFinished: boolean; totalShots: number; relativeToPar: number } {
+    // DQ'd players are never finished
+    if (participant.is_dq) {
+      return { isFinished: false, totalShots: 0, relativeToPar: 0 };
+    }
+
+    // Use manual scores if available
+    if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
+      return {
+        isFinished: true,
+        totalShots: participant.manual_score_total,
+        relativeToPar: 0, // Will be calculated with pars later
+      };
+    }
+
+    // Parse hole-by-hole scores
+    const score = parseScoreArray(participant.score);
+    const hasInvalidRound = score.includes(GOLF.UNREPORTED_HOLE);
+    const holesPlayed = score.filter((s: number) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
+
+    // Determine if finished based on competition type
+    let isFinished: boolean;
+    if (isOpenCompetitionClosed) {
+      isFinished = holesPlayed === GOLF.HOLES_PER_ROUND && !hasInvalidRound;
+    } else {
+      isFinished = Boolean(participant.is_locked) && holesPlayed === GOLF.HOLES_PER_ROUND && !hasInvalidRound;
+    }
+
+    if (!isFinished) {
+      return { isFinished: false, totalShots: 0, relativeToPar: 0 };
+    }
+
+    const totalShots = score.reduce((sum, s) => sum + (s > 0 ? s : 0), 0);
+    return { isFinished: true, totalShots, relativeToPar: 0 };
+  }
+
+  private calculateRelativeToPar(score: number[], pars: number[]): number {
+    let relativeToPar = 0;
+    for (let i = 0; i < score.length && i < pars.length; i++) {
+      if (score[i] > 0) {
+        relativeToPar += score[i] - pars[i];
+      }
+    }
+    return relativeToPar;
+  }
+
+  private buildUpdateFields(data: UpdateTourInput): { updates: string[]; values: (string | number | null)[] } {
+    const updates: string[] = [];
+    const values: (string | number | null)[] = [];
+
+    if (data.name !== undefined) {
+      updates.push("name = ?");
+      values.push(data.name);
+    }
+    if (data.description !== undefined) {
+      updates.push("description = ?");
+      values.push(data.description);
+    }
+    if (data.banner_image_url !== undefined) {
+      updates.push("banner_image_url = ?");
+      values.push(data.banner_image_url);
+    }
+    if (data.landing_document_id !== undefined) {
+      updates.push("landing_document_id = ?");
+      values.push(data.landing_document_id);
+    }
+    if (data.point_template_id !== undefined) {
+      updates.push("point_template_id = ?");
+      values.push(data.point_template_id);
+    }
+    if (data.scoring_mode !== undefined) {
+      updates.push("scoring_mode = ?");
+      values.push(data.scoring_mode);
+    }
+
+    if (updates.length > 0) {
+      updates.push("updated_at = CURRENT_TIMESTAMP");
+    }
+
+    return { updates, values };
+  }
+
+  // ==================== PUBLIC API METHODS ====================
+
+  findAll(): Tour[] {
+    return this.db
+      .prepare("SELECT * FROM tours ORDER BY name ASC")
+      .all() as Tour[];
+  }
+
+  findById(id: number): Tour | null {
+    return this.db
+      .prepare("SELECT * FROM tours WHERE id = ?")
+      .get(id) as Tour | null;
+  }
+
+  create(data: CreateTourInput, ownerId: number): Tour {
+    // Validation
+    if (data.point_template_id) {
+      this.validatePointTemplateExists(data.point_template_id);
+    }
+    const scoringMode = data.scoring_mode || "gross";
+    this.validateScoringMode(scoringMode);
+
+    // Insert
+    return this.insertTourRow(
+      data.name,
+      data.description || null,
+      ownerId,
+      data.banner_image_url || null,
+      data.point_template_id || null,
+      scoringMode
+    );
+  }
+
+  update(id: number, data: UpdateTourInput): Tour {
+    const tour = this.findById(id);
+    if (!tour) {
+      throw new Error("Tour not found");
+    }
+
+    // Validation
+    if (data.landing_document_id !== undefined && data.landing_document_id !== null) {
+      this.validateLandingDocument(data.landing_document_id, id);
+    }
+    if (data.point_template_id !== undefined && data.point_template_id !== null) {
+      this.validatePointTemplateExists(data.point_template_id);
+    }
+    if (data.scoring_mode !== undefined) {
+      this.validateScoringMode(data.scoring_mode);
+    }
+
+    // Build update fields
+    const { updates, values } = this.buildUpdateFields(data);
+    if (updates.length === 0) {
+      return tour;
+    }
+
+    // Update
+    return this.updateTourRow(id, updates, values);
+  }
+
+  delete(id: number): void {
+    const result = this.db.prepare("DELETE FROM tours WHERE id = ?").run(id);
+    if (result.changes === 0) {
+      throw new Error("Tour not found");
+    }
+  }
+
+  getCompetitions(tourId: number): CompetitionWithCourseRow[] {
+    return this.db
+      .prepare(
+        `
+      SELECT c.*, co.name as course_name, co.pars,
+             ct.slope_rating, ct.course_rating
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      LEFT JOIN course_tees ct ON c.tee_id = ct.id
+      WHERE c.tour_id = ?
+      ORDER BY c.date DESC
+    `
+      )
+      .all(tourId) as CompetitionWithCourseRow[];
+  }
+
+  /**
+   * Get full standings for a tour with detailed competition breakdown
+   * Optionally filter by category and scoring type
+   *
+   * HYBRID APPROACH:
+   * - Uses stored results from competition_results for finalized competitions (fast)
+   * - Calculates on-the-fly for active/non-finalized competitions (live projections)
+   */
+  getFullStandings(tourId: number, categoryId?: number, scoringType?: ScoringType): TourStandings {
+    const tour = this.findById(tourId);
+    if (!tour) {
+      throw new Error("Tour not found");
+    }
+
+    // Get categories and validate if filtering
+    const categories = this.findCategoriesByTour(tourId);
+    if (categoryId !== undefined) {
+      const categoryExists = categories.some(c => c.id === categoryId);
+      if (!categoryExists) {
+        throw new Error("Category not found");
+      }
+    }
+
+    // Get competitions - return early if none
+    const competitions = this.getCompetitions(tourId);
+    if (competitions.length === 0) {
+      return this.buildEmptyStandingsResponse(tour, categories, categoryId);
+    }
+
+    // Load supporting data
+    const pointTemplate = tour.point_template_id
+      ? this.findPointTemplateRow(tour.point_template_id)
+      : null;
+    const numberOfPlayers = this.findEnrollmentCount(tourId, categoryId);
+    const enrollmentRows = this.findEnrollmentRows(tourId);
+    const { playerCategories, playerHandicaps } = this.buildEnrollmentMaps(enrollmentRows);
+
+    // Determine scoring type
+    const effectiveScoringType = scoringType || (tour.scoring_mode === "net" ? "net" : "gross");
+
+    // Build standings from finalized and live results
+    const playerStandings: Map<number, TourPlayerStanding> = new Map();
+    const finalizedCompetitionIds = this.findFinalizedCompetitionIds(tourId);
+
+    // Load stored results for finalized competitions
+    this.processStoredResults(
+      tourId,
+      effectiveScoringType,
+      categoryId,
+      playerCategories,
+      playerStandings
+    );
+
+    // Calculate live results for non-finalized competitions
+    const hasProjectedResults = this.processLiveCompetitions(
+      competitions,
+      finalizedCompetitionIds,
+      categoryId,
+      effectiveScoringType,
+      playerCategories,
+      playerHandicaps,
+      numberOfPlayers,
+      pointTemplate,
+      playerStandings
+    );
+
+    // Sort and rank standings
+    const sortedStandings = this.sortAndRankStandings(Array.from(playerStandings.values()));
+
+    return {
+      tour: tour as unknown as TourType,
+      player_standings: sortedStandings,
+      total_competitions: competitions.length,
+      scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
+      selected_scoring_type: effectiveScoringType,
+      point_template: pointTemplate ? { id: pointTemplate.id, name: pointTemplate.name } : undefined,
+      categories,
+      selected_category_id: categoryId,
+      has_projected_results: hasProjectedResults,
+    };
+  }
+
+  private buildEmptyStandingsResponse(
+    tour: Tour,
+    categories: TourCategory[],
+    categoryId?: number
+  ): TourStandings {
+    return {
+      tour: tour as unknown as TourType,
+      player_standings: [],
+      total_competitions: 0,
+      scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
+      point_template: undefined,
+      categories,
+      selected_category_id: categoryId,
+    };
+  }
+
+  private processStoredResults(
+    tourId: number,
+    scoringType: string,
+    categoryId: number | undefined,
+    playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
+    playerStandings: Map<number, TourPlayerStanding>
+  ): void {
+    const storedResults = this.findStoredResultRows(tourId, scoringType);
+
+    for (const result of storedResults) {
+      const playerCategory = playerCategories.get(result.player_id);
+
+      // Filter by category if specified
+      if (categoryId !== undefined) {
+        if (!playerCategory || playerCategory.category_id !== categoryId) {
+          continue;
         }
       }
 
-      results.push({
+      // Initialize or update standing
+      if (!playerStandings.has(result.player_id)) {
+        playerStandings.set(
+          result.player_id,
+          this.initializePlayerStanding(result.player_id, result.player_name, playerCategory)
+        );
+      }
+
+      const standing = playerStandings.get(result.player_id)!;
+      standing.total_points += result.points;
+      standing.competitions_played += 1;
+      standing.competitions.push({
+        competition_id: result.competition_id,
+        competition_name: result.competition_name,
+        competition_date: result.competition_date,
+        points: result.points,
+        position: result.position,
+        score_relative_to_par: result.relative_to_par,
+        is_projected: false,
+      });
+    }
+  }
+
+  private processLiveCompetitions(
+    competitions: CompetitionWithCourseRow[],
+    finalizedCompetitionIds: Set<number>,
+    categoryId: number | undefined,
+    scoringType: string,
+    playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
+    playerHandicaps: Map<number, number>,
+    numberOfPlayers: number,
+    pointTemplate: PointTemplateRow | null,
+    playerStandings: Map<number, TourPlayerStanding>
+  ): boolean {
+    let hasProjectedResults = false;
+
+    for (const competition of competitions) {
+      // Skip finalized competitions
+      if (finalizedCompetitionIds.has(competition.id)) {
+        continue;
+      }
+
+      // Check if competition should be included
+      const isPast = this.isPastCompetition(competition.date);
+      const results = this.getCompetitionPlayerResults(competition.id, competition.pars);
+      const hasFinishedPlayers = results.some(r => r.is_finished);
+
+      if (!isPast && !hasFinishedPlayers) {
+        continue;
+      }
+
+      hasProjectedResults = true;
+
+      // Calculate handicap-adjusted results
+      const adjustedResults = this.adjustResultsForScoring(
+        results.filter(r => r.is_finished),
+        scoringType,
+        playerHandicaps,
+        competition
+      );
+
+      // Rank and calculate points
+      const rankedResults = this.rankPlayersByScore(adjustedResults);
+
+      for (const result of rankedResults) {
+        const playerCategory = playerCategories.get(result.player_id);
+
+        // Filter by category if specified
+        if (categoryId !== undefined) {
+          if (!playerCategory || playerCategory.category_id !== categoryId) {
+            continue;
+          }
+        }
+
+        const points = this.calculatePlayerPoints(result.position, numberOfPlayers, pointTemplate);
+
+        // Initialize or update standing
+        if (!playerStandings.has(result.player_id)) {
+          playerStandings.set(
+            result.player_id,
+            this.initializePlayerStanding(result.player_id, result.player_name, playerCategory)
+          );
+        }
+
+        const standing = playerStandings.get(result.player_id)!;
+        standing.total_points += points;
+        standing.competitions_played += 1;
+        standing.competitions.push({
+          competition_id: competition.id,
+          competition_name: competition.name,
+          competition_date: competition.date,
+          points,
+          position: result.position,
+          score_relative_to_par: result.relative_to_par,
+          is_projected: true,
+        });
+      }
+    }
+
+    return hasProjectedResults;
+  }
+
+  private adjustResultsForScoring(
+    results: CompetitionResult[],
+    scoringType: string,
+    playerHandicaps: Map<number, number>,
+    competition: CompetitionWithCourseRow
+  ): CompetitionResult[] {
+    if (scoringType !== "net") {
+      return results;
+    }
+
+    const slopeRating = competition.slope_rating || GOLF.STANDARD_SLOPE_RATING;
+    const courseRating = competition.course_rating || GOLF.STANDARD_COURSE_RATING;
+    const pars = parseParsArray(competition.pars);
+    const totalPar = pars.reduce((sum, par) => sum + par, 0);
+
+    return results.map(result => {
+      const handicapIndex = playerHandicaps.get(result.player_id) || 0;
+      const courseHandicap = calculateCourseHandicap(
+        handicapIndex,
+        slopeRating,
+        courseRating,
+        totalPar
+      );
+      return {
+        ...result,
+        relative_to_par: result.relative_to_par - courseHandicap,
+      };
+    });
+  }
+
+  /**
+   * Get player results for a specific competition
+   */
+  private getCompetitionPlayerResults(competitionId: number, coursePars: string): (CompetitionResult & { position: number })[] {
+    const pars = parseParsArray(coursePars);
+    const totalPar = pars.reduce((sum, par) => sum + par, 0);
+
+    const startInfo = this.findCompetitionStartInfo(competitionId);
+    const isOpenCompetitionClosed = this.isCompetitionWindowClosed(startInfo);
+    const participants = this.findParticipantRowsForCompetition(competitionId);
+
+    const results: CompetitionResult[] = participants.map(participant => {
+      const { isFinished, totalShots } = this.determineParticipantFinished(
+        participant,
+        isOpenCompetitionClosed
+      );
+
+      let relativeToPar = 0;
+      if (isFinished) {
+        if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
+          relativeToPar = totalShots - totalPar;
+        } else {
+          const score = parseScoreArray(participant.score);
+          relativeToPar = this.calculateRelativeToPar(score, pars);
+        }
+      }
+
+      return {
         competition_id: participant.competition_id,
         competition_name: participant.competition_name,
         competition_date: participant.competition_date,
@@ -654,8 +837,8 @@ export class TourService {
         total_shots: totalShots,
         relative_to_par: relativeToPar,
         is_finished: isFinished,
-      });
-    }
+      };
+    });
 
     return results.map(r => ({ ...r, position: 0 }));
   }
@@ -696,19 +879,18 @@ export class TourService {
   ): number {
     if (pointTemplate) {
       // Use point template
-      try {
-        const structure: PointsStructure = JSON.parse(pointTemplate.points_structure);
-
-        // Try exact position match
-        if (structure[position.toString()]) {
-          return structure[position.toString()];
-        }
-
-        // Fall back to default
-        return structure["default"] || 0;
-      } catch {
+      const structure = safeParseJson<PointsStructure>(pointTemplate.points_structure);
+      if (!structure) {
         return 0;
       }
+
+      // Try exact position match
+      if (structure[position.toString()]) {
+        return structure[position.toString()];
+      }
+
+      // Fall back to default
+      return structure["default"] || 0;
     }
 
     // Default formula (similar to team standings)
