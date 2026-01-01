@@ -264,6 +264,81 @@ describe("CompetitionResultsService", () => {
       expect(results[2].position).toBe(3);
     });
 
+    test("should average points for tied players", () => {
+      const course = createTestCourse("Test Course", standardPars);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id);
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      // Create 5 players (default formula: 1st=n+2=7, 2nd=n=5, 3rd=n-2=3, 4th=n-3=2, 5th=n-4=1)
+      const player1 = createTestPlayer("First");
+      const player2 = createTestPlayer("TiedA");
+      const player3 = createTestPlayer("TiedB");
+      const player4 = createTestPlayer("TiedC");
+      const player5 = createTestPlayer("Last");
+
+      // Player 1: Best score (wins outright)
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createScoreWithRelative(-2),
+        isLocked: true,
+      });
+
+      // Players 2, 3, 4: All tied for 2nd place
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player3.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player4.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      // Player 5: Worst score
+      createTestParticipant(teeTime.id, team.id, player5.id, {
+        score: createScoreWithRelative(5),
+        isLocked: true,
+      });
+
+      service.finalizeCompetitionResults(competition.id);
+
+      const results = service.getCompetitionResults(competition.id);
+      expect(results).toHaveLength(5);
+
+      // Find results by player
+      const result1 = results.find(r => r.player_id === player1.id)!;
+      const result2 = results.find(r => r.player_id === player2.id)!;
+      const result3 = results.find(r => r.player_id === player3.id)!;
+      const result4 = results.find(r => r.player_id === player4.id)!;
+      const result5 = results.find(r => r.player_id === player5.id)!;
+
+      // Player 1: Position 1, gets 1st place points (7 with 5 players)
+      expect(result1.position).toBe(1);
+      expect(result1.points).toBe(7);
+
+      // Players 2,3,4: All position 2, get averaged points for positions 2,3,4
+      // With 5 players: 2nd=5, 3rd=3, 4th=2 → average = (5+3+2)/3 = 3.33 → rounds to 3
+      expect(result2.position).toBe(2);
+      expect(result3.position).toBe(2);
+      expect(result4.position).toBe(2);
+      expect(result2.points).toBe(3);
+      expect(result3.points).toBe(3);
+      expect(result4.points).toBe(3);
+
+      // Player 5: Position 5 (after three 2nd places), gets 5th place points (1)
+      expect(result5.position).toBe(5);
+      expect(result5.points).toBe(1);
+
+      // Verify total points distributed
+      // Without ties: 7 + 5 + 3 + 2 + 1 = 18
+      // With averaging and rounding: 7 + 3 + 3 + 3 + 1 = 17
+      const totalPoints = results.reduce((sum, r) => sum + r.points, 0);
+      expect(totalPoints).toBe(7 + 3 + 3 + 3 + 1); // 17
+    });
+
     test("should exclude DQ players from results", () => {
       const course = createTestCourse("Test Course", standardPars);
       const competition = createTestCompetition("Test Comp", "2024-01-15", course.id);

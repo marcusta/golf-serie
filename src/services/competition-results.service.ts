@@ -445,22 +445,31 @@ export class CompetitionResultsService {
     pointsMultiplier: number,
     totalPar: number
   ): CompetitionResult[] {
-    let currentPosition = 1;
-    let previousNetRelative = Number.MIN_SAFE_INTEGER;
+    // Add net relative score to each result for grouping
+    const resultsWithNetRelative = sortedResults.map(r => ({
+      ...r,
+      netRelative: r.net_score! - totalPar,
+    }));
 
-    return sortedResults.map((result, index) => {
-      const netRelative = result.net_score! - totalPar;
-      if (netRelative !== previousNetRelative) {
-        currentPosition = index + 1;
-      }
-      previousNetRelative = netRelative;
+    // Group by net relative score
+    const groups = this.groupResultsByScore(
+      resultsWithNetRelative,
+      r => r.netRelative
+    );
 
-      const points =
-        this.calculatePointsForPosition(currentPosition, numberOfPlayers, pointTemplate) *
-        pointsMultiplier;
-
-      return { ...result, position: currentPosition, points: Math.round(points), relative_to_par: netRelative };
-    });
+    // Assign averaged points to each group
+    return this.assignAveragedPointsToGroups(
+      groups,
+      numberOfPlayers,
+      pointTemplate,
+      pointsMultiplier,
+      (r, position, points) => ({
+        ...r,
+        position,
+        points,
+        relative_to_par: r.netRelative,
+      })
+    );
   }
 
   private assignPositionsAndPoints(
@@ -469,21 +478,94 @@ export class CompetitionResultsService {
     pointTemplate: PointTemplateRow | null,
     pointsMultiplier: number
   ): CompetitionResult[] {
-    let currentPosition = 1;
+    // Group by relative_to_par score
+    const groups = this.groupResultsByScore(
+      sortedResults,
+      r => r.relative_to_par
+    );
+
+    // Assign averaged points to each group
+    return this.assignAveragedPointsToGroups(
+      groups,
+      numberOfPlayers,
+      pointTemplate,
+      pointsMultiplier,
+      (r, position, points) => ({
+        ...r,
+        position,
+        points,
+      })
+    );
+  }
+
+  /**
+   * Group sorted results by score value
+   */
+  private groupResultsByScore<T>(
+    sortedResults: T[],
+    getScore: (r: T) => number
+  ): T[][] {
+    const groups: T[][] = [];
+    let currentGroup: T[] = [];
     let previousScore = Number.MIN_SAFE_INTEGER;
 
-    return sortedResults.map((result, index) => {
-      if (result.relative_to_par !== previousScore) {
-        currentPosition = index + 1;
+    for (const result of sortedResults) {
+      const score = getScore(result);
+      if (score !== previousScore && currentGroup.length > 0) {
+        groups.push(currentGroup);
+        currentGroup = [];
       }
-      previousScore = result.relative_to_par;
+      currentGroup.push(result);
+      previousScore = score;
+    }
 
-      const points =
-        this.calculatePointsForPosition(currentPosition, numberOfPlayers, pointTemplate) *
-        pointsMultiplier;
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
 
-      return { ...result, position: currentPosition, points: Math.round(points) };
-    });
+    return groups;
+  }
+
+  /**
+   * Assign averaged points to groups of tied players
+   * When players tie, they share the sum of points for all positions they occupy
+   */
+  private assignAveragedPointsToGroups<T, R>(
+    groups: T[][],
+    numberOfPlayers: number,
+    pointTemplate: PointTemplateRow | null,
+    pointsMultiplier: number,
+    mapResult: (result: T, position: number, points: number) => R
+  ): R[] {
+    const results: R[] = [];
+    let currentPosition = 1;
+
+    for (const group of groups) {
+      const tiedCount = group.length;
+
+      // Calculate sum of points for all positions this group occupies
+      let totalPoints = 0;
+      for (let i = 0; i < tiedCount; i++) {
+        totalPoints += this.calculatePointsForPosition(
+          currentPosition + i,
+          numberOfPlayers,
+          pointTemplate
+        );
+      }
+
+      // Average and apply multiplier
+      const averagedPoints = (totalPoints / tiedCount) * pointsMultiplier;
+
+      // Assign to each player in the group
+      for (const result of group) {
+        results.push(mapResult(result, currentPosition, Math.round(averagedPoints)));
+      }
+
+      // Next group starts after all positions occupied by this group
+      currentPosition += tiedCount;
+    }
+
+    return results;
   }
 
   private calculatePointsForPosition(
