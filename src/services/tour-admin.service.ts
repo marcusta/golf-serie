@@ -1,41 +1,68 @@
 import { Database } from "bun:sqlite";
 import type { TourAdmin, TourAdminWithUser } from "../types";
 
+// ============================================================================
+// Internal Types
+// ============================================================================
+
+interface UserRoleRow {
+  role: string;
+}
+
+interface TourOwnerRow {
+  owner_id: number;
+}
+
+// ============================================================================
+// Service Class
+// ============================================================================
+
 export class TourAdminService {
   constructor(private db: Database) {}
 
-  /**
-   * Add a user as an admin for a tour
-   * Only tour owners and SUPER_ADMINs can add tour admins
-   */
-  addTourAdmin(tourId: number, userId: number): TourAdmin {
-    // Validate tour exists
-    const tour = this.db
-      .prepare("SELECT id FROM tours WHERE id = ?")
+  // ==========================================================================
+  // Query Methods (private, single SQL statement)
+  // ==========================================================================
+
+  private findTourExists(tourId: number): boolean {
+    const result = this.db
+      .prepare("SELECT 1 FROM tours WHERE id = ?")
       .get(tourId);
-    if (!tour) {
-      throw new Error("Tour not found");
-    }
+    return !!result;
+  }
 
-    // Validate user exists
-    const user = this.db
-      .prepare("SELECT id FROM users WHERE id = ?")
+  private findUserExists(userId: number): boolean {
+    const result = this.db
+      .prepare("SELECT 1 FROM users WHERE id = ?")
       .get(userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
+    return !!result;
+  }
 
-    // Check if already a tour admin
-    const existing = this.db
+  private findTourAdminExists(tourId: number, userId: number): boolean {
+    const result = this.db
       .prepare(
         "SELECT 1 FROM tour_admins WHERE tour_id = ? AND user_id = ? LIMIT 1"
       )
       .get(tourId, userId);
-    if (existing) {
-      throw new Error("User is already an admin for this tour");
-    }
+    return !!result;
+  }
 
-    const result = this.db
+  private findUserRole(userId: number): string | null {
+    const row = this.db
+      .prepare("SELECT role FROM users WHERE id = ?")
+      .get(userId) as UserRoleRow | null;
+    return row?.role ?? null;
+  }
+
+  private findTourOwnerId(tourId: number): number | null {
+    const row = this.db
+      .prepare("SELECT owner_id FROM tours WHERE id = ?")
+      .get(tourId) as TourOwnerRow | null;
+    return row?.owner_id ?? null;
+  }
+
+  private insertTourAdminRow(tourId: number, userId: number): TourAdmin {
+    return this.db
       .prepare(
         `
         INSERT INTO tour_admins (tour_id, user_id)
@@ -44,35 +71,16 @@ export class TourAdminService {
       `
       )
       .get(tourId, userId) as TourAdmin;
-
-    return result;
   }
 
-  /**
-   * Remove a user as admin from a tour
-   */
-  removeTourAdmin(tourId: number, userId: number): void {
+  private deleteTourAdminRow(tourId: number, userId: number): number {
     const result = this.db
       .prepare("DELETE FROM tour_admins WHERE tour_id = ? AND user_id = ?")
       .run(tourId, userId);
-
-    if (result.changes === 0) {
-      throw new Error("Tour admin not found");
-    }
+    return result.changes;
   }
 
-  /**
-   * Get all admins for a tour with user details
-   */
-  getTourAdmins(tourId: number): TourAdminWithUser[] {
-    // Validate tour exists
-    const tour = this.db
-      .prepare("SELECT id FROM tours WHERE id = ?")
-      .get(tourId);
-    if (!tour) {
-      throw new Error("Tour not found");
-    }
-
+  private findTourAdminsWithUser(tourId: number): TourAdminWithUser[] {
     return this.db
       .prepare(
         `
@@ -89,23 +97,9 @@ export class TourAdminService {
       .all(tourId) as TourAdminWithUser[];
   }
 
-  /**
-   * Check if a user is an admin for a specific tour
-   */
-  isTourAdmin(tourId: number, userId: number): boolean {
-    const result = this.db
-      .prepare(
-        "SELECT 1 FROM tour_admins WHERE tour_id = ? AND user_id = ? LIMIT 1"
-      )
-      .get(tourId, userId);
-
-    return !!result;
-  }
-
-  /**
-   * Get all tours where a user is an admin
-   */
-  getToursForAdmin(userId: number): { tour_id: number; tour_name: string }[] {
+  private findToursForUser(
+    userId: number
+  ): { tour_id: number; tour_name: string }[] {
     return this.db
       .prepare(
         `
@@ -119,6 +113,79 @@ export class TourAdminService {
       .all(userId) as { tour_id: number; tour_name: string }[];
   }
 
+  private findTourAdminById(id: number): TourAdmin | null {
+    return this.db
+      .prepare("SELECT * FROM tour_admins WHERE id = ?")
+      .get(id) as TourAdmin | null;
+  }
+
+  // ==========================================================================
+  // Logic Methods (private, no SQL)
+  // ==========================================================================
+
+  private isSuperAdmin(role: string | null): boolean {
+    return role === "SUPER_ADMIN";
+  }
+
+  // ==========================================================================
+  // Public API Methods (orchestration)
+  // ==========================================================================
+
+  /**
+   * Add a user as an admin for a tour
+   * Only tour owners and SUPER_ADMINs can add tour admins
+   */
+  addTourAdmin(tourId: number, userId: number): TourAdmin {
+    if (!this.findTourExists(tourId)) {
+      throw new Error("Tour not found");
+    }
+
+    if (!this.findUserExists(userId)) {
+      throw new Error("User not found");
+    }
+
+    if (this.findTourAdminExists(tourId, userId)) {
+      throw new Error("User is already an admin for this tour");
+    }
+
+    return this.insertTourAdminRow(tourId, userId);
+  }
+
+  /**
+   * Remove a user as admin from a tour
+   */
+  removeTourAdmin(tourId: number, userId: number): void {
+    const changes = this.deleteTourAdminRow(tourId, userId);
+    if (changes === 0) {
+      throw new Error("Tour admin not found");
+    }
+  }
+
+  /**
+   * Get all admins for a tour with user details
+   */
+  getTourAdmins(tourId: number): TourAdminWithUser[] {
+    if (!this.findTourExists(tourId)) {
+      throw new Error("Tour not found");
+    }
+
+    return this.findTourAdminsWithUser(tourId);
+  }
+
+  /**
+   * Check if a user is an admin for a specific tour
+   */
+  isTourAdmin(tourId: number, userId: number): boolean {
+    return this.findTourAdminExists(tourId, userId);
+  }
+
+  /**
+   * Get all tours where a user is an admin
+   */
+  getToursForAdmin(userId: number): { tour_id: number; tour_name: string }[] {
+    return this.findToursForUser(userId);
+  }
+
   /**
    * Check if a user can manage a tour (add/remove enrollments, approve requests, manage admins)
    * Returns true if:
@@ -127,30 +194,21 @@ export class TourAdminService {
    * - User is a tour admin
    */
   canManageTour(tourId: number, userId: number): boolean {
-    // Check if user is SUPER_ADMIN
-    const user = this.db
-      .prepare("SELECT role FROM users WHERE id = ?")
-      .get(userId) as { role: string } | null;
-
-    if (user?.role === "SUPER_ADMIN") {
+    const userRole = this.findUserRole(userId);
+    if (this.isSuperAdmin(userRole)) {
       return true;
     }
 
-    // Get tour and check ownership
-    const tour = this.db
-      .prepare("SELECT owner_id FROM tours WHERE id = ?")
-      .get(tourId) as { owner_id: number } | null;
-
-    if (!tour) {
+    const ownerId = this.findTourOwnerId(tourId);
+    if (ownerId === null) {
       return false;
     }
 
-    if (tour.owner_id === userId) {
+    if (ownerId === userId) {
       return true;
     }
 
-    // Check if user is a tour admin
-    return this.isTourAdmin(tourId, userId);
+    return this.findTourAdminExists(tourId, userId);
   }
 
   /**
@@ -158,34 +216,24 @@ export class TourAdminService {
    * Only tour owners and SUPER_ADMINs can add/remove tour admins
    */
   canManageTourAdmins(tourId: number, userId: number): boolean {
-    // Check if user is SUPER_ADMIN
-    const user = this.db
-      .prepare("SELECT role FROM users WHERE id = ?")
-      .get(userId) as { role: string } | null;
-
-    if (user?.role === "SUPER_ADMIN") {
+    const userRole = this.findUserRole(userId);
+    if (this.isSuperAdmin(userRole)) {
       return true;
     }
 
-    // Get tour and check ownership
-    const tour = this.db
-      .prepare("SELECT owner_id FROM tours WHERE id = ?")
-      .get(tourId) as { owner_id: number } | null;
-
-    if (!tour) {
+    const ownerId = this.findTourOwnerId(tourId);
+    if (ownerId === null) {
       return false;
     }
 
-    return tour.owner_id === userId;
+    return ownerId === userId;
   }
 
   /**
    * Find a tour admin by ID
    */
   findById(id: number): TourAdmin | null {
-    return this.db
-      .prepare("SELECT * FROM tour_admins WHERE id = ?")
-      .get(id) as TourAdmin | null;
+    return this.findTourAdminById(id);
   }
 }
 

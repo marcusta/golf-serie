@@ -1,7 +1,7 @@
 # Backend Refactoring Plan
 
 **Created:** 2025-12-31
-**Updated:** 2025-12-31
+**Updated:** 2026-01-01
 **Goal:** Refactor backend services to comply with new code quality rules in CLAUDE.md
 **Safety Net:** 670+ integration tests must pass after each change
 
@@ -606,22 +606,181 @@ Create supporting infrastructure before touching existing code.
 
 ---
 
-### 4.3 TourCompetitionRegistrationService
-**Complexity:** High
+### 4.3 TourCompetitionRegistrationService (`src/services/tour-competition-registration.service.ts`)
+**Complexity:** High (~1190 lines after refactoring)
 **Tests:** `tests/tour-competition-registration.test.ts`
 
-- [ ] Replace `18` with `GOLF.HOLES_PER_ROUND`
-- [ ] Analyze method violations
-- [ ] Extract query methods
-- [ ] Extract logic methods
-- [ ] Fix any `any` types
-- [ ] Run tests
-- [ ] Run full suite: `bun test`
+#### Completed (Method Separation) - 2026-01-01
+
+**Constants & Type Safety:**
+- [x] Import `GOLF` constants and `safeParseJson`
+- [x] Replace `18` with `GOLF.HOLES_PER_ROUND`
+
+**Internal types added:**
+- [x] `CompetitionRow`, `PlayerRow`, `EnrollmentRow`, `TeeTimeRow`, `ParticipantRow`
+- [x] `RegistrationRoundRow`, `GroupParticipantRow`, `AvailablePlayerRow`
+- [x] `GroupMemberRow`, `GroupMemberWithHandicapRow`
+
+**Query methods extracted:**
+- [x] Competition lookups: `findCompetitionWithTour`, `findCompetitionTourId`, `findCoursePars`
+- [x] Player lookups: `findPlayerById`, `findPlayerName`, `findActiveEnrollment`
+- [x] Registration queries: `findRegistrationRow`, `findRegistrationsByCompetition`, `findAvailablePlayersForCompetition`
+- [x] Team operations: `findTeamByName`, `insertTeamRow`
+- [x] Tee time operations: `insertTeeTimeRow`, `deleteTeeTimeRow`, `findParticipantCountByTeeTime`, `findMaxTeeOrderForTeeTime`
+- [x] Participant operations: `insertParticipantRow`, `deleteParticipantRow`, `updateParticipantTeeTime`
+- [x] Registration operations: `insertRegistrationRow`, `deleteRegistrationRow`, `updateRegistrationStatusRow`
+- [x] Status updates: `updateRegistrationStartedRow`, `updateRegistrationFinishedRow`, `updateRegistrationTeeTime`, `updateRegistrationTeeTimeOnly`
+- [x] Group queries: `findGroupMembersByTeeTime`, `findRegistrationCountByTeeTime`, `findGroupMembersExcludingPlayer`
+- [x] Active rounds: `findActiveRoundsForPlayer`, `findCompetitionGroupParticipants`
+
+**Logic methods extracted:**
+- [x] Validation: `validateCompetitionOpen`, `validateNotPlayingOrFinished`, `validateCanStartPlaying`, `validateCanFinishPlaying`
+- [x] Status helpers: `determineInitialStatus`, `determineGroupCreatedBy`, `mapToAvailableStatus`
+- [x] Score calculation: `parseScoreArray`, `calculateHolesPlayed`, `calculateRelativeToPar`
+- [x] Display formatting: `formatScoreDisplay`, `formatScoreDisplayWithDash`
+- [x] Round status: `isRoundExpired`, `isRoundFinished`
+- [x] Group helpers: `buildPlayingGroup`, `groupParticipantsByTeeTime`, `determineMemberStatus`, `determineGroupStatus`, `sortGroupsByStatus`, `getTourTeamName`
+
+**Public methods refactored to orchestration:**
+- [x] `register()` - validation, player check, enrollment check, create tee time, participant, registration
+- [x] `withdraw()` - validation, delete participant, cleanup tee time, delete registration
+- [x] `getRegistration()`, `getRegistrationsForCompetition()` - use query methods
+- [x] `getAvailablePlayers()` - tour lookup, query, status mapping
+- [x] `addToGroup()` - validation, group size check, add each player
+- [x] `removeFromGroup()`, `leaveGroup()` - validation, move to solo
+- [x] `getGroupByTeeTime()`, `getGroupMemberCount()` - use query and logic methods
+- [x] `startPlaying()`, `finishPlaying()` - validation, status updates
+- [x] `getActiveRounds()` - query, score calculation, filtering
+- [x] `getCompetitionGroups()` - query, grouping, status determination
+
+**Private helpers refactored:**
+- [x] `getOrCreateTourTeam()` - uses query methods
+- [x] `addPlayerToGroup()` - uses query and validation methods
+- [x] `movePlayerToSoloGroup()` - uses query methods
+
+- [x] Run tests: `bun test tests/tour-competition-registration.test.ts` - 25 pass
+- [x] Run full suite: `bun test` - 677 pass
+
+---
 
 ### 4.4 Other Tour Services
-- [ ] `tour-admin.service.ts`
-- [ ] `tour-category.service.ts`
-- [ ] `tour-document.service.ts`
+
+#### TourAdminService (`tour-admin.service.ts`) - Completed 2026-01-01
+
+**Internal types added:**
+- [x] `UserRoleRow`, `TourOwnerRow`
+
+**Query methods extracted:**
+- [x] `findTourExists(tourId): boolean`
+- [x] `findUserExists(userId): boolean`
+- [x] `findTourAdminExists(tourId, userId): boolean`
+- [x] `findUserRole(userId): string | null`
+- [x] `findTourOwnerId(tourId): number | null`
+- [x] `insertTourAdminRow(tourId, userId): TourAdmin`
+- [x] `deleteTourAdminRow(tourId, userId): number`
+- [x] `findTourAdminsWithUser(tourId): TourAdminWithUser[]`
+- [x] `findToursForUser(userId): { tour_id, tour_name }[]`
+- [x] `findTourAdminById(id): TourAdmin | null`
+
+**Logic methods extracted:**
+- [x] `isSuperAdmin(role): boolean`
+
+**Public methods refactored to orchestration:**
+- [x] `addTourAdmin()` - existence checks, insert
+- [x] `removeTourAdmin()` - delete, check changes
+- [x] `getTourAdmins()` - existence check, query
+- [x] `isTourAdmin()` - uses query method
+- [x] `getToursForAdmin()` - uses query method
+- [x] `canManageTour()` - role check, owner check, admin check
+- [x] `canManageTourAdmins()` - role check, owner check
+- [x] `findById()` - uses query method
+
+- [x] Run tests: `bun test tests/tour-admin-service.test.ts` - 34 pass
+
+---
+
+#### TourCategoryService (`tour-category.service.ts`) - Completed 2026-01-01
+
+**Internal types added:**
+- [x] `MaxOrderRow`, `EnrollmentTourRow`, `EnrollmentByCategoryRow`
+
+**Query methods extracted:**
+- [x] `findTourExists(tourId): boolean`
+- [x] `findCategoryByTourAndName(tourId, name): boolean`
+- [x] `findCategoryByTourAndNameExcluding(tourId, name, excludeId): boolean`
+- [x] `findMaxSortOrder(tourId): number`
+- [x] `insertCategoryRow(tourId, name, description, sortOrder): TourCategory`
+- [x] `updateCategoryRow(id, name, description, sortOrder): TourCategory`
+- [x] `deleteCategoryRow(id): void`
+- [x] `findCategoryById(id): TourCategory | null`
+- [x] `findCategoriesByTourWithCount(tourId): TourCategoryWithCount[]`
+- [x] `updateCategorySortOrder(id, sortOrder): void`
+- [x] `findEnrollmentTourId(enrollmentId): number | null`
+- [x] `updateEnrollmentCategory(enrollmentId, categoryId): void`
+- [x] `findEnrollmentsByIds(enrollmentIds): EnrollmentTourRow[]`
+- [x] `updateEnrollmentsCategory(enrollmentIds, categoryId): number`
+- [x] `findEnrollmentsByCategory(categoryId): EnrollmentByCategoryRow[]`
+
+**Logic methods extracted:**
+- [x] `validateCategoriesInTour(categoryIds, validCategoryIds): void`
+- [x] `validateAllEnrollmentsSameTour(enrollments, expectedCount): number`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - existence check, duplicate check, sort order, insert
+- [x] `update()` - existence check, duplicate check, update
+- [x] `delete()` - existence check, delete
+- [x] `findById()` - uses query method
+- [x] `findByTour()` - existence check, query
+- [x] `reorder()` - get categories, validate, update each
+- [x] `assignToEnrollment()` - existence check, tour validation, update
+- [x] `bulkAssign()` - get enrollments, validate same tour, validate category, update
+- [x] `getEnrollmentsByCategory()` - existence check, query
+
+- [x] Run tests: `bun test tests/tour-category-service.test.ts` - 26 pass
+
+---
+
+#### TourDocumentService (`tour-document.service.ts`) - Completed 2026-01-01
+
+**Breaking changes:**
+- [x] Removed unnecessary `async/await` (SQLite in Bun is synchronous)
+- [x] Methods now return values directly instead of Promises
+
+**Internal types added:**
+- [x] `DocumentTypeRow`
+
+**Query methods extracted:**
+- [x] `findTourExists(tourId): boolean`
+- [x] `insertDocumentRow(title, content, type, tourId): TourDocument`
+- [x] `findAllDocuments(): TourDocument[]`
+- [x] `findDocumentById(id): TourDocument | null`
+- [x] `findDocumentsByTour(tourId): TourDocument[]`
+- [x] `findDocumentsByTourAndType(tourId, type): TourDocument[]`
+- [x] `updateDocumentRow(id, updates, values): TourDocument`
+- [x] `deleteDocumentRow(id): void`
+- [x] `findDistinctTypesByTour(tourId): DocumentTypeRow[]`
+
+**Logic methods extracted:**
+- [x] `validateCreateData(data): void`
+- [x] `validateUpdateData(data): void`
+- [x] `buildUpdateQuery(data, id): { updates, values }`
+- [x] `extractTypes(rows): string[]`
+
+**Public methods refactored to orchestration:**
+- [x] `create()` - validation, tour check, insert
+- [x] `findAll()` - query
+- [x] `findById()` - query
+- [x] `findByTourId()` - tour check, query
+- [x] `findByTourIdAndType()` - tour check, query
+- [x] `update()` - existence check, validation, build query, update
+- [x] `delete()` - existence check, delete
+- [x] `getDocumentTypes()` - tour check, query, extract
+
+- [x] Run tests: `bun test tests/tour-document-service.test.ts` - 27 pass
+
+---
+
+**Phase 4.4 Complete:** All three services refactored (87 tests pass)
 
 ---
 
@@ -740,7 +899,7 @@ Lines 835-844:   Return response
 | Phase 1: Simple Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 2: Medium Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 3: Complex Services | **Complete** | 2025-12-31 | 2025-12-31 |
-| Phase 4: Tour Services | **In Progress** (4.1-4.2 done) | 2025-12-31 | |
+| Phase 4: Tour Services | **Complete** | 2025-12-31 | 2026-01-01 |
 | Phase 5: CompetitionService | Not Started | | |
 | Phase 6: CompetitionResultsService | Not Started | | |
 | Phase 7: Player Services | Not Started | | |
@@ -762,7 +921,10 @@ If tests fail after an extraction:
 ## Commands Reference
 
 ```bash
-# Run all tests
+# Run server tests only (recommended for refactoring)
+bun run test:server
+
+# Run all tests (includes frontend - may have flaky failures)
 bun test
 
 # Run specific test file

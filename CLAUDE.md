@@ -14,9 +14,9 @@ bun run build
 bun run prod
 
 # Testing
-bun test                # Run all tests
+bun run test:server     # Run server tests only (recommended)
+bun test                # Run all tests (includes frontend)
 bun test --watch        # Watch mode
-bun test --concurrency 1  # Run tests sequentially
 
 # Database
 bun run migrate         # Run database migrations

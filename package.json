@@ -10,6 +10,7 @@
     "prod": "bun src/index.ts",
     "build": "bun build src/index.ts --outdir=./dist",
     "test": "bun test --concurrency 1",
+    "test:server": "bun test tests/*.test.ts --concurrency 1",
     "test:watch": "bun test --watch",
     "migrate": "bun run src/database/migrate.ts",
     "type-check": "tsc --noEmit",
