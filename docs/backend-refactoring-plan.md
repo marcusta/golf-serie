@@ -871,13 +871,68 @@ Create supporting infrastructure before touching existing code.
 ## Phase 6: Competition Results Service
 
 **File:** `src/services/competition-results.service.ts`
-**Tests:** Related competition tests
+**Complexity:** Medium (~636 lines after refactoring)
+**Tests:** Related competition tests (no dedicated test file, tested via integration)
 
-- [ ] Replace magic numbers with `GOLF.*` constants
-- [ ] Analyze method violations
-- [ ] Extract query methods
-- [ ] Extract calculation logic
-- [ ] Run full suite: `bun test`
+#### Completed (Constants & Type Safety Pass) - 2026-01-01
+
+- [x] Import `GOLF` constants and `parseParsArray`, `safeParseJson` utilities
+- [x] Replace `72` with `GOLF.STANDARD_COURSE_RATING`
+- [x] Replace `-1` checks with `GOLF.UNREPORTED_HOLE`
+- [x] Replace `18` with `GOLF.HOLES_PER_ROUND`
+- [x] Fix `any[]` type in `getPlayerResults()` → `PlayerResultRow[]`
+
+#### Completed (Internal Types) - 2026-01-01
+
+- [x] `CompetitionDetailsRow`, `PointTemplateRow`, `EnrollmentCountRow`
+- [x] `CompetitionFinalRow`, `TourStandingRow`, `PlayerTourPointsRow`
+- [x] `PlayerResultRow`
+
+#### Completed (Query Methods) - 2026-01-01
+
+- [x] `findCompetitionDetails(competitionId): CompetitionDetailsRow | null`
+- [x] `findPointTemplateRow(templateId): PointTemplateRow | null`
+- [x] `findActiveEnrollmentCount(tourId): number`
+- [x] `findParticipantDataRows(competitionId): ParticipantData[]`
+- [x] `deleteCompetitionResultRows(competitionId): void`
+- [x] `insertCompetitionResultRow(competitionId, result, scoringType): void`
+- [x] `updateCompetitionFinalizedRow(competitionId): void`
+- [x] `findCompetitionResultRows(competitionId, scoringType): StoredCompetitionResult[]`
+- [x] `findPlayerResultRows(playerId, scoringType): PlayerResultRow[]`
+- [x] `findCompetitionFinalizedRow(competitionId): CompetitionFinalRow | null`
+- [x] `findPlayerTourPointsRow(playerId, tourId, scoringType): PlayerTourPointsRow`
+- [x] `findTourStandingRows(tourId, scoringType): TourStandingRow[]`
+
+#### Completed (Logic Methods) - 2026-01-01
+
+- [x] `parseParsFromCompetition(competition): { pars, totalPar }`
+- [x] `isOpenCompetitionClosed(competition): boolean`
+- [x] `parseParticipantScore(score): number[]`
+- [x] `hasInvalidHole(score): boolean`
+- [x] `calculateHolesPlayed(score): number`
+- [x] `calculateGrossScore(score): number`
+- [x] `calculateRelativeToParFromScore(score, pars): number`
+- [x] `calculateNetScore(grossScore, handicapIndex): number | null`
+- [x] `isParticipantFinished(participant, score, isOpenCompetitionClosed): boolean`
+- [x] `buildParticipantResult(participant, pars, totalPar, isOpenCompetitionClosed): CompetitionResult`
+- [x] `sortResultsByScore(results): CompetitionResult[]`
+- [x] `assignPositionsAndPoints(sortedResults, numberOfPlayers, pointTemplate, multiplier): CompetitionResult[]`
+- [x] `calculatePointsForPosition(position, numberOfPlayers, pointTemplate): number`
+- [x] `assignStandingPositions(standings): (TourStandingRow & { position })[]`
+
+#### Completed (Public Methods to Orchestration) - 2026-01-01
+
+- [x] `finalizeCompetitionResults()` - orchestrates query and logic methods
+- [x] `getCompetitionResults()` - delegates to query method
+- [x] `getPlayerResults()` - delegates to query method
+- [x] `isCompetitionFinalized()` - delegates to query method
+- [x] `recalculateResults()` - delegates to finalizeCompetitionResults
+- [x] `getPlayerTourPoints()` - query + transform
+- [x] `getTourStandingsFromResults()` - query + logic method
+
+#### Completed (Final Verification) - 2026-01-01
+
+- [x] Run: `bun run test:server` - 677 pass
 
 ---
 
@@ -919,7 +974,7 @@ Create supporting infrastructure before touching existing code.
 | Phase 3: Complex Services | **Complete** | 2025-12-31 | 2025-12-31 |
 | Phase 4: Tour Services | **Complete** | 2025-12-31 | 2026-01-01 |
 | Phase 5: CompetitionService | **Complete** | 2026-01-01 | 2026-01-01 |
-| Phase 6: CompetitionResultsService | Not Started | | |
+| Phase 6: CompetitionResultsService | **Complete** | 2026-01-01 | 2026-01-01 |
 | Phase 7: Player Services | Not Started | | |
 | Phase 8: Final Cleanup | Not Started | | |
 

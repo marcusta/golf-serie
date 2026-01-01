@@ -1,4 +1,6 @@
 import { Database } from "bun:sqlite";
+import { GOLF } from "../constants/golf";
+import { parseParsArray, safeParseJson } from "../utils/parsing";
 
 interface PointsStructure {
   [key: string]: number;
@@ -41,16 +43,75 @@ export interface StoredCompetitionResult {
   calculated_at: string;
 }
 
+// ============================================================================
+// Internal Row Types (database result shapes)
+// ============================================================================
+
+interface CompetitionDetailsRow {
+  id: number;
+  tour_id: number | null;
+  course_id: number | null;
+  pars: string | null;
+  point_template_id: number | null;
+  scoring_mode: string | null;
+  start_mode: string;
+  open_end: string | null;
+  points_multiplier: number | null;
+}
+
+interface PointTemplateRow {
+  id: number;
+  name: string;
+  points_structure: string;
+}
+
+interface EnrollmentCountRow {
+  count: number;
+}
+
+interface CompetitionFinalRow {
+  is_results_final: number;
+}
+
+interface TourStandingRow {
+  player_id: number;
+  player_name: string;
+  total_points: number;
+  competitions_played: number;
+}
+
+interface PlayerTourPointsRow {
+  total_points: number | null;
+  competitions_played: number;
+}
+
+interface PlayerResultRow {
+  id: number;
+  competition_id: number;
+  participant_id: number;
+  player_id: number | null;
+  position: number;
+  points: number;
+  gross_score: number | null;
+  net_score: number | null;
+  relative_to_par: number | null;
+  scoring_type: "gross" | "net";
+  calculated_at: string;
+  competition_name: string;
+  competition_date: string;
+  tour_id: number | null;
+  tour_name: string | null;
+}
+
 export class CompetitionResultsService {
   constructor(private db: Database) {}
 
-  /**
-   * Calculate and store results for a competition
-   * Should be called when a competition is finalized/closed
-   */
-  finalizeCompetitionResults(competitionId: number): void {
-    // Get competition details
-    const competition = this.db
+  // ============================================================================
+  // Query Methods (private, single SQL statement)
+  // ============================================================================
+
+  private findCompetitionDetails(competitionId: number): CompetitionDetailsRow | null {
+    return this.db
       .prepare(`
         SELECT c.*, co.pars, t.point_template_id, t.scoring_mode
         FROM competitions c
@@ -58,62 +119,24 @@ export class CompetitionResultsService {
         LEFT JOIN tours t ON c.tour_id = t.id
         WHERE c.id = ?
       `)
-      .get(competitionId) as {
-        id: number;
-        tour_id: number | null;
-        course_id: number | null;
-        pars: string | null;
-        point_template_id: number | null;
-        scoring_mode: string | null;
-        start_mode: string;
-        open_end: string | null;
-        points_multiplier: number | null;
-      } | null;
+      .get(competitionId) as CompetitionDetailsRow | null;
+  }
 
-    if (!competition) {
-      throw new Error("Competition not found");
-    }
+  private findPointTemplateRow(templateId: number): PointTemplateRow | null {
+    return this.db
+      .prepare("SELECT id, name, points_structure FROM point_templates WHERE id = ?")
+      .get(templateId) as PointTemplateRow | null;
+  }
 
-    // Parse pars - stored as direct array [4,3,4,5,...]
-    let pars: number[] = [];
-    let totalPar = 72; // Default
-    if (competition.pars) {
-      try {
-        pars = JSON.parse(competition.pars);
-        if (Array.isArray(pars) && pars.length > 0) {
-          totalPar = pars.reduce((sum, p) => sum + p, 0);
-        } else {
-          pars = [];
-        }
-      } catch {
-        pars = [];
-      }
-    }
+  private findActiveEnrollmentCount(tourId: number): number {
+    const row = this.db
+      .prepare("SELECT COUNT(*) as count FROM tour_enrollments WHERE tour_id = ? AND status = 'active'")
+      .get(tourId) as EnrollmentCountRow;
+    return row.count;
+  }
 
-    // Get point template if exists
-    let pointTemplate: { id: number; name: string; points_structure: string } | null = null;
-    if (competition.point_template_id) {
-      pointTemplate = this.db
-        .prepare("SELECT id, name, points_structure FROM point_templates WHERE id = ?")
-        .get(competition.point_template_id) as typeof pointTemplate;
-    }
-
-    // Get number of active enrollments for points calculation (if tour competition)
-    let numberOfPlayers = 0;
-    if (competition.tour_id) {
-      const enrollmentCount = this.db
-        .prepare("SELECT COUNT(*) as count FROM tour_enrollments WHERE tour_id = ? AND status = 'active'")
-        .get(competition.tour_id) as { count: number };
-      numberOfPlayers = enrollmentCount.count;
-    }
-
-    // Check if this is a closed open competition
-    const isOpenCompetitionClosed = competition.start_mode === "open" &&
-      competition.open_end &&
-      new Date(competition.open_end) < new Date();
-
-    // Get participants
-    const participants = this.db
+  private findParticipantDataRows(competitionId: number): ParticipantData[] {
+    return this.db
       .prepare(`
         SELECT
           p.id,
@@ -130,54 +153,39 @@ export class CompetitionResultsService {
         WHERE tt.competition_id = ? AND p.player_id IS NOT NULL
       `)
       .all(competitionId) as ParticipantData[];
+  }
 
-    // Calculate results
-    const results = this.calculateResults(
-      participants,
-      pars,
-      totalPar,
-      isOpenCompetitionClosed
-    );
-
-    // Rank and assign points
-    const rankedResults = this.rankAndAssignPoints(
-      results,
-      numberOfPlayers || results.filter(r => r.is_finished).length,
-      pointTemplate,
-      competition.points_multiplier || 1
-    );
-
-    // Clear existing results for this competition
+  private deleteCompetitionResultRows(competitionId: number): void {
     this.db
       .prepare("DELETE FROM competition_results WHERE competition_id = ?")
       .run(competitionId);
+  }
 
-    // Store gross results
-    const insertStmt = this.db.prepare(`
-      INSERT INTO competition_results
-        (competition_id, participant_id, player_id, position, points, gross_score, net_score, relative_to_par, scoring_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+  private insertCompetitionResultRow(
+    competitionId: number,
+    result: CompetitionResult,
+    scoringType: "gross" | "net"
+  ): void {
+    this.db
+      .prepare(`
+        INSERT INTO competition_results
+          (competition_id, participant_id, player_id, position, points, gross_score, net_score, relative_to_par, scoring_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      .run(
+        competitionId,
+        result.participant_id,
+        result.player_id,
+        result.position,
+        result.points,
+        result.gross_score,
+        result.net_score,
+        result.relative_to_par,
+        scoringType
+      );
+  }
 
-    for (const result of rankedResults) {
-      if (result.is_finished) {
-        insertStmt.run(
-          competitionId,
-          result.participant_id,
-          result.player_id,
-          result.position,
-          result.points,
-          result.gross_score,
-          result.net_score,
-          result.relative_to_par,
-          "gross"
-        );
-      }
-    }
-
-    // TODO: If scoring_mode is 'net' or 'both', also calculate and store net results
-
-    // Mark competition as finalized
+  private updateCompetitionFinalizedRow(competitionId: number): void {
     this.db
       .prepare(`
         UPDATE competitions
@@ -187,141 +195,269 @@ export class CompetitionResultsService {
       .run(competitionId);
   }
 
-  /**
-   * Calculate results for all participants
-   */
-  private calculateResults(
-    participants: ParticipantData[],
+  private findCompetitionResultRows(
+    competitionId: number,
+    scoringType: "gross" | "net"
+  ): StoredCompetitionResult[] {
+    return this.db
+      .prepare(`
+        SELECT cr.*, pl.name as player_name
+        FROM competition_results cr
+        LEFT JOIN players pl ON cr.player_id = pl.id
+        WHERE cr.competition_id = ? AND cr.scoring_type = ?
+        ORDER BY cr.position ASC
+      `)
+      .all(competitionId, scoringType) as StoredCompetitionResult[];
+  }
+
+  private findPlayerResultRows(playerId: number, scoringType: "gross" | "net"): PlayerResultRow[] {
+    return this.db
+      .prepare(`
+        SELECT
+          cr.*,
+          c.name as competition_name,
+          c.date as competition_date,
+          c.tour_id,
+          t.name as tour_name
+        FROM competition_results cr
+        JOIN competitions c ON cr.competition_id = c.id
+        LEFT JOIN tours t ON c.tour_id = t.id
+        WHERE cr.player_id = ? AND cr.scoring_type = ?
+        ORDER BY c.date DESC
+      `)
+      .all(playerId, scoringType) as PlayerResultRow[];
+  }
+
+  private findCompetitionFinalizedRow(competitionId: number): CompetitionFinalRow | null {
+    return this.db
+      .prepare("SELECT is_results_final FROM competitions WHERE id = ?")
+      .get(competitionId) as CompetitionFinalRow | null;
+  }
+
+  private findPlayerTourPointsRow(
+    playerId: number,
+    tourId: number,
+    scoringType: "gross" | "net"
+  ): PlayerTourPointsRow {
+    return this.db
+      .prepare(`
+        SELECT
+          SUM(cr.points) as total_points,
+          COUNT(DISTINCT cr.competition_id) as competitions_played
+        FROM competition_results cr
+        JOIN competitions c ON cr.competition_id = c.id
+        WHERE cr.player_id = ?
+          AND c.tour_id = ?
+          AND cr.scoring_type = ?
+          AND c.is_results_final = 1
+      `)
+      .get(playerId, tourId, scoringType) as PlayerTourPointsRow;
+  }
+
+  private findTourStandingRows(tourId: number, scoringType: "gross" | "net"): TourStandingRow[] {
+    return this.db
+      .prepare(`
+        SELECT
+          cr.player_id,
+          pl.name as player_name,
+          SUM(cr.points) as total_points,
+          COUNT(DISTINCT cr.competition_id) as competitions_played
+        FROM competition_results cr
+        JOIN competitions c ON cr.competition_id = c.id
+        JOIN players pl ON cr.player_id = pl.id
+        WHERE c.tour_id = ?
+          AND cr.scoring_type = ?
+          AND c.is_results_final = 1
+        GROUP BY cr.player_id, pl.name
+        ORDER BY total_points DESC, competitions_played DESC
+      `)
+      .all(tourId, scoringType) as TourStandingRow[];
+  }
+
+  // ============================================================================
+  // Logic Methods (private, no SQL)
+  // ============================================================================
+
+  private parseParsFromCompetition(competition: CompetitionDetailsRow): {
+    pars: number[];
+    totalPar: number;
+  } {
+    if (!competition.pars) {
+      return { pars: [], totalPar: GOLF.STANDARD_COURSE_RATING };
+    }
+
+    try {
+      const pars = parseParsArray(competition.pars);
+      if (pars.length > 0) {
+        const totalPar = pars.reduce((sum, p) => sum + p, 0);
+        return { pars, totalPar };
+      }
+      return { pars: [], totalPar: GOLF.STANDARD_COURSE_RATING };
+    } catch {
+      return { pars: [], totalPar: GOLF.STANDARD_COURSE_RATING };
+    }
+  }
+
+  private isOpenCompetitionClosed(competition: CompetitionDetailsRow): boolean {
+    return (
+      competition.start_mode === "open" &&
+      competition.open_end !== null &&
+      new Date(competition.open_end) < new Date()
+    );
+  }
+
+  private parseParticipantScore(score: string | number[]): number[] {
+    try {
+      if (typeof score === "string") {
+        return JSON.parse(score);
+      }
+      return Array.isArray(score) ? score : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private hasInvalidHole(score: number[]): boolean {
+    return score.includes(GOLF.UNREPORTED_HOLE);
+  }
+
+  private calculateHolesPlayed(score: number[]): number {
+    return score.filter((s) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
+  }
+
+  private calculateGrossScore(score: number[]): number {
+    return score.reduce((sum, s) => sum + (s > 0 ? s : 0), 0);
+  }
+
+  private calculateRelativeToParFromScore(score: number[], pars: number[]): number {
+    let relativeToPar = 0;
+    for (let i = 0; i < score.length && i < pars.length; i++) {
+      if (score[i] > 0) {
+        relativeToPar += score[i] - pars[i];
+      }
+    }
+    return relativeToPar;
+  }
+
+  private calculateNetScore(grossScore: number, handicapIndex: number | null): number | null {
+    if (handicapIndex === null) {
+      return null;
+    }
+    return grossScore - Math.round(handicapIndex);
+  }
+
+  private isParticipantFinished(
+    participant: ParticipantData,
+    score: number[],
+    isOpenCompetitionClosed: boolean
+  ): boolean {
+    // DQ'd players are never considered finished
+    if (participant.is_dq) {
+      return false;
+    }
+
+    // Manual score means finished
+    if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
+      return true;
+    }
+
+    const hasInvalidRound = this.hasInvalidHole(score);
+    const holesPlayed = this.calculateHolesPlayed(score);
+
+    if (isOpenCompetitionClosed) {
+      // Competition window closed: finished if 18 holes played
+      return holesPlayed === GOLF.HOLES_PER_ROUND && !hasInvalidRound;
+    }
+
+    // Competition still open: require is_locked
+    return (
+      participant.is_locked === 1 &&
+      holesPlayed === GOLF.HOLES_PER_ROUND &&
+      !hasInvalidRound
+    );
+  }
+
+  private buildParticipantResult(
+    participant: ParticipantData,
     pars: number[],
     totalPar: number,
     isOpenCompetitionClosed: boolean
-  ): CompetitionResult[] {
-    const results: CompetitionResult[] = [];
+  ): CompetitionResult {
+    const score = this.parseParticipantScore(participant.score);
+    const isFinished = this.isParticipantFinished(participant, score, isOpenCompetitionClosed);
 
-    for (const participant of participants) {
-      let grossScore = 0;
-      let relativeToPar = 0;
-      let isFinished = false;
+    let grossScore = 0;
+    let relativeToPar = 0;
+    let netScore: number | null = null;
 
-      // DQ'd players are never considered finished
-      if (participant.is_dq) {
-        isFinished = false;
-      } else if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
-        // Use manual scores
+    if (isFinished) {
+      if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
         grossScore = participant.manual_score_total;
         relativeToPar = grossScore - totalPar;
-        isFinished = true;
       } else {
-        // Parse hole-by-hole scores
-        let score: number[];
-        try {
-          score = typeof participant.score === 'string'
-            ? JSON.parse(participant.score)
-            : (Array.isArray(participant.score) ? participant.score : []);
-        } catch {
-          score = [];
-        }
-
-        // Check if player has finished
-        const hasInvalidRound = score.includes(-1);
-        const holesPlayed = score.filter((s: number) => s > 0 || s === -1).length;
-
-        if (isOpenCompetitionClosed) {
-          // Competition window closed: finished if 18 holes played
-          isFinished = holesPlayed === 18 && !hasInvalidRound;
-        } else {
-          // Competition still open: require is_locked
-          isFinished = participant.is_locked === 1 && holesPlayed === 18 && !hasInvalidRound;
-        }
-
-        if (isFinished) {
-          grossScore = score.reduce((sum: number, s: number) => sum + (s > 0 ? s : 0), 0);
-          for (let i = 0; i < score.length && i < pars.length; i++) {
-            if (score[i] > 0) {
-              relativeToPar += score[i] - pars[i];
-            }
-          }
-        }
+        grossScore = this.calculateGrossScore(score);
+        relativeToPar = this.calculateRelativeToParFromScore(score, pars);
       }
-
-      // Calculate net score if handicap available
-      let netScore: number | null = null;
-      if (isFinished && participant.handicap_index !== null) {
-        // Simplified net calculation - in reality might use course handicap
-        netScore = grossScore - Math.round(participant.handicap_index);
-      }
-
-      results.push({
-        participant_id: participant.id,
-        player_id: participant.player_id,
-        player_name: participant.player_name,
-        gross_score: grossScore,
-        net_score: netScore,
-        relative_to_par: relativeToPar,
-        is_finished: isFinished,
-        position: 0,
-        points: 0,
-      });
+      netScore = this.calculateNetScore(grossScore, participant.handicap_index);
     }
 
-    return results;
+    return {
+      participant_id: participant.id,
+      player_id: participant.player_id,
+      player_name: participant.player_name,
+      gross_score: grossScore,
+      net_score: netScore,
+      relative_to_par: relativeToPar,
+      is_finished: isFinished,
+      position: 0,
+      points: 0,
+    };
   }
 
-  /**
-   * Rank players and assign points
-   */
-  private rankAndAssignPoints(
-    results: CompetitionResult[],
-    numberOfPlayers: number,
-    pointTemplate: { id: number; name: string; points_structure: string } | null,
-    pointsMultiplier: number
-  ): CompetitionResult[] {
-    // Filter to only finished players
-    const finishedResults = results.filter(r => r.is_finished);
-
-    // Sort by relative to par (ascending - lower is better)
-    const sorted = [...finishedResults].sort((a, b) => {
+  private sortResultsByScore(results: CompetitionResult[]): CompetitionResult[] {
+    return [...results].sort((a, b) => {
       if (a.relative_to_par !== b.relative_to_par) {
         return a.relative_to_par - b.relative_to_par;
       }
       // Tie-breaker: alphabetical by name
       return a.player_name.localeCompare(b.player_name);
     });
+  }
 
-    // Assign positions with tie handling
+  private assignPositionsAndPoints(
+    sortedResults: CompetitionResult[],
+    numberOfPlayers: number,
+    pointTemplate: PointTemplateRow | null,
+    pointsMultiplier: number
+  ): CompetitionResult[] {
     let currentPosition = 1;
     let previousScore = Number.MIN_SAFE_INTEGER;
 
-    const ranked = sorted.map((result, index) => {
+    return sortedResults.map((result, index) => {
       if (result.relative_to_par !== previousScore) {
         currentPosition = index + 1;
       }
       previousScore = result.relative_to_par;
 
-      const points = this.calculatePoints(currentPosition, numberOfPlayers, pointTemplate) * pointsMultiplier;
+      const points =
+        this.calculatePointsForPosition(currentPosition, numberOfPlayers, pointTemplate) *
+        pointsMultiplier;
 
       return { ...result, position: currentPosition, points: Math.round(points) };
     });
-
-    // Add back unfinished players with position 0 and 0 points
-    const unfinished = results
-      .filter(r => !r.is_finished)
-      .map(r => ({ ...r, position: 0, points: 0 }));
-
-    return [...ranked, ...unfinished];
   }
 
-  /**
-   * Calculate points for a position
-   */
-  private calculatePoints(
+  private calculatePointsForPosition(
     position: number,
     numberOfPlayers: number,
-    pointTemplate: { id: number; name: string; points_structure: string } | null
+    pointTemplate: PointTemplateRow | null
   ): number {
     if (pointTemplate) {
       try {
-        const structure: PointsStructure = JSON.parse(pointTemplate.points_structure);
+        const structure = safeParseJson<PointsStructure>(
+          pointTemplate.points_structure,
+          "points_structure"
+        );
         if (structure[position.toString()]) {
           return structure[position.toString()];
         }
@@ -347,54 +483,114 @@ export class CompetitionResultsService {
     return basePoints;
   }
 
+  private assignStandingPositions(
+    standings: TourStandingRow[]
+  ): (TourStandingRow & { position: number })[] {
+    let currentPosition = 1;
+    let previousPoints = Number.MAX_SAFE_INTEGER;
+
+    return standings.map((standing, index) => {
+      if (standing.total_points !== previousPoints) {
+        currentPosition = index + 1;
+      }
+      previousPoints = standing.total_points;
+      return { ...standing, position: currentPosition };
+    });
+  }
+
+  // ============================================================================
+  // Public API Methods (orchestration only)
+  // ============================================================================
+
+  /**
+   * Calculate and store results for a competition
+   * Should be called when a competition is finalized/closed
+   */
+  finalizeCompetitionResults(competitionId: number): void {
+    // Get competition details
+    const competition = this.findCompetitionDetails(competitionId);
+    if (!competition) {
+      throw new Error("Competition not found");
+    }
+
+    // Parse pars
+    const { pars, totalPar } = this.parseParsFromCompetition(competition);
+
+    // Get point template if exists
+    const pointTemplate = competition.point_template_id
+      ? this.findPointTemplateRow(competition.point_template_id)
+      : null;
+
+    // Get number of active enrollments for points calculation (if tour competition)
+    const numberOfPlayers = competition.tour_id
+      ? this.findActiveEnrollmentCount(competition.tour_id)
+      : 0;
+
+    // Check if this is a closed open competition
+    const isOpenCompetitionClosed = this.isOpenCompetitionClosed(competition);
+
+    // Get participants and build results
+    const participants = this.findParticipantDataRows(competitionId);
+    const results = participants.map((p) =>
+      this.buildParticipantResult(p, pars, totalPar, isOpenCompetitionClosed)
+    );
+
+    // Rank and assign points
+    const finishedResults = results.filter((r) => r.is_finished);
+    const sortedResults = this.sortResultsByScore(finishedResults);
+    const effectivePlayerCount = numberOfPlayers || finishedResults.length;
+    const rankedResults = this.assignPositionsAndPoints(
+      sortedResults,
+      effectivePlayerCount,
+      pointTemplate,
+      competition.points_multiplier || 1
+    );
+
+    // Add back unfinished players
+    const unfinishedResults = results
+      .filter((r) => !r.is_finished)
+      .map((r) => ({ ...r, position: 0, points: 0 }));
+    const allResults = [...rankedResults, ...unfinishedResults];
+
+    // Clear existing results and insert new ones
+    this.deleteCompetitionResultRows(competitionId);
+    for (const result of allResults) {
+      if (result.is_finished) {
+        this.insertCompetitionResultRow(competitionId, result, "gross");
+      }
+    }
+
+    // TODO: If scoring_mode is 'net' or 'both', also calculate and store net results
+
+    // Mark competition as finalized
+    this.updateCompetitionFinalizedRow(competitionId);
+  }
+
   /**
    * Get stored results for a competition
    */
-  getCompetitionResults(competitionId: number, scoringType: "gross" | "net" = "gross"): StoredCompetitionResult[] {
-    return this.db
-      .prepare(`
-        SELECT cr.*, pl.name as player_name
-        FROM competition_results cr
-        LEFT JOIN players pl ON cr.player_id = pl.id
-        WHERE cr.competition_id = ? AND cr.scoring_type = ?
-        ORDER BY cr.position ASC
-      `)
-      .all(competitionId, scoringType) as StoredCompetitionResult[];
+  getCompetitionResults(
+    competitionId: number,
+    scoringType: "gross" | "net" = "gross"
+  ): StoredCompetitionResult[] {
+    return this.findCompetitionResultRows(competitionId, scoringType);
   }
 
   /**
    * Get all results for a player across competitions
    */
-  getPlayerResults(playerId: number, scoringType: "gross" | "net" = "gross"): (StoredCompetitionResult & {
-    competition_name: string;
-    competition_date: string;
-    tour_id: number | null;
-    tour_name: string | null;
-  })[] {
-    return this.db
-      .prepare(`
-        SELECT
-          cr.*,
-          c.name as competition_name,
-          c.date as competition_date,
-          c.tour_id,
-          t.name as tour_name
-        FROM competition_results cr
-        JOIN competitions c ON cr.competition_id = c.id
-        LEFT JOIN tours t ON c.tour_id = t.id
-        WHERE cr.player_id = ? AND cr.scoring_type = ?
-        ORDER BY c.date DESC
-      `)
-      .all(playerId, scoringType) as any[];
+  getPlayerResults(
+    playerId: number,
+    scoringType: "gross" | "net" = "gross"
+  ): PlayerResultRow[] {
+    return this.findPlayerResultRows(playerId, scoringType);
   }
 
   /**
    * Check if a competition has finalized results
    */
   isCompetitionFinalized(competitionId: number): boolean {
-    const result = this.db
-      .prepare("SELECT is_results_final FROM competitions WHERE id = ?")
-      .get(competitionId) as { is_results_final: number } | null;
+    const result = this.findCompetitionFinalizedRow(competitionId);
     return result?.is_results_final === 1;
   }
 
@@ -408,25 +604,15 @@ export class CompetitionResultsService {
   /**
    * Get player's total points in a tour from stored results
    */
-  getPlayerTourPoints(playerId: number, tourId: number, scoringType: "gross" | "net" = "gross"): {
+  getPlayerTourPoints(
+    playerId: number,
+    tourId: number,
+    scoringType: "gross" | "net" = "gross"
+  ): {
     total_points: number;
     competitions_played: number;
-    position?: number;
   } {
-    const result = this.db
-      .prepare(`
-        SELECT
-          SUM(cr.points) as total_points,
-          COUNT(DISTINCT cr.competition_id) as competitions_played
-        FROM competition_results cr
-        JOIN competitions c ON cr.competition_id = c.id
-        WHERE cr.player_id = ?
-          AND c.tour_id = ?
-          AND cr.scoring_type = ?
-          AND c.is_results_final = 1
-      `)
-      .get(playerId, tourId, scoringType) as { total_points: number | null; competitions_played: number };
-
+    const result = this.findPlayerTourPointsRow(playerId, tourId, scoringType);
     return {
       total_points: result.total_points || 0,
       competitions_played: result.competitions_played || 0,
@@ -436,47 +622,12 @@ export class CompetitionResultsService {
   /**
    * Get tour standings from stored results (fast query)
    */
-  getTourStandingsFromResults(tourId: number, scoringType: "gross" | "net" = "gross"): {
-    player_id: number;
-    player_name: string;
-    total_points: number;
-    competitions_played: number;
-    position: number;
-  }[] {
-    const standings = this.db
-      .prepare(`
-        SELECT
-          cr.player_id,
-          pl.name as player_name,
-          SUM(cr.points) as total_points,
-          COUNT(DISTINCT cr.competition_id) as competitions_played
-        FROM competition_results cr
-        JOIN competitions c ON cr.competition_id = c.id
-        JOIN players pl ON cr.player_id = pl.id
-        WHERE c.tour_id = ?
-          AND cr.scoring_type = ?
-          AND c.is_results_final = 1
-        GROUP BY cr.player_id, pl.name
-        ORDER BY total_points DESC, competitions_played DESC
-      `)
-      .all(tourId, scoringType) as {
-        player_id: number;
-        player_name: string;
-        total_points: number;
-        competitions_played: number;
-      }[];
-
-    // Assign positions with tie handling
-    let currentPosition = 1;
-    let previousPoints = Number.MAX_SAFE_INTEGER;
-
-    return standings.map((standing, index) => {
-      if (standing.total_points !== previousPoints) {
-        currentPosition = index + 1;
-      }
-      previousPoints = standing.total_points;
-      return { ...standing, position: currentPosition };
-    });
+  getTourStandingsFromResults(
+    tourId: number,
+    scoringType: "gross" | "net" = "gross"
+  ): (TourStandingRow & { position: number })[] {
+    const standings = this.findTourStandingRows(tourId, scoringType);
+    return this.assignStandingPositions(standings);
   }
 }
 
