@@ -95,6 +95,7 @@ interface StoredResultRow {
     participant_id: number;
     position: number;
     points: number;
+    scoring_type: "gross" | "net";
 }
 
 interface PointTemplateRow {
@@ -1005,13 +1006,27 @@ export class CompetitionService {
     entries: LeaderboardEntry[],
     storedResults: StoredResultRow[]
   ): LeaderboardEntry[] {
-    const resultsMap = new Map(storedResults.map(r => [r.participant_id, r]));
+    // Separate gross and net results into maps
+    const grossResultsMap = new Map<number, StoredResultRow>();
+    const netResultsMap = new Map<number, StoredResultRow>();
+
+    for (const r of storedResults) {
+      if (r.scoring_type === "gross") {
+        grossResultsMap.set(r.participant_id, r);
+      } else if (r.scoring_type === "net") {
+        netResultsMap.set(r.participant_id, r);
+      }
+    }
+
     return entries.map(entry => {
-      const stored = resultsMap.get(entry.participant.id);
+      const grossStored = grossResultsMap.get(entry.participant.id);
+      const netStored = netResultsMap.get(entry.participant.id);
       return {
         ...entry,
-        position: stored?.position || 0,
-        points: stored?.points || 0,
+        position: grossStored?.position || 0,
+        points: grossStored?.points || 0,
+        netPosition: netStored?.position,
+        netPoints: netStored?.points,
         isProjected: false,
       };
     });
@@ -1284,9 +1299,9 @@ export class CompetitionService {
 
   private findStoredResultRows(competitionId: number): StoredResultRow[] {
     const stmt = this.db.prepare(`
-      SELECT participant_id, position, points
+      SELECT participant_id, position, points, scoring_type
       FROM competition_results
-      WHERE competition_id = ? AND scoring_type = 'gross'
+      WHERE competition_id = ?
     `);
     return stmt.all(competitionId) as StoredResultRow[];
   }

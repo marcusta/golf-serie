@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { CompetitionService } from "../src/services/competition-service";
 import { CourseService } from "../src/services/course-service";
 import { TourService } from "../src/services/tour.service";
+import { CompetitionResultsService } from "../src/services/competition-results.service";
 import { initializeDatabase } from "../src/database/db";
 import type { TourScoringMode } from "../src/types";
 
@@ -11,6 +12,7 @@ describe("Competition Leaderboard with Net Scores", () => {
   let competitionService: CompetitionService;
   let courseService: CourseService;
   let tourService: TourService;
+  let competitionResultsService: CompetitionResultsService;
 
   beforeAll(async () => {
     db = new Database(":memory:");
@@ -18,6 +20,7 @@ describe("Competition Leaderboard with Net Scores", () => {
     competitionService = new CompetitionService(db);
     courseService = new CourseService(db);
     tourService = new TourService(db);
+    competitionResultsService = new CompetitionResultsService(db);
 
     // Create a user for foreign key references (owner_id, created_by)
     db.prepare(`
@@ -342,6 +345,201 @@ describe("Competition Leaderboard with Net Scores", () => {
       expect(entry.handicapStrokesPerHole).toBeDefined();
       // netTotalShots should still be undefined for incomplete rounds
       expect(entry.netTotalShots).toBeUndefined();
+    });
+  });
+
+  describe("Leaderboard points for finalized competitions", () => {
+    // Helper to set handicap_index on participant (simulates what happens when participant is created with handicap)
+    function setParticipantHandicap(participantId: number, handicapIndex: number): void {
+      db.prepare(`UPDATE participants SET handicap_index = ? WHERE id = ?`).run(handicapIndex, participantId);
+    }
+
+    it("should return both gross and net points for finalized tour competition with 'both' scoring mode", async () => {
+      const courseId = await createCourse("Points Test Course 1");
+      const tourId = createTour("Points Both Tour", "both");
+      const strokeIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const teeId = createTee(courseId, "White", 72.0, 113, strokeIndex);
+      const competitionId = await createCompetition("Points Comp Both", courseId, tourId, teeId);
+      const teamId = createTeam("Points Team 1");
+
+      // Create two players with different handicaps
+      // Player 1: Scratch golfer (handicap 0), shoots 72 (even par)
+      const player1Id = createPlayer("Scratch Golfer", 0);
+      createEnrollment(tourId, player1Id, "scratch@test.com");
+      const participant1Id = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        player1Id,
+        "Scratch Golfer",
+        [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4] // 72 gross (even par)
+      );
+      setParticipantHandicap(participant1Id, 0);
+
+      // Player 2: High handicapper (handicap 20), shoots 82 (+10)
+      // Net score: 82 - 20 = 62 (-10 net)
+      const player2Id = createPlayer("High Handicapper", 20);
+      createEnrollment(tourId, player2Id, "highhcp@test.com");
+      const participant2Id = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        player2Id,
+        "High Handicapper",
+        [5, 5, 4, 6, 5, 4, 5, 6, 5, 5, 5, 4, 6, 5, 4, 5, 6, 5] // 90 gross (+18)
+      );
+      setParticipantHandicap(participant2Id, 20);
+
+      // Finalize the competition to store results
+      competitionResultsService.finalizeCompetitionResults(competitionId);
+
+      // Get leaderboard (returns entries array directly)
+      const entries = await competitionService.getLeaderboard(competitionId);
+
+      // Verify we have both players
+      expect(entries.length).toBe(2);
+
+      // Find entries by player
+      const scratchEntry = entries.find(e => e.participant.player_id === player1Id);
+      const highHcpEntry = entries.find(e => e.participant.player_id === player2Id);
+
+      expect(scratchEntry).toBeDefined();
+      expect(highHcpEntry).toBeDefined();
+
+      // Gross ranking: Scratch wins (72 < 90)
+      // Net ranking: High Handicapper wins (70 < 72)
+
+      // Scratch golfer should have:
+      // - position 1 (gross winner)
+      // - points for 1st place gross
+      // - netPosition 2 (net loser)
+      // - netPoints for 2nd place net
+      expect(scratchEntry!.position).toBe(1);
+      expect(scratchEntry!.points).toBeGreaterThan(0);
+      expect(scratchEntry!.netPosition).toBe(2);
+      expect(scratchEntry!.netPoints).toBeGreaterThan(0);
+      expect(scratchEntry!.points).toBeGreaterThan(scratchEntry!.netPoints!); // 1st gross pts > 2nd net pts
+
+      // High handicapper should have:
+      // - position 2 (gross loser)
+      // - points for 2nd place gross
+      // - netPosition 1 (net winner)
+      // - netPoints for 1st place net
+      expect(highHcpEntry!.position).toBe(2);
+      expect(highHcpEntry!.points).toBeGreaterThan(0);
+      expect(highHcpEntry!.netPosition).toBe(1);
+      expect(highHcpEntry!.netPoints).toBeGreaterThan(0);
+      expect(highHcpEntry!.netPoints).toBeGreaterThan(highHcpEntry!.points!); // 1st net pts > 2nd gross pts
+    });
+
+    it("should return only gross points for finalized tour competition with 'gross' scoring mode", async () => {
+      const courseId = await createCourse("Points Test Course 2");
+      const tourId = createTour("Points Gross Tour", "gross");
+      const competitionId = await createCompetition("Points Comp Gross", courseId, tourId);
+      const teamId = createTeam("Points Team 2");
+
+      const playerId = createPlayer("Gross Only Player", 10);
+      createEnrollment(tourId, playerId, "grossonly@test.com");
+      const participantId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerId,
+        "Gross Only Player",
+        [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4]
+      );
+      setParticipantHandicap(participantId, 10);
+
+      competitionResultsService.finalizeCompetitionResults(competitionId);
+
+      const entries = await competitionService.getLeaderboard(competitionId);
+      const entry = entries[0];
+
+      // Should have gross points
+      expect(entry.position).toBe(1);
+      expect(entry.points).toBeGreaterThan(0);
+
+      // Should NOT have net points (gross-only tour)
+      expect(entry.netPosition).toBeUndefined();
+      expect(entry.netPoints).toBeUndefined();
+    });
+
+    it("should return net points for finalized tour competition with 'net' scoring mode", async () => {
+      const courseId = await createCourse("Points Test Course 3");
+      const tourId = createTour("Points Net Tour", "net");
+      const strokeIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const teeId = createTee(courseId, "Yellow", 70.0, 120, strokeIndex);
+      const competitionId = await createCompetition("Points Comp Net", courseId, tourId, teeId);
+      const teamId = createTeam("Points Team 3");
+
+      const playerId = createPlayer("Net Only Player", 15);
+      createEnrollment(tourId, playerId, "netonly@test.com");
+      const participantId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerId,
+        "Net Only Player",
+        [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4]
+      );
+      setParticipantHandicap(participantId, 15);
+
+      competitionResultsService.finalizeCompetitionResults(competitionId);
+
+      const entries = await competitionService.getLeaderboard(competitionId);
+      const entry = entries[0];
+
+      // Should have gross points (always stored)
+      expect(entry.position).toBe(1);
+      expect(entry.points).toBeGreaterThan(0);
+
+      // Should also have net points (net mode)
+      expect(entry.netPosition).toBe(1);
+      expect(entry.netPoints).toBeGreaterThan(0);
+    });
+
+    it("should handle players without handicap in net points calculation", async () => {
+      const courseId = await createCourse("Points Test Course 4");
+      const tourId = createTour("Points Both Tour 2", "both");
+      const strokeIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const teeId = createTee(courseId, "Blue", 73.0, 125, strokeIndex);
+      const competitionId = await createCompetition("Points Comp Both 2", courseId, tourId, teeId);
+      const teamId = createTeam("Points Team 4");
+
+      // Player with handicap
+      const player1Id = createPlayer("With HCP", 10);
+      createEnrollment(tourId, player1Id, "withhcp@test.com");
+      const participant1Id = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        player1Id,
+        "With HCP",
+        [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4]
+      );
+      setParticipantHandicap(participant1Id, 10);
+
+      // Player without handicap (no handicap_index set)
+      const player2Id = createPlayer("No HCP", 0);
+      createEnrollment(tourId, player2Id, "nohcp@test.com");
+      createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        player2Id,
+        "No HCP",
+        [5, 5, 4, 6, 5, 4, 5, 6, 5, 5, 5, 4, 6, 5, 4, 5, 6, 5]
+      );
+      // Note: NOT setting handicap_index for player 2
+
+      competitionResultsService.finalizeCompetitionResults(competitionId);
+
+      const entries = await competitionService.getLeaderboard(competitionId);
+
+      // Both should have gross points
+      expect(entries.length).toBe(2);
+      expect(entries.every(e => e.points !== undefined && e.points > 0)).toBe(true);
+
+      // Only player with handicap should have net points
+      const withHcpEntry = entries.find(e => e.participant.player_id === player1Id);
+      const noHcpEntry = entries.find(e => e.participant.player_id === player2Id);
+
+      expect(withHcpEntry!.netPoints).toBeGreaterThan(0);
+      expect(noHcpEntry!.netPoints).toBeUndefined();
     });
   });
 });

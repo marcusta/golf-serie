@@ -241,6 +241,8 @@ export interface LeaderboardEntry {
   // Points and position (for tour competitions)
   position?: number;
   points?: number;
+  netPosition?: number;
+  netPoints?: number;
   isProjected?: boolean; // true = calculated on-the-fly, false = from finalized results
 }
 

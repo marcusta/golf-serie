@@ -424,6 +424,45 @@ export class CompetitionResultsService {
     });
   }
 
+  private sortResultsByNetScore(results: CompetitionResult[], totalPar: number): CompetitionResult[] {
+    return [...results]
+      .filter(r => r.net_score !== null)
+      .sort((a, b) => {
+        const aNetRelative = a.net_score! - totalPar;
+        const bNetRelative = b.net_score! - totalPar;
+        if (aNetRelative !== bNetRelative) {
+          return aNetRelative - bNetRelative;
+        }
+        // Tie-breaker: alphabetical by name
+        return a.player_name.localeCompare(b.player_name);
+      });
+  }
+
+  private assignNetPositionsAndPoints(
+    sortedResults: CompetitionResult[],
+    numberOfPlayers: number,
+    pointTemplate: PointTemplateRow | null,
+    pointsMultiplier: number,
+    totalPar: number
+  ): CompetitionResult[] {
+    let currentPosition = 1;
+    let previousNetRelative = Number.MIN_SAFE_INTEGER;
+
+    return sortedResults.map((result, index) => {
+      const netRelative = result.net_score! - totalPar;
+      if (netRelative !== previousNetRelative) {
+        currentPosition = index + 1;
+      }
+      previousNetRelative = netRelative;
+
+      const points =
+        this.calculatePointsForPosition(currentPosition, numberOfPlayers, pointTemplate) *
+        pointsMultiplier;
+
+      return { ...result, position: currentPosition, points: Math.round(points), relative_to_par: netRelative };
+    });
+  }
+
   private assignPositionsAndPoints(
     sortedResults: CompetitionResult[],
     numberOfPlayers: number,
@@ -560,7 +599,21 @@ export class CompetitionResultsService {
       }
     }
 
-    // TODO: If scoring_mode is 'net' or 'both', also calculate and store net results
+    // Store net results if scoring_mode is 'net' or 'both'
+    const scoringMode = competition.scoring_mode || "gross";
+    if (scoringMode === "net" || scoringMode === "both") {
+      const netSortedResults = this.sortResultsByNetScore(finishedResults, totalPar);
+      const netRankedResults = this.assignNetPositionsAndPoints(
+        netSortedResults,
+        effectivePlayerCount,
+        pointTemplate,
+        competition.points_multiplier || 1,
+        totalPar
+      );
+      for (const result of netRankedResults) {
+        this.insertCompetitionResultRow(competitionId, result, "net");
+      }
+    }
 
     // Mark competition as finalized
     this.updateCompetitionFinalizedRow(competitionId);

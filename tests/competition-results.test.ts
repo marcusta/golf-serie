@@ -39,14 +39,14 @@ describe("CompetitionResultsService", () => {
   const createTestTour = (
     name: string,
     ownerId: number,
-    pointTemplateId?: number
+    options: { pointTemplateId?: number; scoringMode?: string } = {}
   ) => {
     return db
       .prepare(
         `INSERT INTO tours (name, owner_id, enrollment_mode, visibility, point_template_id, scoring_mode)
-         VALUES (?, ?, 'closed', 'public', ?, 'gross') RETURNING *`
+         VALUES (?, ?, 'closed', 'public', ?, ?) RETURNING *`
       )
-      .get(name, ownerId, pointTemplateId || null) as {
+      .get(name, ownerId, options.pointTemplateId || null, options.scoringMode || "gross") as {
       id: number;
       name: string;
     };
@@ -483,7 +483,7 @@ describe("CompetitionResultsService", () => {
         default: 10,
       });
       const course = createTestCourse("Test Course", standardPars);
-      const tour = createTestTour("Test Tour", user.id, template.id);
+      const tour = createTestTour("Test Tour", user.id, { pointTemplateId: template.id });
       const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
         tourId: tour.id,
       });
@@ -552,6 +552,257 @@ describe("CompetitionResultsService", () => {
       // Should only have 1 result, not duplicated
       expect(results).toHaveLength(1);
     });
+
+    describe("net scoring mode", () => {
+      test("should store net results when tour scoring_mode is 'both'", () => {
+        const user = createTestUser("owner@test.com", "ADMIN");
+        const course = createTestCourse("Test Course", standardPars);
+        const tour = createTestTour("Test Tour", user.id, { scoringMode: "both" });
+        const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Team A");
+
+        const player = createTestPlayer("Player");
+        createEnrollment(tour.id, player.id, "player@test.com");
+        createTestParticipant(teeTime.id, team.id, player.id, {
+          score: createScoreWithRelative(10), // 82 gross
+          isLocked: true,
+          handicapIndex: 10,
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        const grossResults = service.getCompetitionResults(competition.id, "gross");
+        const netResults = service.getCompetitionResults(competition.id, "net");
+
+        expect(grossResults).toHaveLength(1);
+        expect(netResults).toHaveLength(1);
+        expect(grossResults[0].gross_score).toBe(82);
+        expect(netResults[0].net_score).toBe(72); // 82 - 10 = 72
+      });
+
+      test("should store net results when tour scoring_mode is 'net'", () => {
+        const user = createTestUser("owner@test.com", "ADMIN");
+        const course = createTestCourse("Test Course", standardPars);
+        const tour = createTestTour("Test Tour", user.id, { scoringMode: "net" });
+        const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Team A");
+
+        const player = createTestPlayer("Player");
+        createEnrollment(tour.id, player.id, "player@test.com");
+        createTestParticipant(teeTime.id, team.id, player.id, {
+          score: createEvenParScore(),
+          isLocked: true,
+          handicapIndex: 5,
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        const netResults = service.getCompetitionResults(competition.id, "net");
+        expect(netResults).toHaveLength(1);
+      });
+
+      test("should rank players by net score in net results", () => {
+        const user = createTestUser("owner@test.com", "ADMIN");
+        const course = createTestCourse("Test Course", standardPars);
+        const tour = createTestTour("Test Tour", user.id, { scoringMode: "both" });
+        const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Team A");
+
+        // Player 1: 82 gross, handicap 15 = 67 net
+        const player1 = createTestPlayer("High Handicapper");
+        createEnrollment(tour.id, player1.id, "p1@test.com");
+        createTestParticipant(teeTime.id, team.id, player1.id, {
+          score: createScoreWithRelative(10), // 82 gross
+          isLocked: true,
+          handicapIndex: 15,
+        });
+
+        // Player 2: 72 gross, handicap 0 = 72 net
+        const player2 = createTestPlayer("Scratch Golfer");
+        createEnrollment(tour.id, player2.id, "p2@test.com");
+        createTestParticipant(teeTime.id, team.id, player2.id, {
+          score: createEvenParScore(), // 72 gross
+          isLocked: true,
+          handicapIndex: 0,
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        // Gross rankings: Scratch Golfer 1st (72), High Handicapper 2nd (82)
+        const grossResults = service.getCompetitionResults(competition.id, "gross");
+        expect(grossResults[0].player_id).toBe(player2.id);
+        expect(grossResults[0].position).toBe(1);
+        expect(grossResults[1].player_id).toBe(player1.id);
+        expect(grossResults[1].position).toBe(2);
+
+        // Net rankings: High Handicapper 1st (67), Scratch Golfer 2nd (72)
+        const netResults = service.getCompetitionResults(competition.id, "net");
+        expect(netResults[0].player_id).toBe(player1.id);
+        expect(netResults[0].position).toBe(1);
+        expect(netResults[1].player_id).toBe(player2.id);
+        expect(netResults[1].position).toBe(2);
+      });
+
+      test("should exclude players without handicap from net results", () => {
+        const user = createTestUser("owner@test.com", "ADMIN");
+        const course = createTestCourse("Test Course", standardPars);
+        const tour = createTestTour("Test Tour", user.id, { scoringMode: "both" });
+        const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Team A");
+
+        // Player with handicap
+        const player1 = createTestPlayer("With Handicap");
+        createEnrollment(tour.id, player1.id, "p1@test.com");
+        createTestParticipant(teeTime.id, team.id, player1.id, {
+          score: createEvenParScore(),
+          isLocked: true,
+          handicapIndex: 10,
+        });
+
+        // Player without handicap
+        const player2 = createTestPlayer("No Handicap");
+        createEnrollment(tour.id, player2.id, "p2@test.com");
+        createTestParticipant(teeTime.id, team.id, player2.id, {
+          score: createEvenParScore(),
+          isLocked: true,
+          // No handicapIndex
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        const grossResults = service.getCompetitionResults(competition.id, "gross");
+        const netResults = service.getCompetitionResults(competition.id, "net");
+
+        // Both appear in gross
+        expect(grossResults).toHaveLength(2);
+        // Only player with handicap in net
+        expect(netResults).toHaveLength(1);
+        expect(netResults[0].player_id).toBe(player1.id);
+      });
+
+      test("should calculate correct net relative_to_par", () => {
+        const user = createTestUser("owner@test.com", "ADMIN");
+        const course = createTestCourse("Test Course", standardPars);
+        const tour = createTestTour("Test Tour", user.id, { scoringMode: "both" });
+        const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Team A");
+
+        // 82 gross with 10 handicap = 72 net = even par
+        const player = createTestPlayer("Player");
+        createEnrollment(tour.id, player.id, "player@test.com");
+        createTestParticipant(teeTime.id, team.id, player.id, {
+          score: createScoreWithRelative(10), // 82 gross
+          isLocked: true,
+          handicapIndex: 10,
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        const grossResults = service.getCompetitionResults(competition.id, "gross");
+        const netResults = service.getCompetitionResults(competition.id, "net");
+
+        expect(grossResults[0].relative_to_par).toBe(10); // +10 gross
+        expect(netResults[0].relative_to_par).toBe(0); // even par net (72 - 72)
+      });
+
+      test("should assign correct points in net standings", () => {
+        const user = createTestUser("owner@test.com", "ADMIN");
+        const course = createTestCourse("Test Course", standardPars);
+        const tour = createTestTour("Test Tour", user.id, { scoringMode: "both" });
+        const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Team A");
+
+        const player1 = createTestPlayer("First Net");
+        const player2 = createTestPlayer("Second Net");
+
+        createEnrollment(tour.id, player1.id, "p1@test.com");
+        createEnrollment(tour.id, player2.id, "p2@test.com");
+
+        // Player 1: 80 gross, 15 handicap = 65 net (wins net)
+        createTestParticipant(teeTime.id, team.id, player1.id, {
+          score: createScoreWithRelative(8),
+          isLocked: true,
+          handicapIndex: 15,
+        });
+
+        // Player 2: 72 gross, 0 handicap = 72 net (wins gross)
+        createTestParticipant(teeTime.id, team.id, player2.id, {
+          score: createEvenParScore(),
+          isLocked: true,
+          handicapIndex: 0,
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        const netResults = service.getCompetitionResults(competition.id, "net");
+
+        // With 2 enrolled players: 1st = 4 points, 2nd = 2 points
+        expect(netResults[0].player_id).toBe(player1.id);
+        expect(netResults[0].points).toBe(4); // 1st place
+        expect(netResults[1].player_id).toBe(player2.id);
+        expect(netResults[1].points).toBe(2); // 2nd place
+      });
+
+      test("should handle ties in net results correctly", () => {
+        const user = createTestUser("owner@test.com", "ADMIN");
+        const course = createTestCourse("Test Course", standardPars);
+        const tour = createTestTour("Test Tour", user.id, { scoringMode: "both" });
+        const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Team A");
+
+        // Both players end up with 70 net
+        const player1 = createTestPlayer("Alice");
+        const player2 = createTestPlayer("Bob");
+
+        createEnrollment(tour.id, player1.id, "p1@test.com");
+        createEnrollment(tour.id, player2.id, "p2@test.com");
+
+        // Alice: 80 gross, 10 handicap = 70 net
+        createTestParticipant(teeTime.id, team.id, player1.id, {
+          score: createScoreWithRelative(8),
+          isLocked: true,
+          handicapIndex: 10,
+        });
+
+        // Bob: 75 gross, 5 handicap = 70 net
+        createTestParticipant(teeTime.id, team.id, player2.id, {
+          score: createScoreWithRelative(3),
+          isLocked: true,
+          handicapIndex: 5,
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        const netResults = service.getCompetitionResults(competition.id, "net");
+
+        // Both should be tied at position 1
+        expect(netResults[0].position).toBe(1);
+        expect(netResults[1].position).toBe(1);
+        expect(netResults[0].net_score).toBe(70);
+        expect(netResults[1].net_score).toBe(70);
+      });
+    });
   });
 
   describe("isCompetitionFinalized", () => {
@@ -616,7 +867,7 @@ describe("CompetitionResultsService", () => {
       expect(results[2].position).toBe(3);
     });
 
-    test("should filter by scoring type", () => {
+    test("should filter by scoring type - gross only tour", () => {
       const course = createTestCourse("Test Course", standardPars);
       const competition = createTestCompetition("Test Comp", "2024-01-15", course.id);
       const teeTime = createTestTeeTime(competition.id, "08:00");
@@ -630,7 +881,7 @@ describe("CompetitionResultsService", () => {
 
       service.finalizeCompetitionResults(competition.id);
 
-      // Currently only gross results are stored
+      // Gross-only tour should not store net results
       const grossResults = service.getCompetitionResults(competition.id, "gross");
       const netResults = service.getCompetitionResults(competition.id, "net");
 

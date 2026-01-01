@@ -464,15 +464,18 @@ export function LeaderboardComponent({
                           </div>
 
                           {/* Points (for tour competitions) */}
-                          {isTourCompetition && (
-                            <div className={`w-8 text-center text-sm font-bold ${
-                              entry.points && entry.points > 0
-                                ? entry.isProjected ? "text-turf/70" : "text-turf"
-                                : "text-gray-400"
-                            }`}>
-                              {entry.points && entry.points > 0 ? entry.points : "-"}
-                            </div>
-                          )}
+                          {isTourCompetition && (() => {
+                            const displayPoints = sortBy === "net" ? entry.netPoints : entry.points;
+                            return (
+                              <div className={`w-8 text-center text-sm font-bold ${
+                                displayPoints && displayPoints > 0
+                                  ? entry.isProjected ? "text-turf/70" : "text-turf"
+                                  : "text-gray-400"
+                              }`}>
+                                {displayPoints && displayPoints > 0 ? displayPoints : "-"}
+                              </div>
+                            );
+                          })()}
                         </>
                       )}
                     </div>
@@ -680,20 +683,23 @@ export function LeaderboardComponent({
                             </div>
                           )}
                         </td>
-                        {isTourCompetition && (
-                          <td className="py-4 px-4 text-center">
-                            <div className={`text-lg font-bold ${
-                              entry.points && entry.points > 0
-                                ? entry.isProjected ? "text-turf/70" : "text-turf"
-                                : "text-gray-400"
-                            }`}>
-                              {entry.points && entry.points > 0 ? entry.points : "-"}
-                            </div>
-                            {entry.isProjected && entry.points && entry.points > 0 && (
-                              <div className="text-xs text-gray-500">(proj)</div>
-                            )}
-                          </td>
-                        )}
+                        {isTourCompetition && (() => {
+                          const displayPoints = sortBy === "net" ? entry.netPoints : entry.points;
+                          return (
+                            <td className="py-4 px-4 text-center">
+                              <div className={`text-lg font-bold ${
+                                displayPoints && displayPoints > 0
+                                  ? entry.isProjected ? "text-turf/70" : "text-turf"
+                                  : "text-gray-400"
+                              }`}>
+                                {displayPoints && displayPoints > 0 ? displayPoints : "-"}
+                              </div>
+                              {entry.isProjected && displayPoints && displayPoints > 0 && (
+                                <div className="text-xs text-gray-500">(proj)</div>
+                              )}
+                            </td>
+                          );
+                        })()}
                         <td className="py-4 px-4 text-center">
                           <button
                             onClick={() =>
