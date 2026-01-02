@@ -62,7 +62,7 @@ export function useTeeTimesForCompetition(competitionId: number) {
 }
 
 export function useTeeTime(teeTimeId: number) {
-  return useQuery({
+  return useQuery<TeeTime>({
     queryKey: ["teeTime", teeTimeId],
     queryFn: async () => {
       const response = await fetch(`${API_BASE_URL}/tee-times/${teeTimeId}`);

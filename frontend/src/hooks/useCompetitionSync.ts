@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScoreStorageManager } from "../utils/scoreStorage";
 import { SYNC_INTERVALS, SyncManager } from "../utils/syncManager";
+import type { SyncStatus } from "../utils/syncManager";
 
 interface UseCompetitionSyncProps {
   competitionId?: string;
@@ -27,6 +28,14 @@ interface UseCompetitionSyncProps {
   teeTime?: unknown;
 }
 
+/** Return type for useCompetitionSync hook */
+export interface UseCompetitionSyncResult {
+  syncStatus: SyncStatus;
+  handleScoreUpdate: (participantId: string, hole: number, score: number) => void;
+  handleTabChangeSync: (newTab: string) => Promise<void>;
+  handleHoleNavigationSync: () => Promise<void>;
+}
+
 export function useCompetitionSync({
   competitionId,
   teeTimeId,
@@ -37,7 +46,7 @@ export function useCompetitionSync({
   refetchTeeTimes,
   updateScoreMutation,
   teeTime,
-}: UseCompetitionSyncProps) {
+}: UseCompetitionSyncProps): UseCompetitionSyncResult {
   const scoreManager = ScoreStorageManager.getInstance();
   const [lastSyncTime, setLastSyncTime] = useState(Date.now());
 

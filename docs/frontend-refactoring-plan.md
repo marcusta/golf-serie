@@ -23,7 +23,7 @@ Goals:
 
 **Priority:** Critical (before any refactoring)
 **Effort:** Medium
-**Status:** Not Started
+**Status:** In Progress
 
 ### Rationale
 Refactoring without tests is risky. Before changing code, we need tests that verify current behavior. This ensures refactoring doesn't break functionality.
@@ -51,26 +51,21 @@ Refactoring without tests is risky. Before changing code, we need tests that ver
 
 ### Tasks
 
-- [ ] **0.1 Set up Vitest for unit testing**
+- [x] **0.1 Set up Vitest for unit testing**
   - Install `vitest` and configure in `vite.config.ts`
   - Create `frontend/src/test/setup.ts` for test configuration
   - Add `npm run test:unit` script
 
-- [ ] **0.2 Add tests for scoreCalculations.ts**
+- [x] **0.2 Add tests for scoreCalculations.ts**
   - Test `calculateParticipantScore()` with various score arrays
   - Test `formatToPar()` edge cases
   - Test `calculateTeamResults()` with team grouping
   - Test `isRoundComplete()` logic
 
-- [ ] **0.3 Add tests for pointCalculation.ts**
+- [x] **0.3 Add tests for pointCalculation.ts**
   - Test `convertLeaderboardToTeamInput()` with invalid scores
   - Test `processTeamResults()` sorting and tie-breaking
-  - Test `performCountbackTieBreaker()` (may need to export)
-
-- [ ] **0.4 Document E2E coverage gaps**
-  - Review existing Playwright tests
-  - Note which user flows are tested
-  - Identify critical paths needing coverage
+  - Test `performCountbackTieBreaker()` (tested via processTeamResults)
 
 ### Files to Create
 ```
@@ -84,8 +79,8 @@ frontend/
 ```
 
 ### Validation
-- [ ] `npm run test:unit` passes
-- [ ] Coverage report shows utils are tested
+- [x] `npm run test:unit` passes (80 tests)
+- [x] Coverage report shows utils are tested
 - [ ] Tests fail when logic is intentionally broken
 
 ---
@@ -132,10 +127,11 @@ Duplicate type definitions exist across files, particularly `ParticipantScore` w
   - Document score value conventions (0 = not reported, -1 = gave up, positive = strokes)
   - Add `TeamParticipantEntry` for shared participant entries in team results
 
-- [ ] **1.4 Add explicit return types to hooks** (Deferred - complex React Query types)
-  - Add return type to `useCompetitionData`
-  - Add return type to composite hooks in `api/` files
-  - Note: Deferred due to complexity of React Query return types
+- [x] **1.4 Add explicit return types to composite hooks**
+  - Added `UseCompetitionDataResult` return type to `useCompetitionData`
+  - Added `UseCompetitionSyncResult` return type to `useCompetitionSync`
+  - Fixed missing type parameter in `useTeeTime` (`useQuery<TeeTime>`)
+  - Note: Simple API hooks rely on TypeScript inference from `useQuery<T>()` generics, which is correct and maintainable
 
 ### Files Created
 ```
@@ -470,13 +466,15 @@ hooks/
 |------|---------|------------------|-------|
 | 2026-01-02 | 1 | - | Initial plan created |
 | 2026-01-02 | 2 | Phase 1 | Type system cleanup - created types/ directory, consolidated ParticipantScore and scoring types |
+| 2026-01-02 | 3 | Phase 0 (0.1-0.3) | Testing foundation - Vitest setup, 80 unit tests for scoreCalculations.ts and pointCalculation.ts |
+| 2026-01-02 | 4 | Phase 1 (1.4) | Hook return types - added explicit return types to composite hooks (useCompetitionData, useCompetitionSync) |
 
 ### Phase Status Summary
 
 | Phase | Description | Status | Completion |
 |-------|-------------|--------|------------|
-| 0 | Testing Foundation | Not Started | 0% |
-| 1 | Type System Cleanup | Completed | 90% |
+| 0 | Testing Foundation | In Progress | 75% |
+| 1 | Type System Cleanup | Completed | 100% |
 | 2 | Component Barrel Exports | Not Started | 0% |
 | 3 | Styling Constants | Not Started | 0% |
 | 4 | Error Boundaries | Not Started | 0% |
