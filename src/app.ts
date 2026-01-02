@@ -300,6 +300,19 @@ export function createApp(db: Database): Hono {
     return await competitionsApi.findAll();
   });
 
+  // Stand-alone competitions endpoint (must be before :id route)
+  app.get("/api/competitions/standalone", requireAuth(), async (c) => {
+    const user = c.get("user");
+    try {
+      const competitions = await competitionService.findStandAlone(user!.id);
+      return c.json(competitions);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 500);
+    }
+  });
+
   app.get("/api/competitions/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await competitionsApi.findById(c.req.raw, id);
@@ -469,19 +482,6 @@ export function createApp(db: Database): Hono {
       }
     }
   );
-
-  // Stand-alone competitions endpoint
-  app.get("/api/competitions/standalone", requireAuth(), async (c) => {
-    const user = c.get("user");
-    try {
-      const competitions = await competitionService.findStandAlone(user!.id);
-      return c.json(competitions);
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Internal server error";
-      return c.json({ error: message }, 500);
-    }
-  });
 
   app.get("/api/tee-times/:id", async (c) => {
     const id = parseInt(c.req.param("id"));

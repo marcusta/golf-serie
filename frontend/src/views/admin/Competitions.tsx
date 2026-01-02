@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  useCompetitions,
+  useStandAloneCompetitions,
   useCreateCompetition,
   useUpdateCompetition,
   useDeleteCompetition,
@@ -39,7 +39,7 @@ export default function AdminCompetitions() {
   const seriesFilter = search.series ? parseInt(search.series) : null;
   const tourFilter = search.tour ? parseInt(search.tour) : null;
 
-  const { data: allCompetitions, isLoading, error } = useCompetitions();
+  const { data: standAloneCompetitions, isLoading, error } = useStandAloneCompetitions();
   const { data: seriesCompetitions } = useSeriesCompetitions(seriesFilter || 0);
   const { data: tourCompetitions } = useTourCompetitions(tourFilter || 0);
   const { data: courses } = useCourses();
@@ -51,8 +51,8 @@ export default function AdminCompetitions() {
   const deleteCompetition = useDeleteCompetition();
   const finalizeResults = useFinalizeCompetitionResults();
 
-  // Use series-specific or tour-specific competitions if filtering, otherwise all
-  const competitions = seriesFilter ? seriesCompetitions : tourFilter ? tourCompetitions : allCompetitions;
+  // Use series-specific or tour-specific competitions if filtering, otherwise stand-alone only
+  const competitions = seriesFilter ? seriesCompetitions : tourFilter ? tourCompetitions : standAloneCompetitions;
   const filteredSeries = series?.find((s) => s.id === seriesFilter);
   const filteredTour = tours?.find((t) => t.id === tourFilter);
 
@@ -241,7 +241,7 @@ export default function AdminCompetitions() {
               ? `Competitions in the ${filteredSeries.name} series`
               : tourFilter && filteredTour
               ? `Competitions in the ${filteredTour.name} tour`
-              : "Manage golf competitions and tournaments"}
+              : "Stand-alone competitions not linked to a Series or Tour"}
           </p>
         </div>
         <button
@@ -346,58 +346,46 @@ export default function AdminCompetitions() {
                 label="Tee Box (Optional)"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Series {formData.tour_id ? "(Disabled - Tour selected)" : "(Optional)"}
-              </label>
-              <select
-                name="series_id"
-                value={formData.series_id}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    series_id: value,
-                    tour_id: value ? "" : prev.tour_id, // Clear tour if series selected
-                  }));
-                }}
-                disabled={!!formData.tour_id}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                <option value="">No series (standalone competition)</option>
-                {series?.map((seriesItem) => (
-                  <option key={seriesItem.id} value={seriesItem.id}>
-                    {seriesItem.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tour {formData.series_id ? "(Disabled - Series selected)" : "(Optional)"}
-              </label>
-              <select
-                name="tour_id"
-                value={formData.tour_id}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    tour_id: value,
-                    series_id: value ? "" : prev.series_id, // Clear series if tour selected
-                  }));
-                }}
-                disabled={!!formData.series_id}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                <option value="">No tour (standalone competition)</option>
-                {tours?.map((tour) => (
-                  <option key={tour.id} value={tour.id}>
-                    {tour.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Only show Series selector when viewing series competitions */}
+            {seriesFilter && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Series
+                </label>
+                <select
+                  name="series_id"
+                  value={formData.series_id}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  {series?.map((seriesItem) => (
+                    <option key={seriesItem.id} value={seriesItem.id}>
+                      {seriesItem.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {/* Only show Tour selector when viewing tour competitions */}
+            {tourFilter && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tour
+                </label>
+                <select
+                  name="tour_id"
+                  value={formData.tour_id}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  {tours?.map((tour) => (
+                    <option key={tour.id} value={tour.id}>
+                      {tour.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Point Template (Optional)
@@ -558,7 +546,9 @@ export default function AdminCompetitions() {
           <h3 className="text-lg font-medium text-gray-900">
             {seriesFilter && filteredSeries
               ? `${filteredSeries.name} Competitions`
-              : "All Competitions"}
+              : tourFilter && filteredTour
+              ? `${filteredTour.name} Competitions`
+              : "Stand-Alone Competitions"}
           </h3>
           {competitions && (
             <p className="text-sm text-gray-500 mt-1">
@@ -574,8 +564,12 @@ export default function AdminCompetitions() {
                 <p>
                   No competitions found in the {filteredSeries.name} series.
                 </p>
+              ) : tourFilter && filteredTour ? (
+                <p>
+                  No competitions found in the {filteredTour.name} tour.
+                </p>
               ) : (
-                <p>No competitions found.</p>
+                <p>No stand-alone competitions found.</p>
               )}
             </div>
           ) : (
