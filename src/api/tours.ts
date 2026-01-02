@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { requireAuth, requireRole } from "../middleware/auth";
+import { PointTemplateService } from "../services/point-template.service";
 import { TourAdminService } from "../services/tour-admin.service";
 import { TourCategoryService } from "../services/tour-category.service";
 import { TourDocumentService } from "../services/tour-document.service";
@@ -11,7 +12,8 @@ export function createToursApi(
   enrollmentService: TourEnrollmentService,
   adminService: TourAdminService,
   documentService: TourDocumentService,
-  categoryService: TourCategoryService
+  categoryService: TourCategoryService,
+  pointTemplateService: PointTemplateService
 ) {
   const app = new Hono();
 
@@ -730,6 +732,97 @@ export function createToursApi(
       );
 
       return c.json({ success: true, updated });
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Point Templates (Tour-scoped)
+  // ─────────────────────────────────────────────────────────────────
+
+  // GET /api/tours/:id/point-templates - List tour's point templates
+  app.get("/:id/point-templates", async (c) => {
+    try {
+      const id = parseInt(c.req.param("id"));
+      const templates = pointTemplateService.findByTour(id);
+      return c.json(templates);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // POST /api/tours/:id/point-templates - Create point template for tour
+  app.post("/:id/point-templates", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const body = await c.req.json();
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      if (!body.name) {
+        return c.json({ error: "Template name is required" }, 400);
+      }
+
+      if (!body.points_structure) {
+        return c.json({ error: "Points structure is required" }, 400);
+      }
+
+      const template = pointTemplateService.createForTour(id, body, user!.id);
+      return c.json(template, 201);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // PUT /api/tours/:id/point-templates/:templateId - Update point template
+  app.put("/:id/point-templates/:templateId", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const tourId = parseInt(c.req.param("id"));
+      const templateId = parseInt(c.req.param("templateId"));
+      const body = await c.req.json();
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(tourId, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      // Verify template belongs to this tour
+      if (!pointTemplateService.belongsToTour(templateId, tourId)) {
+        return c.json({ error: "Template not found" }, 404);
+      }
+
+      const template = pointTemplateService.update(templateId, body);
+      return c.json(template);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // DELETE /api/tours/:id/point-templates/:templateId - Delete point template
+  app.delete("/:id/point-templates/:templateId", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const tourId = parseInt(c.req.param("id"));
+      const templateId = parseInt(c.req.param("templateId"));
+
+      // Check if user can manage tour
+      if (!enrollmentService.canManageTour(tourId, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      // Verify template belongs to this tour
+      if (!pointTemplateService.belongsToTour(templateId, tourId)) {
+        return c.json({ error: "Template not found" }, 404);
+      }
+
+      pointTemplateService.delete(templateId);
+      return c.json({ success: true });
     } catch (error: any) {
       return c.json({ error: error.message }, 400);
     }

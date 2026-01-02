@@ -6,6 +6,7 @@ export type PointTemplate = {
   name: string;
   points_structure: string; // JSON string
   created_by: number | null;
+  tour_id: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -73,6 +74,27 @@ export class PointTemplateService {
       .get(name, pointsStructureJson, id) as PointTemplate;
   }
 
+  private findByTourIdQuery(tourId: number): PointTemplate[] {
+    return this.db
+      .prepare("SELECT * FROM point_templates WHERE tour_id = ? ORDER BY name ASC")
+      .all(tourId) as PointTemplate[];
+  }
+
+  private insertPointTemplateForTour(
+    tourId: number,
+    name: string,
+    pointsStructureJson: string,
+    createdBy: number
+  ): PointTemplate {
+    return this.db
+      .prepare(
+        `INSERT INTO point_templates (name, points_structure, created_by, tour_id)
+         VALUES (?, ?, ?, ?)
+         RETURNING *`
+      )
+      .get(name, pointsStructureJson, createdBy, tourId) as PointTemplate;
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // Public API Methods (orchestration only)
   // ─────────────────────────────────────────────────────────────────
@@ -122,6 +144,33 @@ export class PointTemplateService {
     if (result.changes === 0) {
       throw new Error("Point template not found");
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Tour-scoped Methods
+  // ─────────────────────────────────────────────────────────────────
+
+  findByTour(tourId: number): PointTemplate[] {
+    return this.findByTourIdQuery(tourId);
+  }
+
+  createForTour(
+    tourId: number,
+    data: CreatePointTemplateInput,
+    createdBy: number
+  ): PointTemplate {
+    const pointsStructureJson = JSON.stringify(data.points_structure);
+    return this.insertPointTemplateForTour(
+      tourId,
+      data.name,
+      pointsStructureJson,
+      createdBy
+    );
+  }
+
+  belongsToTour(templateId: number, tourId: number): boolean {
+    const template = this.findById(templateId);
+    return template !== null && template.tour_id === tourId;
   }
 
   calculatePoints(templateId: number, position: number): number {

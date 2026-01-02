@@ -82,7 +82,7 @@ export function createApp(db: Database): Hono {
   const authApi = createAuthApi(authService);
   const playersApi = createPlayersApi(playerService, playerProfileService);
   const pointTemplatesApi = createPointTemplatesApi(pointTemplateService);
-  const toursApi = createToursApi(tourService, tourEnrollmentService, tourAdminService, tourDocumentService, tourCategoryService);
+  const toursApi = createToursApi(tourService, tourEnrollmentService, tourAdminService, tourDocumentService, tourCategoryService, pointTemplateService);
   const tourCompetitionRegistrationApi = createTourCompetitionRegistrationApi(
     tourCompetitionRegistrationService,
     tourEnrollmentService,

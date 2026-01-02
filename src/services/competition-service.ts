@@ -229,6 +229,10 @@ export class CompetitionService {
       updates.push("tee_id = ?");
       values.push(data.tee_id);
     }
+    if (data.point_template_id !== undefined) {
+      updates.push("point_template_id = ?");
+      values.push(data.point_template_id);
+    }
     if (data.manual_entry_format) {
       updates.push("manual_entry_format = ?");
       values.push(data.manual_entry_format);
@@ -311,8 +315,8 @@ export class CompetitionService {
 
   private insertCompetitionRow(data: CreateCompetitionDto): Competition {
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
     return stmt.get(
@@ -322,6 +326,7 @@ export class CompetitionService {
       data.series_id || null,
       data.tour_id || null,
       data.tee_id || null,
+      data.point_template_id || null,
       data.manual_entry_format || "out_in_total",
       data.points_multiplier ?? 1,
       data.venue_type || "outdoor",

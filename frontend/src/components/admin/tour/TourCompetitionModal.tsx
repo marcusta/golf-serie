@@ -9,7 +9,7 @@ import {
   type CategoryTeeMapping,
 } from "../../../api/competitions";
 import { useCourses } from "../../../api/courses";
-import { usePointTemplates } from "../../../api/point-templates";
+import { useTourPointTemplates } from "../../../api/point-templates";
 import { TeeSelector, CategoryTeeAssignment } from "../competition";
 import { Loader2, Check, X, Trophy } from "lucide-react";
 
@@ -56,7 +56,7 @@ export function TourCompetitionModal({
 }: TourCompetitionModalProps) {
   const queryClient = useQueryClient();
   const { data: courses } = useCourses();
-  const { data: pointTemplates } = usePointTemplates();
+  const { data: pointTemplates } = useTourPointTemplates(tourId);
   const createMutation = useCreateCompetition();
   const updateMutation = useUpdateCompetition();
   const setCategoryTeesMutation = useSetCompetitionCategoryTees();

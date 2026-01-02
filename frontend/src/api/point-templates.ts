@@ -6,6 +6,7 @@ export interface PointTemplate {
   name: string;
   points_structure: string; // JSON string
   created_by: number | null;
+  tour_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,6 +111,118 @@ export function useDeletePointTemplate() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pointTemplates"] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Tour-scoped Point Template Hooks
+// ─────────────────────────────────────────────────────────────────
+
+export function useTourPointTemplates(tourId: number) {
+  return useQuery<PointTemplate[]>({
+    queryKey: ["tour-point-templates", tourId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/point-templates`,
+        { credentials: "include" }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch tour point templates");
+      }
+      return response.json();
+    },
+    enabled: !!tourId,
+  });
+}
+
+export function useCreateTourPointTemplate(tourId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      points_structure: PointsStructure;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/point-templates`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create point template");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tour-point-templates", tourId],
+      });
+    },
+  });
+}
+
+export function useUpdateTourPointTemplate(tourId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      templateId,
+      data,
+    }: {
+      templateId: number;
+      data: { name?: string; points_structure?: PointsStructure };
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/point-templates/${templateId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(data),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update point template");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tour-point-templates", tourId],
+      });
+    },
+  });
+}
+
+export function useDeleteTourPointTemplate(tourId: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (templateId: number) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/point-templates/${templateId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete point template");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tour-point-templates", tourId],
+      });
     },
   });
 }
