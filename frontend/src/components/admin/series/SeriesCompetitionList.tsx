@@ -1,7 +1,19 @@
 import { Link } from "@tanstack/react-router";
 import { useSeriesCompetitions } from "../../../api/series";
+import { useFinalizeCompetitionResults } from "../../../api/competitions";
 import { useCourses, useCourseTees } from "../../../api/courses";
-import { Calendar, MapPin, Loader2, Flag, Edit, Trash2, ListOrdered } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Loader2,
+  Flag,
+  Edit,
+  Trash2,
+  Clock,
+  Users,
+  ClipboardEdit,
+  CheckCircle,
+} from "lucide-react";
 import type { Competition } from "../../../api/competitions";
 
 export interface SeriesCompetitionListProps {
@@ -30,6 +42,7 @@ export function SeriesCompetitionList({
 }: SeriesCompetitionListProps) {
   const { data: competitions, isLoading } = useSeriesCompetitions(seriesId);
   const { data: courses } = useCourses();
+  const finalizeResults = useFinalizeCompetitionResults();
 
   const getCourseName = (courseId?: number) => {
     if (!courseId) return "No course";
@@ -81,32 +94,85 @@ export function SeriesCompetitionList({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              {/* Tee times - for scheduled competitions */}
               {competition.start_mode === "scheduled" && (
                 <Link
                   to="/admin/competitions/$competitionId/tee-times"
                   params={{ competitionId: competition.id.toString() }}
-                  className="p-2 text-gray-500 hover:text-green-600 transition-colors"
-                  title="Manage start list"
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Manage tee times"
                 >
-                  <ListOrdered className="w-4 h-4" />
+                  <Clock className="w-4 h-4" />
                 </Link>
               )}
+              {/* Playing groups - for open start competitions */}
+              {competition.start_mode === "open" && (
+                <Link
+                  to={`/admin/competitions/${competition.id}/groups`}
+                  className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                  title="View playing groups"
+                >
+                  <Users className="w-4 h-4" />
+                </Link>
+              )}
+              {/* Manual score entry */}
+              <Link
+                to={`/admin/competitions/${competition.id}/manual-scores`}
+                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="Manual score entry"
+              >
+                <ClipboardEdit className="w-4 h-4" />
+              </Link>
+              {/* Finalize results */}
+              {competition.is_results_final ? (
+                <div
+                  className="p-2 text-green-600"
+                  title={`Results finalized${competition.results_finalized_at ? ` on ${new Date(competition.results_finalized_at).toLocaleDateString()}` : ""}`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (
+                      !confirm(
+                        "Finalize results for this competition? This will calculate and store the final standings and points."
+                      )
+                    ) {
+                      return;
+                    }
+                    finalizeResults.mutate(competition.id);
+                  }}
+                  disabled={finalizeResults.isPending}
+                  className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                  title="Finalize results"
+                >
+                  {finalizeResults.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+              {/* Edit competition */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(competition);
                 }}
-                className="p-2 text-gray-500 hover:text-blue-600 transition-colors"
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 title="Edit competition"
               >
                 <Edit className="w-4 h-4" />
               </button>
+              {/* Delete competition */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(competition);
                 }}
-                className="p-2 text-gray-500 hover:text-red-600 transition-colors"
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 title="Delete competition"
               >
                 <Trash2 className="w-4 h-4" />

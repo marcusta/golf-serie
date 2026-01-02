@@ -14,10 +14,28 @@ describe("Competition API", () => {
   let courseId: number;
   let seriesId: number;
 
+  // Helper to create a super admin user and authenticate
+  // SUPER_ADMIN is needed for team-series operations used in some tests
+  async function loginAsSuperAdmin(email = "superadmin@test.com") {
+    await makeRequest("/api/auth/register", "POST", {
+      email,
+      password: "password123",
+    });
+    db.prepare("UPDATE users SET role = 'SUPER_ADMIN' WHERE email = ?").run(email);
+    await makeRequest("/api/auth/login", "POST", {
+      email,
+      password: "password123",
+    });
+  }
+
   beforeEach(async () => {
     const setup = await setupTestDatabase();
     db = setup.db;
     makeRequest = setup.makeRequest;
+
+    // Authenticate as SUPER_ADMIN before creating resources
+    // SUPER_ADMIN is needed for team-series operations in some tests
+    await loginAsSuperAdmin();
 
     // Create a course for testing
     const createCourseResponse = await makeRequest("/api/courses", "POST", {

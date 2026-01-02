@@ -21,6 +21,7 @@ export interface Series {
   banner_image_url: string | null;
   is_public: boolean;
   landing_document_id: number | null;
+  owner_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -495,6 +496,19 @@ export interface TourEnrollmentWithPlayer extends TourEnrollment {
 }
 
 export interface TourAdminWithUser extends TourAdmin {
+  email: string;
+  role: string;
+}
+
+// Series admin types
+export interface SeriesAdmin {
+  id: number;
+  series_id: number;
+  user_id: number;
+  created_at: string;
+}
+
+export interface SeriesAdminWithUser extends SeriesAdmin {
   email: string;
   role: string;
 }

@@ -20,6 +20,7 @@ interface SeriesRow {
   banner_image_url: string | null;
   is_public: number; // SQLite boolean
   landing_document_id: number | null;
+  owner_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +30,17 @@ interface CompetitionRow {
   name: string;
   date: string;
   course_id: number;
+  tee_id: number | null;
+  series_id: number | null;
+  tour_id: number | null;
+  manual_entry_format: string;
+  points_multiplier: number;
+  venue_type: string;
+  start_mode: string;
+  open_start: string | null;
+  open_end: string | null;
+  is_results_final: number; // SQLite boolean
+  results_finalized_at: string | null;
   course_name: string;
   participant_count: number;
 }
@@ -56,6 +68,17 @@ interface CompetitionWithCourse {
   name: string;
   date: string;
   course_id: number;
+  tee_id: number | null;
+  series_id: number | null;
+  tour_id: number | null;
+  manual_entry_format: string;
+  points_multiplier: number;
+  venue_type: string;
+  start_mode: string;
+  open_start: string | null;
+  open_end: string | null;
+  is_results_final: boolean;
+  results_finalized_at: string | null;
   course: {
     id: number;
     name: string;
@@ -95,8 +118,15 @@ export class SeriesService {
 
   private transformSeriesRow(row: SeriesRow): Series {
     return {
-      ...row,
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      banner_image_url: row.banner_image_url,
       is_public: Boolean(row.is_public),
+      landing_document_id: row.landing_document_id,
+      owner_id: row.owner_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
     };
   }
 
@@ -106,6 +136,17 @@ export class SeriesService {
       name: row.name,
       date: row.date,
       course_id: row.course_id,
+      tee_id: row.tee_id,
+      series_id: row.series_id,
+      tour_id: row.tour_id,
+      manual_entry_format: row.manual_entry_format,
+      points_multiplier: row.points_multiplier,
+      venue_type: row.venue_type,
+      start_mode: row.start_mode,
+      open_start: row.open_start,
+      open_end: row.open_end,
+      is_results_final: Boolean(row.is_results_final),
+      results_finalized_at: row.results_finalized_at,
       participant_count: row.participant_count,
       course: {
         id: row.course_id,
@@ -230,18 +271,19 @@ export class SeriesService {
     name: string,
     description: string | null,
     bannerImageUrl: string | null,
-    isPublic: number
+    isPublic: number,
+    ownerId: number | null
   ): SeriesRow {
     return this.db.prepare(`
-      INSERT INTO series (name, description, banner_image_url, is_public, created_at, updated_at)
-      VALUES (?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S.%f', 'now'), strftime('%Y-%m-%d %H:%M:%S.%f', 'now'))
+      INSERT INTO series (name, description, banner_image_url, is_public, owner_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S.%f', 'now'), strftime('%Y-%m-%d %H:%M:%S.%f', 'now'))
       RETURNING *
-    `).get(name, description, bannerImageUrl, isPublic) as SeriesRow;
+    `).get(name, description, bannerImageUrl, isPublic, ownerId) as SeriesRow;
   }
 
   private findAllSeriesRows(): SeriesRow[] {
     return this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, owner_id, created_at, updated_at
       FROM series
       ORDER BY strftime('%s.%f', created_at) DESC
     `).all() as SeriesRow[];
@@ -249,7 +291,7 @@ export class SeriesService {
 
   private findPublicSeriesRows(): SeriesRow[] {
     return this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, owner_id, created_at, updated_at
       FROM series
       WHERE is_public = 1
       ORDER BY strftime('%s.%f', created_at) DESC
@@ -258,10 +300,21 @@ export class SeriesService {
 
   private findSeriesRowById(id: number): SeriesRow | null {
     return this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, landing_document_id, created_at, updated_at
+      SELECT id, name, description, banner_image_url, is_public, landing_document_id, owner_id, created_at, updated_at
       FROM series
       WHERE id = ?
     `).get(id) as SeriesRow | null;
+  }
+
+  private findSeriesForUserRows(userId: number): SeriesRow[] {
+    return this.db.prepare(`
+      SELECT DISTINCT s.id, s.name, s.description, s.banner_image_url, s.is_public,
+             s.landing_document_id, s.owner_id, s.created_at, s.updated_at
+      FROM series s
+      LEFT JOIN series_admins sa ON s.id = sa.series_id
+      WHERE s.owner_id = ? OR sa.user_id = ?
+      ORDER BY strftime('%s.%f', s.created_at) DESC
+    `).all(userId, userId) as SeriesRow[];
   }
 
   private findDocumentRow(id: number): DocumentRow | null {
@@ -361,7 +414,7 @@ export class SeriesService {
   // Public API Methods (orchestration only)
   // ============================================================================
 
-  async create(data: CreateSeriesDto): Promise<Series> {
+  async create(data: CreateSeriesDto, ownerId?: number): Promise<Series> {
     this.validateSeriesName(data.name);
 
     try {
@@ -370,7 +423,8 @@ export class SeriesService {
         data.name,
         data.description || null,
         data.banner_image_url || null,
-        isPublic
+        isPublic,
+        ownerId ?? null
       );
       return this.transformSeriesRow(row);
     } catch (error) {
@@ -388,6 +442,11 @@ export class SeriesService {
 
   async findPublic(): Promise<Series[]> {
     const rows = this.findPublicSeriesRows();
+    return rows.map((row) => this.transformSeriesRow(row));
+  }
+
+  async findForUser(userId: number): Promise<Series[]> {
+    const rows = this.findSeriesForUserRows(userId);
     return rows.map((row) => this.transformSeriesRow(row));
   }
 

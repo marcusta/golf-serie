@@ -12,6 +12,32 @@ describe("Team API", () => {
   let db: Database;
   let makeRequest: MakeRequestFunction;
 
+  // Helper to create an admin user and authenticate
+  async function loginAsAdmin(email = "admin@test.com") {
+    await makeRequest("/api/auth/register", "POST", {
+      email,
+      password: "password123",
+    });
+    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    await makeRequest("/api/auth/login", "POST", {
+      email,
+      password: "password123",
+    });
+  }
+
+  // Helper to login as SUPER_ADMIN for team-series operations
+  async function loginAsSuperAdmin(email = "superadmin@test.com") {
+    await makeRequest("/api/auth/register", "POST", {
+      email,
+      password: "password123",
+    });
+    db.prepare("UPDATE users SET role = 'SUPER_ADMIN' WHERE email = ?").run(email);
+    await makeRequest("/api/auth/login", "POST", {
+      email,
+      password: "password123",
+    });
+  }
+
   beforeEach(async () => {
     const setup = await setupTestDatabase();
     db = setup.db;
@@ -181,6 +207,9 @@ describe("Team API", () => {
     let teamId: number;
 
     beforeEach(async () => {
+      // Login as SUPER_ADMIN for series/team operations
+      await loginAsSuperAdmin();
+
       // Create test series
       const series1Response = await makeRequest("/api/series", "POST", {
         name: "Summer Series",

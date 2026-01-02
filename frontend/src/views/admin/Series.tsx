@@ -1,16 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   useSeries,
   useCreateSeries,
   useUpdateSeries,
   useDeleteSeries,
-  useSeriesTeams,
-  useAvailableTeams,
-  useAddTeamToSeries,
-  useRemoveTeamFromSeries,
   type Series,
 } from "@/api/series";
-import { type Team } from "@/api/teams";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,9 +18,6 @@ import {
   Eye,
   EyeOff,
   Image,
-  Users,
-  Calendar,
-  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +30,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Link } from "@tanstack/react-router";
 
 function SeriesSkeleton() {
   return (
@@ -57,30 +49,20 @@ function SeriesSkeleton() {
 }
 
 export default function AdminSeries() {
+  const navigate = useNavigate();
   const { data: series, isLoading, error } = useSeries();
   const createSeries = useCreateSeries();
   const updateSeries = useUpdateSeries();
   const deleteSeries = useDeleteSeries();
-  const addTeamToSeries = useAddTeamToSeries();
-  const removeTeamFromSeries = useRemoveTeamFromSeries();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingSeries, setEditingSeries] = useState<Series | null>(null);
-  const [showTeamDialog, setShowTeamDialog] = useState(false);
-  const [managingTeamsForSeries, setManagingTeamsForSeries] =
-    useState<Series | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     banner_image_url: "",
     is_public: true,
   });
-
-  // Team management queries
-  const { data: seriesTeams } = useSeriesTeams(managingTeamsForSeries?.id || 0);
-  const { data: availableTeams } = useAvailableTeams(
-    managingTeamsForSeries?.id || 0
-  );
 
   const handleCreate = () => {
     setEditingSeries(null);
@@ -93,7 +75,8 @@ export default function AdminSeries() {
     setShowDialog(true);
   };
 
-  const handleEdit = (series: Series) => {
+  const handleEdit = (e: React.MouseEvent, series: Series) => {
+    e.stopPropagation();
     setEditingSeries(series);
     setFormData({
       name: series.name,
@@ -104,7 +87,8 @@ export default function AdminSeries() {
     setShowDialog(true);
   };
 
-  const handleDelete = async (series: Series) => {
+  const handleDelete = async (e: React.MouseEvent, series: Series) => {
+    e.stopPropagation();
     if (
       window.confirm(`Are you sure you want to delete series "${series.name}"?`)
     ) {
@@ -146,257 +130,66 @@ export default function AdminSeries() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleManageTeams = (series: Series) => {
-    setManagingTeamsForSeries(series);
-    setShowTeamDialog(true);
-  };
-
-  const handleAddTeam = async (teamId: number) => {
-    if (!managingTeamsForSeries) return;
-    try {
-      await addTeamToSeries.mutateAsync({
-        seriesId: managingTeamsForSeries.id,
-        teamId,
-      });
-    } catch (error) {
-      console.error("Failed to add team to series:", error);
-      alert("Failed to add team to series. Please try again.");
-    }
-  };
-
-  const handleRemoveTeam = async (teamId: number) => {
-    if (!managingTeamsForSeries) return;
-    try {
-      await removeTeamFromSeries.mutateAsync({
-        seriesId: managingTeamsForSeries.id,
-        teamId,
-      });
-    } catch (error) {
-      console.error("Failed to remove team from series:", error);
-      alert("Failed to remove team from series. Please try again.");
-    }
+  const handleNavigate = (seriesId: number) => {
+    navigate({ to: `/admin/series/${seriesId}` });
   };
 
   if (isLoading) {
     return (
-      <>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Trophy className="h-8 w-8 text-blue-600" />
-              <h2 className="text-3xl font-bold text-gray-900">Series</h2>
-            </div>
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="text-sm">
-                Loading...
-              </Badge>
-              <Button
-                onClick={handleCreate}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Series
-              </Button>
-            </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Trophy className="h-8 w-8 text-blue-600" />
+            <h2 className="text-3xl font-bold text-gray-900">Series</h2>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <SeriesSkeleton key={i} />
-            ))}
+          <div className="flex items-center gap-4">
+            <Badge variant="secondary" className="text-sm">
+              Loading...
+            </Badge>
+            <Button
+              onClick={handleCreate}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Series
+            </Button>
           </div>
         </div>
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {editingSeries ? "Edit Series" : "Create New Series"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">
-                  Series Name
-                </label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter series name"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="description" className="text-sm font-medium">
-                  Description
-                </label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter series description (optional)"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <label
-                  htmlFor="banner_image_url"
-                  className="text-sm font-medium"
-                >
-                  Banner Image URL
-                </label>
-                <Input
-                  id="banner_image_url"
-                  name="banner_image_url"
-                  type="url"
-                  value={formData.banner_image_url}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/banner.jpg (optional)"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_public"
-                  checked={formData.is_public}
-                  onCheckedChange={(checked) =>
-                    setFormData((prev) => ({ ...prev, is_public: checked }))
-                  }
-                />
-                <label htmlFor="is_public" className="text-sm font-medium">
-                  Public series (visible to players)
-                </label>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingSeries ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </>
+        <div className="grid gap-4">
+          {[...Array(3)].map((_, i) => (
+            <SeriesSkeleton key={i} />
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Trophy className="h-8 w-8 text-blue-600" />
-              <h2 className="text-3xl font-bold text-gray-900">Series</h2>
-            </div>
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={handleCreate}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Series
-              </Button>
-            </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Trophy className="h-8 w-8 text-blue-600" />
+            <h2 className="text-3xl font-bold text-gray-900">Series</h2>
           </div>
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-2 text-red-700">
-                <Trophy className="h-5 w-5" />
-                <p className="font-medium">Error loading series</p>
-              </div>
-              <p className="text-red-600 text-sm mt-2">
-                Please try refreshing the page or contact support if the problem
-                persists. You can still create new series using the button
-                above.
-              </p>
-            </CardContent>
-          </Card>
+          <Button onClick={handleCreate} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add Series
+          </Button>
         </div>
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>
-                {editingSeries ? "Edit Series" : "Create New Series"}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">
-                  Series Name
-                </label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter series name"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="description" className="text-sm font-medium">
-                  Description
-                </label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter series description (optional)"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <label
-                  htmlFor="banner_image_url"
-                  className="text-sm font-medium"
-                >
-                  Banner Image URL
-                </label>
-                <Input
-                  id="banner_image_url"
-                  name="banner_image_url"
-                  type="url"
-                  value={formData.banner_image_url}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/banner.jpg (optional)"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_public"
-                  checked={formData.is_public}
-                  onCheckedChange={(checked) =>
-                    setFormData((prev) => ({ ...prev, is_public: checked }))
-                  }
-                />
-                <label htmlFor="is_public" className="text-sm font-medium">
-                  Public series (visible to players)
-                </label>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowDialog(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingSeries ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-2 text-red-700">
+              <Trophy className="h-5 w-5" />
+              <p className="font-medium">Error loading series</p>
+            </div>
+            <p className="text-red-600 text-sm mt-2">
+              Please try refreshing the page or contact support if the problem
+              persists.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -433,11 +226,12 @@ export default function AdminSeries() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4">
             {series.map((seriesItem) => (
               <Card
                 key={seriesItem.id}
-                className="hover:shadow-lg transition-shadow duration-200"
+                className="hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                onClick={() => handleNavigate(seriesItem.id)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -469,7 +263,7 @@ export default function AdminSeries() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleEdit(seriesItem)}
+                        onClick={(e) => handleEdit(e, seriesItem)}
                         className="h-8 w-8"
                       >
                         <Edit className="h-4 w-4" />
@@ -477,7 +271,7 @@ export default function AdminSeries() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(seriesItem)}
+                        onClick={(e) => handleDelete(e, seriesItem)}
                         className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -492,36 +286,11 @@ export default function AdminSeries() {
                     </p>
                   )}
                   {seriesItem.banner_image_url && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Image className="h-4 w-4" />
                       <span>Has banner image</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <Link
-                        to={`/admin/series/${seriesItem.id}`}
-                        className="flex items-center gap-1 hover:text-blue-600"
-                      >
-                        <Settings className="h-4 w-4" />
-                        <span>Admin</span>
-                      </Link>
-                      <button
-                        onClick={() => handleManageTeams(seriesItem)}
-                        className="flex items-center gap-1 hover:text-blue-600"
-                      >
-                        <Users className="h-4 w-4" />
-                        <span>Manage Teams</span>
-                      </button>
-                      <Link
-                        to={`/admin/competitions?series=${seriesItem.id}`}
-                        className="flex items-center gap-1 hover:text-blue-600"
-                      >
-                        <Calendar className="h-4 w-4" />
-                        <span>Competitions</span>
-                      </Link>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -601,90 +370,6 @@ export default function AdminSeries() {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showTeamDialog} onOpenChange={setShowTeamDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              Manage Teams - {managingTeamsForSeries?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            {/* Current Teams */}
-            <div>
-              <h3 className="text-lg font-medium mb-3">Teams in Series</h3>
-              {seriesTeams && seriesTeams.length > 0 ? (
-                <div className="space-y-2">
-                  {seriesTeams.map((team: Team) => (
-                    <div
-                      key={team.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-blue-600" />
-                        <span className="font-medium">{team.name}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRemoveTeam(team.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">
-                  No teams in this series yet.
-                </p>
-              )}
-            </div>
-
-            {/* Available Teams */}
-            <div>
-              <h3 className="text-lg font-medium mb-3">Available Teams</h3>
-              {availableTeams && availableTeams.length > 0 ? (
-                <div className="space-y-2">
-                  {availableTeams.map((team: Team) => (
-                    <div
-                      key={team.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-gray-600" />
-                        <span className="font-medium">{team.name}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddTeam(team.id)}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        Add to Series
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">
-                  All teams are already in this series.
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowTeamDialog(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

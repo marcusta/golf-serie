@@ -22,8 +22,29 @@ describe("Series API", () => {
     await cleanupTestDatabase(db);
   });
 
+  // Helper to create an admin user and authenticate
+  async function loginAsAdmin(email = "admin@test.com") {
+    await makeRequest("/api/auth/register", "POST", {
+      email,
+      password: "password123",
+    });
+    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    await makeRequest("/api/auth/login", "POST", {
+      email,
+      password: "password123",
+    });
+  }
+
+  // Helper to create a series (requires auth)
+  async function createSeries(data: { name: string; description?: string; banner_image_url?: string; is_public?: boolean }) {
+    const response = await makeRequest("/api/series", "POST", data);
+    return expectJsonResponse(response);
+  }
+
   describe("POST /api/series", () => {
     test("should create a new series with name and description", async () => {
+      await loginAsAdmin();
+
       const seriesData = {
         name: "Summer Golf Series",
         description: "A competitive summer golf series",
@@ -44,6 +65,8 @@ describe("Series API", () => {
     });
 
     test("should create a series with all fields including banner and privacy", async () => {
+      await loginAsAdmin();
+
       const seriesData = {
         name: "Private Championship",
         description: "An exclusive golf series",
@@ -62,6 +85,8 @@ describe("Series API", () => {
     });
 
     test("should create a series with only name (description optional)", async () => {
+      await loginAsAdmin();
+
       const seriesData = {
         name: "Winter Championship",
       };
@@ -77,6 +102,8 @@ describe("Series API", () => {
     });
 
     test("should return 400 when name is missing", async () => {
+      await loginAsAdmin();
+
       const response = await makeRequest("/api/series", "POST", {});
       expectErrorResponse(response, 400);
 
@@ -85,6 +112,8 @@ describe("Series API", () => {
     });
 
     test("should return 400 when name is empty", async () => {
+      await loginAsAdmin();
+
       const response = await makeRequest("/api/series", "POST", {
         name: "   ",
       });
@@ -95,6 +124,8 @@ describe("Series API", () => {
     });
 
     test("should return 400 when series name already exists", async () => {
+      await loginAsAdmin();
+
       const seriesData = { name: "Duplicate Series" };
 
       // Create first series
@@ -119,6 +150,8 @@ describe("Series API", () => {
     });
 
     test("should return all series created", async () => {
+      await loginAsAdmin();
+
       // Create multiple series with small delays
       await makeRequest("/api/series", "POST", {
         name: "Series A",
@@ -142,6 +175,8 @@ describe("Series API", () => {
 
   describe("GET /api/series/:id", () => {
     test("should return series by id", async () => {
+      await loginAsAdmin();
+
       const seriesData = {
         name: "Test Series",
         description: "Test description",
@@ -173,6 +208,8 @@ describe("Series API", () => {
 
   describe("PUT /api/series/:id", () => {
     test("should update series name and description", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Original Series",
         description: "Original description",
@@ -201,6 +238,8 @@ describe("Series API", () => {
     });
 
     test("should update only name", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Original Series",
         description: "Original description",
@@ -222,6 +261,8 @@ describe("Series API", () => {
     });
 
     test("should update description to null", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
         description: "Original description",
@@ -242,6 +283,8 @@ describe("Series API", () => {
     });
 
     test("should return 400 when name is empty", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -259,6 +302,8 @@ describe("Series API", () => {
     });
 
     test("should return 400 when updating to duplicate name", async () => {
+      await loginAsAdmin();
+
       await makeRequest("/api/series", "POST", { name: "Existing Series" });
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -278,17 +323,23 @@ describe("Series API", () => {
       expect(error.error).toBe("Series name must be unique");
     });
 
-    test("should return 400 when series not found", async () => {
+    test("should return 403 when series not found (access check fails first)", async () => {
+      await loginAsAdmin();
+
+      // Access control check happens before existence check
+      // Since the user doesn't own/admin series 999, they get 403
       const response = await makeRequest("/api/series/999", "PUT", {
         name: "Updated",
       });
-      expectErrorResponse(response, 400);
+      expectErrorResponse(response, 403);
 
       const error = await expectJsonResponse(response);
-      expect(error.error).toBe("Series not found");
+      expect(error.error).toBe("Forbidden");
     });
 
     test("should update landing_document_id with valid document", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -316,6 +367,8 @@ describe("Series API", () => {
     });
 
     test("should set landing_document_id to null", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -347,6 +400,8 @@ describe("Series API", () => {
     });
 
     test("should return 400 when landing document does not exist", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -362,6 +417,8 @@ describe("Series API", () => {
     });
 
     test("should return 400 when landing document belongs to different series", async () => {
+      await loginAsAdmin();
+
       // Create two series
       const series1Response = await makeRequest("/api/series", "POST", {
         name: "Series 1",
@@ -397,6 +454,8 @@ describe("Series API", () => {
     });
 
     test("should automatically set landing_document_id to null when document is deleted", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -432,6 +491,8 @@ describe("Series API", () => {
 
   describe("DELETE /api/series/:id", () => {
     test("should delete series", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "To Delete",
       });
@@ -448,17 +509,23 @@ describe("Series API", () => {
       expectErrorResponse(getResponse, 404);
     });
 
-    test("should return 404 when series not found", async () => {
+    test("should return 403 when series not found (access check fails first)", async () => {
+      await loginAsAdmin();
+
+      // Access control check happens before existence check
+      // Since the user doesn't own/admin series 999, they get 403
       const response = await makeRequest("/api/series/999", "DELETE");
-      expectErrorResponse(response, 404);
+      expectErrorResponse(response, 403);
 
       const error = await expectJsonResponse(response);
-      expect(error.error).toBe("Series not found");
+      expect(error.error).toBe("Forbidden");
     });
   });
 
   describe("GET /api/series/:id/competitions", () => {
     test("should return empty array when series has no competitions", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -480,10 +547,112 @@ describe("Series API", () => {
       const error = await expectJsonResponse(response);
       expect(error.error).toBe("Series not found");
     });
+
+    test("should return competitions with all required fields including start_mode", async () => {
+      await loginAsAdmin();
+
+      // Create a series
+      const seriesResponse = await makeRequest("/api/series", "POST", {
+        name: "Test Series",
+      });
+      const series = await expectJsonResponse(seriesResponse);
+
+      // Create a course with pars
+      const courseResponse = await makeRequest("/api/courses", "POST", {
+        name: "Test Course",
+        pars: [4, 4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5],
+      });
+      const course = await expectJsonResponse(courseResponse);
+
+      // Create a competition with scheduled start_mode
+      const competitionResponse = await makeRequest("/api/competitions", "POST", {
+        name: "Scheduled Competition",
+        date: "2025-06-15",
+        course_id: course.id,
+        series_id: series.id,
+        start_mode: "scheduled",
+        venue_type: "outdoor",
+        manual_entry_format: "out_in_total",
+        points_multiplier: 1.5,
+      });
+      expect(competitionResponse.status).toBe(201);
+
+      // Fetch series competitions
+      const response = await makeRequest(
+        `/api/series/${series.id}/competitions`
+      );
+      expect(response.status).toBe(200);
+
+      const competitions = await expectJsonResponse(response);
+      expect(competitions).toHaveLength(1);
+
+      const comp = competitions[0];
+      // Verify all required fields are present
+      expect(comp.id).toBeTypeOf("number");
+      expect(comp.name).toBe("Scheduled Competition");
+      expect(comp.date).toBe("2025-06-15");
+      expect(comp.course_id).toBe(course.id);
+      expect(comp.series_id).toBe(series.id);
+      expect(comp.start_mode).toBe("scheduled");
+      expect(comp.venue_type).toBe("outdoor");
+      expect(comp.manual_entry_format).toBe("out_in_total");
+      expect(comp.points_multiplier).toBe(1.5);
+      expect(comp.is_results_final).toBe(false);
+      expect(comp.results_finalized_at).toBeNull();
+      // Verify course info is included
+      expect(comp.course).toBeDefined();
+      expect(comp.course.id).toBe(course.id);
+      expect(comp.course.name).toBe("Test Course");
+    });
+
+    test("should return competitions with open start_mode", async () => {
+      await loginAsAdmin();
+
+      // Create a series
+      const seriesResponse = await makeRequest("/api/series", "POST", {
+        name: "Open Start Series",
+      });
+      const series = await expectJsonResponse(seriesResponse);
+
+      // Create a course
+      const courseResponse = await makeRequest("/api/courses", "POST", {
+        name: "Open Course",
+        pars: [4, 4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5],
+      });
+      const course = await expectJsonResponse(courseResponse);
+
+      // Create a competition with open start_mode
+      const competitionResponse = await makeRequest("/api/competitions", "POST", {
+        name: "Open Competition",
+        date: "2025-07-01",
+        course_id: course.id,
+        series_id: series.id,
+        start_mode: "open",
+        open_start: "2025-07-01",
+        open_end: "2025-07-07",
+      });
+      expect(competitionResponse.status).toBe(201);
+
+      // Fetch series competitions
+      const response = await makeRequest(
+        `/api/series/${series.id}/competitions`
+      );
+      expect(response.status).toBe(200);
+
+      const competitions = await expectJsonResponse(response);
+      expect(competitions).toHaveLength(1);
+
+      const comp = competitions[0];
+      expect(comp.start_mode).toBe("open");
+      expect(comp.open_start).toBe("2025-07-01");
+      expect(comp.open_end).toBe("2025-07-07");
+    });
   });
 
   describe("GET /api/series/:id/teams", () => {
     test("should return empty array when series has no teams", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -507,6 +676,8 @@ describe("Series API", () => {
 
   describe("GET /api/series/public", () => {
     test("should return only public series", async () => {
+      await loginAsAdmin();
+
       // Create public series
       await makeRequest("/api/series", "POST", {
         name: "Public Series 1",
@@ -535,6 +706,8 @@ describe("Series API", () => {
     });
 
     test("should return empty array when no public series exist", async () => {
+      await loginAsAdmin();
+
       // Create only private series
       await makeRequest("/api/series", "POST", {
         name: "Private Only",
@@ -551,6 +724,8 @@ describe("Series API", () => {
 
   describe("GET /api/series/:id/standings", () => {
     test("should return empty standings when series has no competitions", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
       });
@@ -577,6 +752,8 @@ describe("Series API", () => {
 
   describe("PUT /api/series/:id - New Fields", () => {
     test("should update banner_image_url and is_public", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
         is_public: true,
@@ -601,6 +778,8 @@ describe("Series API", () => {
     });
 
     test("should update banner_image_url to null", async () => {
+      await loginAsAdmin();
+
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
         banner_image_url: "https://example.com/banner.jpg",
@@ -623,6 +802,8 @@ describe("Series API", () => {
 
   describe("Points Multiplier Feature", () => {
     test("should create competition with points multiplier", async () => {
+      await loginAsAdmin();
+
       // Create a course first
       const courseResponse = await makeRequest("/api/courses", "POST", {
         name: "Test Course",
@@ -650,9 +831,11 @@ describe("Series API", () => {
     });
 
     test("points multiplier calculation should be correct", async () => {
+      await loginAsAdmin();
+
       // Test that points multiplier logic is correctly implemented
       // This test verifies the calculation without complex data setup
-      
+
       // Create a course and series
       const courseResponse = await makeRequest("/api/courses", "POST", {
         name: "Test Course",
@@ -679,7 +862,7 @@ describe("Series API", () => {
       // Create championship competition (2x multiplier)
       const championshipResponse = await makeRequest("/api/competitions", "POST", {
         name: "Championship",
-        date: "2024-05-02", 
+        date: "2024-05-02",
         course_id: course.id,
         series_id: series.id,
         points_multiplier: 2,
@@ -691,10 +874,10 @@ describe("Series API", () => {
       // Verify both competitions exist and have correct multipliers
       const competitionsResponse = await makeRequest("/api/competitions");
       const competitions = await expectJsonResponse(competitionsResponse);
-      
+
       const foundRegular = competitions.find((c: any) => c.name === "Regular Event");
       const foundChampionship = competitions.find((c: any) => c.name === "Championship");
-      
+
       expect(foundRegular.points_multiplier).toBe(1);
       expect(foundChampionship.points_multiplier).toBe(2);
     });

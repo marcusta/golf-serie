@@ -12,10 +12,15 @@ import {
   useCreateSeriesDocument,
   useUpdateSeriesDocument,
   useDeleteSeriesDocument,
+  useSeriesAdmins,
+  useAddSeriesAdmin,
+  useRemoveSeriesAdmin,
   type SeriesDocument,
 } from "@/api/series";
 import { useDeleteCompetition, type Competition } from "@/api/competitions";
 import { type Team } from "@/api/teams";
+import { useUsers } from "@/api/tours";
+import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +35,7 @@ import {
   Settings,
   X,
   Trophy,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +60,10 @@ export default function AdminSeriesDetail() {
   const { serieId } = useParams({ from: "/admin/series/$serieId" });
   const seriesId = parseInt(serieId);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Check if user is SUPER_ADMIN or owner
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   // API hooks
   const { data: series, isLoading: seriesLoading } = useSingleSeries(seriesId);
@@ -67,11 +77,27 @@ export default function AdminSeriesDetail() {
   const updateDocument = useUpdateSeriesDocument();
   const deleteDocument = useDeleteSeriesDocument();
   const deleteCompetition = useDeleteCompetition();
+  const { data: admins } = useSeriesAdmins(seriesId);
+  const addAdminMutation = useAddSeriesAdmin();
+  const removeAdminMutation = useRemoveSeriesAdmin();
+  const { data: users } = useUsers();
+
+  // Check if user can manage admins (owner or SUPER_ADMIN)
+  const canManageAdmins = isSuperAdmin || series?.owner_id === user?.id;
+
+  // Filter users available to add as admin (not already admin and not owner)
+  const availableUsers = users?.filter(
+    (u) =>
+      !admins?.some((admin) => admin.user_id === u.id) &&
+      u.id !== series?.owner_id
+  );
 
   // Local state
   const [activeTab, setActiveTab] = useState<
-    "competitions" | "settings" | "teams" | "documents"
+    "competitions" | "settings" | "teams" | "documents" | "admins"
   >("competitions");
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [adminError, setAdminError] = useState<string | null>(null);
   const [isEditingBasic, setIsEditingBasic] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -257,6 +283,32 @@ export default function AdminSeriesDetail() {
     }
   };
 
+  // Admin handlers
+  const handleAddAdmin = async () => {
+    setAdminError(null);
+    if (!selectedUserId) {
+      setAdminError("Please select a user");
+      return;
+    }
+
+    try {
+      await addAdminMutation.mutateAsync({ seriesId, userId: selectedUserId });
+      setSelectedUserId(null);
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "Failed to add admin");
+    }
+  };
+
+  const handleRemoveAdmin = async (userId: number) => {
+    if (confirm("Are you sure you want to remove this admin?")) {
+      try {
+        await removeAdminMutation.mutateAsync({ seriesId, userId });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed to remove admin");
+      }
+    }
+  };
+
   if (seriesLoading) {
     return (
       <div className="space-y-6">
@@ -327,6 +379,22 @@ export default function AdminSeriesDetail() {
           >
             <FileText className="h-4 w-4" />
             Documents
+            {documents && documents.length > 0 && (
+              <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                {documents.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("admins")}
+            className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              activeTab === "admins"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            Admins
           </button>
           <button
             onClick={() => setActiveTab("settings")}
@@ -480,6 +548,14 @@ export default function AdminSeriesDetail() {
 
       {activeTab === "teams" && (
         <div className="space-y-6">
+          {!isSuperAdmin && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                Team management is restricted to super administrators. Contact a
+                super admin to add or remove teams from this series.
+              </p>
+            </div>
+          )}
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -497,14 +573,16 @@ export default function AdminSeriesDetail() {
                           <Users className="h-4 w-4 text-blue-600" />
                           <span className="font-medium">{team.name}</span>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRemoveTeam(team.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          Remove
-                        </Button>
+                        {isSuperAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveTeam(team.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -516,40 +594,42 @@ export default function AdminSeriesDetail() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Available Teams</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {availableTeams && availableTeams.length > 0 ? (
-                  <div className="space-y-2">
-                    {availableTeams.map((team: Team) => (
-                      <div
-                        key={team.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-gray-600" />
-                          <span className="font-medium">{team.name}</span>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAddTeam(team.id)}
-                          className="text-blue-600 hover:text-blue-700"
+            {isSuperAdmin && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Available Teams</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {availableTeams && availableTeams.length > 0 ? (
+                    <div className="space-y-2">
+                      {availableTeams.map((team: Team) => (
+                        <div
+                          key={team.id}
+                          className="flex items-center justify-between p-3 border rounded-lg"
                         >
-                          Add to Series
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm">
-                    All teams are already in this series.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-gray-600" />
+                            <span className="font-medium">{team.name}</span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddTeam(team.id)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Add to Series
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">
+                      All teams are already in this series.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       )}
@@ -690,6 +770,132 @@ export default function AdminSeriesDetail() {
               </Card>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === "admins" && (
+        <div className="space-y-6">
+          {/* Add Admin Form - only visible to owners and SUPER_ADMIN */}
+          {canManageAdmins && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Add Series Admin</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <select
+                      value={selectedUserId || ""}
+                      onChange={(e) =>
+                        setSelectedUserId(
+                          e.target.value ? parseInt(e.target.value) : null
+                        )
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Select a user...</option>
+                      {availableUsers?.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.email} ({u.role})
+                        </option>
+                      ))}
+                    </select>
+                    {adminError && (
+                      <p className="text-red-600 text-sm mt-1">{adminError}</p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={handleAddAdmin}
+                    disabled={addAdminMutation.isPending || !selectedUserId}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Admin
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  Series admins can manage competitions and documents for this
+                  series.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Admins List */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Series Admins</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y divide-gray-200">
+                {/* Owner */}
+                {series?.owner_id && (
+                  <div className="py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Shield className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-900">
+                          Series Owner
+                        </span>
+                        <p className="text-sm text-gray-500">
+                          Has full control over this series
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="default"
+                      className="bg-blue-100 text-blue-800"
+                    >
+                      Owner
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Admins */}
+                {admins && admins.length > 0 ? (
+                  admins.map((admin) => (
+                    <div
+                      key={admin.id}
+                      className="py-4 flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Users className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-900">
+                            {admin.email}
+                          </span>
+                          <p className="text-sm text-gray-500">{admin.role}</p>
+                        </div>
+                      </div>
+                      {canManageAdmins && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveAdmin(admin.user_id)}
+                          disabled={removeAdminMutation.isPending}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-gray-500">
+                    <p>No additional admins.</p>
+                    {canManageAdmins && (
+                      <p className="text-sm mt-1">
+                        Add users to help manage this series.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

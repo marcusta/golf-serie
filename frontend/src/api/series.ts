@@ -10,8 +10,18 @@ export interface Series {
   banner_image_url?: string;
   is_public: boolean;
   landing_document_id?: number;
+  owner_id: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface SeriesAdmin {
+  id: number;
+  series_id: number;
+  user_id: number;
+  email: string;
+  role: string;
+  created_at: string;
 }
 
 export interface CreateSeriesDto {
@@ -73,7 +83,9 @@ export function useSeries() {
   return useQuery<Series[]>({
     queryKey: ["series"],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/series`);
+      const response = await fetch(`${API_BASE_URL}/series`, {
+        credentials: "include",
+      });
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -161,10 +173,12 @@ export function useCreateSeries() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Network response was not ok");
       }
       return response.json();
     },
@@ -184,10 +198,12 @@ export function useUpdateSeries() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Network response was not ok");
       }
       return response.json();
     },
@@ -206,9 +222,11 @@ export function useDeleteSeries() {
     mutationFn: async (id: number) => {
       const response = await fetch(`${API_BASE_URL}/series/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Network response was not ok");
       }
       return response.json();
     },
@@ -250,10 +268,12 @@ export function useAddTeamToSeries() {
         `${API_BASE_URL}/series/${seriesId}/teams/${teamId}`,
         {
           method: "POST",
+          credentials: "include",
         }
       );
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Network response was not ok");
       }
       return response.json();
     },
@@ -286,10 +306,12 @@ export function useRemoveTeamFromSeries() {
         `${API_BASE_URL}/series/${seriesId}/teams/${teamId}`,
         {
           method: "DELETE",
+          credentials: "include",
         }
       );
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Network response was not ok");
       }
       return response.json();
     },
@@ -419,6 +441,94 @@ export function useDeleteSeriesDocument() {
     onSuccess: (_, { seriesId }) => {
       queryClient.invalidateQueries({
         queryKey: ["series", seriesId, "documents"],
+      });
+    },
+  });
+}
+
+// Series admin functions
+export function useSeriesAdmins(seriesId: number) {
+  return useQuery<SeriesAdmin[]>({
+    queryKey: ["series", seriesId, "admins"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/admins`,
+        {
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: seriesId > 0,
+  });
+}
+
+export function useAddSeriesAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      userId,
+    }: {
+      seriesId: number;
+      userId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/admins`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ userId }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to add admin");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "admins"],
+      });
+    },
+  });
+}
+
+export function useRemoveSeriesAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      seriesId,
+      userId,
+    }: {
+      seriesId: number;
+      userId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/series/${seriesId}/admins/${userId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to remove admin");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { seriesId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "admins"],
       });
     },
   });

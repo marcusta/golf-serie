@@ -18,10 +18,26 @@ describe("Documents API", () => {
   let makeRequest: MakeRequestFunction;
   let seriesId: number;
 
+  // Helper to create an admin user and authenticate
+  async function loginAsAdmin(email = "admin@test.com") {
+    await makeRequest("/api/auth/register", "POST", {
+      email,
+      password: "password123",
+    });
+    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    await makeRequest("/api/auth/login", "POST", {
+      email,
+      password: "password123",
+    });
+  }
+
   beforeEach(async () => {
     const setup = await setupTestDatabase();
     db = setup.db;
     makeRequest = setup.makeRequest;
+
+    // Authenticate before creating series
+    await loginAsAdmin();
 
     // Create a test series for document tests
     const seriesResponse = await makeRequest("/api/series", "POST", {

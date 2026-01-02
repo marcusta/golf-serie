@@ -27,6 +27,7 @@ import { createPointTemplateService } from "./services/point-template.service";
 import { SeriesService } from "./services/series-service";
 import { TeamService } from "./services/team-service";
 import { TeeTimeService } from "./services/tee-time-service";
+import { createSeriesAdminService } from "./services/series-admin.service";
 import { createTourAdminService } from "./services/tour-admin.service";
 import { createTourCategoryService } from "./services/tour-category.service";
 import { TourDocumentService } from "./services/tour-document.service";
@@ -46,6 +47,7 @@ export function createApp(db: Database): Hono {
   const teeTimeService = new TeeTimeService(db);
   const participantService = new ParticipantService(db);
   const seriesService = new SeriesService(db, competitionService);
+  const seriesAdminService = createSeriesAdminService(db);
   const documentService = new DocumentService(db);
   const playerService = createPlayerService(db);
   const playerProfileService = createPlayerProfileService(db);
@@ -483,12 +485,36 @@ export function createApp(db: Database): Hono {
   });
 
   // Series routes
-  app.post("/api/series", async (c) => {
-    return await seriesApi.create(c.req.raw);
+  app.post("/api/series", requireAuth(), async (c) => {
+    const user = c.get("user");
+    try {
+      const data = await c.req.json();
+      const series = await seriesService.create(data, user!.id);
+      return c.json(series, 201);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 400);
+    }
   });
 
   app.get("/api/series", async (c) => {
-    return await seriesApi.findAll();
+    const user = c.get("user");
+    try {
+      // SUPER_ADMIN sees all, others see owned/admin series
+      if (user?.role === "SUPER_ADMIN") {
+        const series = await seriesService.findAll();
+        return c.json(series);
+      } else if (user) {
+        const series = await seriesService.findForUser(user.id);
+        return c.json(series);
+      } else {
+        // Unauthenticated: return public series only
+        const series = await seriesService.findPublic();
+        return c.json(series);
+      }
+    } catch (error: unknown) {
+      return c.json({ error: "Internal server error" }, 500);
+    }
   });
 
   app.get("/api/series/public", async (c) => {
@@ -500,13 +526,27 @@ export function createApp(db: Database): Hono {
     return await seriesApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/series/:id", async (c) => {
+  app.put("/api/series/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+
+    // Check if user can manage series
+    if (!seriesAdminService.canManageSeries(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
     return await seriesApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/series/:id", async (c) => {
+  app.delete("/api/series/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+
+    // Only owner or SUPER_ADMIN can delete
+    if (!seriesAdminService.canManageSeriesAdmins(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
     return await seriesApi.delete(id);
   });
 
@@ -525,13 +565,22 @@ export function createApp(db: Database): Hono {
     return await seriesApi.getStandings(id);
   });
 
-  app.post("/api/series/:id/teams/:teamId", async (c) => {
+  // Team management - SUPER_ADMIN only
+  app.post("/api/series/:id/teams/:teamId", requireAuth(), async (c) => {
+    const user = c.get("user");
+    if (user!.role !== "SUPER_ADMIN") {
+      return c.json({ error: "Forbidden - only SUPER_ADMIN can manage teams" }, 403);
+    }
     const seriesId = parseInt(c.req.param("id"));
     const teamId = parseInt(c.req.param("teamId"));
     return await seriesApi.addTeam(seriesId, teamId);
   });
 
-  app.delete("/api/series/:id/teams/:teamId", async (c) => {
+  app.delete("/api/series/:id/teams/:teamId", requireAuth(), async (c) => {
+    const user = c.get("user");
+    if (user!.role !== "SUPER_ADMIN") {
+      return c.json({ error: "Forbidden - only SUPER_ADMIN can manage teams" }, 403);
+    }
     const seriesId = parseInt(c.req.param("id"));
     const teamId = parseInt(c.req.param("teamId"));
     return await seriesApi.removeTeam(seriesId, teamId);
@@ -540,6 +589,66 @@ export function createApp(db: Database): Hono {
   app.get("/api/series/:id/available-teams", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await seriesApi.getAvailableTeams(id);
+  });
+
+  // Series Admin endpoints
+  app.get("/api/series/:id/admins", requireAuth(), async (c) => {
+    const user = c.get("user");
+    const id = parseInt(c.req.param("id"));
+
+    // Check if user can manage series (anyone who can manage can view admins)
+    if (!seriesAdminService.canManageSeries(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    try {
+      const admins = seriesAdminService.getSeriesAdmins(id);
+      return c.json(admins);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 500);
+    }
+  });
+
+  app.post("/api/series/:id/admins", requireAuth(), async (c) => {
+    const user = c.get("user");
+    const id = parseInt(c.req.param("id"));
+
+    // Check if user can manage series admins (more restrictive)
+    if (!seriesAdminService.canManageSeriesAdmins(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    try {
+      const body = await c.req.json();
+      if (!body.userId) {
+        return c.json({ error: "User ID is required" }, 400);
+      }
+      const admin = seriesAdminService.addSeriesAdmin(id, body.userId);
+      return c.json(admin, 201);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  app.delete("/api/series/:id/admins/:userId", requireAuth(), async (c) => {
+    const user = c.get("user");
+    const id = parseInt(c.req.param("id"));
+    const userId = parseInt(c.req.param("userId"));
+
+    // Check if user can manage series admins (more restrictive)
+    if (!seriesAdminService.canManageSeriesAdmins(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    try {
+      seriesAdminService.removeSeriesAdmin(id, userId);
+      return c.json({ success: true });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 400);
+    }
   });
 
   // Document routes
