@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   formatToPar,
@@ -6,6 +7,7 @@ import {
   calculateHoleTotal,
   calculatePlayedPar,
 } from "../../utils/scoreCalculations";
+import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
 
 interface ScorecardParticipant {
   id: string;
@@ -38,12 +40,26 @@ export function Scorecard({
   course,
   currentHole,
   strokeIndex,
-  handicapStrokesPerHole,
+  handicapStrokesPerHole: handicapStrokesPerHoleProp,
   courseHandicap,
   handicapIndex,
 }: ScorecardProps) {
   const frontNine = course.holes.slice(0, 9);
   const backNine = course.holes.slice(9, 18);
+
+  // Calculate handicap strokes per hole locally if we have strokeIndex and courseHandicap
+  // This allows frontend calculation instead of relying on API response
+  const handicapStrokesPerHole = useMemo(() => {
+    // Use prop if provided (backward compatibility)
+    if (handicapStrokesPerHoleProp) {
+      return handicapStrokesPerHoleProp;
+    }
+    // Calculate locally if we have the required data
+    if (strokeIndex && strokeIndex.length === 18 && courseHandicap !== undefined) {
+      return distributeHandicapStrokes(courseHandicap, strokeIndex);
+    }
+    return undefined;
+  }, [handicapStrokesPerHoleProp, strokeIndex, courseHandicap]);
 
   // Check if we should show net scoring info
   const showNetScoring = !!(strokeIndex && handicapStrokesPerHole && courseHandicap !== undefined);

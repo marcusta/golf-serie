@@ -39,6 +39,7 @@ import {
 import { EditPlayerNameModal } from "../../components/competition/EditPlayerNameModal";
 import { FullScorecardModal } from "../../components/score-entry/FullScorecardModal";
 import { formatCourseFromTeeTime } from "@/utils/courseFormatting";
+import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
 import type { TeeTime } from "../../api/tee-times";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
@@ -151,16 +152,21 @@ export default function CompetitionRound() {
       return undefined;
     }
 
-    // Stroke index from tee (optional - used for SI display in header)
+    // Stroke index from tee (used for SI display and handicap stroke calculation)
     const strokeIndex = leaderboardWithDetails.tee?.strokeIndex;
     const dataMap = new Map<string, PlayerNetScoringData>();
 
     leaderboardWithDetails.entries.forEach((entry) => {
       const participantId = entry.participant.id.toString();
+      // Calculate handicap strokes per hole locally instead of using API value
+      const handicapStrokesPerHole =
+        strokeIndex && entry.courseHandicap !== undefined
+          ? distributeHandicapStrokes(entry.courseHandicap, strokeIndex)
+          : undefined;
       dataMap.set(participantId, {
         participantId,
         strokeIndex,
-        handicapStrokesPerHole: entry.handicapStrokesPerHole,
+        handicapStrokesPerHole,
         courseHandicap: entry.courseHandicap,
         handicapIndex: entry.participant.handicap_index,
       });

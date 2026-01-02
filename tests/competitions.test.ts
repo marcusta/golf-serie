@@ -33,6 +33,12 @@ describe("Competition API", () => {
       [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4]
     );
 
+    // Set stroke index (required for leaderboard calculations)
+    db.prepare(`UPDATE courses SET stroke_index = ? WHERE id = ?`).run(
+      JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]),
+      courseId
+    );
+
     // Create a series for testing
     const createSeriesResponse = await makeRequest("/api/series", "POST", {
       name: "Test Golf Series",
@@ -1055,6 +1061,12 @@ describe("Competition API", () => {
         [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4]
       );
 
+      // Set stroke index (required for leaderboard calculations)
+      db.prepare(`UPDATE courses SET stroke_index = ? WHERE id = ?`).run(
+        JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]),
+        course.id
+      );
+
       // Create a competition in the series
       const competitionResponse = await makeRequest(
         "/api/competitions",
@@ -1297,6 +1309,12 @@ describe("Competition API", () => {
         [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4]
       );
 
+      // Set stroke index (required for leaderboard calculations)
+      db.prepare(`UPDATE courses SET stroke_index = ? WHERE id = ?`).run(
+        JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]),
+        course.id
+      );
+
       // Create a competition
       const competitionResponse = await makeRequest(
         "/api/competitions",
@@ -1466,6 +1484,12 @@ describe("Competition API", () => {
         `/api/courses/${course.id}/holes`,
         "PUT",
         [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 4, 3, 4, 4]
+      );
+
+      // Set stroke index (required for leaderboard calculations)
+      db.prepare(`UPDATE courses SET stroke_index = ? WHERE id = ?`).run(
+        JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]),
+        course.id
       );
 
       // Create a competition without a series

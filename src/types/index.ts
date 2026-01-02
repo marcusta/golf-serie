@@ -235,7 +235,7 @@ export interface LeaderboardEntry {
   netTotalShots?: number;
   netRelativeToPar?: number;
   courseHandicap?: number;
-  handicapStrokesPerHole?: number[];
+  // Note: handicapStrokesPerHole is calculated on the frontend from courseHandicap and strokeIndex
   // DNF status (Did Not Finish - competition window closed before completion)
   isDNF?: boolean;
   // Points and position (for tour competitions)

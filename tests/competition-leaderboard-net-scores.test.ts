@@ -33,12 +33,20 @@ describe("Competition Leaderboard with Net Scores", () => {
     db.close();
   });
 
-  // Helper to create a course with pars
-  async function createCourse(name: string): Promise<number> {
+  // Default stroke index (1-18 in difficulty order)
+  const DEFAULT_STROKE_INDEX = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+
+  // Helper to create a course with pars and stroke index
+  async function createCourse(name: string, strokeIndex: number[] = DEFAULT_STROKE_INDEX): Promise<number> {
     const course = await courseService.create({ name });
     await courseService.updateHoles(
       course.id,
       [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4] // par 72
+    );
+    // Set stroke index on the course (required for leaderboard calculations)
+    db.prepare(`UPDATE courses SET stroke_index = ? WHERE id = ?`).run(
+      JSON.stringify(strokeIndex),
+      course.id
     );
     return course.id;
   }
@@ -224,14 +232,14 @@ describe("Competition Leaderboard with Net Scores", () => {
       expect(entry.courseHandicap).toBe(18); // With SR=113, same as HI
       expect(entry.netTotalShots).toBe(72); // 90 - 18 = 72
       expect(entry.netRelativeToPar).toBe(0); // Net: 72 - 72 = 0 (even par net)
-      expect(entry.handicapStrokesPerHole).toBeDefined();
-      expect(entry.handicapStrokesPerHole?.length).toBe(18);
+      // Note: handicapStrokesPerHole is now calculated on frontend from courseHandicap and strokeIndex
     });
 
     it("should include tee info when competition has tee assigned", async () => {
-      const courseId = await createCourse("Test Course 4");
+      // Stroke index is now a course property, not tee-specific
       const strokeIndex = [7, 15, 3, 11, 1, 9, 5, 17, 13, 8, 16, 4, 12, 2, 10, 6, 18, 14];
-      const teeId = createTee(courseId, "Yellow", 68.5, 120, strokeIndex);
+      const courseId = await createCourse("Test Course 4", strokeIndex);
+      const teeId = createTee(courseId, "Yellow", 68.5, 120, []); // stroke_index on tee is now ignored
       const competitionId = await createCompetition("Tee Comp", courseId, undefined, teeId);
       const teamId = createTeam("Team D");
 
@@ -250,6 +258,7 @@ describe("Competition Leaderboard with Net Scores", () => {
       expect(response.tee?.name).toBe("Yellow");
       expect(response.tee?.courseRating).toBe(68.5);
       expect(response.tee?.slopeRating).toBe(120);
+      // Stroke index now comes from the course, not the tee
       expect(response.tee?.strokeIndex).toEqual(strokeIndex);
     });
 
@@ -340,9 +349,8 @@ describe("Competition Leaderboard with Net Scores", () => {
       // Net score: (4-1)+(4-1)+(3-1)+(5-1)+(4-1)+(3-1)+(4-1)+(5-1)+(4-1) = 27
       // Net relative to par: 27 - 36 = -9
       expect(entry.netRelativeToPar).toBe(-9);
-      // Course handicap and strokes per hole should be provided
+      // Course handicap should be provided (strokes per hole calculated on frontend)
       expect(entry.courseHandicap).toBeDefined();
-      expect(entry.handicapStrokesPerHole).toBeDefined();
       // netTotalShots should still be undefined for incomplete rounds
       expect(entry.netTotalShots).toBeUndefined();
     });

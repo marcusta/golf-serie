@@ -9,7 +9,6 @@ import type {
 import {
   calculateCourseHandicap,
   distributeHandicapStrokes,
-  getDefaultStrokeIndex,
 } from "../utils/handicap";
 import { GOLF } from "../constants/golf";
 import { parseParsArray, safeParseJsonWithDefault } from "../utils/parsing";
@@ -31,6 +30,7 @@ interface CompetitionRow {
   start_mode: string | null;
   open_end: string | null;
   pars: string;
+  course_stroke_index: string | null;
   is_results_final?: number;
   point_template_id?: number;
 }
@@ -103,7 +103,7 @@ interface CategoryTeeRating {
   teeName: string;
   courseRating: number;
   slopeRating: number;
-  strokeIndex: number[];
+  // Note: strokeIndex is now a course property, not tee-specific
 }
 
 interface PlayerHandicapRow {
@@ -221,9 +221,13 @@ export class LeaderboardService {
       ? this.findTourScoringMode(competition.tour_id)
       : undefined;
 
-    const { teeInfo, strokeIndex, courseRating, slopeRating } = this.getTeeInfoForCompetition(
+    // Stroke index comes from the course (not the tee)
+    const strokeIndex = this.parseStrokeIndex(competition.course_stroke_index);
+
+    const { teeInfo, courseRating, slopeRating } = this.getTeeInfoForCompetition(
       competition.tee_id,
-      scoringMode
+      scoringMode,
+      strokeIndex
     );
 
     const playerHandicaps = this.getPlayerHandicapsForCompetition(
@@ -313,13 +317,13 @@ export class LeaderboardService {
 
     let playerCourseRating = context.courseRating;
     let playerSlopeRating = context.slopeRating;
-    let playerStrokeIndex = context.strokeIndex;
 
+    // Category tees only override course/slope ratings, not stroke index
+    // Stroke index is a course property, constant for all tees
     if (participant.category_id && context.categoryTeeRatings.has(participant.category_id)) {
       const catTee = context.categoryTeeRatings.get(participant.category_id)!;
       playerCourseRating = catTee.courseRating;
       playerSlopeRating = catTee.slopeRating;
-      playerStrokeIndex = catTee.strokeIndex;
     }
 
     const courseHandicap = calculateCourseHandicap(
@@ -328,7 +332,7 @@ export class LeaderboardService {
       playerCourseRating,
       context.totalPar
     );
-    const handicapStrokesPerHole = distributeHandicapStrokes(courseHandicap, playerStrokeIndex);
+    const handicapStrokesPerHole = distributeHandicapStrokes(courseHandicap, context.strokeIndex);
 
     return { courseHandicap, handicapStrokesPerHole };
   }
@@ -366,7 +370,7 @@ export class LeaderboardService {
       netTotalShots,
       netRelativeToPar,
       courseHandicap: handicapInfo.courseHandicap,
-      handicapStrokesPerHole: handicapInfo.handicapStrokesPerHole,
+      // handicapStrokesPerHole is calculated on the frontend from courseHandicap and strokeIndex
       isDNF: false,
     };
   }
@@ -420,7 +424,7 @@ export class LeaderboardService {
       netTotalShots,
       netRelativeToPar,
       courseHandicap: handicapInfo.courseHandicap,
-      handicapStrokesPerHole: handicapInfo.handicapStrokesPerHole,
+      // handicapStrokesPerHole is calculated on the frontend from courseHandicap and strokeIndex
       isDNF,
     };
   }
@@ -496,14 +500,13 @@ export class LeaderboardService {
 
   private getTeeInfoForCompetition(
     teeId: number | null | undefined,
-    scoringMode: TourScoringMode | undefined
+    scoringMode: TourScoringMode | undefined,
+    strokeIndex: number[]
   ): {
     teeInfo: LeaderboardResponse["tee"] | undefined;
-    strokeIndex: number[];
     courseRating: number;
     slopeRating: number;
   } {
-    let strokeIndex = getDefaultStrokeIndex();
     let courseRating: number = GOLF.STANDARD_COURSE_RATING;
     let slopeRating: number = GOLF.STANDARD_SLOPE_RATING;
     let teeInfo: LeaderboardResponse["tee"] | undefined;
@@ -511,7 +514,6 @@ export class LeaderboardService {
     if (teeId) {
       const tee = this.findTeeWithRatings(teeId);
       if (tee) {
-        strokeIndex = this.parseStrokeIndex(tee.stroke_index);
         const ratings = this.extractTeeRatings(tee);
         courseRating = ratings.courseRating;
         slopeRating = ratings.slopeRating;
@@ -523,7 +525,7 @@ export class LeaderboardService {
       teeInfo = this.buildDefaultTeeInfo(courseRating, slopeRating, strokeIndex);
     }
 
-    return { teeInfo, strokeIndex, courseRating, slopeRating };
+    return { teeInfo, courseRating, slopeRating };
   }
 
   private getPlayerHandicapsForCompetition(
@@ -588,12 +590,20 @@ export class LeaderboardService {
   }
 
   private parseStrokeIndex(json: string | null): number[] {
-    if (!json) return getDefaultStrokeIndex();
+    if (!json) {
+      throw new Error("Course stroke_index is required but not set. Please configure stroke index for this course.");
+    }
     try {
       const parsed = typeof json === "string" ? JSON.parse(json) : json;
-      return Array.isArray(parsed) ? parsed : getDefaultStrokeIndex();
-    } catch {
-      return getDefaultStrokeIndex();
+      if (!Array.isArray(parsed) || parsed.length !== GOLF.HOLES_PER_ROUND) {
+        throw new Error("Invalid stroke_index format: must be array of 18 numbers");
+      }
+      return parsed;
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("stroke_index")) {
+        throw e;
+      }
+      throw new Error(`Failed to parse stroke_index: ${e instanceof Error ? e.message : "unknown error"}`);
     }
   }
 
@@ -654,8 +664,6 @@ export class LeaderboardService {
   }
 
   private transformCategoryTeeRow(row: CategoryTeeRow): CategoryTeeRating {
-    const strokeIndex = this.parseStrokeIndex(row.stroke_index);
-
     let courseRating = row.legacy_course_rating || GOLF.STANDARD_COURSE_RATING;
     let slopeRating = row.legacy_slope_rating || GOLF.STANDARD_SLOPE_RATING;
 
@@ -677,7 +685,6 @@ export class LeaderboardService {
       teeName: row.tee_name,
       courseRating,
       slopeRating,
-      strokeIndex,
     };
   }
 
@@ -1097,7 +1104,7 @@ export class LeaderboardService {
 
   private findCompetitionWithPars(id: number): CompetitionRow | null {
     const stmt = this.db.prepare(`
-      SELECT c.*, co.pars
+      SELECT c.*, co.pars, co.stroke_index as course_stroke_index
       FROM competitions c
       JOIN courses co ON c.course_id = co.id
       WHERE c.id = ?

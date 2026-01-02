@@ -64,22 +64,22 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
   }
 
   function createCourseWithTee(name: string, pars: number[]) {
-    // Create course
-    const course = db.prepare(`
-      INSERT INTO courses (name, pars)
-      VALUES (?, ?)
-      RETURNING id
-    `).get(name, JSON.stringify(pars)) as { id: number };
-
     // Create stroke index (holes ranked by difficulty)
     const strokeIndex = [1, 3, 5, 7, 9, 11, 13, 15, 17, 2, 4, 6, 8, 10, 12, 14, 16, 18];
 
-    // Create tee with ratings
-    const tee = db.prepare(`
-      INSERT INTO course_tees (course_id, name, course_rating, slope_rating, stroke_index)
-      VALUES (?, 'White', 72.0, 113, ?)
+    // Create course with stroke_index (stroke_index is now a course property)
+    const course = db.prepare(`
+      INSERT INTO courses (name, pars, stroke_index)
+      VALUES (?, ?, ?)
       RETURNING id
-    `).get(course.id, JSON.stringify(strokeIndex)) as { id: number };
+    `).get(name, JSON.stringify(pars), JSON.stringify(strokeIndex)) as { id: number };
+
+    // Create tee with ratings (stroke_index on tee is now ignored)
+    const tee = db.prepare(`
+      INSERT INTO course_tees (course_id, name, course_rating, slope_rating)
+      VALUES (?, 'White', 72.0, 113)
+      RETURNING id
+    `).get(course.id) as { id: number };
 
     return { courseId: course.id, teeId: tee.id, pars };
   }

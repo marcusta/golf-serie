@@ -34,6 +34,7 @@ import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import { useSeriesTeams } from "../../api/series";
 import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
 import { JoinCompetitionFlow, GroupStatusCard } from "../../components/tour";
+import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
 
 type TabType = "startlist" | "leaderboard" | "teamresult" | "whosplaying";
 
@@ -175,11 +176,17 @@ export default function CompetitionDetail() {
     if (!selectedParticipantId || !leaderboard || !teeInfo?.strokeIndex) return undefined;
 
     const entry = leaderboard.find(e => e.participant.id === selectedParticipantId);
-    if (!entry || entry.courseHandicap === undefined || !entry.handicapStrokesPerHole) return undefined;
+    if (!entry || entry.courseHandicap === undefined) return undefined;
+
+    // Calculate handicap strokes per hole locally
+    const handicapStrokesPerHole = distributeHandicapStrokes(
+      entry.courseHandicap,
+      teeInfo.strokeIndex
+    );
 
     return {
       strokeIndex: teeInfo.strokeIndex,
-      handicapStrokesPerHole: entry.handicapStrokesPerHole,
+      handicapStrokesPerHole,
       courseHandicap: entry.courseHandicap,
       handicapIndex: entry.participant.handicap_index,
     };
