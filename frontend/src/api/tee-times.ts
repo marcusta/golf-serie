@@ -110,6 +110,18 @@ export function useUpdateScore() {
       if (teeTimeId) {
         queryClient.invalidateQueries({ queryKey: ["teeTime", teeTimeId] });
       }
+      // Also invalidate leaderboard queries so they reflect the updated scores
+      // Uses predicate to match all leaderboard-related queries
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return (
+            Array.isArray(key) &&
+            key[0] === "competition" &&
+            (key[2] === "leaderboard" || key[2] === "team-leaderboard")
+          );
+        },
+      });
     },
   });
 }
