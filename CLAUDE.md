@@ -474,6 +474,24 @@ export default function MyPlayerView() {
 
 **Documentation**: See `/docs/frontend-topbar-architecture.md` for complete implementation guide.
 
+## Active Improvement Plans
+
+### Frontend Refactoring Plan
+**Status**: In Progress
+**Document**: `/docs/frontend-refactoring-plan.md`
+
+Tracked improvements for frontend maintainability:
+- Phase 0: Testing foundation (prerequisite - add tests before refactoring)
+- Phase 1: Type system cleanup (shared types directory)
+- Phase 2: Component barrel exports
+- Phase 3: Styling constants consolidation
+- Phase 4: Error boundaries
+- Phase 5: LeaderboardComponent split
+- Phase 6: CompetitionDetail split
+- Phase 7: Documentation updates
+
+When working on frontend, check this plan for context and update progress as phases complete.
+
 ## Important Constraints
 
 - Never modify files in the `frontend/` directory unless explicitly requested
