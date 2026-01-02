@@ -107,46 +107,49 @@ This ensures we can verify refactoring didn't break anything.
 
 **Priority:** High
 **Effort:** Low
-**Status:** Not Started
+**Status:** Completed (2026-01-02)
 
 ### Problem
 Duplicate type definitions exist across files, particularly `ParticipantScore` which is defined differently in `scoreCalculations.ts` and `pointCalculation.ts`.
 
 ### Tasks
 
-- [ ] **1.1 Create shared types directory**
+- [x] **1.1 Create shared types directory**
   - Create `frontend/src/types/` directory
   - Create `index.ts` for re-exports
 
-- [ ] **1.2 Consolidate participant types**
+- [x] **1.2 Consolidate participant types**
   - Create `frontend/src/types/participant.ts`
-  - Define single `ParticipantScore` interface
+  - Define single `ParticipantScore` interface with optional `score` property
   - Define `ParticipantData` interface (used by scorecard)
+  - Define `ParticipantScoreWithScores` in pointCalculation.ts for cases requiring score array
   - Update imports in `scoreCalculations.ts`
   - Update imports in `pointCalculation.ts`
 
-- [ ] **1.3 Consolidate scoring types**
+- [x] **1.3 Consolidate scoring types**
   - Create `frontend/src/types/scoring.ts`
   - Move `ScoreStatistics`, `TeamResult`, `TeamResultInput`, `TeamResultWithPoints`
   - Document score value conventions (0 = not reported, -1 = gave up, positive = strokes)
+  - Add `TeamParticipantEntry` for shared participant entries in team results
 
-- [ ] **1.4 Add explicit return types to hooks**
+- [ ] **1.4 Add explicit return types to hooks** (Deferred - complex React Query types)
   - Add return type to `useCompetitionData`
   - Add return type to composite hooks in `api/` files
+  - Note: Deferred due to complexity of React Query return types
 
-### Files to Create
+### Files Created
 ```
 frontend/src/types/
-├── index.ts
-├── participant.ts
-├── scoring.ts
-└── competition.ts
+├── index.ts              # Barrel exports
+├── participant.ts        # ParticipantScore, ParticipantData, PlayerForRoundCheck
+└── scoring.ts            # ScoreStatistics, TeamResult, TeamResultInput, TeamResultWithPoints
 ```
 
 ### Validation
-- [ ] TypeScript compilation passes
-- [ ] No duplicate type definitions in `utils/`
-- [ ] All imports updated
+- [x] TypeScript compilation passes
+- [x] No duplicate type definitions in `utils/`
+- [x] All imports updated
+- [x] Build succeeds
 
 ---
 
@@ -466,13 +469,14 @@ hooks/
 | Date | Session | Phases Completed | Notes |
 |------|---------|------------------|-------|
 | 2026-01-02 | 1 | - | Initial plan created |
+| 2026-01-02 | 2 | Phase 1 | Type system cleanup - created types/ directory, consolidated ParticipantScore and scoring types |
 
 ### Phase Status Summary
 
 | Phase | Description | Status | Completion |
 |-------|-------------|--------|------------|
 | 0 | Testing Foundation | Not Started | 0% |
-| 1 | Type System Cleanup | Not Started | 0% |
+| 1 | Type System Cleanup | Completed | 90% |
 | 2 | Component Barrel Exports | Not Started | 0% |
 | 3 | Styling Constants | Not Started | 0% |
 | 4 | Error Boundaries | Not Started | 0% |

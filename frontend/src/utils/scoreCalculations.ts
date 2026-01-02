@@ -1,41 +1,17 @@
-// Types for score calculations
-export interface ParticipantScore {
-  participantId: number;
-  participant: {
-    id: number;
-    team_name: string;
-    position_name: string;
-    player_names?: string | null;
-  };
-  totalShots: number;
-  relativeToPar: number;
-  holesPlayed: number;
-}
+import type {
+  ParticipantScore,
+  PlayerForRoundCheck,
+  ScoreStatistics,
+  TeamResult,
+} from "../types";
 
-export interface TeamResult {
-  teamName: string;
-  participants: Array<{
-    name: string;
-    position: string;
-    totalShots: number;
-    relativeToPar: number;
-  }>;
-  totalShots: number;
-  relativeToPar: number;
-  position: number;
-  points: number;
-}
-
-export interface ScoreStatistics {
-  totalShots: number;
-  relativeToPar: number;
-  holesPlayed: number;
-  isValidRound: boolean;
-}
-
-export interface PlayerForRoundCheck {
-  score: number[];
-}
+// Re-export shared types for backward compatibility
+export type {
+  ParticipantScore,
+  PlayerForRoundCheck,
+  ScoreStatistics,
+  TeamResult,
+} from "../types";
 
 /**
  * Calculate participant score statistics from their score array

@@ -1,35 +1,20 @@
-// Types for the point calculation module
-export interface TeamResultInput {
-  teamName: string;
-  participants: Array<{
-    name: string;
-    position: string;
-    totalShots: number;
-    relativeToPar: number;
-  }>;
-  totalShots: number;
-  relativeToPar: number;
-}
+import type {
+  ParticipantScore,
+  TeamResultInput,
+  TeamResultWithPoints,
+} from "../types";
 
-export interface TeamResultWithPoints extends TeamResultInput {
-  position: number;
-  rankingPoints: number;
-  hasResults: boolean;
-}
+// Re-export shared types for backward compatibility
+export type { TeamResultInput, TeamResultWithPoints } from "../types";
 
-// Types for compatibility with existing leaderboard data
-export interface ParticipantScore {
-  participantId: number;
-  participant: {
-    id: number;
-    team_name: string;
-    position_name: string;
-    player_names?: string | null;
-    score: number[]; // Raw scorecard array
+/**
+ * Extended ParticipantScore that requires the score array
+ * Used in convertLeaderboardToTeamInput where we need to check for -1 values
+ */
+export interface ParticipantScoreWithScores extends Omit<ParticipantScore, "participant"> {
+  participant: ParticipantScore["participant"] & {
+    score: number[]; // Raw scorecard array - required for checking gave-up markers
   };
-  totalShots: number;
-  relativeToPar: number;
-  holesPlayed: number;
 }
 
 /**
@@ -38,7 +23,7 @@ export interface ParticipantScore {
  * @returns Array of TeamResultInput objects ready for processing
  */
 export function convertLeaderboardToTeamInput(
-  leaderboard: ParticipantScore[]
+  leaderboard: ParticipantScoreWithScores[]
 ): TeamResultInput[] {
   // Group participants by team
   const teamGroups = leaderboard.reduce((acc, entry) => {
