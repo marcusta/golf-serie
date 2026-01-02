@@ -10,6 +10,7 @@ export interface Course {
     in: number;
     total: number;
   };
+  stroke_index?: number[]; // Array of 1-18 representing hole difficulty order
   created_at: string;
   updated_at: string;
 }
@@ -67,17 +68,48 @@ export function useCreateCourse() {
   });
 }
 
+export function useUpdateCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+      const response = await fetch(`${API_BASE_URL}/courses/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+}
+
 export function useUpdateCourseHoles() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, holes }: { id: number; holes: number[] }) => {
+    mutationFn: async ({
+      id,
+      holes,
+      stroke_index,
+    }: {
+      id: number;
+      holes: number[];
+      stroke_index?: number[];
+    }) => {
       const response = await fetch(`${API_BASE_URL}/courses/${id}/holes`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(holes),
+        body: JSON.stringify({ pars: holes, stroke_index }),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");

@@ -9,6 +9,7 @@ export interface Course {
   id: number;
   name: string;
   pars: ParsData;
+  stroke_index?: number[]; // Array of 1-18 representing hole difficulty order
   created_at: string;
   updated_at: string;
 }

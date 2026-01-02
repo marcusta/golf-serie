@@ -106,8 +106,21 @@ export function createCoursesApi(courseService: CourseService, courseTeeService?
 
     async updateHoles(req: Request, id: number): Promise<Response> {
       try {
-        const pars = (await req.json()) as number[];
-        const course = await courseService.updateHoles(id, pars);
+        const body = await req.json();
+        // Support both old format (just array) and new format (object with pars and stroke_index)
+        let pars: number[];
+        let strokeIndex: number[] | undefined;
+
+        if (Array.isArray(body)) {
+          // Old format: just pars array
+          pars = body;
+        } else {
+          // New format: { pars: number[], stroke_index?: number[] }
+          pars = body.pars;
+          strokeIndex = body.stroke_index;
+        }
+
+        const course = await courseService.updateHoles(id, pars, strokeIndex);
         return new Response(JSON.stringify(course), {
           status: 200,
           headers: { "Content-Type": "application/json" },

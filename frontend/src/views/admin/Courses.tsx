@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   useCourses,
   useCreateCourse,
+  useUpdateCourse,
   useUpdateCourseHoles,
   useDeleteCourse,
   useCourseTees,
@@ -80,6 +81,7 @@ function getCourseColor(index: number) {
 export default function Courses() {
   const { data: courses, isLoading, error } = useCourses();
   const createCourse = useCreateCourse();
+  const updateCourse = useUpdateCourse();
   const updateCourseHoles = useUpdateCourseHoles();
   const deleteCourse = useDeleteCourse();
 
@@ -87,6 +89,9 @@ export default function Courses() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [courseName, setCourseName] = useState("");
   const [pars, setPars] = useState<number[]>(Array(18).fill(3));
+  const [strokeIndex, setStrokeIndex] = useState<number[]>(
+    Array.from({ length: 18 }, (_, i) => i + 1)
+  );
   const [step, setStep] = useState<"name" | "pars">("name");
 
   // Tee management state
@@ -113,6 +118,7 @@ export default function Courses() {
     setEditingCourse(null);
     setCourseName("");
     setPars(Array(18).fill(3));
+    setStrokeIndex(Array.from({ length: 18 }, (_, i) => i + 1));
     setStep("name");
     setShowDialog(true);
   };
@@ -121,6 +127,9 @@ export default function Courses() {
     setEditingCourse(course);
     setCourseName(course.name);
     setPars(course.pars.holes);
+    setStrokeIndex(
+      course.stroke_index || Array.from({ length: 18 }, (_, i) => i + 1)
+    );
     setStep("pars");
     setShowDialog(true);
   };
@@ -308,6 +317,21 @@ export default function Courses() {
     setPars(newPars);
   };
 
+  const handleStrokeIndexChange = (index: number, value: string) => {
+    const newStrokeIndex = [...strokeIndex];
+    const numValue = parseInt(value);
+    if (numValue >= 1 && numValue <= 18) {
+      newStrokeIndex[index] = numValue;
+      setStrokeIndex(newStrokeIndex);
+    }
+  };
+
+  // Check if stroke index is valid (each 1-18 appears exactly once)
+  const isStrokeIndexValid = () => {
+    const sorted = [...strokeIndex].sort((a, b) => a - b);
+    return sorted.every((val, i) => val === i + 1);
+  };
+
   const calculateTotals = (holes: number[]) => {
     const out = holes.slice(0, 9).reduce((sum, par) => sum + par, 0);
     const in_ = holes.slice(9).reduce((sum, par) => sum + par, 0);
@@ -326,9 +350,22 @@ export default function Courses() {
         setEditingCourse(response);
         setStep("pars");
       } else if (editingCourse) {
+        if (!isStrokeIndexValid()) {
+          alert("Invalid stroke index. Each value from 1-18 must appear exactly once.");
+          return;
+        }
+        // Update name if changed
+        if (courseName !== editingCourse.name) {
+          await updateCourse.mutateAsync({
+            id: editingCourse.id,
+            name: courseName,
+          });
+        }
+        // Update pars and stroke index
         await updateCourseHoles.mutateAsync({
           id: editingCourse.id,
           holes: pars,
+          stroke_index: strokeIndex,
         });
         setShowDialog(false);
       }
@@ -424,7 +461,7 @@ export default function Courses() {
               {step === "name"
                 ? "Create New Course"
                 : editingCourse
-                ? "Edit Course Pars"
+                ? "Edit Course"
                 : "Set Course Pars"}
             </DialogTitle>
           </DialogHeader>
@@ -444,6 +481,22 @@ export default function Courses() {
               </div>
             ) : (
               <>
+                {/* Course Name (only when editing existing course) */}
+                {editingCourse && (
+                  <div className="space-y-2">
+                    <label htmlFor="editCourseName" className="text-sm font-medium">
+                      Course Name
+                    </label>
+                    <Input
+                      id="editCourseName"
+                      value={courseName}
+                      onChange={(e) => setCourseName(e.target.value)}
+                      placeholder="Enter course name"
+                      required
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   <h3 className="text-sm font-medium">Hole Pars</h3>
                   <div className="grid grid-cols-9 gap-2">
@@ -496,6 +549,49 @@ export default function Courses() {
                     <p className="text-lg font-bold text-purple-700">
                       Par {calculateTotals(pars).total}
                     </p>
+                  </div>
+                </div>
+
+                {/* Stroke Index Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium">Stroke Index (Hole Difficulty)</h3>
+                    {!isStrokeIndexValid() && (
+                      <span className="text-xs text-red-600">
+                        Each value 1-18 must appear exactly once
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    SI 1 = hardest hole (gets strokes first), SI 18 = easiest hole
+                  </p>
+                  <div className="grid grid-cols-9 gap-2">
+                    {strokeIndex.map((si, index) => (
+                      <div key={index} className="space-y-1">
+                        <label
+                          htmlFor={`si-${index + 1}`}
+                          className="text-xs text-gray-500"
+                        >
+                          Hole {index + 1}
+                        </label>
+                        <Input
+                          id={`si-${index + 1}`}
+                          type="number"
+                          min="1"
+                          max="18"
+                          value={si}
+                          onChange={(e) =>
+                            handleStrokeIndexChange(index, e.target.value)
+                          }
+                          className={`w-full ${
+                            strokeIndex.filter((v) => v === si).length > 1
+                              ? "border-red-500 bg-red-50"
+                              : ""
+                          }`}
+                          required
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </>

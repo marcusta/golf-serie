@@ -15,6 +15,7 @@ interface CourseRow {
   id: number;
   name: string;
   pars: string; // JSON string in database
+  stroke_index: string | null; // JSON string in database
   created_at: string;
   updated_at: string;
 }
@@ -39,10 +40,15 @@ export class CourseService {
 
   private transformCourseRow(row: CourseRow): Course {
     const pars = parseParsArray(row.pars);
+    const strokeIndex = row.stroke_index ? JSON.parse(row.stroke_index) : undefined;
     return {
-      ...row,
+      id: row.id,
+      name: row.name,
       pars: this.calculatePars(pars),
-    } as Course;
+      stroke_index: strokeIndex,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
   }
 
   private validateCourseName(name: string | undefined): void {
@@ -63,6 +69,18 @@ export class CourseService {
     }
     if (!pars.every((par) => Number.isInteger(par) && par >= GOLF.MIN_PAR && par <= GOLF.MAX_PAR)) {
       throw new Error(`All pars must be integers between ${GOLF.MIN_PAR} and ${GOLF.MAX_PAR}`);
+    }
+  }
+
+  private validateStrokeIndex(strokeIndex: number[]): void {
+    if (strokeIndex.length !== GOLF.HOLES_PER_ROUND) {
+      throw new Error(`Stroke index must have exactly ${GOLF.HOLES_PER_ROUND} values`);
+    }
+    // Check that all values are 1-18 and each appears exactly once
+    const sorted = [...strokeIndex].sort((a, b) => a - b);
+    const expected = Array.from({ length: GOLF.HOLES_PER_ROUND }, (_, i) => i + 1);
+    if (!sorted.every((val, i) => val === expected[i])) {
+      throw new Error("Stroke index must contain each value from 1 to 18 exactly once");
     }
   }
 
@@ -107,6 +125,30 @@ export class CourseService {
       RETURNING *
     `);
     return stmt.get(JSON.stringify(pars), id) as CourseRow;
+  }
+
+  private updateCourseStrokeIndexRow(id: number, strokeIndex: number[]): CourseRow {
+    const stmt = this.db.prepare(`
+      UPDATE courses
+      SET stroke_index = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      RETURNING *
+    `);
+    return stmt.get(JSON.stringify(strokeIndex), id) as CourseRow;
+  }
+
+  private updateCourseParsAndStrokeIndexRow(
+    id: number,
+    pars: number[],
+    strokeIndex: number[]
+  ): CourseRow {
+    const stmt = this.db.prepare(`
+      UPDATE courses
+      SET pars = ?, stroke_index = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      RETURNING *
+    `);
+    return stmt.get(JSON.stringify(pars), JSON.stringify(strokeIndex), id) as CourseRow;
   }
 
   private findCompetitionsByCourse(courseId: number): { id: number }[] {
@@ -157,15 +199,27 @@ export class CourseService {
     return this.transformCourseRow(updatedRow);
   }
 
-  async updateHoles(id: number, pars: number[]): Promise<Course> {
+  async updateHoles(
+    id: number,
+    pars: number[],
+    strokeIndex?: number[]
+  ): Promise<Course> {
     const existingRow = this.findCourseRowById(id);
     if (!existingRow) {
       throw new Error("Course not found");
     }
 
     this.validateParsArray(pars);
+    if (strokeIndex) {
+      this.validateStrokeIndex(strokeIndex);
+    }
 
-    const updatedRow = this.updateCourseParsRow(id, pars);
+    let updatedRow: CourseRow;
+    if (strokeIndex) {
+      updatedRow = this.updateCourseParsAndStrokeIndexRow(id, pars, strokeIndex);
+    } else {
+      updatedRow = this.updateCourseParsRow(id, pars);
+    }
     return this.transformCourseRow(updatedRow);
   }
 
