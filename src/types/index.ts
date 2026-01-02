@@ -41,6 +41,7 @@ export interface Competition {
   series_id?: number;
   tour_id?: number;
   tee_id?: number;
+  owner_id?: number;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";
@@ -509,6 +510,19 @@ export interface SeriesAdmin {
 }
 
 export interface SeriesAdminWithUser extends SeriesAdmin {
+  email: string;
+  role: string;
+}
+
+// Competition admin types
+export interface CompetitionAdmin {
+  id: number;
+  competition_id: number;
+  user_id: number;
+  created_at: string;
+}
+
+export interface CompetitionAdminWithUser extends CompetitionAdmin {
   email: string;
   role: string;
 }

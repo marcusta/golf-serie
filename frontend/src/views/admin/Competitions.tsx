@@ -26,6 +26,7 @@ import {
   Flag,
   CheckCircle,
   Loader2,
+  Shield,
 } from "lucide-react";
 import { Link, useSearch } from "@tanstack/react-router";
 
@@ -673,13 +674,22 @@ export default function AdminCompetitions() {
                         )
                       )}
                       {isFullCompetition && (
-                        <button
-                          onClick={() => handleEdit(competition as Competition)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit competition"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
+                        <>
+                          <Link
+                            to={`/admin/competitions/${competition.id}`}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            title="Manage admins"
+                          >
+                            <Shield className="h-4 w-4" />
+                          </Link>
+                          <button
+                            onClick={() => handleEdit(competition as Competition)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit competition"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => handleDelete(competition.id)}

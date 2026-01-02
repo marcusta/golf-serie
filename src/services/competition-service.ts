@@ -347,4 +347,121 @@ export class CompetitionService {
     const stmt = this.db.prepare("DELETE FROM competitions WHERE id = ?");
     stmt.run(id);
   }
+
+  private findUserRole(userId: number): string | null {
+    const row = this.db
+      .prepare("SELECT role FROM users WHERE id = ?")
+      .get(userId) as { role: string } | null;
+    return row?.role ?? null;
+  }
+
+  private findStandAloneCompetitionRows(): CompetitionWithCourseRow[] {
+    const stmt = this.db.prepare(`
+      SELECT c.*, co.name as course_name,
+        (SELECT COUNT(*)
+         FROM participants p
+         JOIN tee_times t ON p.tee_time_id = t.id
+         WHERE t.competition_id = c.id) as participant_count
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      WHERE c.series_id IS NULL AND c.tour_id IS NULL
+      ORDER BY c.date DESC
+    `);
+    return stmt.all() as CompetitionWithCourseRow[];
+  }
+
+  private findStandAloneCompetitionsForUserRows(
+    userId: number
+  ): CompetitionWithCourseRow[] {
+    const stmt = this.db.prepare(`
+      SELECT DISTINCT c.*, co.name as course_name,
+        (SELECT COUNT(*)
+         FROM participants p
+         JOIN tee_times t ON p.tee_time_id = t.id
+         WHERE t.competition_id = c.id) as participant_count
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      LEFT JOIN competition_admins ca ON c.id = ca.competition_id AND ca.user_id = ?
+      WHERE c.series_id IS NULL
+        AND c.tour_id IS NULL
+        AND (c.owner_id = ? OR ca.user_id IS NOT NULL)
+      ORDER BY c.date DESC
+    `);
+    return stmt.all(userId, userId) as CompetitionWithCourseRow[];
+  }
+
+  private findCompetitionsForUserRows(userId: number): CompetitionWithCourseRow[] {
+    // Get competitions where user is:
+    // 1. Direct owner or admin
+    // 2. Series owner or admin (for series competitions)
+    // 3. Tour owner or admin (for tour competitions)
+    const stmt = this.db.prepare(`
+      SELECT DISTINCT c.*, co.name as course_name,
+        (SELECT COUNT(*)
+         FROM participants p
+         JOIN tee_times t ON p.tee_time_id = t.id
+         WHERE t.competition_id = c.id) as participant_count
+      FROM competitions c
+      JOIN courses co ON c.course_id = co.id
+      LEFT JOIN competition_admins ca ON c.id = ca.competition_id AND ca.user_id = ?
+      LEFT JOIN series s ON c.series_id = s.id
+      LEFT JOIN series_admins sa ON s.id = sa.series_id AND sa.user_id = ?
+      LEFT JOIN tours t ON c.tour_id = t.id
+      LEFT JOIN tour_admins ta ON t.id = ta.tour_id AND ta.user_id = ?
+      WHERE
+        c.owner_id = ?
+        OR ca.user_id IS NOT NULL
+        OR s.owner_id = ?
+        OR sa.user_id IS NOT NULL
+        OR t.owner_id = ?
+        OR ta.user_id IS NOT NULL
+      ORDER BY c.date DESC
+    `);
+    return stmt.all(userId, userId, userId, userId, userId, userId) as CompetitionWithCourseRow[];
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Public API Methods for filtered competition access
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Get all stand-alone competitions (not linked to any series or tour)
+   * For SUPER_ADMIN: returns all stand-alone competitions
+   * For regular users: returns only those they own or are admin of
+   */
+  async findStandAlone(userId: number): Promise<
+    (Competition & {
+      course: { id: number; name: string };
+      participant_count: number;
+    })[]
+  > {
+    const userRole = this.findUserRole(userId);
+    const rows =
+      userRole === "SUPER_ADMIN"
+        ? this.findStandAloneCompetitionRows()
+        : this.findStandAloneCompetitionsForUserRows(userId);
+
+    return rows.map((row) => this.transformCompetitionRowToResult(row));
+  }
+
+  /**
+   * Get all competitions the user can manage
+   * For SUPER_ADMIN: returns all competitions
+   * For regular users: returns competitions they own, are admin of,
+   *                    or are in series/tours they manage
+   */
+  async findForUser(userId: number): Promise<
+    (Competition & {
+      course: { id: number; name: string };
+      participant_count: number;
+    })[]
+  > {
+    const userRole = this.findUserRole(userId);
+    const rows =
+      userRole === "SUPER_ADMIN"
+        ? this.findAllCompetitionRows()
+        : this.findCompetitionsForUserRows(userId);
+
+    return rows.map((row) => this.transformCompetitionRowToResult(row));
+  }
 }

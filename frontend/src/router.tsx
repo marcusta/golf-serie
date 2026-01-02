@@ -15,6 +15,7 @@ import AdminSeriesDetail from "./views/admin/SeriesDetail";
 import AdminTeams from "./views/admin/Teams";
 import AdminCourses from "./views/admin/Courses";
 import AdminCompetitions from "./views/admin/Competitions";
+import AdminCompetitionDetail from "./views/admin/CompetitionDetail";
 import AdminCompetitionTeeTimes from "./views/admin/CompetitionTeeTimes.tsx";
 import AdminCompetitionGroups from "./views/admin/AdminCompetitionGroups";
 import AdminManualScoreEntry from "./views/admin/AdminManualScoreEntry";
@@ -87,6 +88,12 @@ const adminCompetitionsRoute = new Route({
   getParentRoute: () => adminRoute,
   path: "/competitions",
   component: AdminCompetitions,
+});
+
+const adminCompetitionDetailRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/competitions/$competitionId",
+  component: AdminCompetitionDetail,
 });
 
 const adminCompetitionTeeTimesRoute = new Route({
@@ -288,6 +295,7 @@ const routeTree = rootRoute.addChildren([
     adminTeamsRoute,
     adminCoursesRoute,
     adminCompetitionsRoute,
+    adminCompetitionDetailRoute,
     adminCompetitionTeeTimesRoute,
     adminManualScoreEntryRoute,
     adminCompetitionGroupsRoute,

@@ -28,6 +28,7 @@ import { SeriesService } from "./services/series-service";
 import { TeamService } from "./services/team-service";
 import { TeeTimeService } from "./services/tee-time-service";
 import { createSeriesAdminService } from "./services/series-admin.service";
+import { createCompetitionAdminService } from "./services/competition-admin.service";
 import { createTourAdminService } from "./services/tour-admin.service";
 import { createTourCategoryService } from "./services/tour-category.service";
 import { TourDocumentService } from "./services/tour-document.service";
@@ -48,6 +49,7 @@ export function createApp(db: Database): Hono {
   const participantService = new ParticipantService(db);
   const seriesService = new SeriesService(db, competitionService);
   const seriesAdminService = createSeriesAdminService(db);
+  const competitionAdminService = createCompetitionAdminService(db);
   const documentService = new DocumentService(db);
   const playerService = createPlayerService(db);
   const playerProfileService = createPlayerProfileService(db);
@@ -399,6 +401,86 @@ export function createApp(db: Database): Hono {
   app.get("/api/competitions/:competitionId/tee-times", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));
     return await teeTimesApi.findAllForCompetition(competitionId);
+  });
+
+  // Competition Admin endpoints
+  app.get("/api/competitions/:id/admins", requireAuth(), async (c) => {
+    const user = c.get("user");
+    const id = parseInt(c.req.param("id"));
+
+    // Check if user can manage competition (anyone who can manage can view admins)
+    if (!competitionAdminService.canManageCompetition(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    try {
+      const admins = competitionAdminService.getCompetitionAdmins(id);
+      return c.json(admins);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 500);
+    }
+  });
+
+  app.post("/api/competitions/:id/admins", requireAuth(), async (c) => {
+    const user = c.get("user");
+    const id = parseInt(c.req.param("id"));
+
+    // Check if user can manage competition admins (more restrictive)
+    if (!competitionAdminService.canManageCompetitionAdmins(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    try {
+      const body = await c.req.json();
+      if (!body.userId) {
+        return c.json({ error: "User ID is required" }, 400);
+      }
+      const admin = competitionAdminService.addCompetitionAdmin(id, body.userId);
+      return c.json(admin, 201);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  app.delete(
+    "/api/competitions/:id/admins/:userId",
+    requireAuth(),
+    async (c) => {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const userId = parseInt(c.req.param("userId"));
+
+      // Check if user can manage competition admins (more restrictive)
+      if (!competitionAdminService.canManageCompetitionAdmins(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      try {
+        competitionAdminService.removeCompetitionAdmin(id, userId);
+        return c.json({ success: true });
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : "Internal server error";
+        return c.json({ error: message }, 400);
+      }
+    }
+  );
+
+  // Stand-alone competitions endpoint
+  app.get("/api/competitions/standalone", requireAuth(), async (c) => {
+    const user = c.get("user");
+    try {
+      const competitions = await competitionService.findStandAlone(user!.id);
+      return c.json(competitions);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 500);
+    }
   });
 
   app.get("/api/tee-times/:id", async (c) => {

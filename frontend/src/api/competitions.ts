@@ -403,3 +403,116 @@ export function useFinalizeCompetitionResults() {
     },
   });
 }
+
+// Competition Admin types and hooks
+export interface CompetitionAdmin {
+  id: number;
+  competition_id: number;
+  user_id: number;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export function useCompetitionAdmins(competitionId: number) {
+  return useQuery<CompetitionAdmin[]>({
+    queryKey: ["competition", competitionId, "admins"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/admins`,
+        {
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+    enabled: competitionId > 0,
+  });
+}
+
+export function useAddCompetitionAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      competitionId,
+      userId,
+    }: {
+      competitionId: number;
+      userId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/admins`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ userId }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to add admin");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { competitionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["competition", competitionId, "admins"],
+      });
+    },
+  });
+}
+
+export function useRemoveCompetitionAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      competitionId,
+      userId,
+    }: {
+      competitionId: number;
+      userId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/admins/${userId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to remove admin");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { competitionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["competition", competitionId, "admins"],
+      });
+    },
+  });
+}
+
+// Stand-alone competitions hook
+export function useStandAloneCompetitions() {
+  return useQuery<Competition[]>({
+    queryKey: ["competitions", "standalone"],
+    queryFn: async () => {
+      const response = await fetch(`${API_BASE_URL}/competitions/standalone`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    },
+  });
+}
