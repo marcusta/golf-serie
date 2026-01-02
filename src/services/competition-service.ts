@@ -16,6 +16,7 @@ import {
 } from "../utils/handicap";
 import { GOLF } from "../constants/golf";
 import { parseParsArray, safeParseJsonWithDefault } from "../utils/parsing";
+import { calculateDefaultPoints } from "../utils/points";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -307,7 +308,7 @@ export class CompetitionService {
       // Parse the score field
       const score =
         typeof participant.score === "string"
-          ? JSON.parse(participant.score)
+          ? safeParseJsonWithDefault<number[]>(participant.score, [])
           : Array.isArray(participant.score)
           ? participant.score
           : [];
@@ -734,20 +735,7 @@ export class CompetitionService {
   }
 
   private calculateTeamPoints(position: number, numberOfTeams: number, multiplier: number = 1): number {
-    if (position <= 0) return 0;
-
-    let basePoints: number;
-    if (position === 1) {
-      basePoints = numberOfTeams + 2;
-    } else if (position === 2) {
-      basePoints = numberOfTeams;
-    } else {
-      // For position 3 and below, ensuring points don't go below 0.
-      basePoints = numberOfTeams - (position - 1);
-      basePoints = Math.max(0, basePoints);
-    }
-
-    return basePoints * multiplier;
+    return calculateDefaultPoints(position, numberOfTeams, multiplier);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

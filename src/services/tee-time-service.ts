@@ -6,6 +6,8 @@ import type {
   TeeTimeWithParticipants,
   UpdateTeeTimeDto,
 } from "../types";
+import { safeParseJson, safeParseJsonWithDefault } from "../utils/parsing";
+import type { ParsData } from "../types";
 
 type VenueType = "outdoor" | "indoor";
 
@@ -89,7 +91,10 @@ export class TeeTimeService {
   private transformParticipantRow(row: ParticipantWithTeamRow): ParticipantWithTeamRow {
     return {
       ...row,
-      score: typeof row.score === "string" ? JSON.parse(row.score) : row.score || [],
+      score:
+        typeof row.score === "string"
+          ? safeParseJsonWithDefault<number[]>(row.score, [])
+          : row.score || [],
     };
   }
 
@@ -98,7 +103,7 @@ export class TeeTimeService {
     participantRows: ParticipantWithTeamRow[]
   ): TeeTimeWithParticipants {
     const parsedParticipants = participantRows.map((p) => this.transformParticipantRow(p));
-    const pars = JSON.parse(teeTimeRow.pars);
+    const pars = safeParseJson<ParsData>(teeTimeRow.pars, "pars");
 
     return {
       ...teeTimeRow,

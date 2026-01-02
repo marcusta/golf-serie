@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { GOLF } from "../constants/golf";
 import { parseParsArray, safeParseJson } from "../utils/parsing";
+import { calculateDefaultPoints } from "../utils/points";
 
 interface PointsStructure {
   [key: string]: number;
@@ -589,19 +590,7 @@ export class CompetitionResultsService {
     }
 
     // Default formula
-    if (position <= 0) return 0;
-
-    let basePoints: number;
-    if (position === 1) {
-      basePoints = numberOfPlayers + 2;
-    } else if (position === 2) {
-      basePoints = numberOfPlayers;
-    } else {
-      basePoints = numberOfPlayers - (position - 1);
-      basePoints = Math.max(0, basePoints);
-    }
-
-    return basePoints;
+    return calculateDefaultPoints(position, numberOfPlayers);
   }
 
   private assignStandingPositions(
