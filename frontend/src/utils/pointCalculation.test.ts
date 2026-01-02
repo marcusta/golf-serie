@@ -6,9 +6,9 @@ import {
   convertLeaderboardToTeamInput,
   debugTeamRanking,
   isValidTeamResult,
-  ParticipantScoreWithScores,
   processTeamResults,
 } from "./pointCalculation";
+import type { ParticipantScoreWithScores } from "./pointCalculation";
 
 describe("convertLeaderboardToTeamInput", () => {
   const createEntry = (

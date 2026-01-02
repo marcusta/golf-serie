@@ -8,7 +8,7 @@ export interface FormattedCourse {
 }
 
 export function formatCourseFromTeeTime(
-  teeTime: TeeTime | null,
+  teeTime: TeeTime | null | undefined,
   course?: Course | null
 ): FormattedCourse | null {
   if (!teeTime) return null;

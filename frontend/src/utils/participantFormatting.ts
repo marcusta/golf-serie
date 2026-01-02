@@ -20,7 +20,7 @@ export interface TeeTimeGroup {
 }
 
 export function formatTeeTimeGroup(
-  teeTime: TeeTime | null
+  teeTime: TeeTime | null | undefined
 ): TeeTimeGroup | null {
   if (!teeTime) return null;
 

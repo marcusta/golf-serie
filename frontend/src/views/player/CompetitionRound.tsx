@@ -44,12 +44,6 @@ import type { TeeTime } from "../../api/tee-times";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
 
-// Local interface for participant with score property for typing
-interface ParticipantWithScore {
-  score?: number[];
-  [key: string]: unknown;
-}
-
 export default function CompetitionRound() {
   const { competitionId, teeTimeId } = useParams({ strict: false });
 
@@ -196,7 +190,7 @@ export default function CompetitionRound() {
     if (teeTime?.participants && teeTime.participants.length > 0) {
       // Ensure each participant has a valid score array before checking completion
       const participantsWithScores = teeTime.participants.filter(
-        (p: ParticipantWithScore) => Array.isArray(p.score)
+        (p) => Array.isArray(p.score)
       );
 
       if (participantsWithScores.length === teeTime.participants.length) {
