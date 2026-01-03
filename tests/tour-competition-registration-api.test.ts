@@ -46,16 +46,16 @@ describe("Tour Competition Registration API", () => {
     return db.prepare("SELECT id FROM competitions WHERE name = ?").get(name) as { id: number };
   }
 
-  // Helper to setup admin, tour, enrollment and player
+  // Helper to setup organizer, tour, enrollment and player
   async function setupTourWithEnrolledPlayer() {
-    // Create admin and tour
+    // Create organizer and tour
     await makeRequest("/api/auth/register", "POST", {
-      email: "admin@test.com",
+      email: "organizer@test.com",
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run("admin@test.com");
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run("organizer@test.com");
     await makeRequest("/api/auth/login", "POST", {
-      email: "admin@test.com",
+      email: "organizer@test.com",
       password: "password123",
     });
 

@@ -33,12 +33,12 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
   // Test Helpers
   // ============================================================================
 
-  async function createAdminUser(email = "admin@test.com") {
+  async function createOrganizerUser(email = "organizer@test.com") {
     await makeRequest("/api/auth/register", "POST", {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -166,7 +166,7 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
   test("complete flow: register, enter scores, handicap captured, finalize, net results", async () => {
     // 1. Setup: Create admin, tour with scoring_mode='both', course, competition
-    const admin = await createAdminUser("admin@test.com");
+    const admin = await createOrganizerUser("admin@test.com");
     const tour = await createTourWithScoringMode(admin.userId, "Net Test Tour", "both");
 
     const pars = [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4]; // Par 72
@@ -282,7 +282,7 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
   test("handicap is captured from tour enrollment playing_handicap if set", async () => {
     // Setup
-    const admin = await createAdminUser("admin@test.com");
+    const admin = await createOrganizerUser("admin@test.com");
     const tour = await createTourWithScoringMode(admin.userId, "Test Tour", "both");
 
     const pars = [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4];
@@ -320,7 +320,7 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
   test("gross-only tour does not store net results", async () => {
     // Setup with gross-only tour
-    const admin = await createAdminUser("admin@test.com");
+    const admin = await createOrganizerUser("admin@test.com");
     const tour = await createTourWithScoringMode(admin.userId, "Gross Only Tour", "gross");
 
     const pars = [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4];
@@ -363,7 +363,7 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
   test("net rankings differ from gross rankings based on handicap", async () => {
     // Setup
-    const admin = await createAdminUser("admin@test.com");
+    const admin = await createOrganizerUser("admin@test.com");
     const tour = await createTourWithScoringMode(admin.userId, "Test Tour", "both");
 
     const pars = [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4]; // Par 72

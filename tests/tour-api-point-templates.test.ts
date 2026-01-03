@@ -22,8 +22,8 @@ describe("Tour Point Templates API", () => {
     await cleanupTestDatabase(db);
   });
 
-  // Helper to create an admin user and tour
-  async function createAdminAndTour(
+  // Helper to create an organizer user and tour (ORGANIZER can create tours)
+  async function createOrganizerAndTour(
     email = "owner@test.com",
     tourName = "Test Tour"
   ) {
@@ -31,7 +31,7 @@ describe("Tour Point Templates API", () => {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -71,7 +71,7 @@ describe("Tour Point Templates API", () => {
 
   describe("GET /api/tours/:id/point-templates", () => {
     test("should list point templates for a tour", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create point templates for this tour
       await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
@@ -95,7 +95,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return empty array when no templates exist", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/point-templates`);
 
@@ -105,14 +105,14 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should not include templates from other tours", async () => {
-      const { tour: tour1 } = await createAdminAndTour("owner1@test.com", "Tour 1");
+      const { tour: tour1 } = await createOrganizerAndTour("owner1@test.com", "Tour 1");
       await makeRequest(`/api/tours/${tour1.id}/point-templates`, "POST", {
         name: "Tour 1 Points",
         points_structure: { "1": 100 },
       });
 
       await makeRequest("/api/auth/logout", "POST");
-      const { tour: tour2 } = await createAdminAndTour("owner2@test.com", "Tour 2");
+      const { tour: tour2 } = await createOrganizerAndTour("owner2@test.com", "Tour 2");
       await makeRequest(`/api/tours/${tour2.id}/point-templates`, "POST", {
         name: "Tour 2 Points",
         points_structure: { "1": 200 },
@@ -136,7 +136,7 @@ describe("Tour Point Templates API", () => {
 
   describe("POST /api/tours/:id/point-templates", () => {
     test("should create point template as tour owner", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         name: "Standard Points",
@@ -156,7 +156,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should create point template as tour admin (not owner)", async () => {
-      const { tour } = await createAdminAndTour("owner@test.com", "Test Tour");
+      const { tour } = await createOrganizerAndTour("owner@test.com", "Test Tour");
       const { userId: adminId } = await createUser("admin@test.com", "ADMIN");
 
       // Add admin to tour
@@ -176,7 +176,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 403 for non-admin user", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await createUser("player@test.com", "PLAYER");
       await loginAs("player@test.com");
 
@@ -189,7 +189,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 401 when not authenticated", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
@@ -201,7 +201,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 400 when name is missing", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         points_structure: { "1": 100 },
@@ -213,7 +213,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 400 when points_structure is missing", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         name: "Missing Structure",
@@ -227,7 +227,7 @@ describe("Tour Point Templates API", () => {
 
   describe("PUT /api/tours/:id/point-templates/:templateId", () => {
     test("should update point template as tour owner", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const createResponse = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         name: "Original Name",
@@ -251,7 +251,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 403 for non-admin user", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const createResponse = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         name: "Template",
@@ -272,7 +272,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 404 for template from different tour", async () => {
-      const { tour: tour1 } = await createAdminAndTour("owner1@test.com", "Tour 1");
+      const { tour: tour1 } = await createOrganizerAndTour("owner1@test.com", "Tour 1");
       const createResponse = await makeRequest(`/api/tours/${tour1.id}/point-templates`, "POST", {
         name: "Tour 1 Template",
         points_structure: { "1": 100 },
@@ -280,7 +280,7 @@ describe("Tour Point Templates API", () => {
       const template = await createResponse.json();
 
       await makeRequest("/api/auth/logout", "POST");
-      const { tour: tour2 } = await createAdminAndTour("owner2@test.com", "Tour 2");
+      const { tour: tour2 } = await createOrganizerAndTour("owner2@test.com", "Tour 2");
 
       // Try to update tour1's template via tour2's endpoint
       const response = await makeRequest(
@@ -293,7 +293,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 404 for non-existent template", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/point-templates/999`,
@@ -307,7 +307,7 @@ describe("Tour Point Templates API", () => {
 
   describe("DELETE /api/tours/:id/point-templates/:templateId", () => {
     test("should delete point template as tour owner", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const createResponse = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         name: "To Delete",
@@ -331,7 +331,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 403 for non-admin user", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const createResponse = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         name: "Template",
@@ -351,7 +351,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 404 for template from different tour", async () => {
-      const { tour: tour1 } = await createAdminAndTour("owner1@test.com", "Tour 1");
+      const { tour: tour1 } = await createOrganizerAndTour("owner1@test.com", "Tour 1");
       const createResponse = await makeRequest(`/api/tours/${tour1.id}/point-templates`, "POST", {
         name: "Tour 1 Template",
         points_structure: { "1": 100 },
@@ -359,7 +359,7 @@ describe("Tour Point Templates API", () => {
       const template = await createResponse.json();
 
       await makeRequest("/api/auth/logout", "POST");
-      const { tour: tour2 } = await createAdminAndTour("owner2@test.com", "Tour 2");
+      const { tour: tour2 } = await createOrganizerAndTour("owner2@test.com", "Tour 2");
 
       // Try to delete tour1's template via tour2's endpoint
       const response = await makeRequest(
@@ -371,7 +371,7 @@ describe("Tour Point Templates API", () => {
     });
 
     test("should return 404 for non-existent template", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/point-templates/999`,
@@ -384,7 +384,7 @@ describe("Tour Point Templates API", () => {
 
   describe("Tour-scoped vs Global templates", () => {
     test("tour templates should have tour_id set", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/point-templates`, "POST", {
         name: "Tour Scoped",
@@ -417,14 +417,14 @@ describe("Tour Point Templates API", () => {
     });
 
     test("tour endpoint should not return global templates", async () => {
-      // Create global template
+      // Create SUPER_ADMIN who can create both global templates and tours
       await makeRequest("/api/auth/register", "POST", {
-        email: "admin@test.com",
+        email: "superadmin@test.com",
         password: "password123",
       });
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'SUPER_ADMIN' WHERE email = 'superadmin@test.com'").run();
       await makeRequest("/api/auth/login", "POST", {
-        email: "admin@test.com",
+        email: "superadmin@test.com",
         password: "password123",
       });
 

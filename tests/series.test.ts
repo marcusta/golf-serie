@@ -22,13 +22,13 @@ describe("Series API", () => {
     await cleanupTestDatabase(db);
   });
 
-  // Helper to create an admin user and authenticate
-  async function loginAsAdmin(email = "admin@test.com") {
+  // Helper to create an organizer user and authenticate (ORGANIZER can create series)
+  async function loginAsOrganizer(email = "organizer@test.com") {
     await makeRequest("/api/auth/register", "POST", {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -43,7 +43,7 @@ describe("Series API", () => {
 
   describe("POST /api/series", () => {
     test("should create a new series with name and description", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const seriesData = {
         name: "Summer Golf Series",
@@ -65,7 +65,7 @@ describe("Series API", () => {
     });
 
     test("should create a series with all fields including banner and privacy", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const seriesData = {
         name: "Private Championship",
@@ -85,7 +85,7 @@ describe("Series API", () => {
     });
 
     test("should create a series with only name (description optional)", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const seriesData = {
         name: "Winter Championship",
@@ -102,7 +102,7 @@ describe("Series API", () => {
     });
 
     test("should return 400 when name is missing", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const response = await makeRequest("/api/series", "POST", {});
       expectErrorResponse(response, 400);
@@ -112,7 +112,7 @@ describe("Series API", () => {
     });
 
     test("should return 400 when name is empty", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const response = await makeRequest("/api/series", "POST", {
         name: "   ",
@@ -124,7 +124,7 @@ describe("Series API", () => {
     });
 
     test("should return 400 when series name already exists", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const seriesData = { name: "Duplicate Series" };
 
@@ -150,7 +150,7 @@ describe("Series API", () => {
     });
 
     test("should return all series created", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Create multiple series with small delays
       await makeRequest("/api/series", "POST", {
@@ -175,7 +175,7 @@ describe("Series API", () => {
 
   describe("GET /api/series/:id", () => {
     test("should return series by id", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const seriesData = {
         name: "Test Series",
@@ -208,7 +208,7 @@ describe("Series API", () => {
 
   describe("PUT /api/series/:id", () => {
     test("should update series name and description", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Original Series",
@@ -238,7 +238,7 @@ describe("Series API", () => {
     });
 
     test("should update only name", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Original Series",
@@ -261,7 +261,7 @@ describe("Series API", () => {
     });
 
     test("should update description to null", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -283,7 +283,7 @@ describe("Series API", () => {
     });
 
     test("should return 400 when name is empty", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -302,7 +302,7 @@ describe("Series API", () => {
     });
 
     test("should return 400 when updating to duplicate name", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       await makeRequest("/api/series", "POST", { name: "Existing Series" });
       const createResponse = await makeRequest("/api/series", "POST", {
@@ -324,7 +324,7 @@ describe("Series API", () => {
     });
 
     test("should return 403 when series not found (access check fails first)", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Access control check happens before existence check
       // Since the user doesn't own/admin series 999, they get 403
@@ -338,7 +338,7 @@ describe("Series API", () => {
     });
 
     test("should update landing_document_id with valid document", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -367,7 +367,7 @@ describe("Series API", () => {
     });
 
     test("should set landing_document_id to null", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -400,7 +400,7 @@ describe("Series API", () => {
     });
 
     test("should return 400 when landing document does not exist", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -417,7 +417,7 @@ describe("Series API", () => {
     });
 
     test("should return 400 when landing document belongs to different series", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Create two series
       const series1Response = await makeRequest("/api/series", "POST", {
@@ -454,7 +454,7 @@ describe("Series API", () => {
     });
 
     test("should automatically set landing_document_id to null when document is deleted", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -491,7 +491,7 @@ describe("Series API", () => {
 
   describe("DELETE /api/series/:id", () => {
     test("should delete series", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "To Delete",
@@ -510,7 +510,7 @@ describe("Series API", () => {
     });
 
     test("should return 403 when series not found (access check fails first)", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Access control check happens before existence check
       // Since the user doesn't own/admin series 999, they get 403
@@ -524,7 +524,7 @@ describe("Series API", () => {
 
   describe("GET /api/series/:id/competitions", () => {
     test("should return empty array when series has no competitions", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -549,7 +549,7 @@ describe("Series API", () => {
     });
 
     test("should return competitions with all required fields including start_mode", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Create a series
       const seriesResponse = await makeRequest("/api/series", "POST", {
@@ -606,7 +606,7 @@ describe("Series API", () => {
     });
 
     test("should return competitions with open start_mode", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Create a series
       const seriesResponse = await makeRequest("/api/series", "POST", {
@@ -651,7 +651,7 @@ describe("Series API", () => {
 
   describe("GET /api/series/:id/teams", () => {
     test("should return empty array when series has no teams", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -676,7 +676,7 @@ describe("Series API", () => {
 
   describe("GET /api/series/public", () => {
     test("should return only public series", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Create public series
       await makeRequest("/api/series", "POST", {
@@ -706,7 +706,7 @@ describe("Series API", () => {
     });
 
     test("should return empty array when no public series exist", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Create only private series
       await makeRequest("/api/series", "POST", {
@@ -724,7 +724,7 @@ describe("Series API", () => {
 
   describe("GET /api/series/:id/standings", () => {
     test("should return empty standings when series has no competitions", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -752,7 +752,7 @@ describe("Series API", () => {
 
   describe("PUT /api/series/:id - New Fields", () => {
     test("should update banner_image_url and is_public", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -778,7 +778,7 @@ describe("Series API", () => {
     });
 
     test("should update banner_image_url to null", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       const createResponse = await makeRequest("/api/series", "POST", {
         name: "Test Series",
@@ -802,7 +802,7 @@ describe("Series API", () => {
 
   describe("Points Multiplier Feature", () => {
     test("should create competition with points multiplier", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Create a course first
       const courseResponse = await makeRequest("/api/courses", "POST", {
@@ -831,7 +831,7 @@ describe("Series API", () => {
     });
 
     test("points multiplier calculation should be correct", async () => {
-      await loginAsAdmin();
+      await loginAsOrganizer();
 
       // Test that points multiplier logic is correctly implemented
       // This test verifies the calculation without complex data setup

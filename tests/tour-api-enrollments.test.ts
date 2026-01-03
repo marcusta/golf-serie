@@ -22,16 +22,16 @@ describe("Tours API - Enrollment Endpoints", () => {
     await cleanupTestDatabase(db);
   });
 
-  // Helper to create an admin user and tour
-  async function createAdminAndTour(
-    email = "admin@test.com",
+  // Helper to create an organizer user and tour (ORGANIZER can create tours)
+  async function createOrganizerAndTour(
+    email = "organizer@test.com",
     tourName = "Test Tour"
   ) {
     await makeRequest("/api/auth/register", "POST", {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -45,7 +45,7 @@ describe("Tours API - Enrollment Endpoints", () => {
 
   describe("POST /api/tours/:id/enrollments - Add pending enrollment", () => {
     test("should allow tour owner to add pending enrollment", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/enrollments`,
@@ -63,7 +63,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should normalize email to lowercase", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/enrollments`,
@@ -78,7 +78,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should require authentication", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(
@@ -93,7 +93,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should prevent non-admin from adding enrollment", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       // Create player user
@@ -118,7 +118,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should require email field", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/enrollments`,
@@ -132,7 +132,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should prevent duplicate enrollments", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       await makeRequest(`/api/tours/${tour.id}/enrollments`, "POST", {
         email: "player@example.com",
@@ -154,7 +154,7 @@ describe("Tours API - Enrollment Endpoints", () => {
 
   describe("GET /api/tours/:id/enrollments - List enrollments", () => {
     test("should list all enrollments for tour owner", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       await makeRequest(`/api/tours/${tour.id}/enrollments`, "POST", {
         email: "player1@example.com",
@@ -172,7 +172,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should filter enrollments by status", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       await makeRequest(`/api/tours/${tour.id}/enrollments`, "POST", {
         email: "player1@example.com",
@@ -203,7 +203,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should require authentication", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(`/api/tours/${tour.id}/enrollments`);
@@ -211,7 +211,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should prevent non-admin from listing enrollments", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       await makeRequest("/api/auth/register", "POST", {
@@ -230,7 +230,7 @@ describe("Tours API - Enrollment Endpoints", () => {
 
   describe("POST /api/tours/:id/enrollments/request - Player request to join", () => {
     test("should allow player to request enrollment for request-mode tour", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Update tour to request mode
       db.prepare("UPDATE tours SET enrollment_mode = 'request' WHERE id = ?").run(
@@ -274,7 +274,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should reject request for closed-mode tour", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Tour is closed by default
       await makeRequest("/api/auth/logout", "POST");
@@ -311,7 +311,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should require playerId", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       db.prepare("UPDATE tours SET enrollment_mode = 'request' WHERE id = ?").run(
         tour.id
       );
@@ -329,8 +329,8 @@ describe("Tours API - Enrollment Endpoints", () => {
   });
 
   describe("PUT /api/tours/:id/enrollments/:enrollmentId/approve - Approve enrollment", () => {
-    test("should allow admin to approve requested enrollment", async () => {
-      const { tour } = await createAdminAndTour();
+    test("should allow organizer to approve requested enrollment", async () => {
+      const { tour } = await createOrganizerAndTour();
 
       // Create a requested enrollment directly in DB
       db.prepare("UPDATE tours SET enrollment_mode = 'request' WHERE id = ?").run(
@@ -339,7 +339,7 @@ describe("Tours API - Enrollment Endpoints", () => {
 
       const user = db
         .prepare("SELECT id FROM users WHERE email = ?")
-        .get("admin@test.com") as { id: number };
+        .get("organizer@test.com") as { id: number };
       const playerResult = db
         .prepare(
           "INSERT INTO players (name, handicap, user_id, created_by) VALUES (?, ?, ?, ?) RETURNING id"
@@ -363,7 +363,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should return 404 for non-existent enrollment", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/enrollments/999/approve`,
@@ -374,7 +374,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should return 404 for enrollment from different tour", async () => {
-      const { tour: tour1 } = await createAdminAndTour("admin@test.com", "Tour 1");
+      const { tour: tour1 } = await createOrganizerAndTour("admin@test.com", "Tour 1");
 
       // Create enrollment in tour1
       const enrollmentResult = db
@@ -401,7 +401,7 @@ describe("Tours API - Enrollment Endpoints", () => {
 
   describe("DELETE /api/tours/:id/enrollments/:enrollmentId - Remove enrollment", () => {
     test("should allow admin to remove enrollment", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const createResponse = await makeRequest(
         `/api/tours/${tour.id}/enrollments`,
@@ -428,7 +428,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should require authentication", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const createResponse = await makeRequest(
         `/api/tours/${tour.id}/enrollments`,
@@ -450,7 +450,7 @@ describe("Tours API - Enrollment Endpoints", () => {
     });
 
     test("should return error for non-existent enrollment", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/enrollments/999`,

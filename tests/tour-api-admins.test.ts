@@ -22,8 +22,8 @@ describe("Tours API - Admin Endpoints", () => {
     await cleanupTestDatabase(db);
   });
 
-  // Helper to create an admin user and tour
-  async function createAdminAndTour(
+  // Helper to create an organizer user and tour (ORGANIZER can create tours)
+  async function createOrganizerAndTour(
     email = "owner@test.com",
     tourName = "Test Tour"
   ) {
@@ -31,7 +31,7 @@ describe("Tours API - Admin Endpoints", () => {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -63,7 +63,7 @@ describe("Tours API - Admin Endpoints", () => {
 
   describe("GET /api/tours/:id/admins - List tour admins", () => {
     test("should list tour admins for tour owner", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/admins`);
 
@@ -75,7 +75,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should list admins with user details", async () => {
-      const { tour, userId: ownerId } = await createAdminAndTour();
+      const { tour, userId: ownerId } = await createOrganizerAndTour();
 
       // Create another user and add as tour admin
       await makeRequest("/api/auth/logout", "POST");
@@ -104,7 +104,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should require authentication", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(`/api/tours/${tour.id}/admins`);
@@ -112,7 +112,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should prevent non-admin from listing tour admins", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       await createUser("player@test.com", "PLAYER");
@@ -126,7 +126,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should allow tour admin to list tour admins", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create tour admin user
       await makeRequest("/api/auth/logout", "POST");
@@ -160,7 +160,7 @@ describe("Tours API - Admin Endpoints", () => {
 
   describe("POST /api/tours/:id/admins - Add tour admin", () => {
     test("should allow tour owner to add tour admin", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create user to be added as admin
       await makeRequest("/api/auth/logout", "POST");
@@ -186,7 +186,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should allow SUPER_ADMIN to add tour admin", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create user to be added as admin
       await makeRequest("/api/auth/logout", "POST");
@@ -213,7 +213,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should prevent tour admin from adding other admins", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create and add tour admin
       await makeRequest("/api/auth/logout", "POST");
@@ -251,7 +251,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should require userId", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/admins`,
@@ -265,7 +265,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should prevent duplicate admin assignments", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       await makeRequest("/api/auth/logout", "POST");
       const { userId: adminId } = await createUser("admin2@test.com", "PLAYER");
@@ -289,7 +289,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should require authentication", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(`/api/tours/${tour.id}/admins`, "POST", {
@@ -302,7 +302,7 @@ describe("Tours API - Admin Endpoints", () => {
 
   describe("DELETE /api/tours/:id/admins/:userId - Remove tour admin", () => {
     test("should allow tour owner to remove tour admin", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create and add tour admin
       await makeRequest("/api/auth/logout", "POST");
@@ -339,7 +339,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should prevent tour admin from removing other admins", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create and add two tour admins
       await makeRequest("/api/auth/logout", "POST");
@@ -374,7 +374,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should return error for non-existent tour admin", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/admins/999`,
@@ -385,7 +385,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should require authentication", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(
@@ -399,7 +399,7 @@ describe("Tours API - Admin Endpoints", () => {
 
   describe("GET /api/tours/:id/registration-link - Generate registration link", () => {
     test("should generate registration link for tour admin", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/registration-link?email=player@example.com`
@@ -412,7 +412,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should normalize email to lowercase", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/registration-link?email=PLAYER@EXAMPLE.COM`
@@ -423,7 +423,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should require email parameter", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/registration-link`
@@ -435,7 +435,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should require authentication", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       const response = await makeRequest(
@@ -446,7 +446,7 @@ describe("Tours API - Admin Endpoints", () => {
     });
 
     test("should prevent non-admin from generating link", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest("/api/auth/logout", "POST");
 
       await createUser("player@test.com", "PLAYER");

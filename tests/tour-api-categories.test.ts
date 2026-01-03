@@ -21,8 +21,8 @@ describe("Tour Categories API", () => {
     await cleanupTestDatabase(db);
   });
 
-  // Helper to create an admin user and tour
-  async function createAdminAndTour(
+  // Helper to create an organizer user and tour (ORGANIZER can create tours)
+  async function createOrganizerAndTour(
     email = "owner@test.com",
     tourName = "Test Tour"
   ) {
@@ -30,7 +30,7 @@ describe("Tour Categories API", () => {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -70,7 +70,7 @@ describe("Tour Categories API", () => {
 
   describe("GET /api/tours/:id/categories", () => {
     test("should list categories for public tour", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       db.prepare(
         "INSERT INTO tour_categories (tour_id, name, sort_order) VALUES (?, ?, ?)"
       ).run(tour.id, "Men", 0);
@@ -88,7 +88,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 404 for private tour when not logged in", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       // Update tour to private
       db.prepare("UPDATE tours SET visibility = 'private' WHERE id = ?").run(tour.id);
       // Log out
@@ -102,7 +102,7 @@ describe("Tour Categories API", () => {
 
   describe("POST /api/tours/:id/categories", () => {
     test("should create category as tour owner", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", {
         name: "Men",
@@ -116,7 +116,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 403 for non-admin", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const { userId: playerId } = await createUser("player@test.com", "PLAYER");
       await loginAs("player@test.com");
 
@@ -128,7 +128,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 400 without name", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", {
         description: "No name",
@@ -140,7 +140,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 400 for duplicate category name", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await makeRequest(`/api/tours/${tour.id}/categories`, "POST", { name: "Men" });
 
       const response = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", {
@@ -153,7 +153,7 @@ describe("Tour Categories API", () => {
 
   describe("PUT /api/tours/:id/categories/:categoryId", () => {
     test("should update category", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const createResponse = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", {
         name: "Men",
       });
@@ -172,8 +172,8 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 404 for category from different tour", async () => {
-      const { tour: tour1 } = await createAdminAndTour("owner1@test.com", "Tour 1");
-      await createAdminAndTour("owner2@test.com", "Tour 2");
+      const { tour: tour1 } = await createOrganizerAndTour("owner1@test.com", "Tour 1");
+      await createOrganizerAndTour("owner2@test.com", "Tour 2");
       const tour2 = db.prepare("SELECT id FROM tours WHERE name = 'Tour 2'").get() as { id: number };
 
       // Create category in tour2
@@ -194,7 +194,7 @@ describe("Tour Categories API", () => {
 
   describe("DELETE /api/tours/:id/categories/:categoryId", () => {
     test("should delete category", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const createResponse = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", {
         name: "Men",
       });
@@ -216,7 +216,7 @@ describe("Tour Categories API", () => {
 
   describe("PUT /api/tours/:id/categories/reorder", () => {
     test("should reorder categories", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const cat1Resp = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", { name: "Men" });
       const cat1 = await cat1Resp.json();
@@ -243,7 +243,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 400 without categoryIds array", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/categories/reorder`,
@@ -257,7 +257,7 @@ describe("Tour Categories API", () => {
 
   describe("PUT /api/tours/:id/enrollments/:enrollmentId/category", () => {
     test("should assign category to enrollment", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create category
       const catResp = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", { name: "Men" });
@@ -284,7 +284,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should clear category when categoryId is null", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create category
       const catResp = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", { name: "Men" });
@@ -312,9 +312,9 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 404 for enrollment from different tour", async () => {
-      const { tour: tour1 } = await createAdminAndTour("owner1@test.com", "Tour 1");
+      const { tour: tour1 } = await createOrganizerAndTour("owner1@test.com", "Tour 1");
       await makeRequest("/api/auth/logout", "POST");
-      const { tour: tour2 } = await createAdminAndTour("owner2@test.com", "Tour 2");
+      const { tour: tour2 } = await createOrganizerAndTour("owner2@test.com", "Tour 2");
 
       // Create enrollment in tour2
       const enrollResp = await makeRequest(`/api/tours/${tour2.id}/enrollments`, "POST", {
@@ -336,7 +336,7 @@ describe("Tour Categories API", () => {
 
   describe("PUT /api/tours/:id/enrollments/bulk-category", () => {
     test("should bulk assign category", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create category
       const catResp = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", { name: "Men" });
@@ -365,7 +365,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 400 without enrollmentIds array", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
         `/api/tours/${tour.id}/enrollments/bulk-category`,
@@ -379,7 +379,7 @@ describe("Tour Categories API", () => {
 
   describe("GET /api/tours/:id/standings with category filter", () => {
     test("should include categories in standings response", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create categories
       await makeRequest(`/api/tours/${tour.id}/categories`, "POST", { name: "Men" });
@@ -394,7 +394,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should filter standings by category", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       // Create categories
       const catResp = await makeRequest(`/api/tours/${tour.id}/categories`, "POST", { name: "Men" });
@@ -408,7 +408,7 @@ describe("Tour Categories API", () => {
     });
 
     test("should return 500 for invalid category", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/standings?category=999`);
 

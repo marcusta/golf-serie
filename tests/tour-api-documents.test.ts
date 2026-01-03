@@ -22,8 +22,8 @@ describe("Tours API - Document Endpoints", () => {
     await cleanupTestDatabase(db);
   });
 
-  // Helper to create an admin user and tour
-  async function createAdminAndTour(
+  // Helper to create an organizer user and tour (ORGANIZER can create tours)
+  async function createOrganizerAndTour(
     email = "owner@test.com",
     tourName = "Test Tour",
     options: { visibility?: string } = {}
@@ -32,7 +32,7 @@ describe("Tours API - Document Endpoints", () => {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -93,7 +93,7 @@ describe("Tours API - Document Endpoints", () => {
 
   describe("GET /api/tours/:id/documents - List documents", () => {
     test("should list documents for a public tour", async () => {
-      const { tour } = await createAdminAndTour("admin@test.com", "Public Tour", { visibility: "public" });
+      const { tour } = await createOrganizerAndTour("admin@test.com", "Public Tour", { visibility: "public" });
       createDocument(tour.id, "Test Doc", "Content");
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents`);
@@ -105,7 +105,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should list documents for private tour if user is owner", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       createDocument(tour.id, "Private Doc", "Content");
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents`);
@@ -116,7 +116,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 404 for private tour if user cannot view", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await loginAs("other@test.com", "PLAYER");
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents`);
@@ -127,7 +127,7 @@ describe("Tours API - Document Endpoints", () => {
 
   describe("GET /api/tours/:id/documents/:documentId - Get document", () => {
     test("should get a single document", async () => {
-      const { tour } = await createAdminAndTour("admin@test.com", "Tour", { visibility: "public" });
+      const { tour } = await createOrganizerAndTour("admin@test.com", "Tour", { visibility: "public" });
       const doc = createDocument(tour.id, "Doc Title", "Doc Content");
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents/${doc.id}`);
@@ -139,7 +139,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 404 if document not found", async () => {
-      const { tour } = await createAdminAndTour("admin@test.com", "Tour", { visibility: "public" });
+      const { tour } = await createOrganizerAndTour("admin@test.com", "Tour", { visibility: "public" });
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents/999`);
 
@@ -147,7 +147,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 404 if document belongs to different tour", async () => {
-      const { tour: tour1 } = await createAdminAndTour("admin@test.com", "Tour 1", { visibility: "public" });
+      const { tour: tour1 } = await createOrganizerAndTour("admin@test.com", "Tour 1", { visibility: "public" });
 
       // Create tour2 directly
       db.prepare(
@@ -165,7 +165,7 @@ describe("Tours API - Document Endpoints", () => {
 
   describe("POST /api/tours/:id/documents - Create document", () => {
     test("should create a document", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents`, "POST", {
         title: "New Document",
@@ -181,7 +181,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should default type to general", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents`, "POST", {
         title: "New Document",
@@ -194,7 +194,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 403 if user cannot manage tour", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       await loginAs("other@test.com", "PLAYER");
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents`, "POST", {
@@ -206,7 +206,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 400 if title is missing", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents`, "POST", {
         content: "Content only",
@@ -218,7 +218,7 @@ describe("Tours API - Document Endpoints", () => {
 
   describe("PUT /api/tours/:id/documents/:documentId - Update document", () => {
     test("should update a document", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const doc = createDocument(tour.id, "Original", "Original content");
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents/${doc.id}`, "PUT", {
@@ -233,7 +233,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 403 if user cannot manage tour", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const doc = createDocument(tour.id, "Doc", "Content");
       await loginAs("other@test.com", "PLAYER");
 
@@ -245,7 +245,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 404 if document not found", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents/999`, "PUT", {
         title: "New Title",
@@ -257,7 +257,7 @@ describe("Tours API - Document Endpoints", () => {
 
   describe("DELETE /api/tours/:id/documents/:documentId - Delete document", () => {
     test("should delete a document", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const doc = createDocument(tour.id, "To Delete", "Content");
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents/${doc.id}`, "DELETE");
@@ -272,7 +272,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 403 if user cannot manage tour", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const doc = createDocument(tour.id, "Doc", "Content");
       await loginAs("other@test.com", "PLAYER");
 
@@ -282,7 +282,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return 404 if document not found", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents/999`, "DELETE");
 
@@ -292,7 +292,7 @@ describe("Tours API - Document Endpoints", () => {
 
   describe("GET /api/tours/:id/documents/types - List document types", () => {
     test("should list document types for a tour", async () => {
-      const { tour } = await createAdminAndTour("admin@test.com", "Tour", { visibility: "public" });
+      const { tour } = await createOrganizerAndTour("admin@test.com", "Tour", { visibility: "public" });
       createDocument(tour.id, "Doc 1", "Content", "general");
       createDocument(tour.id, "Doc 2", "Content", "rules");
 
@@ -305,7 +305,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should return empty array for tour with no documents", async () => {
-      const { tour } = await createAdminAndTour("admin@test.com", "Tour", { visibility: "public" });
+      const { tour } = await createOrganizerAndTour("admin@test.com", "Tour", { visibility: "public" });
 
       const response = await makeRequest(`/api/tours/${tour.id}/documents/types`);
 
@@ -317,7 +317,7 @@ describe("Tours API - Document Endpoints", () => {
 
   describe("Landing document integration", () => {
     test("should set landing_document_id on tour update", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const doc = createDocument(tour.id, "Landing Doc", "Welcome content");
 
       const response = await makeRequest(`/api/tours/${tour.id}`, "PUT", {
@@ -330,7 +330,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should reject landing_document_id from different tour", async () => {
-      const { tour: tour1 } = await createAdminAndTour();
+      const { tour: tour1 } = await createOrganizerAndTour();
 
       // Create tour2 directly
       db.prepare(
@@ -350,7 +350,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should clear landing_document_id with null", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
       const doc = createDocument(tour.id, "Landing Doc", "Content");
 
       // Set landing document
@@ -370,12 +370,12 @@ describe("Tours API - Document Endpoints", () => {
   describe("Banner image integration", () => {
     test("should set banner_image_url on tour create", async () => {
       await makeRequest("/api/auth/register", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run("admin@test.com");
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run("organizer@test.com");
       await makeRequest("/api/auth/login", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
 
@@ -390,7 +390,7 @@ describe("Tours API - Document Endpoints", () => {
     });
 
     test("should update banner_image_url", async () => {
-      const { tour } = await createAdminAndTour();
+      const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(`/api/tours/${tour.id}`, "PUT", {
         banner_image_url: "https://example.com/new-banner.jpg",

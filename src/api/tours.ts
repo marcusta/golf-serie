@@ -28,8 +28,8 @@ export function createToursApi(
         return c.json(tours);
       }
 
-      // Authenticated admin users see tours they own or admin
-      if (user?.role === "ADMIN") {
+      // ORGANIZER and ADMIN users see tours they own or are admin of
+      if (user?.role === "ORGANIZER" || user?.role === "ADMIN") {
         const tours = tourService.findForUser(user.id);
         return c.json(tours);
       }
@@ -122,8 +122,8 @@ export function createToursApi(
     }
   });
 
-  // POST /api/tours - Admin: Create tour
-  app.post("/", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
+  // POST /api/tours - Create tour (ORGANIZER and SUPER_ADMIN only)
+  app.post("/", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     try {
       const user = c.get("user");
       const body = await c.req.json();

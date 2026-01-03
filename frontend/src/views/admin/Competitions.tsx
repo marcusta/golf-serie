@@ -11,6 +11,7 @@ import { useCourses, useCourseTees } from "../../api/courses";
 import { useSeries, useSeriesCompetitions } from "../../api/series";
 import { useTours, useTourCompetitions } from "../../api/tours";
 import { usePointTemplates } from "../../api/point-templates";
+import { useAuth } from "../../hooks/useAuth";
 import { TeeSelector } from "../../components/admin/competition";
 import {
   Plus,
@@ -39,6 +40,7 @@ export default function AdminCompetitions() {
   const seriesFilter = search.series ? parseInt(search.series) : null;
   const tourFilter = search.tour ? parseInt(search.tour) : null;
 
+  const { canCreate } = useAuth();
   const { data: standAloneCompetitions, isLoading, error } = useStandAloneCompetitions();
   const { data: seriesCompetitions } = useSeriesCompetitions(seriesFilter || 0);
   const { data: tourCompetitions } = useTourCompetitions(tourFilter || 0);
@@ -244,31 +246,33 @@ export default function AdminCompetitions() {
               : "Stand-alone competitions not linked to a Series or Tour"}
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditingCompetition(null);
-            setFormData({
-              name: "",
-              date: "",
-              course_id: "",
-              tee_id: "",
-              series_id: seriesFilter?.toString() || "",
-              tour_id: tourFilter?.toString() || "",
-              point_template_id: "",
-              manual_entry_format: "out_in_total",
-              points_multiplier: "1",
-              venue_type: "outdoor",
-              start_mode: "scheduled",
-              open_start: "",
-              open_end: "",
-            });
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add Competition
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => {
+              setEditingCompetition(null);
+              setFormData({
+                name: "",
+                date: "",
+                course_id: "",
+                tee_id: "",
+                series_id: seriesFilter?.toString() || "",
+                tour_id: tourFilter?.toString() || "",
+                point_template_id: "",
+                manual_entry_format: "out_in_total",
+                points_multiplier: "1",
+                venue_type: "outdoor",
+                start_mode: "scheduled",
+                open_start: "",
+                open_end: "",
+              });
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add Competition
+          </button>
+        )}
       </div>
 
       {showForm && (

@@ -535,16 +535,16 @@ describe("Player Profile Service", () => {
 
   describe("Player Tour Enrollment Integration", () => {
     test("should show tour in player tours-and-series after enrollment", async () => {
-      // Create admin and set up tour
+      // Create organizer and set up tour
       await makeRequest("/api/auth/register", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
       db.prepare(
-        "UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'"
+        "UPDATE users SET role = 'ORGANIZER' WHERE email = 'organizer@test.com'"
       ).run();
       await makeRequest("/api/auth/login", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
 
@@ -557,10 +557,10 @@ describe("Player Profile Service", () => {
         "Tiger Woods"
       );
 
-      // Login as admin to enroll player
+      // Login as organizer to enroll player
       await makeRequest("/api/auth/logout", "POST");
       await makeRequest("/api/auth/login", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
 
@@ -587,16 +587,16 @@ describe("Player Profile Service", () => {
 
   describe("Friends via Common Tour", () => {
     test("should detect friendship when both players enrolled in same tour", async () => {
-      // Create admin
+      // Create organizer
       await makeRequest("/api/auth/register", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
       db.prepare(
-        "UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'"
+        "UPDATE users SET role = 'ORGANIZER' WHERE email = 'organizer@test.com'"
       ).run();
       await makeRequest("/api/auth/login", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
 
@@ -616,10 +616,10 @@ describe("Player Profile Service", () => {
         "Phil Mickelson"
       );
 
-      // Admin enrolls both players
+      // Organizer enrolls both players
       await makeRequest("/api/auth/logout", "POST");
       await makeRequest("/api/auth/login", "POST", {
-        email: "admin@test.com",
+        email: "organizer@test.com",
         password: "password123",
       });
 

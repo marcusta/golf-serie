@@ -11,9 +11,11 @@ import {
   type TourVisibility,
   type TourScoringMode,
 } from "../../api/tours";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function Tours() {
   const navigate = useNavigate();
+  const { canCreate } = useAuth();
   const { data: tours, isLoading } = useTours();
   const createMutation = useCreateTour();
   const updateMutation = useUpdateTour();
@@ -99,13 +101,15 @@ export default function Tours() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-charcoal font-['Inter']">Tours</h2>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors font-['Inter'] font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Create Tour
-        </button>
+        {canCreate && (
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors font-['Inter'] font-semibold"
+          >
+            <Plus className="h-4 w-4" />
+            Create Tour
+          </button>
+        )}
       </div>
 
       {tours && tours.length === 0 && (

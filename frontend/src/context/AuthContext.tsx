@@ -16,6 +16,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isOrganizer: boolean;
   isSuperAdmin: boolean;
+  canCreate: boolean; // Can create new tours/series/competitions (ORGANIZER or SUPER_ADMIN)
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<User>;
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: user?.role === "ORGANIZER" || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN",
     isOrganizer: user?.role === "ORGANIZER",
     isSuperAdmin: user?.role === "SUPER_ADMIN",
+    canCreate: user?.role === "ORGANIZER" || user?.role === "SUPER_ADMIN",
     login: handleLogin,
     logout: handleLogout,
     register: handleRegister,

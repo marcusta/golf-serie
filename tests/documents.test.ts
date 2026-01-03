@@ -18,13 +18,13 @@ describe("Documents API", () => {
   let makeRequest: MakeRequestFunction;
   let seriesId: number;
 
-  // Helper to create an admin user and authenticate
-  async function loginAsAdmin(email = "admin@test.com") {
+  // Helper to create an organizer user and authenticate (ORGANIZER can create series)
+  async function loginAsOrganizer(email = "organizer@test.com") {
     await makeRequest("/api/auth/register", "POST", {
       email,
       password: "password123",
     });
-    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = ?").run(email);
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
@@ -37,7 +37,7 @@ describe("Documents API", () => {
     makeRequest = setup.makeRequest;
 
     // Authenticate before creating series
-    await loginAsAdmin();
+    await loginAsOrganizer();
 
     // Create a test series for document tests
     const seriesResponse = await makeRequest("/api/series", "POST", {

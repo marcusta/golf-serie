@@ -318,7 +318,7 @@ export function createApp(db: Database): Hono {
   });
 
   // Competition routes
-  app.post("/api/competitions", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
+  app.post("/api/competitions", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const user = c.get("user");
     try {
       const body = await c.req.json();
@@ -603,7 +603,7 @@ export function createApp(db: Database): Hono {
   });
 
   // Series routes
-  app.post("/api/series", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
+  app.post("/api/series", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const user = c.get("user");
     try {
       const data = await c.req.json();

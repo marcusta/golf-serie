@@ -7,6 +7,7 @@ import {
   useDeleteSeries,
   type Series,
 } from "@/api/series";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +51,7 @@ function SeriesSkeleton() {
 
 export default function AdminSeries() {
   const navigate = useNavigate();
+  const { canCreate } = useAuth();
   const { data: series, isLoading, error } = useSeries();
   const createSeries = useCreateSeries();
   const updateSeries = useUpdateSeries();
@@ -146,13 +148,15 @@ export default function AdminSeries() {
             <Badge variant="secondary" className="text-sm">
               Loading...
             </Badge>
-            <Button
-              onClick={handleCreate}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Series
-            </Button>
+            {canCreate && (
+              <Button
+                onClick={handleCreate}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Series
+              </Button>
+            )}
           </div>
         </div>
         <div className="grid gap-4">
@@ -172,10 +176,12 @@ export default function AdminSeries() {
             <Trophy className="h-8 w-8 text-blue-600" />
             <h2 className="text-3xl font-bold text-gray-900">Series</h2>
           </div>
-          <Button onClick={handleCreate} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Series
-          </Button>
+          {canCreate && (
+            <Button onClick={handleCreate} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Series
+            </Button>
+          )}
         </div>
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-6">
@@ -205,10 +211,12 @@ export default function AdminSeries() {
             <Badge variant="secondary" className="text-sm">
               {series?.length || 0} {series?.length === 1 ? "series" : "series"}
             </Badge>
-            <Button onClick={handleCreate} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Series
-            </Button>
+            {canCreate && (
+              <Button onClick={handleCreate} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add Series
+              </Button>
+            )}
           </div>
         </div>
 

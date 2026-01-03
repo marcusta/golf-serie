@@ -22,14 +22,14 @@ describe("Tours API", () => {
     await cleanupTestDatabase(db);
   });
 
-  describe("POST /api/tours - Create Tour (Admin Only)", () => {
-    test("should create a tour when admin", async () => {
+  describe("POST /api/tours - Create Tour (Organizer Only)", () => {
+    test("should create a tour when organizer", async () => {
       await makeRequest("/api/auth/register", "POST", {
         email: "admin@test.com",
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -49,7 +49,7 @@ describe("Tours API", () => {
       expect(tour.owner_id).toBeNumber();
     });
 
-    test("should require admin role", async () => {
+    test("should require organizer role (player cannot create)", async () => {
       await makeRequest("/api/auth/register", "POST", {
         email: "player@test.com",
         password: "password123",
@@ -57,6 +57,27 @@ describe("Tours API", () => {
 
       await makeRequest("/api/auth/login", "POST", {
         email: "player@test.com",
+        password: "password123",
+      });
+
+      const response = await makeRequest("/api/tours", "POST", {
+        name: "PGA Tour 2024",
+      });
+
+      expectErrorResponse(response, 403);
+    });
+
+    test("should not allow admin role to create (only organizer)", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      // Use ADMIN role - ADMINs cannot create tours
+      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
         password: "password123",
       });
 
@@ -81,7 +102,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -105,7 +126,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -138,7 +159,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -175,7 +196,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -205,7 +226,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -237,7 +258,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -264,7 +285,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -293,7 +314,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -320,7 +341,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -350,7 +371,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin1@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin1@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin1@test.com",
@@ -370,7 +391,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin2@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin2@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin2@test.com",
@@ -400,7 +421,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin@test.com",
@@ -430,7 +451,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin1@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin1@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin1@test.com",
@@ -450,7 +471,7 @@ describe("Tours API", () => {
         password: "password123",
       });
 
-      db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = 'admin2@test.com'").run();
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin2@test.com'").run();
 
       await makeRequest("/api/auth/login", "POST", {
         email: "admin2@test.com",
