@@ -55,7 +55,7 @@ export function HamburgerMenu({
   const [resolvedTourName, setResolvedTourName] = useState<string | undefined>(propTourName);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { user, isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, isAdmin, logout } = useAuth();
 
   // Use router params to get context only if not passed via props
   const params = useParams({
@@ -354,7 +354,7 @@ export function HamburgerMenu({
                             My Profile
                           </span>
                         </Link>
-                        {(user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") && (
+                        {isAdmin && (
                           <Link
                             to="/admin/series"
                             onClick={closeMenu}

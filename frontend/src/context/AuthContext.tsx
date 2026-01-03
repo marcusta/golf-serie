@@ -14,6 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   login: (credentials: LoginCredentials) => Promise<User>;
   logout: () => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<User>;
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     isAuthenticated: !!user,
     isAdmin: user?.role === "ADMIN" || user?.role === "SUPER_ADMIN",
+    isSuperAdmin: user?.role === "SUPER_ADMIN",
     login: handleLogin,
     logout: handleLogout,
     register: handleRegister,

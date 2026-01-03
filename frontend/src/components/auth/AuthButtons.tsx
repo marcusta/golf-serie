@@ -3,7 +3,7 @@ import { LogIn, UserPlus, LogOut, User } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 
 export function AuthButtons() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
@@ -17,7 +17,7 @@ export function AuthButtons() {
           {user?.email}
         </span>
         
-        {(user?.role === "ADMIN" || user?.role === "SUPER_ADMIN") && (
+        {isAdmin && (
           <Link
             to="/admin/series"
             className="px-3 py-1.5 text-sm text-scorecard/90 hover:text-scorecard transition-colors font-['Inter']"

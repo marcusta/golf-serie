@@ -3,18 +3,28 @@ import { Users, Map, Trophy, Settings, Award, LogOut } from "lucide-react";
 import TapScoreLogo from "../../components/ui/TapScoreLogo";
 import { useAuth } from "../../hooks/useAuth";
 
+// Navigation links visible to all admins
 const adminNavLinks = [
   { to: "/admin/series", label: "Series", icon: Award },
   { to: "/admin/tours", label: "Tours", icon: Trophy },
+  { to: "/admin/competitions", label: "Competitions", icon: Trophy },
+];
+
+// Additional navigation links only visible to super admins
+const superAdminNavLinks = [
   { to: "/admin/teams", label: "Teams", icon: Users },
   { to: "/admin/courses", label: "Courses", icon: Map },
-  { to: "/admin/competitions", label: "Competitions", icon: Trophy },
   { to: "/admin/point-templates", label: "Points", icon: Award },
 ];
 
 export default function AdminLayout() {
   const { location } = useRouterState();
-  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const { user, isLoading, isAuthenticated, isSuperAdmin, logout } = useAuth();
+
+  // Combine nav links based on user role
+  const visibleNavLinks = isSuperAdmin
+    ? [...adminNavLinks, ...superAdminNavLinks]
+    : adminNavLinks;
 
   // Show loading while checking auth
   if (isLoading) {
@@ -79,7 +89,7 @@ export default function AdminLayout() {
             {/* Admin Navigation */}
             <div className="border-b-2 border-soft-grey">
               <nav className="flex space-x-8">
-                {adminNavLinks.map((link) => {
+                {visibleNavLinks.map((link) => {
                   const isActive = location.pathname === link.to;
                   const IconComponent = link.icon;
                   return (

@@ -361,36 +361,36 @@ Test scenarios:
 
 ## Implementation Checklist
 
-### Phase 1: Series Admin System
-- [ ] Migration 024: series_admins table
-- [ ] SeriesAdminService
-- [ ] Update SeriesService with ownership enforcement
-- [ ] Series admin API endpoints
-- [ ] Frontend: Series admin hooks
-- [ ] Frontend: Series detail Admins tab
-- [ ] Frontend: Filtered series list
+### Phase 1: Series Admin System ✅
+- [x] Migration 041: series_admins table
+- [x] SeriesAdminService
+- [x] Update SeriesService with ownership enforcement
+- [x] Series admin API endpoints
+- [x] Frontend: Series admin hooks
+- [x] Frontend: Series detail Admins tab
+- [x] Frontend: Filtered series list
 
-### Phase 2: Competition Ownership
-- [ ] Migration 025: owner_id + competition_admins
-- [ ] CompetitionAdminService
-- [ ] Update CompetitionService with ownership enforcement
-- [ ] Competition admin API endpoints
-- [ ] Stand-alone competition query support
-- [ ] Frontend: Competition admin hooks
-- [ ] Frontend: Competition detail Admins tab
-- [ ] Frontend: Stand-alone competition filter
+### Phase 2: Competition Ownership ✅
+- [x] Migration 042: owner_id + competition_admins
+- [x] CompetitionAdminService
+- [x] Update CompetitionService with ownership enforcement
+- [x] Competition admin API endpoints
+- [x] Stand-alone competition query support
+- [x] Frontend: Competition admin hooks
+- [x] Frontend: Competition detail Admins tab
+- [x] Frontend: Stand-alone competition filter
 
-### Phase 3: Tour Points Templates
-- [ ] Add Points Templates tab to TourDetail
-- [ ] Verify points API respects tour ownership
+### Phase 3: Tour Points Templates ✅
+- [x] Add Points Templates tab to TourDetail
+- [x] Verify points API respects tour ownership
 
-### Phase 4: Admin Layout
-- [ ] Role-based navigation in AdminLayout
-- [ ] isSuperAdmin helper in AuthContext
+### Phase 4: Admin Layout ✅
+- [x] Role-based navigation in AdminLayout
+- [x] isSuperAdmin helper in AuthContext
 
 ### Phase 5: Hierarchical Access
-- [ ] Series → Competitions access inheritance
-- [ ] Tour → Competitions access inheritance
+- [x] Series → Competitions access inheritance (in CompetitionAdminService.canManageCompetition)
+- [x] Tour → Competitions access inheritance (in CompetitionAdminService.canManageCompetition)
 
 ### Phase 6: Testing
 - [ ] Backend unit tests

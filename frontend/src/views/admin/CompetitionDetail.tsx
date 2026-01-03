@@ -19,10 +19,7 @@ export default function AdminCompetitionDetail() {
     from: "/admin/competitions/$competitionId",
   });
   const id = parseInt(competitionId);
-  const { user } = useAuth();
-
-  // Check if user is SUPER_ADMIN
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const { user, isSuperAdmin } = useAuth();
 
   // API hooks
   const { data: competition, isLoading: competitionLoading } =

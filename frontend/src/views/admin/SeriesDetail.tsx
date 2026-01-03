@@ -60,10 +60,7 @@ export default function AdminSeriesDetail() {
   const { serieId } = useParams({ from: "/admin/series/$serieId" });
   const seriesId = parseInt(serieId);
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-
-  // Check if user is SUPER_ADMIN or owner
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const { user, isSuperAdmin } = useAuth();
 
   // API hooks
   const { data: series, isLoading: seriesLoading } = useSingleSeries(seriesId);
