@@ -10,7 +10,7 @@ export interface AutoEnrollment {
 export interface User {
   id: number;
   email: string;
-  role: "SUPER_ADMIN" | "ADMIN" | "PLAYER";
+  role: "SUPER_ADMIN" | "ORGANIZER" | "ADMIN" | "PLAYER";
   player_id?: number;
   auto_enrollments?: AutoEnrollment[];
 }

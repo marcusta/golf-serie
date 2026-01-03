@@ -477,6 +477,23 @@ export class TourService {
       .all() as Tour[];
   }
 
+  /**
+   * Find tours that a user owns or is an admin of
+   */
+  findForUser(userId: number): Tour[] {
+    return this.db
+      .prepare(
+        `
+        SELECT DISTINCT t.*
+        FROM tours t
+        LEFT JOIN tour_admins ta ON t.id = ta.tour_id
+        WHERE t.owner_id = ? OR ta.user_id = ?
+        ORDER BY t.name ASC
+      `
+      )
+      .all(userId, userId) as Tour[];
+  }
+
   findById(id: number): Tour | null {
     return this.db
       .prepare("SELECT * FROM tours WHERE id = ?")

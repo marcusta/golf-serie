@@ -135,9 +135,13 @@ export class AuthService {
     return result?.name ?? null;
   }
 
-  private findAllUsersRows(): Array<{ id: number; email: string; role: string }> {
-    return this.db.prepare("SELECT id, email, role FROM users ORDER BY email")
-      .all() as Array<{ id: number; email: string; role: string }>;
+  private findAllUsersRows(): Array<{ id: number; email: string; role: string; created_at: string }> {
+    return this.db.prepare("SELECT id, email, role, created_at FROM users ORDER BY email")
+      .all() as Array<{ id: number; email: string; role: string; created_at: string }>;
+  }
+
+  private updateUserRoleRow(userId: number, role: string): void {
+    this.db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, userId);
   }
 
   // ============================================================================
@@ -307,8 +311,24 @@ export class AuthService {
     this.updateUserPasswordRow(userId, newPasswordHash);
   }
 
-  getAllUsers(): Array<{ id: number; email: string; role: string }> {
+  getAllUsers(): Array<{ id: number; email: string; role: string; created_at: string }> {
     return this.findAllUsersRows();
+  }
+
+  updateUserRole(userId: number, newRole: string): { id: number; email: string; role: string } {
+    const validRoles = ["SUPER_ADMIN", "ORGANIZER", "ADMIN", "PLAYER"];
+    if (!validRoles.includes(newRole)) {
+      throw new Error(`Invalid role. Must be one of: ${validRoles.join(", ")}`);
+    }
+
+    const user = this.findUserById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    this.updateUserRoleRow(userId, newRole);
+
+    return { id: userId, email: user.email, role: newRole };
   }
 }
 

@@ -22,6 +22,7 @@ import AdminManualScoreEntry from "./views/admin/AdminManualScoreEntry";
 import AdminPointTemplates from "./views/admin/PointTemplates";
 import AdminTours from "./views/admin/Tours";
 import AdminTourDetail from "./views/admin/TourDetail";
+import AdminUsers from "./views/admin/Users";
 
 // Import Player views (keeping only non-lazy loaded ones)
 import PlayerLayout from "./views/player/PlayerLayout";
@@ -130,6 +131,12 @@ const adminTourDetailRoute = new Route({
   getParentRoute: () => adminRoute,
   path: "/tours/$id",
   component: AdminTourDetail,
+});
+
+const adminUsersRoute = new Route({
+  getParentRoute: () => adminRoute,
+  path: "/users",
+  component: AdminUsers,
 });
 
 // Player routes
@@ -302,6 +309,7 @@ const routeTree = rootRoute.addChildren([
     adminPointTemplatesRoute,
     adminToursRoute,
     adminTourDetailRoute,
+    adminUsersRoute,
   ]),
   playerRoute.addChildren([
     playerLandingRoute,

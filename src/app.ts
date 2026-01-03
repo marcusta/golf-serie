@@ -13,7 +13,7 @@ import { createSeriesApi } from "./api/series";
 import { createTeamsApi } from "./api/teams";
 import { createTeeTimesApi } from "./api/tee-times";
 import { createToursApi } from "./api/tours";
-import { createAuthMiddleware, requireAuth } from "./middleware/auth";
+import { createAuthMiddleware, requireAuth, requireRole } from "./middleware/auth";
 import { createAuthService } from "./services/auth.service";
 import { CompetitionCategoryTeeService } from "./services/competition-category-tee.service";
 import { CompetitionService } from "./services/competition-service";
@@ -122,11 +122,37 @@ export function createApp(db: Database): Hono {
       return c.json({ error: "Unauthorized" }, 401);
     }
     // Only allow admins to list users
-    if (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") {
+    if (user.role !== "SUPER_ADMIN" && user.role !== "ORGANIZER" && user.role !== "ADMIN") {
       return c.json({ error: "Forbidden" }, 403);
     }
     const users = authService.getAllUsers();
     return c.json(users);
+  });
+
+  // Update user role (SUPER_ADMIN only)
+  app.put("/api/users/:id/role", requireRole("SUPER_ADMIN"), async (c) => {
+    const requestingUser = c.get("user");
+    const userId = parseInt(c.req.param("id"));
+
+    // Prevent changing own role
+    if (userId === requestingUser!.id) {
+      return c.json({ error: "Cannot change your own role" }, 400);
+    }
+
+    try {
+      const body = await c.req.json();
+      const { role } = body;
+
+      if (!role) {
+        return c.json({ error: "Role is required" }, 400);
+      }
+
+      const updatedUser = authService.updateUserRole(userId, role);
+      return c.json(updatedUser);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 400);
+    }
   });
 
   // Mount players API routes
@@ -292,8 +318,18 @@ export function createApp(db: Database): Hono {
   });
 
   // Competition routes
-  app.post("/api/competitions", async (c) => {
-    return await competitionsApi.create(c.req.raw);
+  app.post("/api/competitions", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
+    const user = c.get("user");
+    try {
+      const body = await c.req.json();
+      // Add owner_id from authenticated user
+      const dataWithOwner = { ...body, owner_id: user!.id };
+      const competition = await competitionService.create(dataWithOwner);
+      return c.json(competition, 201);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 400);
+    }
   });
 
   app.get("/api/competitions", async (c) => {
@@ -567,7 +603,7 @@ export function createApp(db: Database): Hono {
   });
 
   // Series routes
-  app.post("/api/series", requireAuth(), async (c) => {
+  app.post("/api/series", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
     const user = c.get("user");
     try {
       const data = await c.req.json();

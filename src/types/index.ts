@@ -118,6 +118,7 @@ export interface CreateCompetitionDto {
   start_mode?: "scheduled" | "open";
   open_start?: string;
   open_end?: string;
+  owner_id?: number;
 }
 
 export interface UpdateCompetitionDto {

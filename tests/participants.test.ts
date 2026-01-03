@@ -16,10 +16,26 @@ describe("Participant API", () => {
   let competitionId: number;
   let teeTimeId: number;
 
+  // Helper to create an admin user and authenticate
+  async function loginAsAdmin(email = "admin@test.com") {
+    await makeRequest("/api/auth/register", "POST", {
+      email,
+      password: "password123",
+    });
+    db.prepare("UPDATE users SET role = 'ADMIN' WHERE email = ?").run(email);
+    await makeRequest("/api/auth/login", "POST", {
+      email,
+      password: "password123",
+    });
+  }
+
   beforeEach(async () => {
     const setup = await setupTestDatabase();
     db = setup.db;
     makeRequest = setup.makeRequest;
+
+    // Login as admin to create competitions
+    await loginAsAdmin();
 
     // Create a course
     const courseResponse = await makeRequest("/api/courses", "POST", {

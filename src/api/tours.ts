@@ -17,13 +17,25 @@ export function createToursApi(
 ) {
   const app = new Hono();
 
-  // GET /api/tours - List tours (filtered by visibility)
+  // GET /api/tours - List tours (filtered by visibility and admin access)
   app.get("/", async (c) => {
     try {
       const user = c.get("user");
-      const tours = tourService.findAll();
 
-      // Filter tours based on visibility
+      // SUPER_ADMIN sees all tours
+      if (user?.role === "SUPER_ADMIN") {
+        const tours = tourService.findAll();
+        return c.json(tours);
+      }
+
+      // Authenticated admin users see tours they own or admin
+      if (user?.role === "ADMIN") {
+        const tours = tourService.findForUser(user.id);
+        return c.json(tours);
+      }
+
+      // Regular users and unauthenticated: filter by visibility
+      const tours = tourService.findAll();
       const visibleTours = tours.filter((tour) =>
         enrollmentService.canViewTour(tour.id, user?.id ?? null)
       );
@@ -111,7 +123,7 @@ export function createToursApi(
   });
 
   // POST /api/tours - Admin: Create tour
-  app.post("/", requireRole("ADMIN", "SUPER_ADMIN"), async (c) => {
+  app.post("/", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
     try {
       const user = c.get("user");
       const body = await c.req.json();
@@ -137,7 +149,7 @@ export function createToursApi(
   });
 
   // PUT /api/tours/:id - Admin: Update tour (owner only)
-  app.put("/:id", requireRole("ADMIN", "SUPER_ADMIN"), async (c) => {
+  app.put("/:id", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
     try {
       const user = c.get("user");
       const id = parseInt(c.req.param("id"));
@@ -168,7 +180,7 @@ export function createToursApi(
   });
 
   // DELETE /api/tours/:id - Admin: Delete tour (owner only)
-  app.delete("/:id", requireRole("ADMIN", "SUPER_ADMIN"), async (c) => {
+  app.delete("/:id", requireRole("ORGANIZER", "ADMIN", "SUPER_ADMIN"), async (c) => {
     try {
       const user = c.get("user");
       const id = parseInt(c.req.param("id"));

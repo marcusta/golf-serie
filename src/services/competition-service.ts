@@ -315,8 +315,8 @@ export class CompetitionService {
 
   private insertCompetitionRow(data: CreateCompetitionDto): Competition {
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
     return stmt.get(
@@ -332,7 +332,8 @@ export class CompetitionService {
       data.venue_type || "outdoor",
       data.start_mode || "scheduled",
       data.open_start || null,
-      data.open_end || null
+      data.open_end || null,
+      data.owner_id || null
     ) as Competition;
   }
 

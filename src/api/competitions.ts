@@ -15,6 +15,7 @@ const createCompetitionSchema = z.object({
   start_mode: z.enum(["scheduled", "open"]).optional(),
   open_start: z.string().optional(),
   open_end: z.string().optional(),
+  owner_id: z.number().positive().optional(),
 });
 
 const updateCompetitionSchema = z.object({
