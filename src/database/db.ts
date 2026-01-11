@@ -45,7 +45,8 @@ import { AddTourIdToPointTemplatesMigration } from "./migrations/043_add_tour_id
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
-  const finalPath = dbPath || process.env.DATABASE_PATH || "golf_series.db";
+  const finalPath = dbPath || process.env.DB_PATH || "golf_series.db";
+  console.log(`📁 Using database: ${finalPath}`);
   const db = new Database(finalPath);
 
   // Enable foreign keys

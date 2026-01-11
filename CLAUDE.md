@@ -2,9 +2,39 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
+---
 
-### Backend (Bun.js)
+## 📋 Table of Contents
+
+### Backend Development
+- [Development Commands](#backend-development-commands)
+- [Architecture Patterns](#backend-architecture)
+- [Service Layer Organization](#service-layer-code-organization)
+- [Transaction Handling](#transaction-handling)
+- [Code Quality Rules](#backend-code-quality-rules)
+- [Testing Strategy](#backend-testing)
+- [Feature Area Guides](#backend-feature-areas)
+
+### Frontend Development
+- [Development Commands](#frontend-development-commands)
+- [Architecture Patterns](#frontend-architecture)
+- [Design System & Visual Guidelines](#design-system--visual-guidelines)
+- [Navigation Architecture](#frontend-navigation-architecture)
+- [Testing Strategy](#frontend-testing)
+- [Feature Area Guides](#frontend-feature-areas)
+
+### General
+- [Domain Model](#domain-model)
+- [Database Management](#database-management)
+- [Deployment Notes](#deployment-notes)
+- [Important Constraints](#important-constraints)
+
+---
+
+# 📘 Backend Development
+
+## Backend Development Commands
+
 ```bash
 # Development server with auto-reload
 bun run dev
@@ -27,7 +57,30 @@ bun run type-check      # TypeScript type checking
 bun run lint           # ESLint checking
 ```
 
-### Frontend (React + Vite)
+## Backend Testing
+
+- In-memory SQLite database for each test file
+- Comprehensive CRUD testing with validation scenarios
+- API endpoint testing with proper HTTP status codes
+- Business logic testing including calculations and constraints
+
+## Backend Feature Areas
+
+When working with specific backend features, consult these detailed guides for domain knowledge and implementation patterns:
+
+- **Database Schema** → `docs/backend/database-schema.md` - Comprehensive table reference, relationships, and schema details
+- **Authorization & Roles** → `docs/backend/authorization.md` - Role-based access control, admin tables, permission system
+- **Tours & Enrollments** → `docs/backend/tours-and-enrollments.md` - Multi-competition championships with player enrollment
+- **Competitions & Results** → `docs/backend/competitions-and-results.md` - Event management, leaderboards, finalization
+- **Handicap System** → `docs/backend/handicap-system.md` - WHS calculations, course tees, gender-specific ratings
+- **Player Profiles** → `docs/backend/player-profiles.md` - Extended profiles, handicap history tracking
+
+---
+
+# 📗 Frontend Development
+
+## Frontend Development Commands
+
 ```bash
 cd frontend
 
@@ -45,11 +98,94 @@ npm run test:e2e       # Playwright E2E tests
 npm run lint           # ESLint checking
 ```
 
-## Architecture Overview
+## Frontend Architecture
 
-This is a full-stack golf series management application with clean separation between backend and frontend.
+- **API Layer** (`frontend/src/api/`): React Query hooks for server state management
+- **Components** (`frontend/src/components/`): Reusable UI with shadcn/ui + Radix
+- **Views** (`frontend/src/views/`): Page-level components (admin/ and player/)
+- **Router** (`frontend/src/router.tsx`): TanStack Router with file-based routing
 
-### Backend Architecture (Hexagonal/Clean Architecture)
+### Key Frontend Patterns
+- Custom React Query hooks for each entity (e.g., `useTeams()`, `useCreateTeam()`)
+- Mobile-first responsive design with Tailwind CSS
+- Dual interface: Admin panel for management, Player view for scorecards
+- Real-time updates with automatic cache invalidation
+- **Unified Topbar Architecture**: All player views use PlayerPageLayout for consistent navigation
+
+## Design System & Visual Guidelines
+
+**IMPORTANT**: Before creating or modifying any UI components, review these design system documents:
+
+- **Visual Design Rules** → `docs/visual-design-rules.md`
+  - Clean UI patterns avoiding "AI-generated template" look
+  - One level of containment per visual group (no nested borders)
+  - Use dividers between list items, not individual cards
+  - Subtle hover states (background changes, not shadows/transforms)
+  - Left accents for grouping instead of full borders
+
+- **TapScore Style Guide** → `docs/STYLE_GUIDE.md`
+  - Complete design system with brand colors, typography, component patterns
+  - Golf-specific components (score displays, leaderboards, status indicators)
+  - **Critical contrast guidelines** - maintain WCAG AA ratios
+  - Tailwind CSS v4 configuration for custom colors and gradients
+  - Mobile-first responsive patterns
+
+### Key Design Principles
+- One level of containment per visual group (no nested borders)
+- Maintain WCAG AA contrast ratios (minimum 4.5:1 for text)
+- Mobile-first with minimum 44px touch targets
+- Use TapScore brand colors from style guide
+- Follow established component patterns
+
+## Frontend Testing
+
+- Playwright for E2E testing
+- Tests cover score entry, navigation, and critical user flows
+- Mobile-responsive testing included
+
+## Frontend Navigation Architecture
+
+### Unified Topbar System
+
+**CRITICAL**: All player views MUST use the unified topbar architecture for consistency.
+
+#### Required Pattern for All Player Views
+```tsx
+export default function MyPlayerView() {
+  return (
+    <PlayerPageLayout
+      title="Page Title"
+      seriesId={seriesId}           // When available
+      seriesName={seriesName}       // When available
+      onBackClick={customHandler}   // When needed
+      customActions={<Actions />}   // When needed
+    >
+      {/* Page content */}
+    </PlayerPageLayout>
+  );
+}
+```
+
+**Key Components**:
+- **PlayerPageLayout**: Main wrapper (`src/components/layout/PlayerPageLayout.tsx`)
+- **CommonHeader**: Header with automatic HamburgerMenu (`src/components/navigation/CommonHeader.tsx`)
+- **HamburgerMenu**: Context-aware navigation (`src/components/navigation/HamburgerMenu.tsx`)
+
+**Full Documentation** → `docs/frontend/frontend-topbar-architecture.md`
+
+## Frontend Feature Areas
+
+When working with specific frontend features, consult these detailed guides:
+
+- **Admin UI Patterns** → `docs/frontend/admin-ui.md` - Admin interface patterns and components
+- **Player UI Patterns** → `docs/frontend/player-ui.md` - Player interface patterns and scorecard views
+
+---
+
+# 📚 Backend Architecture & Patterns
+
+## Backend Architecture (Hexagonal/Clean)
+
 - **API Layer** (`src/api/`): HTTP handlers using Hono framework
 - **Service Layer** (`src/services/`): Business logic and domain operations
 - **Database Layer** (`src/database/`): SQLite with custom migration system
@@ -62,7 +198,7 @@ This is a full-stack golf series management application with clean separation be
 - Prepared statements for all database queries
 - Comprehensive error handling with proper HTTP status codes
 
-### Service Layer Code Organization
+## Service Layer Code Organization
 
 **Core Rule:** Within a service, a method contains EITHER a single SQL query OR business logic - never both.
 
@@ -205,18 +341,9 @@ createFullCompetition(data: FullCompetitionDto) {
 }
 ```
 
-### Frontend Architecture (React + TanStack)
-- **API Layer** (`src/api/`): React Query hooks for server state
-- **Components** (`src/components/`): Reusable UI with shadcn/ui + Radix
-- **Views** (`src/views/`): Page-level components (admin/ and player/)
-- **Router** (`src/router.tsx`): TanStack Router with file-based routing
+---
 
-### Key Frontend Patterns
-- Custom React Query hooks for each entity (e.g., `useTeams()`, `useCreateTeam()`)
-- Mobile-first responsive design with Tailwind CSS
-- Dual interface: Admin panel for management, Player view for scorecards
-- Real-time updates with automatic cache invalidation
-- **Unified Topbar Architecture**: All player views use PlayerPageLayout for consistent navigation
+# 📚 General Information
 
 ## Domain Model
 
@@ -246,22 +373,50 @@ createFullCompetition(data: FullCompetitionDto) {
 
 ### Key Database Commands
 ```bash
-bun run migrate         # Apply pending migrations
-bun run src/database/migrate.ts  # Direct migration run
+# Local development database
+bun run migrate         # Apply pending migrations to local db (src/database/migrate.ts)
+bun run db:migrate      # Run migration script on local dev db (scripts/migrate.ts)
+bun run db:health       # Run health check on local dev db (scripts/health.ts)
+
+# Production database workflow (local testing)
+bun run db:setup-prod   # Fetch production db to deploy-tmp/db.sqlite
+bun run db:migrate:prod # Run migrations on prod db copy
+bun run db:health:prod  # Check prod db copy health and schema
+bun run dev:prod        # Run dev server with prod db copy
+bun run seed-tour:prod  # Seed tour data into prod db copy
 ```
 
-## Testing Strategy
+### Working with Production Database Copy
 
-### Backend Testing
-- In-memory SQLite database for each test file
-- Comprehensive CRUD testing with validation scenarios
-- API endpoint testing with proper HTTP status codes
-- Business logic testing including calculations and constraints
+Use these commands to safely test migrations and changes against a copy of the production database:
 
-### Frontend Testing
-- Playwright for E2E testing
-- Tests cover score entry, navigation, and critical user flows
-- Mobile-responsive testing included
+1. **Fetch production database**: `bun run db:setup-prod`
+   - Downloads current production database to `deploy-tmp/db.sqlite`
+   - Creates backup before overwriting existing copy
+
+2. **Test migrations**: `bun run db:migrate:prod`
+   - Applies pending migrations to the production database copy
+   - Uses `scripts/migrate.ts` with `DB_PATH=deploy-tmp/db.sqlite`
+   - This is what you should run for local testing before deploying
+
+3. **Verify database health**: `bun run db:health:prod`
+   - Checks database connectivity and schema integrity
+   - Uses `scripts/health.ts` with `DB_PATH=deploy-tmp/db.sqlite`
+   - Useful after running migrations to ensure nothing broke
+
+4. **Run server with prod data**: `bun run dev:prod`
+   - Starts development server using production database copy
+   - Sets `DB_PATH=deploy-tmp/db.sqlite` environment variable
+   - Allows testing features with real production data structure
+
+5. **Seed tour data (if needed)**: `bun run seed-tour:prod`
+   - Populates tour-specific data into production database copy
+   - Useful for testing tour-related features
+
+**Important**:
+- The `:prod` suffix commands work on a **copy** of the production database in `deploy-tmp/`, never directly on production
+- The base commands (`db:migrate`, `db:health`) work on your local dev database
+- During deployment, the deployment system calls `db:migrate` and `db:health` with `DB_PATH` already set to the downloaded production copy
 
 ## Development Guidelines
 
@@ -279,7 +434,9 @@ bun run src/database/migrate.ts  # Direct migration run
 - Write descriptive error messages
 - Update tests when modifying existing functionality
 
-### Backend Code Quality Rules
+---
+
+# 🔧 Backend Code Quality Rules
 
 These rules are inspired by McConnell's "Code Complete" and focus on managing complexity.
 
@@ -411,13 +568,15 @@ getCompetitions(tourId: number): CompetitionWithCourse[] { ... }
 const row = stmt.get(id) as CompetitionRow | null;
 ```
 
-### Error Handling
+#### Error Handling
 - Service layer throws descriptive `Error` objects
 - API layer maps to appropriate HTTP status codes
 - Frontend handles errors with user-friendly messages
 - Always return JSON error responses: `{ error: "message" }`
 
-## Deployment Notes
+---
+
+# 🚀 Deployment Notes
 
 ### Backend
 - Built with Bun.js runtime
@@ -430,51 +589,9 @@ const row = stmt.get(id) as CompetitionRow | null;
 - Supports deployment under subpaths (e.g., `/golf-serie/`)
 - Dynamic API base URL detection for dev/prod environments
 
-## Frontend Navigation Architecture
+---
 
-### Unified Topbar System
-**Implementation Date**: 2025-01-28
-
-All player views MUST use the unified topbar architecture for consistency:
-
-#### Required Pattern for All Player Views
-```tsx
-export default function MyPlayerView() {
-  return (
-    <PlayerPageLayout 
-      title="Page Title"
-      seriesId={seriesId}           // When available
-      seriesName={seriesName}       // When available  
-      onBackClick={customHandler}   // When needed
-      customActions={<Actions />}   // When needed
-    >
-      {/* Page content */}
-    </PlayerPageLayout>
-  );
-}
-```
-
-#### Architecture Components
-- **PlayerPageLayout**: Main wrapper for all player views (`src/components/layout/PlayerPageLayout.tsx`)
-- **CommonHeader**: Enhanced header with automatic HamburgerMenu (`src/components/navigation/CommonHeader.tsx`)
-- **HamburgerMenu**: Context-aware navigation menu with improved contrast (`src/components/navigation/HamburgerMenu.tsx`)
-
-#### Key Benefits
-- **Automatic hamburger menu** on all player views with context-aware navigation
-- **Improved accessibility** with light icons (`text-scorecard`) on dark backgrounds
-- **Consistent UX** across all views with unified navigation patterns
-- **Easy maintenance** through single source of truth for header behavior
-
-#### Implementation Status
-✅ **All 10 player views successfully converted**:
-- Competitions.tsx, Series.tsx, SeriesCompetitions.tsx
-- SeriesDetail.tsx, SeriesDocumentDetail.tsx, SeriesDocuments.tsx  
-- SeriesStandings.tsx, CompetitionDetail.tsx, CompetitionRound.tsx
-- TeeTimeDetail.tsx
-
-**Documentation**: See `/docs/frontend-topbar-architecture.md` for complete implementation guide.
-
-## Active Improvement Plans
+# 📈 Active Improvement Plans
 
 ### Frontend Refactoring Plan
 **Status**: In Progress
@@ -492,11 +609,31 @@ Tracked improvements for frontend maintainability:
 
 When working on frontend, check this plan for context and update progress as phases complete.
 
-## Important Constraints
+---
 
-- Never modify files in the `frontend/` directory unless explicitly requested
-- **ALL player views must use PlayerPageLayout** - never use CommonHeader directly
-- Backend serves as API and static file server for the frontend
+# ⚠️ Important Constraints
+
+### Backend
 - Database migrations are one-way (no rollback implemented)
+- Always use prepared statements for SQL queries (security)
+- Maintain existing API contracts when making changes
+- Backend serves as both API and static file server
+
+### Frontend
+- Never modify `frontend/` directory files unless explicitly requested
+- **ALL player views MUST use PlayerPageLayout** - never use CommonHeader directly
 - Mobile-first design principles must be maintained
-- Maintain existing API contract when making changes
+- Follow TapScore design system (see `docs/STYLE_GUIDE.md` and `docs/visual-design-rules.md`)
+- Maintain WCAG AA contrast ratios
+
+---
+
+# 📖 Documentation Structure
+
+This file (CLAUDE.md) focuses on **patterns, conventions, and code mechanics**. For detailed feature documentation:
+
+- **Backend Features**: See `docs/backend/` for domain-specific guides
+- **Frontend Features**: See `docs/frontend/` for UI patterns and components
+- **Design System**: See `docs/STYLE_GUIDE.md` and `docs/visual-design-rules.md`
+- **Deployment**: See `docs/deployment/` for infrastructure guides
+- **Refactoring Plans**: See `docs/frontend-refactoring-plan.md`

@@ -193,9 +193,8 @@ export class LeaderboardService {
       throw new Error("Competition not found");
     }
 
-    const numberOfTeams = competition.series_id
-      ? this.findSeriesTeamCount(competition.series_id)
-      : 0;
+    // Count actual teams participating in this competition
+    const numberOfTeams = this.findCompetitionTeamCount(competitionId);
 
     return this.transformLeaderboardToTeamLeaderboard(
       leaderboard,
@@ -222,7 +221,11 @@ export class LeaderboardService {
       : undefined;
 
     // Stroke index comes from the course (not the tee)
-    const strokeIndex = this.parseStrokeIndex(competition.course_stroke_index);
+    // Only parse if we need it for net scoring calculations
+    const needsStrokeIndex = scoringMode && scoringMode !== "gross";
+    const strokeIndex = needsStrokeIndex
+      ? this.parseStrokeIndex(competition.course_stroke_index)
+      : [];
 
     const { teeInfo, courseRating, slopeRating } = this.getTeeInfoForCompetition(
       competition.tee_id,
@@ -1205,6 +1208,17 @@ export class LeaderboardService {
   private findSeriesTeamCount(seriesId: number): number {
     const stmt = this.db.prepare("SELECT COUNT(*) as count FROM series_teams WHERE series_id = ?");
     const result = stmt.get(seriesId) as { count: number } | null;
+    return result?.count || 0;
+  }
+
+  private findCompetitionTeamCount(competitionId: number): number {
+    const stmt = this.db.prepare(`
+      SELECT COUNT(DISTINCT p.team_id) as count
+      FROM participants p
+      JOIN tee_times t ON p.tee_time_id = t.id
+      WHERE t.competition_id = ?
+    `);
+    const result = stmt.get(competitionId) as { count: number } | null;
     return result?.count || 0;
   }
 }

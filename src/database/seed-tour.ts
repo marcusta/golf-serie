@@ -70,8 +70,9 @@ function getDateForWeek(weekNum: number): string {
 async function seedTour() {
   console.log("🏌️ Seeding Tour data...\n");
 
-  // Connect to the database
-  const db = createDatabase();
+  // Connect to the database (respects DB_PATH environment variable)
+  const dbPath = process.env.DB_PATH || "golf_series.db";
+  const db = createDatabase(dbPath);
   await initializeDatabase(db);
 
   try {
@@ -513,7 +514,8 @@ Questions? Reach out to the tour committee at tour@stockholmsgk.se
 async function seedWinterTour() {
   console.log("\n🏔️ Seeding Winter Tour data...\n");
 
-  const db = createDatabase();
+  const dbPath = process.env.DB_PATH || "golf_series.db";
+  const db = createDatabase(dbPath);
   await initializeDatabase(db);
 
   try {
@@ -848,7 +850,8 @@ Good luck and stay warm! ⛳🏔️`,
 async function seedLanderydTour() {
   console.log("\n🏌️‍♀️ Seeding Landeryd Mixed Tour data...\n");
 
-  const db = createDatabase();
+  const dbPath = process.env.DB_PATH || "golf_series.db";
+  const db = createDatabase(dbPath);
   await initializeDatabase(db);
 
   try {
