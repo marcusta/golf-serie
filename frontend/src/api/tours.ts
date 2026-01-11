@@ -67,6 +67,7 @@ export interface TourStandings {
   };
   categories?: TourCategory[];
   selected_category_id?: number;
+  has_projected_results?: boolean; // True if any competitions have projected results
 }
 
 export interface TourEnrollment {
