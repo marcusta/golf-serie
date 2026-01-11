@@ -8,6 +8,7 @@ import {
   Share,
   Download,
   ChevronDown,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,9 +98,11 @@ export default function TourStandings() {
   const [expandedPlayers, setExpandedPlayers] = useState<Set<number>>(
     new Set()
   );
+  const [playerInfoOpen, setPlayerInfoOpen] = useState<number | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
   const [isFirstCategorySet, setIsFirstCategorySet] = useState(false);
   const [selectedScoringType, setSelectedScoringType] = useState<"gross" | "net" | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<'actual' | 'projected'>('projected');
 
   const {
     data: tour,
@@ -146,23 +149,46 @@ export default function TourStandings() {
   const handleExport = () => {
     if (!standings?.player_standings) return;
 
-    const csvContent = [
-      ["Position", "Player", "Points", "Competitions Played"].join(","),
-      ...standings.player_standings.map((standing) =>
-        [
-          standing.position,
-          `"${standing.player_name}"`,
-          standing.total_points,
-          standing.competitions_played,
-        ].join(",")
-      ),
-    ].join("\n");
+    let csvContent: string;
+    let filename: string;
+
+    if (standings.has_projected_results) {
+      // Export both columns when projected results exist
+      const sortedBy = viewMode === 'actual' ? ' (sorted by Actual)' : ' (sorted by Projected)';
+      csvContent = [
+        ["Position", "Player", "Actual Points", "Projected Points", "Competitions Played"].join(","),
+        ...displayedStandings.map((standing) =>
+          [
+            standing.position,
+            `"${standing.player_name}"`,
+            standing.actual_points,
+            standing.projected_points,
+            standing.competitions_played,
+          ].join(",")
+        ),
+      ].join("\n");
+      filename = `${tour?.name || "tour"}-standings${sortedBy}.csv`;
+    } else {
+      // Export single column when all competitions are finalized
+      csvContent = [
+        ["Position", "Player", "Points", "Competitions Played"].join(","),
+        ...displayedStandings.map((standing) =>
+          [
+            standing.position,
+            `"${standing.player_name}"`,
+            standing.projected_points,
+            standing.competitions_played,
+          ].join(",")
+        ),
+      ].join("\n");
+      filename = `${tour?.name || "tour"}-standings.csv`;
+    }
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${tour?.name || "tour"}-standings.csv`;
+    a.download = filename;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -305,6 +331,40 @@ export default function TourStandings() {
 
   const enhancedPlayerStandings = getEnhancedPlayerStandings();
 
+  // Re-sort and re-rank based on view mode
+  const getSortedStandings = (viewMode: 'actual' | 'projected') => {
+    const pointsField = viewMode === 'actual' ? 'actual_points' : 'projected_points';
+
+    const sorted = [...enhancedPlayerStandings].sort((a, b) => {
+      // Primary: points descending
+      if (b[pointsField] !== a[pointsField]) {
+        return b[pointsField] - a[pointsField];
+      }
+      // Secondary: more competitions played
+      if (b.competitions_played !== a.competitions_played) {
+        return b.competitions_played - a.competitions_played;
+      }
+      // Tertiary: alphabetical
+      return a.player_name.localeCompare(b.player_name);
+    });
+
+    // Re-assign positions with tie handling
+    let currentPosition = 1;
+    let previousPoints = -1;
+
+    sorted.forEach((standing, index) => {
+      if (standing[pointsField] !== previousPoints) {
+        currentPosition = index + 1;
+      }
+      standing.position = currentPosition;
+      previousPoints = standing[pointsField];
+    });
+
+    return sorted;
+  };
+
+  const displayedStandings = getSortedStandings(viewMode);
+
   return (
     <PlayerPageLayout title="Player Standings" tourId={id} tourName={tour.name}>
       {/* Sub-header with export functionality */}
@@ -346,7 +406,7 @@ export default function TourStandings() {
 
           {/* Filters Row: Category dropdown (left) + Scoring type pills (right) */}
           {(standings.categories && standings.categories.length > 1) || standings.scoring_mode === "both" ? (
-            <div className="flex items-center justify-between gap-4 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4">
               {/* Category Dropdown */}
               {standings.categories && standings.categories.length > 1 ? (
                 <Select
@@ -372,31 +432,59 @@ export default function TourStandings() {
                 <div /> /* Spacer when no categories */
               )}
 
-              {/* Scoring Type Pills */}
-              {standings.scoring_mode === "both" && (
-                <div className="flex rounded-lg overflow-hidden border border-soft-grey">
-                  <button
-                    onClick={() => setSelectedScoringType("gross")}
-                    className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                      (selectedScoringType === "gross" || (!selectedScoringType && standings.selected_scoring_type === "gross"))
-                        ? "bg-turf text-scorecard"
-                        : "bg-scorecard text-charcoal hover:bg-rough/30"
-                    }`}
-                  >
-                    Gross
-                  </button>
-                  <button
-                    onClick={() => setSelectedScoringType("net")}
-                    className={`px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
-                      (selectedScoringType === "net" || (!selectedScoringType && standings.selected_scoring_type === "net"))
-                        ? "bg-turf text-scorecard"
-                        : "bg-scorecard text-charcoal hover:bg-rough/30"
-                    }`}
-                  >
-                    Net
-                  </button>
-                </div>
-              )}
+              {/* Scoring Type Pills and View Mode Pills */}
+              <div className="flex flex-wrap gap-2">
+                {standings.scoring_mode === "both" && (
+                  <div className="flex rounded-lg overflow-hidden border border-soft-grey">
+                    <button
+                      onClick={() => setSelectedScoringType("gross")}
+                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors ${
+                        (selectedScoringType === "gross" || (!selectedScoringType && standings.selected_scoring_type === "gross"))
+                          ? "bg-turf text-scorecard"
+                          : "bg-scorecard text-charcoal hover:bg-rough/30"
+                      }`}
+                    >
+                      Gross
+                    </button>
+                    <button
+                      onClick={() => setSelectedScoringType("net")}
+                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
+                        (selectedScoringType === "net" || (!selectedScoringType && standings.selected_scoring_type === "net"))
+                          ? "bg-turf text-scorecard"
+                          : "bg-scorecard text-charcoal hover:bg-rough/30"
+                      }`}
+                    >
+                      Net
+                    </button>
+                  </div>
+                )}
+
+                {/* View Mode Pills - Actual vs Projected */}
+                {standings.has_projected_results && (
+                  <div className="flex rounded-lg overflow-hidden border border-soft-grey">
+                    <button
+                      onClick={() => setViewMode('actual')}
+                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors ${
+                        viewMode === 'actual'
+                          ? "bg-turf text-scorecard"
+                          : "bg-scorecard text-charcoal hover:bg-rough/30"
+                      }`}
+                    >
+                      Actual
+                    </button>
+                    <button
+                      onClick={() => setViewMode('projected')}
+                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
+                        viewMode === 'projected'
+                          ? "bg-turf text-scorecard"
+                          : "bg-scorecard text-charcoal hover:bg-rough/30"
+                      }`}
+                    >
+                      Projected
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           ) : null}
         </div>
@@ -406,19 +494,50 @@ export default function TourStandings() {
       <main className="container mx-auto px-4 py-6">
         {/* Standings List */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-charcoal">
-              Standings
-            </h2>
-            <span className="text-body-sm text-charcoal/70">
-              {standings.player_standings.length} player
-              {standings.player_standings.length !== 1 ? "s" : ""}
-            </span>
+          <div className="mb-4">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-lg font-semibold text-charcoal">
+                Standings
+              </h2>
+              <span className="text-sm text-charcoal/60">
+                {(() => {
+                  const playedCount = allCompetitions?.filter(c => {
+                    const compDate = new Date(c.date);
+                    const today = new Date();
+                    today.setHours(23, 59, 59, 999);
+                    return compDate <= today;
+                  }).length || 0;
+                  return `after ${playedCount} played`;
+                })()}
+              </span>
+            </div>
+          </div>
+
+          {/* Table Header */}
+          <div className="bg-rough/20 border-y border-soft-grey px-4 py-2 mb-2">
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-2 sm:gap-4 items-center text-xs font-semibold text-charcoal/70 uppercase tracking-wide">
+              <div className="w-6">#</div>
+              <div>Player</div>
+              {standings.has_projected_results ? (
+                <>
+                  <div className={`text-right w-14 sm:w-16 ${viewMode === 'actual' ? 'text-charcoal font-bold' : ''}`}>
+                    Actual
+                  </div>
+                  <div className={`text-right w-14 sm:w-16 ${viewMode === 'projected' ? 'text-charcoal font-bold' : ''}`}>
+                    Projected
+                  </div>
+                </>
+              ) : (
+                <div className="text-right w-14 sm:w-16">Points</div>
+              )}
+              <div className="w-4"></div>
+              <div className="w-4"></div>
+            </div>
           </div>
 
           {/* Clean List with Dividers */}
           <div className="divide-y divide-soft-grey">
-            {enhancedPlayerStandings.map((standing) => (
+            {displayedStandings.map((standing) => (
               <div key={standing.player_id}>
                 {/* Player Row */}
                 <div
@@ -427,8 +546,8 @@ export default function TourStandings() {
                   }`}
                   onClick={() => togglePlayerDetails(standing.player_id)}
                 >
-                  <div className="flex items-center gap-4 py-4 px-4">
-                    {/* Position - Plain colored text */}
+                  <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-2 sm:gap-4 items-center py-4 px-4">
+                    {/* Position */}
                     <div
                       className={`w-6 text-lg font-bold ${
                         standing.position === 1
@@ -443,34 +562,52 @@ export default function TourStandings() {
                       {standing.position}
                     </div>
 
-                    {/* Player Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-charcoal leading-tight">
+                    {/* Player Name - Max 2 lines */}
+                    <div className="min-w-0 max-w-[200px]">
+                      <h3 className="text-base font-semibold text-charcoal leading-tight line-clamp-2">
                         <PlayerNameLink
                           playerId={standing.player_id}
                           playerName={standing.player_name}
                           skipFriendCheck={true}
                         />
                       </h3>
-                      <p className="text-sm text-charcoal/60">
-                        {standing.competitions_played} of {standings.total_competitions} competitions
-                      </p>
                     </div>
 
-                    {/* Points */}
-                    <div className="text-right">
-                      <span className="text-lg font-bold text-charcoal">
-                        {standing.total_points}
-                      </span>
-                      <span className="text-sm text-charcoal/50 ml-1">pts</span>
-                    </div>
+                    {/* Points Columns */}
+                    {standings.has_projected_results ? (
+                      <>
+                        <div className={`text-right w-14 sm:w-16 ${viewMode === 'actual' ? 'font-bold text-charcoal text-lg' : 'text-charcoal/60'}`}>
+                          {standing.actual_points}
+                        </div>
+                        <div className={`text-right w-14 sm:w-16 ${viewMode === 'projected' ? 'font-bold text-charcoal text-lg' : 'text-charcoal/60'}`}>
+                          {standing.projected_points}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-right w-14 sm:w-16 font-bold text-charcoal text-lg">
+                        {standing.projected_points}
+                      </div>
+                    )}
+
+                    {/* Info Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPlayerInfoOpen(playerInfoOpen === standing.player_id ? null : standing.player_id);
+                      }}
+                      className="w-4 text-charcoal/40 hover:text-turf transition-colors"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
 
                     {/* Expand Arrow */}
-                    <ChevronDown
-                      className={`h-4 w-4 text-charcoal/40 transition-transform ${
-                        expandedPlayers.has(standing.player_id) ? "rotate-180" : ""
-                      }`}
-                    />
+                    <div className="w-4">
+                      <ChevronDown
+                        className={`h-4 w-4 text-charcoal/40 transition-transform ${
+                          expandedPlayers.has(standing.player_id) ? "rotate-180" : ""
+                        }`}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -541,6 +678,50 @@ export default function TourStandings() {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Player Info Popup */}
+                {playerInfoOpen === standing.player_id && (
+                  <div className="bg-turf/5 border-l-4 border-l-turf ml-4 mr-4 mb-4 px-4 py-3">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/70">Competitions played:</span>
+                        <span className="font-semibold text-charcoal">
+                          {(() => {
+                            const today = new Date();
+                            today.setHours(23, 59, 59, 999);
+                            const playedComps = standing.competitions.filter(comp => {
+                              if ('is_future' in comp && comp.is_future) return false;
+                              if ('not_participated' in comp && comp.not_participated) return false;
+                              const compDate = new Date(comp.competition_date);
+                              return compDate <= today && comp.points > 0;
+                            });
+                            const totalPlayedInTour = allCompetitions?.filter(c => {
+                              const compDate = new Date(c.date);
+                              return compDate <= today;
+                            }).length || 0;
+                            return `${playedComps.length} of ${totalPlayedInTour}`;
+                          })()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/70">First positions:</span>
+                        <span className="font-semibold text-charcoal">
+                          {standing.competitions.filter(comp =>
+                            comp.position === 1 && comp.points > 0
+                          ).length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/70">Top 3 finishes:</span>
+                        <span className="font-semibold text-charcoal">
+                          {standing.competitions.filter(comp =>
+                            comp.position > 0 && comp.position <= 3 && comp.points > 0
+                          ).length}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}

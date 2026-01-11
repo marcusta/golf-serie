@@ -196,10 +196,11 @@ export class TourService {
       .prepare(`
         SELECT te.player_id, te.category_id, tc.name as category_name,
                COALESCE(te.playing_handicap, p.handicap) as handicap,
-               p.name as player_name
+               COALESCE(pp.display_name, p.name) as player_name
         FROM tour_enrollments te
         LEFT JOIN tour_categories tc ON te.category_id = tc.id
         LEFT JOIN players p ON te.player_id = p.id
+        LEFT JOIN player_profiles pp ON p.id = pp.player_id
         WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
       `)
       .all(tourId) as EnrollmentRow[];
@@ -223,10 +224,11 @@ export class TourService {
           cr.relative_to_par,
           c.name as competition_name,
           c.date as competition_date,
-          pl.name as player_name
+          COALESCE(pp.display_name, pl.name) as player_name
         FROM competition_results cr
         JOIN competitions c ON cr.competition_id = c.id
         JOIN players pl ON cr.player_id = pl.id
+        LEFT JOIN player_profiles pp ON pl.id = pp.player_id
         WHERE c.tour_id = ?
           AND cr.scoring_type = ?
           AND c.is_results_final = 1
@@ -251,12 +253,13 @@ export class TourService {
           p.is_locked,
           p.is_dq,
           p.manual_score_total,
-          pl.name as player_name,
+          COALESCE(pp.display_name, pl.name) as player_name,
           c.id as competition_id,
           c.name as competition_name,
           c.date as competition_date
         FROM participants p
         JOIN players pl ON p.player_id = pl.id
+        LEFT JOIN player_profiles pp ON pl.id = pp.player_id
         JOIN tee_times t ON p.tee_time_id = t.id
         JOIN competitions c ON t.competition_id = c.id
         WHERE t.competition_id = ? AND p.player_id IS NOT NULL
@@ -371,6 +374,8 @@ export class TourService {
       player_name: playerName,
       category_id: playerCategory?.category_id ?? undefined,
       category_name: playerCategory?.category_name ?? undefined,
+      actual_points: 0,
+      projected_points: 0,
       total_points: 0,
       competitions_played: 0,
       position: 0,
@@ -695,6 +700,8 @@ export class TourService {
       }
 
       const standing = playerStandings.get(result.player_id)!;
+      standing.actual_points += result.points;
+      standing.projected_points += result.points;
       standing.total_points += result.points;
       standing.competitions_played += 1;
       standing.competitions.push({
@@ -771,6 +778,7 @@ export class TourService {
         }
 
         const standing = playerStandings.get(result.player_id)!;
+        standing.projected_points += points;
         standing.total_points += points;
         standing.competitions_played += 1;
         standing.competitions.push({

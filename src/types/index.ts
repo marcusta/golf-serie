@@ -561,7 +561,9 @@ export interface TourPlayerStanding {
   handicap_index?: number;
   category_id?: number;
   category_name?: string;
-  total_points: number;
+  actual_points: number; // Points from finalized competitions only
+  projected_points: number; // Points including all competitions
+  total_points: number; // DEPRECATED but kept for backward compatibility (= projected_points)
   competitions_played: number;
   position: number;
   competitions: {
