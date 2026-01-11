@@ -894,19 +894,7 @@ async function seedLanderydTour() {
       console.log("  ✓ Cleaned existing Landeryd tour data\n");
     }
 
-    // 1. Find or create admin user
-    let admin = db.prepare(`SELECT id FROM users WHERE email = 'tour-admin@example.com'`).get() as { id: number } | null;
-    if (!admin) {
-      const adminPassword = await Bun.password.hash("admin123", "bcrypt");
-      admin = db.prepare(`
-        INSERT INTO users (email, password_hash, role)
-        VALUES (?, ?, ?)
-        RETURNING id
-      `).get("tour-admin@example.com", adminPassword, "SUPER_ADMIN") as { id: number };
-    }
-    console.log(`Using admin user (id: ${admin.id})`);
-
-    // 2. Find the Landeryd courses
+    // 1. Find the Landeryd courses (no admin user creation needed)
     const classicCourse = db.prepare(`SELECT id, name FROM courses WHERE name = 'Landeryd Classic'`).get() as { id: number; name: string } | null;
     const mastersCourse = db.prepare(`SELECT id, name FROM courses WHERE name = 'Landeryd Masters'`).get() as { id: number; name: string } | null;
 
@@ -925,7 +913,7 @@ async function seedLanderydTour() {
       console.log(`Found real user (id: ${realUser.id})`);
     }
 
-    // 4. Get or create point template
+    // 2. Get or create point template
     let pointTemplate = db.prepare(`SELECT id FROM point_templates WHERE name = 'Standard Tour Points'`).get() as { id: number } | null;
     if (!pointTemplate) {
       pointTemplate = db.prepare(`
@@ -935,11 +923,11 @@ async function seedLanderydTour() {
       `).get(
         "Standard Tour Points",
         JSON.stringify({ "1": 100, "2": 80, "3": 65, "4": 55, "5": 50, "6": 45, "7": 40, "8": 36, "9": 32, "10": 29, "default": 5 }),
-        admin.id
+        null
       ) as { id: number };
     }
 
-    // 5. Create Landeryd Mixed Tour with scoring_mode = 'both'
+    // 3. Create Landeryd Mixed Tour with scoring_mode = 'both'
     console.log("\nCreating Landeryd Mixed Tour...");
     const tour = db.prepare(`
       INSERT INTO tours (name, description, owner_id, enrollment_mode, visibility, point_template_id, banner_image_url, scoring_mode)
@@ -948,7 +936,7 @@ async function seedLanderydTour() {
     `).get(
       "Landeryd Mixed Tour 2025",
       "Mixed tour with separate Men's and Women's categories. Both gross and net scores tracked. Alternating between Landeryd Classic and Landeryd Masters.",
-      admin.id,
+      null,
       "closed",
       "public",
       pointTemplate.id,
@@ -1050,7 +1038,7 @@ Good luck! ⛳`,
           INSERT INTO players (name, handicap, user_id, created_by)
           VALUES (?, ?, ?, ?)
           RETURNING id, name, handicap
-        `).get("Marcus Andersson", 15, realUser.id, admin.id) as { id: number; name: string; handicap: number };
+        `).get("Marcus Andersson", 15, realUser.id, null) as { id: number; name: string; handicap: number };
       }
       landerydPlayers.push({ id: realPlayer.id, name: realPlayer.name, handicap: realPlayer.handicap, categoryId: mensCategory.id, isRealUser: true });
 
@@ -1080,7 +1068,7 @@ Good luck! ⛳`,
         INSERT INTO players (name, handicap, user_id, created_by)
         VALUES (?, ?, ?, ?)
         RETURNING id
-      `).get(name, handicap, user.id, admin.id) as { id: number };
+      `).get(name, handicap, user.id, null) as { id: number };
 
       landerydPlayers.push({ id: player.id, name, handicap, categoryId: mensCategory.id, isRealUser: false });
 
@@ -1110,7 +1098,7 @@ Good luck! ⛳`,
         INSERT INTO players (name, handicap, user_id, created_by)
         VALUES (?, ?, ?, ?)
         RETURNING id
-      `).get(name, handicap, user.id, admin.id) as { id: number };
+      `).get(name, handicap, user.id, null) as { id: number };
 
       landerydPlayers.push({ id: player.id, name, handicap, categoryId: womensCategory.id, isRealUser: false });
 
@@ -1239,8 +1227,7 @@ Good luck! ⛳`,
 
 // Run if executed directly
 async function main() {
-  await seedTour();
-  await seedWinterTour();
+  // Only run Landeryd Mixed Tour for production
   await seedLanderydTour();
 }
 

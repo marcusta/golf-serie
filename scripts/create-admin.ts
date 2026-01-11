@@ -10,7 +10,7 @@
 import { Database } from "bun:sqlite";
 import { createInterface } from "readline";
 
-const DB_PATH = "./golf_series.db";
+const DB_PATH = process.env.DB_PATH || "./golf_series.db";
 
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({
