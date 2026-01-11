@@ -19,13 +19,15 @@
     "db:health": "bun ./scripts/health.ts",
     "db:health:prod": "DB_PATH=deploy-tmp/db.sqlite bun ./scripts/health.ts",
     "db:setup-prod": "bun ./scripts/setup-prod.ts",
+    "check-db": "bun ./scripts/check-db.ts",
     "seed-tour": "bun run src/database/migrate.ts && bun run src/database/seed-tour.ts",
     "seed-tour:prod": "DB_PATH=deploy-tmp/db.sqlite bun run src/database/seed-tour.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
     "setup": "bun install && bun run src/database/migrate.ts && bun run src/database/seed.ts",
     "start": "bun run src/index.ts",
-    "create-admin": "bun run scripts/create-admin.ts"
+    "create-admin": "bun run scripts/create-admin.ts",
+    "prepare-deploy": "bun run scripts/prepare-deploy.ts"
   },
   "dependencies": {
     "hono": "^4.7.10",

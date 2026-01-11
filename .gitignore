@@ -138,3 +138,11 @@ dist
 # Deployment artifacts
 deploy-tmp/
 *.local-backup
+
+# Database files (NEVER commit database files!)
+*.db
+*.sqlite
+*.sqlite3
+golf_series.db
+
+data/
