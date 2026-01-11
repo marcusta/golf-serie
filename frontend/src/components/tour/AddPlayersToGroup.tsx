@@ -7,12 +7,14 @@ import {
   Loader2,
   ChevronLeft,
   AlertCircle,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
   useAvailablePlayers,
   useAddToGroup,
+  useRegisterForCompetition,
   type AvailablePlayer,
 } from "@/api/tour-registration";
 
@@ -20,9 +22,10 @@ interface AddPlayersToGroupProps {
   isOpen: boolean;
   onClose: () => void;
   competitionId: number;
-  currentGroupSize: number;
+  currentGroupSize?: number;
   maxGroupSize?: number;
   onSuccess?: () => void;
+  mode?: "add_to_existing" | "initial_registration";
 }
 
 // Status indicator component
@@ -127,17 +130,21 @@ export function AddPlayersToGroup({
   isOpen,
   onClose,
   competitionId,
-  currentGroupSize,
+  currentGroupSize = 1,
   maxGroupSize = 4,
   onSuccess,
+  mode = "add_to_existing",
 }: AddPlayersToGroupProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isLookingForGroup, setIsLookingForGroup] = useState(false);
 
   const { data: availablePlayers, isLoading } = useAvailablePlayers(competitionId);
   const addToGroupMutation = useAddToGroup();
+  const registerMutation = useRegisterForCompetition();
 
+  const isInitialRegistration = mode === "initial_registration";
   const remainingSlots = maxGroupSize - currentGroupSize;
 
   // Filter and sort players
@@ -203,10 +210,52 @@ export function AddPlayersToGroup({
     }
   };
 
+  const handleInitialRegistration = async () => {
+    setError(null);
+    try {
+      // If LFG mode, just register as looking_for_group
+      if (isLookingForGroup) {
+        await registerMutation.mutateAsync({
+          competitionId,
+          mode: "looking_for_group",
+        });
+        onSuccess?.();
+        onClose();
+        return;
+      }
+
+      // If players selected, register as create_group and add them
+      if (selectedPlayerIds.length > 0) {
+        await registerMutation.mutateAsync({
+          competitionId,
+          mode: "create_group",
+        });
+        // Now add the selected players
+        await addToGroupMutation.mutateAsync({
+          competitionId,
+          playerIds: selectedPlayerIds,
+        });
+      } else {
+        // No players selected, register as solo
+        await registerMutation.mutateAsync({
+          competitionId,
+          mode: "solo",
+        });
+      }
+
+      setSelectedPlayerIds([]);
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Failed to register. Please try again.");
+    }
+  };
+
   const handleClose = () => {
     setSearchQuery("");
     setSelectedPlayerIds([]);
     setError(null);
+    setIsLookingForGroup(false);
     onClose();
   };
 
@@ -225,10 +274,40 @@ export function AddPlayersToGroup({
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-turf" />
             <span className="text-label-lg font-semibold text-charcoal">
-              Your Group ({currentGroupSize}/{maxGroupSize})
+              {isInitialRegistration
+                ? "Join Round"
+                : `Your Group (${currentGroupSize}/${maxGroupSize})`}
             </span>
           </div>
         </div>
+
+        {/* Looking for Group Toggle (only for initial registration) */}
+        {isInitialRegistration && (
+          <div className="p-4 bg-turf/10 border border-turf/20 rounded-xl">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isLookingForGroup}
+                onChange={(e) => {
+                  setIsLookingForGroup(e.target.checked);
+                  if (e.target.checked) {
+                    setSelectedPlayerIds([]); // Clear selections when enabling LFG
+                  }
+                }}
+                className="mt-1 h-5 w-5 rounded border-turf text-turf focus:ring-2 focus:ring-turf focus:ring-offset-0"
+              />
+              <div>
+                <div className="text-label-md font-semibold text-charcoal">
+                  I'm looking for a group
+                </div>
+                <div className="text-body-sm text-charcoal/70 mt-0.5">
+                  Mark yourself as available and wait for someone to add you to
+                  their group
+                </div>
+              </div>
+            </label>
+          </div>
+        )}
 
         {/* Error message */}
         {error && (
@@ -239,19 +318,21 @@ export function AddPlayersToGroup({
         )}
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-charcoal/50" />
-          <input
-            type="text"
-            placeholder="Search players..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-soft-grey rounded-xl bg-scorecard text-charcoal placeholder-charcoal/50 focus:outline-none focus:ring-2 focus:ring-turf focus:border-turf transition-colors"
-          />
-        </div>
+        {!isLookingForGroup && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-charcoal/50" />
+            <input
+              type="text"
+              placeholder="Search players..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-soft-grey rounded-xl bg-scorecard text-charcoal placeholder-charcoal/50 focus:outline-none focus:ring-2 focus:ring-turf focus:border-turf transition-colors"
+            />
+          </div>
+        )}
 
         {/* Selection info */}
-        {selectedPlayerIds.length > 0 && (
+        {!isLookingForGroup && selectedPlayerIds.length > 0 && (
           <div className="flex items-center justify-between p-3 bg-turf/10 rounded-lg">
             <span className="text-body-sm text-turf font-medium">
               {selectedPlayerIds.length} player
@@ -267,10 +348,11 @@ export function AddPlayersToGroup({
         )}
 
         {/* Player list */}
-        <div
-          className="space-y-4 overflow-y-auto"
-          style={{ maxHeight: "calc(90vh - 320px)" }}
-        >
+        {!isLookingForGroup && (
+          <div
+            className="space-y-4 overflow-y-auto"
+            style={{ maxHeight: "calc(90vh - 320px)" }}
+          >
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-turf" />
@@ -327,18 +409,45 @@ export function AddPlayersToGroup({
               )}
             </>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Action button */}
         <Button
-          onClick={handleAddPlayers}
-          disabled={selectedPlayerIds.length === 0 || addToGroupMutation.isPending}
+          onClick={
+            isInitialRegistration ? handleInitialRegistration : handleAddPlayers
+          }
+          disabled={
+            isInitialRegistration
+              ? registerMutation.isPending || addToGroupMutation.isPending
+              : selectedPlayerIds.length === 0 || addToGroupMutation.isPending
+          }
           className="w-full bg-turf hover:bg-fairway text-scorecard"
         >
-          {addToGroupMutation.isPending ? (
+          {registerMutation.isPending || addToGroupMutation.isPending ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Adding...
+              {isInitialRegistration ? "Joining..." : "Adding..."}
+            </>
+          ) : isInitialRegistration ? (
+            <>
+              {isLookingForGroup ? (
+                <>
+                  <Search className="h-4 w-4 mr-2" />
+                  Mark as Looking for Group
+                </>
+              ) : selectedPlayerIds.length > 0 ? (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Start Playing with {selectedPlayerIds.length} Player
+                  {selectedPlayerIds.length !== 1 ? "s" : ""}
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Start Playing Solo
+                </>
+              )}
             </>
           ) : (
             <>

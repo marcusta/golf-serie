@@ -116,6 +116,13 @@ export default function CompetitionDetail() {
     isTourCompetition ? parseInt(competitionId || "0") : 0
   );
 
+  // Fetch current player's participant data to check if all holes are completed
+  const myParticipantId = registrationData?.registration?.participant_id;
+  const { data: myParticipant } = useParticipant(myParticipantId || 0);
+
+  // Check if all holes are completed (18 holes played)
+  const isAllHolesCompleted = (myParticipant?.score?.filter((s: number) => s > 0).length ?? 0) >= 18;
+
   // Check if competition is currently open
   const isCompetitionOpen = useCallback(() => {
     if (!competition?.open_start || !competition?.open_end) return false;
@@ -380,6 +387,7 @@ export default function CompetitionDetail() {
                 teeTimeId={registrationData.registration.tee_time_id}
                 participantId={registrationData.registration.participant_id}
                 onUpdate={() => refetchRegistration()}
+                hideActions={isAllHolesCompleted}
               />
             ) : isEnrolled ? (
               <button

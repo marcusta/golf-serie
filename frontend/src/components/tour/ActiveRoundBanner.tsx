@@ -33,6 +33,7 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
   } = activeRound;
 
   const isFinished = status === "finished";
+  const isAllHolesPlayed = holes_played >= 18;
 
   // Format the score display (e.g., "+3", "-2", "E")
   const formatScore = (score: string) => {
@@ -196,19 +197,33 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
           </div>
         )}
 
-        {/* Continue button */}
-        <Link
-          to="/player/competitions/$competitionId/tee-times/$teeTimeId"
-          params={{
-            competitionId: competition_id.toString(),
-            teeTimeId: tee_time_id.toString(),
-          }}
-          className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-scorecard hover:bg-scorecard/90 text-coral rounded-lg font-semibold transition-colors"
-        >
-          <Play className="h-5 w-5" />
-          Continue Playing
-          <ChevronRight className="h-5 w-5" />
-        </Link>
+        {/* Action button */}
+        {isAllHolesPlayed ? (
+          <Link
+            to="/player/competitions/$competitionId"
+            params={{
+              competitionId: competition_id.toString(),
+            }}
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-scorecard hover:bg-scorecard/90 text-coral rounded-lg font-semibold transition-colors"
+          >
+            <Trophy className="h-5 w-5" />
+            View Results
+            <ChevronRight className="h-5 w-5" />
+          </Link>
+        ) : (
+          <Link
+            to="/player/competitions/$competitionId/tee-times/$teeTimeId"
+            params={{
+              competitionId: competition_id.toString(),
+              teeTimeId: tee_time_id.toString(),
+            }}
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-scorecard hover:bg-scorecard/90 text-coral rounded-lg font-semibold transition-colors"
+          >
+            <Play className="h-5 w-5" />
+            Continue Playing
+            <ChevronRight className="h-5 w-5" />
+          </Link>
+        )}
       </div>
     </div>
   );

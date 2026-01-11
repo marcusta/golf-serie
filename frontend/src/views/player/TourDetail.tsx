@@ -31,7 +31,8 @@ import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
-import { JoinCompetitionFlow, GroupStatusCard, ActiveRoundBanner } from "@/components/tour";
+import { GroupStatusCard, ActiveRoundBanner } from "@/components/tour";
+import { AddPlayersToGroup } from "@/components/tour/AddPlayersToGroup";
 
 // Loading skeleton components
 function LoadingSkeleton() {
@@ -647,13 +648,11 @@ export default function TourDetail() {
 
       {/* Join Competition Flow */}
       {currentOpenRound && (
-        <JoinCompetitionFlow
+        <AddPlayersToGroup
           isOpen={showJoinFlow}
           onClose={() => setShowJoinFlow(false)}
           competitionId={currentOpenRound.id}
-          competitionName={currentOpenRound.name}
-          courseName={currentOpenRound.course_name}
-          openUntil={currentOpenRound.open_end}
+          mode="initial_registration"
           onSuccess={() => refetchRegistration()}
         />
       )}

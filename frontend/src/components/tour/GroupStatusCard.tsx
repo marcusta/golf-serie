@@ -9,12 +9,14 @@ import {
   Search,
   User,
   ChevronRight,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   useLeaveGroup,
   useStartPlaying,
   useWithdrawFromCompetition,
+  useRemoveFromGroup,
   type Registration,
   type PlayingGroup,
   type RegistrationStatus,
@@ -28,10 +30,26 @@ interface GroupStatusCardProps {
   teeTimeId?: number;
   participantId?: number;
   onUpdate?: () => void;
+  hideActions?: boolean; // Hide action buttons when all holes are completed
 }
 
 // Status badge component
-function StatusBadge({ status }: { status: RegistrationStatus }) {
+function StatusBadge({
+  status,
+  allHolesCompleted = false
+}: {
+  status: RegistrationStatus;
+  allHolesCompleted?: boolean;
+}) {
+  // If all holes completed but not finalized, show "Round Complete" instead of "On Course"
+  if (allHolesCompleted && status === "playing") {
+    return (
+      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-turf/20 text-turf">
+        Round Complete
+      </span>
+    );
+  }
+
   const statusConfig: Record<
     RegistrationStatus,
     { label: string; className: string }
@@ -76,6 +94,7 @@ export function GroupStatusCard({
   teeTimeId,
   // participantId is kept for backward compatibility but no longer used for navigation
   onUpdate,
+  hideActions = false,
 }: GroupStatusCardProps) {
   const [showAddPlayers, setShowAddPlayers] = useState(false);
   const navigate = useNavigate();
@@ -83,16 +102,20 @@ export function GroupStatusCard({
   const leaveGroupMutation = useLeaveGroup();
   const startPlayingMutation = useStartPlaying();
   const withdrawMutation = useWithdrawFromCompetition();
+  const removeFromGroupMutation = useRemoveFromGroup();
 
   const isLFG = registration.status === "looking_for_group";
   const isRegistered = registration.status === "registered";
   const isPlaying = registration.status === "playing";
   const isFinished = registration.status === "finished";
-  const canModifyGroup = isLFG || isRegistered;
+  const canModifyGroup = (isLFG || isRegistered || isPlaying);
   const hasGroup = group && group.players.length > 1;
 
   const groupMembers = group?.players.filter((p) => !p.is_you) || [];
   const currentGroupSize = group?.players.length || 1;
+
+  // Check if current player is the group creator
+  const isGroupCreator = registration.group_created_by === registration.player_id;
 
   const handleLeaveGroup = async () => {
     try {
@@ -139,6 +162,30 @@ export function GroupStatusCard({
     }
   };
 
+  const handleRemovePlayer = async (playerId: number, playerName: string) => {
+    if (
+      !confirm(
+        `Remove ${playerName} from your group? They will be moved to playing solo.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await removeFromGroupMutation.mutateAsync({
+        competitionId,
+        playerId,
+      });
+      onUpdate?.();
+    } catch (error) {
+      console.error("Failed to remove player:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove player from group"
+      );
+    }
+  };
+
   // Render for "Looking for Group" status
   if (isLFG) {
     return (
@@ -157,7 +204,7 @@ export function GroupStatusCard({
               </p>
             </div>
           </div>
-          <StatusBadge status={registration.status} />
+          <StatusBadge status={registration.status} allHolesCompleted={hideActions} />
         </div>
 
         {/* Start Playing Solo - for LFG players who want to start without waiting */}
@@ -228,7 +275,7 @@ export function GroupStatusCard({
               </p>
             </div>
           </div>
-          <StatusBadge status={registration.status} />
+          <StatusBadge status={registration.status} allHolesCompleted={hideActions} />
         </div>
       </div>
 
@@ -236,20 +283,34 @@ export function GroupStatusCard({
       {hasGroup && (
         <div className="p-4 border-b border-soft-grey bg-rough/30">
           <p className="text-label-sm font-medium text-charcoal/70 mb-2">
-            Playing with:
+            {hideActions || isFinished ? "Played with:" : "Playing with:"}
           </p>
           <div className="space-y-2">
             {groupMembers.map((member) => (
               <div
                 key={member.player_id}
-                className="flex items-center gap-2 text-charcoal"
+                className="flex items-center justify-between gap-2 text-charcoal group/member"
               >
-                <User className="h-4 w-4 text-charcoal/50" />
-                <span className="text-body-md">{member.name}</span>
-                {member.handicap !== undefined && (
-                  <span className="text-body-sm text-charcoal/50">
-                    (HCP {member.handicap?.toFixed(1)})
-                  </span>
+                <div className="flex items-center gap-2 flex-1">
+                  <User className="h-4 w-4 text-charcoal/50" />
+                  <span className="text-body-md">{member.name}</span>
+                  {member.handicap !== undefined && (
+                    <span className="text-body-sm text-charcoal/50">
+                      (HCP {member.handicap?.toFixed(1)})
+                    </span>
+                  )}
+                </div>
+                {isGroupCreator && canModifyGroup && (
+                  <button
+                    onClick={() =>
+                      handleRemovePlayer(member.player_id, member.name)
+                    }
+                    disabled={removeFromGroupMutation.isPending}
+                    className="opacity-0 group-hover/member:opacity-100 transition-opacity p-1 hover:bg-flag/10 rounded-md"
+                    title={`Remove ${member.name}`}
+                  >
+                    <X className="h-4 w-4 text-flag" />
+                  </button>
                 )}
               </div>
             ))}
@@ -258,44 +319,45 @@ export function GroupStatusCard({
       )}
 
       {/* Actions */}
-      <div className="p-4 space-y-3">
-        {/* Playing/Continue button */}
-        {isPlaying && teeTimeId ? (
-          <Link
-            to="/player/competitions/$competitionId/tee-times/$teeTimeId"
-            params={{
-              competitionId: competitionId.toString(),
-              teeTimeId: teeTimeId.toString(),
-            }}
-            className="block"
-          >
-            <Button className="w-full bg-coral hover:bg-coral/90 text-scorecard">
-              <Play className="h-4 w-4 mr-2" />
-              Continue Playing
-              <ChevronRight className="h-4 w-4 ml-2" />
+      {!hideActions && (
+        <div className="p-4 space-y-3">
+          {/* Playing/Continue button */}
+          {isPlaying && teeTimeId ? (
+            <Link
+              to="/player/competitions/$competitionId/tee-times/$teeTimeId"
+              params={{
+                competitionId: competitionId.toString(),
+                teeTimeId: teeTimeId.toString(),
+              }}
+              className="block"
+            >
+              <Button className="w-full bg-coral hover:bg-coral/90 text-scorecard">
+                <Play className="h-4 w-4 mr-2" />
+                Continue Playing
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+          ) : isRegistered ? (
+            <Button
+              onClick={handleStartPlaying}
+              disabled={startPlayingMutation.isPending}
+              className="w-full bg-turf hover:bg-fairway text-scorecard"
+            >
+              {startPlayingMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              Start Playing
             </Button>
-          </Link>
-        ) : isRegistered ? (
-          <Button
-            onClick={handleStartPlaying}
-            disabled={startPlayingMutation.isPending}
-            className="w-full bg-turf hover:bg-fairway text-scorecard"
-          >
-            {startPlayingMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4 mr-2" />
-            )}
-            Start Playing
-          </Button>
-        ) : isFinished ? (
-          <div className="text-center py-2">
-            <p className="text-body-md text-charcoal/70">Round completed</p>
-          </div>
-        ) : null}
+          ) : isFinished ? (
+            <div className="text-center py-2">
+              <p className="text-body-md text-charcoal/70">Round completed</p>
+            </div>
+          ) : null}
 
-        {/* Group management buttons */}
-        {canModifyGroup && (
+          {/* Group management buttons */}
+          {canModifyGroup && (
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -347,7 +409,8 @@ export function GroupStatusCard({
             )}
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Add Players Sheet */}
       <AddPlayersToGroup

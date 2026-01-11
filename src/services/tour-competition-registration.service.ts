@@ -514,6 +514,18 @@ export class TourCompetitionRegistrationService {
     }
   }
 
+  private hasRecordedScores(participantId: number): boolean {
+    const participant = this.db
+      .prepare("SELECT score FROM participants WHERE id = ?")
+      .get(participantId) as { score: string } | null;
+
+    if (!participant) return false;
+
+    const scores = this.parseScoreArray(participant.score);
+    const holesPlayed = this.calculateHolesPlayed(scores);
+    return holesPlayed > 0;
+  }
+
   private determineInitialStatus(mode: RegistrationMode): RegistrationStatus {
     return mode === "looking_for_group" ? "looking_for_group" : "registered";
   }
@@ -751,7 +763,10 @@ export class TourCompetitionRegistrationService {
       throw new Error("Registration not found");
     }
 
-    this.validateNotPlayingOrFinished(registration.status, "withdraw");
+    // Allow withdrawal if haven't recorded scores yet
+    if (registration.participant_id && this.hasRecordedScores(registration.participant_id)) {
+      throw new Error("Cannot withdraw after recording scores");
+    }
 
     if (registration.participant_id) {
       this.deleteParticipantRow(registration.participant_id);
@@ -825,7 +840,10 @@ export class TourCompetitionRegistrationService {
       throw new Error("You must be registered first");
     }
 
-    this.validateNotPlayingOrFinished(creatorReg.status, "modify group");
+    // Allow adding if creator hasn't recorded scores yet
+    if (creatorReg.participant_id && this.hasRecordedScores(creatorReg.participant_id)) {
+      throw new Error("Cannot modify group after recording scores");
+    }
 
     const currentMembers = await this.getGroupMemberCount(creatorReg.tee_time_id);
     if (currentMembers + playerIdsToAdd.length > MAX_GROUP_SIZE) {
@@ -875,8 +893,9 @@ export class TourCompetitionRegistrationService {
       throw new Error("Player is not in your group");
     }
 
-    if (targetReg.status === "playing" || targetReg.status === "finished") {
-      throw new Error("Cannot remove player who has started playing");
+    // Allow removal if the player hasn't recorded any scores yet
+    if (targetReg.participant_id && this.hasRecordedScores(targetReg.participant_id)) {
+      throw new Error("Cannot remove player who has already recorded scores");
     }
 
     if (playerIdToRemove === groupCreatorPlayerId) {
@@ -897,7 +916,10 @@ export class TourCompetitionRegistrationService {
       throw new Error("Registration not found");
     }
 
-    this.validateNotPlayingOrFinished(registration.status, "leave group");
+    // Allow leaving if haven't recorded scores yet
+    if (registration.participant_id && this.hasRecordedScores(registration.participant_id)) {
+      throw new Error("Cannot leave group after recording scores");
+    }
 
     await this.movePlayerToSoloGroup(competitionId, playerId);
 
@@ -1121,8 +1143,9 @@ export class TourCompetitionRegistrationService {
     const existingReg = await this.getRegistration(competitionId, playerId);
 
     if (existingReg) {
-      if (existingReg.status === "playing" || existingReg.status === "finished") {
-        throw new Error(`Player ${playerName} has already started playing`);
+      // Check if player has recorded scores
+      if (existingReg.participant_id && this.hasRecordedScores(existingReg.participant_id)) {
+        throw new Error(`Player ${playerName} has already recorded scores`);
       }
 
       if (existingReg.tee_time_id === targetTeeTimeId) {

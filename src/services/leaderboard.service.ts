@@ -789,32 +789,69 @@ export class LeaderboardService {
     pointTemplate: PointTemplateRow | null,
     pointsMultiplier: number
   ): LeaderboardEntry[] {
-    const finishedPlayers = sortedEntries.filter(
+    // Calculate gross positions and points
+    const grossPositions = this.calculateProjectedPositions(
+      sortedEntries,
+      (entry) => entry.relativeToPar,
+      pointTemplate,
+      pointsMultiplier
+    );
+
+    // Calculate net positions and points if entries have net scores
+    const hasNetScores = sortedEntries.some((e) => e.netRelativeToPar !== undefined);
+    const netPositions = hasNetScores
+      ? this.calculateProjectedPositions(
+          sortedEntries,
+          (entry) => entry.netRelativeToPar ?? entry.relativeToPar,
+          pointTemplate,
+          pointsMultiplier
+        )
+      : null;
+
+    // Merge results
+    return sortedEntries.map((entry) => {
+      const grossResult = grossPositions.get(entry.participant.id);
+      const netResult = netPositions?.get(entry.participant.id);
+
+      return {
+        ...entry,
+        position: grossResult?.position ?? 0,
+        points: grossResult?.points ?? 0,
+        netPosition: netResult?.position,
+        netPoints: netResult?.points,
+        isProjected: true,
+      };
+    });
+  }
+
+  private calculateProjectedPositions(
+    entries: LeaderboardEntry[],
+    scoreGetter: (entry: LeaderboardEntry) => number,
+    pointTemplate: PointTemplateRow | null,
+    pointsMultiplier: number
+  ): Map<number, { position: number; points: number }> {
+    const finishedPlayers = entries.filter(
       (e) => e.holesPlayed === GOLF.HOLES_PER_ROUND && !e.participant.is_dq && !e.isDNF
     );
     const numberOfPlayers = finishedPlayers.length;
 
+    // Sort by the specified score
+    const sortedByScore = [...finishedPlayers].sort((a, b) => {
+      return scoreGetter(a) - scoreGetter(b);
+    });
+
     let currentPosition = 1;
     let previousScore = Number.MIN_SAFE_INTEGER;
 
-    return sortedEntries.map((entry, index) => {
-      if (entry.holesPlayed < GOLF.HOLES_PER_ROUND || entry.participant.is_dq || entry.isDNF) {
-        return {
-          ...entry,
-          position: 0,
-          points: 0,
-          isProjected: true,
-        };
-      }
+    const results = new Map<number, { position: number; points: number }>();
 
-      if (entry.relativeToPar !== previousScore) {
-        currentPosition =
-          sortedEntries
-            .slice(0, index)
-            .filter((e) => e.holesPlayed === GOLF.HOLES_PER_ROUND && !e.participant.is_dq && !e.isDNF)
-            .length + 1;
+    sortedByScore.forEach((entry, index) => {
+      const score = scoreGetter(entry);
+
+      if (score !== previousScore) {
+        currentPosition = index + 1;
       }
-      previousScore = entry.relativeToPar;
+      previousScore = score;
 
       const points = this.calculateProjectedPoints(
         currentPosition,
@@ -823,13 +860,10 @@ export class LeaderboardService {
         pointsMultiplier
       );
 
-      return {
-        ...entry,
-        position: currentPosition,
-        points,
-        isProjected: true,
-      };
+      results.set(entry.participant.id, { position: currentPosition, points });
     });
+
+    return results;
   }
 
   private calculateProjectedPoints(
