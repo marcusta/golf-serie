@@ -1,0 +1,56 @@
+{
+  "course_metadata": {
+    "club_name": "Linköpings Golfklubb",
+    "course_name": "Linköpings Golfklubb 1-18",
+    "location": "Linköping, Sweden",
+    "total_par": 71,
+    "total_holes": 18
+  },
+  "scorecard": [
+    { "hole": 1, "par": 4, "hcp_men": 10, "hcp_women": 10 },
+    { "hole": 2, "par": 4, "hcp_men": 6, "hcp_women": 6 },
+    { "hole": 3, "par": 3, "hcp_men": 16, "hcp_women": 16 },
+    { "hole": 4, "par": 5, "hcp_men": 8, "hcp_women": 8 },
+    { "hole": 5, "par": 3, "hcp_men": 18, "hcp_women": 18 },
+    { "hole": 6, "par": 5, "hcp_men": 2, "hcp_women": 2 },
+    { "hole": 7, "par": 3, "hcp_men": 14, "hcp_women": 14 },
+    { "hole": 8, "par": 4, "hcp_men": 12, "hcp_women": 12 },
+    { "hole": 9, "par": 4, "hcp_men": 4, "hcp_women": 4 },
+    { "hole": 10, "par": 5, "hcp_men": 3, "hcp_women": 3 },
+    { "hole": 11, "par": 3, "hcp_men": 15, "hcp_women": 15 },
+    { "hole": 12, "par": 4, "hcp_men": 11, "hcp_women": 11 },
+    { "hole": 13, "par": 4, "hcp_men": 7, "hcp_women": 7 },
+    { "hole": 14, "par": 5, "hcp_men": 1, "hcp_women": 1 },
+    { "hole": 15, "par": 4, "hcp_men": 13, "hcp_women": 13 },
+    { "hole": 16, "par": 3, "hcp_men": 17, "hcp_women": 17 },
+    { "hole": 17, "par": 4, "hcp_men": 5, "hcp_women": 5 },
+    { "hole": 18, "par": 4, "hcp_men": 9, "hcp_women": 9 }
+  ],
+  "tee_ratings": [
+    {
+      "tee_name": "Vit",
+      "men": { "course_rating": 70.7, "slope": 127 },
+      "women": null
+    },
+    {
+      "tee_name": "Gul",
+      "men": { "course_rating": 69.5, "slope": 124 },
+      "women": { "course_rating": 76.0, "slope": 134 }
+    },
+    {
+      "tee_name": "Blå",
+      "men": { "course_rating": 68.0, "slope": 118 },
+      "women": { "course_rating": 73.5, "slope": 128 }
+    },
+    {
+      "tee_name": "Orange",
+      "men": null,
+      "women": { "course_rating": 65.7, "slope": 112 }
+    },
+    {
+      "tee_name": "Röd",
+      "men": { "course_rating": 65.9, "slope": 114 },
+      "women": { "course_rating": 70.9, "slope": 121 }
+    }
+  ]
+}

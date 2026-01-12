@@ -5,9 +5,17 @@ export interface ParsData {
   total: number;
 }
 
+export interface Club {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Course {
   id: number;
   name: string;
+  club_id?: number;
   pars: ParsData;
   stroke_index?: number[]; // Array of 1-18 representing hole difficulty order
   created_at: string;
@@ -52,12 +60,22 @@ export interface Competition {
   updated_at: string;
 }
 
+export interface CreateClubDto {
+  name: string;
+}
+
+export interface UpdateClubDto {
+  name?: string;
+}
+
 export interface CreateCourseDto {
   name: string;
+  club_id?: number;
 }
 
 export interface UpdateCourseDto {
   name?: string;
+  club_id?: number;
 }
 
 export interface CreateSeriesDto {

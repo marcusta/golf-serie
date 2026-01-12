@@ -11,6 +11,7 @@ import {
   useDeleteCourseTee,
   useUpsertCourseTeeRating,
   useImportCourses,
+  useImportForCourse,
   type Course,
   type CourseTee,
   type ImportCourseResult,
@@ -89,6 +90,7 @@ export default function Courses() {
   const updateCourseHoles = useUpdateCourseHoles();
   const deleteCourse = useDeleteCourse();
   const importCourses = useImportCourses();
+  const importForCourse = useImportForCourse();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -104,6 +106,13 @@ export default function Courses() {
   const [importJson, setImportJson] = useState("");
   const [importResults, setImportResults] = useState<ImportCourseResult[] | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Import for specific course state
+  const [showImportForCourseDialog, setShowImportForCourseDialog] = useState(false);
+  const [importingCourse, setImportingCourse] = useState<Course | null>(null);
+  const [importForCourseJson, setImportForCourseJson] = useState("");
+  const [importForCourseResult, setImportForCourseResult] = useState<ImportCourseResult | null>(null);
+  const [importForCourseError, setImportForCourseError] = useState<string | null>(null);
 
   // Tee management state
   const [showTeeDialog, setShowTeeDialog] = useState(false);
@@ -190,6 +199,47 @@ export default function Courses() {
         setImportError("An unknown error occurred during import.");
       }
     }
+  };
+
+  const handleImportForCourse = async () => {
+    if (!importingCourse) return;
+
+    setImportForCourseError(null);
+    setImportForCourseResult(null);
+
+    try {
+      const data = JSON.parse(importForCourseJson);
+      const result = await importForCourse.mutateAsync({
+        courseId: importingCourse.id,
+        data
+      });
+      setImportForCourseResult(result);
+
+      // If successful, show success and close after 2 seconds
+      if (result.success) {
+        setTimeout(() => {
+          setShowImportForCourseDialog(false);
+          setImportForCourseJson("");
+          setImportForCourseResult(null);
+        }, 2000);
+      }
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        setImportForCourseError("Invalid JSON format. Please check your data.");
+      } else if (error instanceof Error) {
+        setImportForCourseError(error.message);
+      } else {
+        setImportForCourseError("An unknown error occurred during import.");
+      }
+    }
+  };
+
+  const openImportForCourse = (course: Course) => {
+    setImportingCourse(course);
+    setImportForCourseJson("");
+    setImportForCourseResult(null);
+    setImportForCourseError(null);
+    setShowImportForCourseDialog(true);
   };
 
   // Tee management handlers
@@ -502,6 +552,7 @@ export default function Courses() {
               handleEdit={handleEdit}
               handleDelete={handleDelete}
               handleManageTees={openTeeDialog}
+              handleImport={openImportForCourse}
             />
           ))}
         </div>
@@ -1045,6 +1096,119 @@ export default function Courses() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import for Specific Course Dialog */}
+      <Dialog open={showImportForCourseDialog} onOpenChange={setShowImportForCourseDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Import Data for {importingCourse?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                Paste course data in JSON format. The course will be updated with this data.
+                {" "}<strong>Note:</strong> If the course name in the JSON differs from "{importingCourse?.name}",
+                the course will be renamed to match the import data.
+              </p>
+              <details className="text-xs text-gray-500 cursor-pointer">
+                <summary className="font-medium hover:text-gray-700">Show expected format</summary>
+                <pre className="mt-2 p-3 bg-gray-50 rounded border overflow-x-auto">
+{`{
+  "course_metadata": {
+    "club_name": "Linköpings Golfklubb",
+    "course_name": "Course Name",
+    "location": "City, Country",
+    "total_par": 71,
+    "total_holes": 18
+  },
+  "scorecard": [
+    { "hole": 1, "par": 4, "hcp_men": 10, "hcp_women": 10 },
+    ...
+  ],
+  "tee_ratings": [
+    {
+      "tee_name": "Yellow",
+      "men": { "course_rating": 69.5, "slope": 124 },
+      "women": { "course_rating": 76.0, "slope": 134 }
+    },
+    ...
+  ]
+}`}
+                </pre>
+              </details>
+            </div>
+
+            <Textarea
+              placeholder="Paste JSON data here..."
+              value={importForCourseJson}
+              onChange={(e) => setImportForCourseJson(e.target.value)}
+              className="min-h-[200px] font-mono text-sm"
+            />
+
+            {importForCourseError && (
+              <Alert variant="destructive">
+                <AlertDescription>{importForCourseError}</AlertDescription>
+              </Alert>
+            )}
+
+            {importForCourseResult && (
+              <Alert
+                variant={importForCourseResult.success ? "default" : "destructive"}
+                className={importForCourseResult.success ? "border-green-500 bg-green-50" : ""}
+              >
+                <AlertDescription>
+                  <div className="flex items-center justify-between">
+                    <span>
+                      <strong>{importForCourseResult.courseName}</strong>:{" "}
+                      {importForCourseResult.success ? (
+                        <>
+                          Updated successfully ({importForCourseResult.teesProcessed} tees processed)
+                        </>
+                      ) : (
+                        <>Failed: {importForCourseResult.errors?.join(", ")}</>
+                      )}
+                    </span>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowImportForCourseDialog(false);
+                setImportForCourseJson("");
+                setImportForCourseResult(null);
+                setImportForCourseError(null);
+              }}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={handleImportForCourse}
+              disabled={!importForCourseJson.trim() || importForCourse.isPending}
+            >
+              {importForCourse.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1055,12 +1219,14 @@ function CourseCard({
   handleEdit,
   handleDelete,
   handleManageTees,
+  handleImport,
 }: {
   course: Course;
   index: number;
   handleEdit: (course: Course) => void;
   handleDelete: (course: Course) => void;
   handleManageTees: (course: Course) => void;
+  handleImport: (course: Course) => void;
 }) {
   const colors = getCourseColor(index);
   return (
@@ -1080,6 +1246,15 @@ function CourseCard({
             <Badge variant="outline" className="text-xs">
               #{course.id}
             </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleImport(course)}
+              className="h-8 w-8"
+              title="Import Data"
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"

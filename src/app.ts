@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createAuthApi } from "./api/auth";
+import { createClubsApi } from "./api/clubs";
 import { createCompetitionCategoryTeesApi } from "./api/competition-category-tees";
 import { createCompetitionsApi } from "./api/competitions";
 import { createCoursesApi } from "./api/courses";
@@ -15,6 +16,7 @@ import { createTeeTimesApi } from "./api/tee-times";
 import { createToursApi } from "./api/tours";
 import { createAuthMiddleware, requireAuth, requireRole } from "./middleware/auth";
 import { createAuthService } from "./services/auth.service";
+import { ClubService } from "./services/club.service";
 import { CompetitionCategoryTeeService } from "./services/competition-category-tee.service";
 import { CompetitionService } from "./services/competition-service";
 import { CourseService } from "./services/course-service";
@@ -40,8 +42,9 @@ import { createCompetitionResultsService } from "./services/competition-results.
 
 export function createApp(db: Database): Hono {
   // Initialize services
+  const clubService = new ClubService(db);
   const courseTeeService = new CourseTeeService(db);
-  const courseService = new CourseService(db, courseTeeService);
+  const courseService = new CourseService(db, courseTeeService, clubService);
   const teamService = new TeamService(db);
   const competitionService = new CompetitionService(db);
   const competitionCategoryTeeService = new CompetitionCategoryTeeService(db);
@@ -69,6 +72,7 @@ export function createApp(db: Database): Hono {
   });
 
   // Initialize APIs
+  const clubsApi = createClubsApi(clubService);
   const coursesApi = createCoursesApi(courseService, courseTeeService);
   const teamsApi = createTeamsApi(teamService);
   const competitionsApi = createCompetitionsApi(competitionService);
@@ -206,6 +210,30 @@ export function createApp(db: Database): Hono {
     }
   });
 
+  // Club routes
+  app.post("/api/clubs", async (c) => {
+    return await clubsApi.create(c.req.raw);
+  });
+
+  app.get("/api/clubs", async (c) => {
+    return await clubsApi.findAll();
+  });
+
+  app.get("/api/clubs/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await clubsApi.findById(c.req.raw, id);
+  });
+
+  app.put("/api/clubs/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await clubsApi.update(c.req.raw, id);
+  });
+
+  app.delete("/api/clubs/:id", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await clubsApi.delete(c.req.raw, id);
+  });
+
   // Course routes
   app.post("/api/courses", async (c) => {
     return await coursesApi.create(c.req.raw);
@@ -237,6 +265,11 @@ export function createApp(db: Database): Hono {
 
   app.post("/api/courses/import", async (c) => {
     return await coursesApi.importCourses(c.req.raw);
+  });
+
+  app.post("/api/courses/:id/import", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    return await coursesApi.importForCourse(c.req.raw, id);
   });
 
   // Course Tee routes

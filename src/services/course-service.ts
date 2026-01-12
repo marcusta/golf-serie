@@ -2,7 +2,9 @@ import { Database } from "bun:sqlite";
 import type { Course, CreateCourseDto, UpdateCourseDto } from "../types";
 import { GOLF } from "../constants/golf";
 import { parseParsArray } from "../utils/parsing";
+import { getTeeColor } from "../utils/tee-colors";
 import { CourseTeeService } from "./course-tee.service";
+import { ClubService } from "./club.service";
 
 // Types for course import
 export interface ImportScorecardHole {
@@ -52,6 +54,7 @@ interface ParsData {
 interface CourseRow {
   id: number;
   name: string;
+  club_id: number | null;
   pars: string; // JSON string in database
   stroke_index: string | null; // JSON string in database
   created_at: string;
@@ -61,7 +64,8 @@ interface CourseRow {
 export class CourseService {
   constructor(
     private db: Database,
-    private teeService?: CourseTeeService
+    private teeService?: CourseTeeService,
+    private clubService?: ClubService
   ) {}
 
   // ─────────────────────────────────────────────────────────────────
@@ -85,6 +89,7 @@ export class CourseService {
     return {
       id: row.id,
       name: row.name,
+      club_id: row.club_id ?? undefined,
       pars: this.calculatePars(pars),
       stroke_index: strokeIndex,
       created_at: row.created_at,
@@ -150,13 +155,13 @@ export class CourseService {
   // Query Methods (single SQL statement each)
   // ─────────────────────────────────────────────────────────────────
 
-  private insertCourseRow(name: string): CourseRow {
+  private insertCourseRow(name: string, clubId?: number): CourseRow {
     const stmt = this.db.prepare(`
-      INSERT INTO courses (name, pars)
-      VALUES (?, ?)
+      INSERT INTO courses (name, pars, club_id)
+      VALUES (?, ?, ?)
       RETURNING *
     `);
-    return stmt.get(name, JSON.stringify([])) as CourseRow;
+    return stmt.get(name, JSON.stringify([]), clubId ?? null) as CourseRow;
   }
 
   private findAllCourseRows(): CourseRow[] {
@@ -182,6 +187,26 @@ export class CourseService {
       RETURNING *
     `);
     return stmt.get(name, id) as CourseRow;
+  }
+
+  private updateCourseClubIdRow(id: number, clubId: number | null): CourseRow {
+    const stmt = this.db.prepare(`
+      UPDATE courses
+      SET club_id = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      RETURNING *
+    `);
+    return stmt.get(clubId, id) as CourseRow;
+  }
+
+  private updateCourseNameAndClubIdRow(id: number, name: string, clubId: number | null): CourseRow {
+    const stmt = this.db.prepare(`
+      UPDATE courses
+      SET name = ?, club_id = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      RETURNING *
+    `);
+    return stmt.get(name, clubId, id) as CourseRow;
   }
 
   private updateCourseParsRow(id: number, pars: number[]): CourseRow {
@@ -234,7 +259,7 @@ export class CourseService {
 
   async create(data: CreateCourseDto): Promise<Course> {
     this.validateCourseName(data.name);
-    const row = this.insertCourseRow(data.name);
+    const row = this.insertCourseRow(data.name, data.club_id);
     return this.transformCourseRow(row);
   }
 
@@ -258,11 +283,22 @@ export class CourseService {
     this.validateCourseNameNotEmpty(data.name);
 
     // No changes requested - return existing course
-    if (!data.name) {
+    if (!data.name && data.club_id === undefined) {
       return this.transformCourseRow(existingRow);
     }
 
-    const updatedRow = this.updateCourseNameRow(id, data.name);
+    let updatedRow: CourseRow;
+    if (data.name && data.club_id !== undefined) {
+      // Update both name and club_id
+      updatedRow = this.updateCourseNameAndClubIdRow(id, data.name, data.club_id ?? null);
+    } else if (data.name) {
+      // Update only name
+      updatedRow = this.updateCourseNameRow(id, data.name);
+    } else {
+      // Update only club_id
+      updatedRow = this.updateCourseClubIdRow(id, data.club_id ?? null);
+    }
+
     return this.transformCourseRow(updatedRow);
   }
 
@@ -304,11 +340,150 @@ export class CourseService {
     this.deleteCourseRow(id);
   }
 
+  async importForCourse(
+    courseId: number,
+    data: ImportCourseData
+  ): Promise<ImportCourseResult> {
+    if (!this.teeService) {
+      throw new Error("CourseTeeService is required for import functionality");
+    }
+    if (!this.clubService) {
+      throw new Error("ClubService is required for import functionality");
+    }
+
+    // Validate course exists
+    const existingRow = this.findCourseRowById(courseId);
+    if (!existingRow) {
+      throw new Error("Course not found");
+    }
+
+    try {
+      // Validate course data
+      this.validateImportCourseData(data);
+
+      const courseName = data.course_metadata.course_name.trim();
+      const clubName = data.course_metadata.club_name.trim();
+      const pars = this.extractParsFromScorecard(data.scorecard);
+      const strokeIndex = this.extractStrokeIndexFromScorecard(data.scorecard);
+
+      // Validate pars and stroke index
+      this.validateParsArray(pars);
+      this.validateStrokeIndex(strokeIndex);
+
+      // Find or create club
+      const club = await this.clubService.findOrCreate(clubName);
+
+      // Update course name if different, and update club_id
+      if (existingRow.name !== courseName) {
+        await this.update(courseId, { name: courseName, club_id: club.id });
+      } else {
+        await this.update(courseId, { club_id: club.id });
+      }
+
+      // Update holes
+      await this.updateHoles(courseId, pars, strokeIndex);
+
+      // Process tee ratings
+      const existingTees = this.teeService.findByCourse(courseId);
+      let teesProcessed = 0;
+
+      for (const teeRating of data.tee_ratings) {
+        const teeName = teeRating.tee_name.trim();
+        const teeColor = getTeeColor(teeName);
+
+        // Find existing tee (case-insensitive)
+        const existingTee = existingTees.find(
+          t => t.name.toLowerCase() === teeName.toLowerCase()
+        );
+
+        let teeId: number;
+
+        if (existingTee) {
+          // Update existing tee (name and color)
+          const updatedTee = this.teeService.update(existingTee.id, {
+            name: teeName,
+            color: teeColor
+          });
+          teeId = updatedTee.id;
+        } else {
+          // Create new tee with ratings
+          const ratings = [];
+          if (teeRating.men) {
+            ratings.push({
+              gender: "men" as const,
+              course_rating: teeRating.men.course_rating,
+              slope_rating: teeRating.men.slope,
+            });
+          }
+          if (teeRating.women) {
+            ratings.push({
+              gender: "women" as const,
+              course_rating: teeRating.women.course_rating,
+              slope_rating: teeRating.women.slope,
+            });
+          }
+
+          if (ratings.length === 0) {
+            throw new Error(`Tee ${teeName} has no ratings`);
+          }
+
+          const newTee = this.teeService.create(courseId, {
+            name: teeName,
+            color: teeColor,
+            ratings,
+          });
+          teeId = newTee.id;
+        }
+
+        // For existing tees, upsert gender-specific ratings
+        if (existingTee) {
+          if (teeRating.men) {
+            this.teeService.upsertRating(teeId, {
+              gender: "men",
+              course_rating: teeRating.men.course_rating,
+              slope_rating: teeRating.men.slope,
+            });
+          }
+
+          if (teeRating.women) {
+            this.teeService.upsertRating(teeId, {
+              gender: "women",
+              course_rating: teeRating.women.course_rating,
+              slope_rating: teeRating.women.slope,
+            });
+          }
+        }
+
+        teesProcessed++;
+      }
+
+      return {
+        success: true,
+        courseName,
+        courseId,
+        action: "updated",
+        teesProcessed,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        courseName: data.course_metadata?.course_name || "Unknown",
+        courseId,
+        action: "updated",
+        teesProcessed: 0,
+        errors: [error instanceof Error ? error.message : "Unknown error"],
+      };
+    }
+  }
+
   async importCourses(
     data: ImportCourseData | ImportCourseData[]
   ): Promise<ImportCourseResult[]> {
     if (!this.teeService) {
       throw new Error("CourseTeeService is required for import functionality");
+    }
+    if (!this.clubService) {
+      throw new Error("ClubService is required for import functionality");
     }
 
     // Normalize to array
@@ -321,6 +496,7 @@ export class CourseService {
         this.validateImportCourseData(courseData);
 
         const courseName = courseData.course_metadata.course_name.trim();
+        const clubName = courseData.course_metadata.club_name.trim();
         const pars = this.extractParsFromScorecard(courseData.scorecard);
         const strokeIndex = this.extractStrokeIndexFromScorecard(courseData.scorecard);
 
@@ -328,19 +504,23 @@ export class CourseService {
         this.validateParsArray(pars);
         this.validateStrokeIndex(strokeIndex);
 
+        // Find or create club
+        const club = await this.clubService.findOrCreate(clubName);
+
         // Check if course exists
         const existingCourseRow = this.findCourseRowByName(courseName);
         let courseId: number;
         let action: "created" | "updated";
 
         if (existingCourseRow) {
-          // Update existing course
+          // Update existing course (including club_id)
+          await this.update(existingCourseRow.id, { club_id: club.id });
           await this.updateHoles(existingCourseRow.id, pars, strokeIndex);
           courseId = existingCourseRow.id;
           action = "updated";
         } else {
-          // Create new course
-          const newCourse = await this.create({ name: courseName });
+          // Create new course with club_id
+          const newCourse = await this.create({ name: courseName, club_id: club.id });
           await this.updateHoles(newCourse.id, pars, strokeIndex);
           courseId = newCourse.id;
           action = "created";
@@ -352,6 +532,7 @@ export class CourseService {
 
         for (const teeRating of courseData.tee_ratings) {
           const teeName = teeRating.tee_name.trim();
+          const teeColor = getTeeColor(teeName);
 
           // Find existing tee (case-insensitive)
           const existingTee = existingTees.find(
@@ -361,8 +542,11 @@ export class CourseService {
           let teeId: number;
 
           if (existingTee) {
-            // Update existing tee (just update name to match import case)
-            const updatedTee = this.teeService.update(existingTee.id, { name: teeName });
+            // Update existing tee (name and color)
+            const updatedTee = this.teeService.update(existingTee.id, {
+              name: teeName,
+              color: teeColor
+            });
             teeId = updatedTee.id;
           } else {
             // Create new tee with ratings array to avoid creating unwanted default ratings
@@ -388,6 +572,7 @@ export class CourseService {
 
             const newTee = this.teeService.create(courseId, {
               name: teeName,
+              color: teeColor,
               ratings,
             });
             teeId = newTee.id;

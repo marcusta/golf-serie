@@ -205,6 +205,30 @@ export function useImportCourses() {
   });
 }
 
+export function useImportForCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ courseId, data }: { courseId: number; data: ImportCourseData }) => {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/import`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Import failed");
+      }
+      return response.json() as Promise<ImportCourseResult>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+}
+
 // Course Tee Rating Types
 export type TeeRatingGender = "men" | "women";
 

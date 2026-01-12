@@ -188,6 +188,31 @@ export function createCoursesApi(courseService: CourseService, courseTeeService?
       }
     },
 
+    async importForCourse(req: Request, courseId: number): Promise<Response> {
+      try {
+        const data = (await req.json()) as ImportCourseData;
+        const result = await courseService.importForCourse(courseId, data);
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
     // Course Tee endpoints
     async getTees(courseId: number): Promise<Response> {
       if (!courseTeeService) {
