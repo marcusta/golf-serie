@@ -1,6 +1,7 @@
 import { useMyRounds } from "@/api/player-profile";
 import { RoundList } from "@/components/rounds/RoundList";
 import { BarChart3, Loader2, TrendingUp } from "lucide-react";
+import { CommonHeader } from "@/components/navigation/CommonHeader";
 
 export default function AllRounds() {
   const { data: rounds, isLoading } = useMyRounds();
@@ -8,6 +9,7 @@ export default function AllRounds() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough">
+        <CommonHeader showBackButton={false} />
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center min-h-[50vh]">
             <Loader2 className="h-8 w-8 animate-spin text-turf" />
@@ -20,6 +22,7 @@ export default function AllRounds() {
   if (!rounds || rounds.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough">
+        <CommonHeader showBackButton={false} />
         <div className="container mx-auto px-4 py-8">
           <div className="mb-6">
             <h1 className="text-display-lg text-charcoal mb-2">All Rounds</h1>
@@ -46,6 +49,7 @@ export default function AllRounds() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough">
+      <CommonHeader showBackButton={false} />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
