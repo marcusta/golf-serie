@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Clock, Users, CheckCircle2, Circle, Play, Edit2 } from "lucide-react";
+import { Clock, Users, CheckCircle2, Circle, Play, Edit2, QrCode } from "lucide-react";
 import {
   formatParticipantTypeDisplay,
   isMultiPlayerFormat,
@@ -9,6 +9,8 @@ import type { TeeTimeParticipant } from "../../api/tee-times";
 import { AddPlayersToGroup } from "../tour/AddPlayersToGroup";
 import { useMyRegistration } from "../../api/tour-registration";
 import { Button } from "../ui/button";
+import { QRCodeDialog } from "./QRCodeDialog";
+import { getTeeTimeUrl } from "../../utils/qrCodeUrls";
 
 interface TeeTime {
   id: number;
@@ -90,6 +92,17 @@ export function ParticipantsListComponent({
 }: ParticipantsListComponentProps) {
   const [showEditGroupModal, setShowEditGroupModal] = useState(false);
 
+  // QR Code dialog state
+  const [qrDialogState, setQrDialogState] = useState<{
+    open: boolean;
+    url: string;
+    title: string;
+  }>({
+    open: false,
+    url: "",
+    title: "",
+  });
+
   // Get registration data for tour competitions to access player IDs
   const { data: registrationData } = useMyRegistration(
     isTourCompetition ? parseInt(competitionId) : 0
@@ -156,8 +169,24 @@ export function ParticipantsListComponent({
                           : `· Hole ${teeTime.start_hole}`}
                       </span>
                     </h4>
-                    <div className="text-xs md:text-sm text-turf font-primary">
-                      {teeTime.participants.length} players
+                    <div className="flex items-center gap-3">
+                      {/* QR Code Button */}
+                      <button
+                        onClick={() =>
+                          setQrDialogState({
+                            open: true,
+                            url: getTeeTimeUrl(parseInt(competitionId), teeTime.id),
+                            title: `Tee Time ${teeTime.teetime}`,
+                          })
+                        }
+                        className="p-1.5 text-turf hover:text-fairway hover:bg-turf/10 rounded-lg transition-colors"
+                        title="Share tee time"
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </button>
+                      <div className="text-xs md:text-sm text-turf font-primary">
+                        {teeTime.participants.length} players
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -421,6 +450,15 @@ export function ParticipantsListComponent({
           }}
         />
       )}
+
+      {/* QR Code Dialog */}
+      <QRCodeDialog
+        open={qrDialogState.open}
+        onOpenChange={(open) => setQrDialogState((prev) => ({ ...prev, open }))}
+        url={qrDialogState.url}
+        title={qrDialogState.title}
+        description="Scan to view this tee time group"
+      />
     </div>
   );
 }

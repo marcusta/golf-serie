@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import {
   useCompetition,
@@ -19,6 +19,7 @@ import {
   Edit3,
   Play,
   UserCheck,
+  QrCode,
 } from "lucide-react";
 import { ParticipantScorecard } from "../../components/scorecard";
 import type { ParticipantData, CourseData, NetScoringData } from "../../components/scorecard";
@@ -35,6 +36,8 @@ import { useSeriesTeams } from "../../api/series";
 import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
 import { JoinCompetitionFlow, GroupStatusCard } from "../../components/tour";
 import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
+import { QRCodeDialog } from "../../components/competition/QRCodeDialog";
+import { getCompetitionStartlistUrl } from "../../utils/qrCodeUrls";
 
 type TabType = "startlist" | "leaderboard" | "teamresult" | "whosplaying";
 
@@ -61,6 +64,9 @@ export default function CompetitionDetail() {
   const [selectedParticipantId, setSelectedParticipantId] = useState<
     number | null
   >(null);
+
+  // QR Code dialog state
+  const [showQRDialog, setShowQRDialog] = useState(false);
 
   const { data: competition, isLoading: competitionLoading } = useCompetition(
     competitionId ? parseInt(competitionId) : 0
@@ -199,6 +205,12 @@ export default function CompetitionDetail() {
     };
   })();
 
+  // Generate startlist URL for QR code
+  const startlistUrl = useMemo(
+    () => getCompetitionStartlistUrl(parseInt(competitionId || "0")),
+    [competitionId]
+  );
+
   // ... existing useEffect for hash changes ...
   useEffect(() => {
     const handleHashChange = () => {
@@ -288,6 +300,16 @@ export default function CompetitionDetail() {
       seriesName={competition.series_name}
       customActions={
         <div className="flex items-center gap-4">
+          {/* QR Code Share Button */}
+          <button
+            onClick={() => setShowQRDialog(true)}
+            className="flex items-center gap-2 px-3 py-2 text-turf hover:text-fairway hover:bg-turf/10 rounded-xl transition-colors text-sm font-medium font-primary"
+            title="Share startlist"
+          >
+            <QrCode className="h-4 w-4" />
+            <span className="hidden sm:inline">Share</span>
+          </button>
+
           {/* Back to Score Entry button */}
           {fromTeeTime && (
             <Link
@@ -558,6 +580,15 @@ export default function CompetitionDetail() {
           onSuccess={() => refetchRegistration()}
         />
       )}
+
+      {/* QR Code Dialog */}
+      <QRCodeDialog
+        open={showQRDialog}
+        onOpenChange={setShowQRDialog}
+        url={startlistUrl}
+        title="Share Competition Startlist"
+        description="Scan this QR code to view the full startlist for this competition"
+      />
     </PlayerPageLayout>
   );
 }

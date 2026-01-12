@@ -28,12 +28,15 @@ import {
   FileEdit,
   CheckCircle,
   Loader2,
+  QrCode,
 } from "lucide-react";
 import ParticipantAssignment from "../../components/ParticipantAssignment";
 import TourPlayerAssignment from "../../components/TourPlayerAssignment";
 import { EditParticipantHandicapDialog } from "../../components/EditParticipantHandicapDialog";
 import { AdminEditScoreDialog } from "../../components/admin/AdminEditScoreDialog";
 import { AdminDQDialog } from "../../components/admin/AdminDQDialog";
+import { QRCodeDialog } from "../../components/competition/QRCodeDialog";
+import { getTeeTimeUrl } from "../../utils/qrCodeUrls";
 
 interface ParticipantType {
   id: string;
@@ -111,6 +114,19 @@ export default function AdminCompetitionTeeTimes() {
     name: string;
     isDQ: boolean;
   } | null>(null);
+
+  // QR Code dialog state
+  const [qrDialogState, setQrDialogState] = useState<{
+    open: boolean;
+    url: string;
+    title: string;
+    description: string;
+  }>({
+    open: false,
+    url: "",
+    title: "",
+    description: "",
+  });
 
   // Fetch course to get pars for score editing
   const { data: course } = useCourse(competition?.course_id || 0);
@@ -947,6 +963,21 @@ export default function AdminCompetitionTeeTimes() {
                         Bay {teeTime.hitting_bay}
                       </span>
                     )}
+                    {/* QR Code Button */}
+                    <button
+                      onClick={() =>
+                        setQrDialogState({
+                          open: true,
+                          url: getTeeTimeUrl(parseInt(competitionId!), teeTime.id),
+                          title: `Tee Time ${teeTime.teetime}`,
+                          description: `Share this tee time group with ${teeTime.participants.length} participant(s)`,
+                        })
+                      }
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Share tee time QR code"
+                    >
+                      <QrCode className="h-4 w-4" />
+                    </button>
                   </div>
                   <div className="flex items-center gap-2">
                     {competition?.venue_type === "outdoor" && (
@@ -1228,6 +1259,15 @@ export default function AdminCompetitionTeeTimes() {
           currentlyDQ={selectedParticipantForDQ.isDQ}
         />
       )}
+
+      {/* QR Code Dialog */}
+      <QRCodeDialog
+        open={qrDialogState.open}
+        onOpenChange={(open) => setQrDialogState((prev) => ({ ...prev, open }))}
+        url={qrDialogState.url}
+        title={qrDialogState.title}
+        description={qrDialogState.description}
+      />
     </div>
   );
 }
