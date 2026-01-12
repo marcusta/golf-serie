@@ -155,3 +155,5 @@ data/
 
 ./playwright-report/*
 ./playwright-mcp/*
+
+.DS_Store
