@@ -544,7 +544,7 @@ describe("Tour Competition Registration API", () => {
 
   describe("POST /api/competitions/:id/group/leave", () => {
     test("should allow player to leave group", async () => {
-      const { competition, tour } = await setupTourWithEnrolledPlayer();
+      const { competition, tour, player } = await setupTourWithEnrolledPlayer();
 
       // Add another enrolled player
       db.prepare(
@@ -577,8 +577,17 @@ describe("Tour Competition Registration API", () => {
         "POST"
       );
 
-      const group = await expectJsonResponse(response);
-      expect(group.players.length).toBe(1); // Solo now
+      const result = await expectJsonResponse(response);
+      expect(result.message).toBe("Successfully left group");
+
+      // Verify registration was cleared of group data
+      const registration = db.prepare(
+        "SELECT tee_time_id, participant_id, status FROM tour_competition_registrations WHERE competition_id = ? AND player_id = ?"
+      ).get(competition.id, player.id) as { tee_time_id: number | null; participant_id: number | null; status: string };
+
+      expect(registration.tee_time_id).toBeNull();
+      expect(registration.participant_id).toBeNull();
+      expect(registration.status).toBe("registered");
     });
   });
 

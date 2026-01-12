@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Trophy,
   Play,
+  MapPin,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -290,25 +291,25 @@ export default function TourDetail() {
 
         {/* Join Tour CTA for non-enrolled users */}
         {canRequest && (
-          <div className="bg-gradient-to-r from-coral to-orange-500 rounded-xl p-6 text-scorecard">
-            <h3 className="text-lg font-display font-semibold mb-2">
+          <div className="border-l-4 border-coral bg-coral/10 p-6">
+            <h3 className="text-lg font-display font-semibold mb-2 text-charcoal">
               Join This Tour
             </h3>
-            <p className="text-scorecard/90 mb-4 font-primary">
+            <p className="text-charcoal/70 mb-4 font-primary">
               Request to join this tour and participate in upcoming competitions.
             </p>
             {isAuthenticated ? (
               <Button
                 onClick={handleRequestToJoin}
                 disabled={requestEnrollmentMutation.isPending}
-                className="bg-scorecard text-coral hover:bg-scorecard/90"
+                className="bg-coral text-scorecard hover:bg-coral/90"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 {requestEnrollmentMutation.isPending ? "Requesting..." : "Request to Join"}
               </Button>
             ) : (
               <Link to="/login">
-                <Button className="bg-scorecard text-coral hover:bg-scorecard/90">
+                <Button className="bg-coral text-scorecard hover:bg-coral/90">
                   <LogIn className="w-4 h-4 mr-2" />
                   Sign in to Join
                 </Button>
@@ -326,39 +327,51 @@ export default function TourDetail() {
             ) : (
               <>
                 {/* Round header with LIVE badge - only show if NOT playing/finished */}
-                <div className="bg-gradient-to-r from-turf to-fairway rounded-xl p-4 text-scorecard">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-scorecard/20 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Play className="h-6 w-6 text-scorecard" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-scorecard/20 text-scorecard animate-pulse">
-                          LIVE NOW
-                        </span>
+                <div className="border-l-4 border-turf bg-turf/10">
+                  <div className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-turf opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-turf"></span>
+                          </span>
+                          <span className="text-sm font-semibold text-turf">
+                            LIVE NOW
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-display font-semibold text-charcoal">
+                          {currentOpenRound.name}
+                        </h3>
+                        <div className="flex items-center gap-1 text-charcoal/70 text-sm mt-1">
+                          {currentOpenRound.course_name && (
+                            <>
+                              <MapPin className="h-4 w-4 text-turf" />
+                              <span>{currentOpenRound.course_name}</span>
+                              <span className="mx-1">•</span>
+                            </>
+                          )}
+                          <Clock className="h-4 w-4 text-turf" />
+                          <span>
+                            Open until{" "}
+                            {new Date(currentOpenRound.open_end!).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
                       </div>
-                      <h3 className="text-lg font-display font-semibold">
-                        {currentOpenRound.name}
-                      </h3>
-                      <p className="text-scorecard/80 text-sm font-primary mt-1">
-                        {currentOpenRound.course_name && `${currentOpenRound.course_name} • `}
-                        Open until{" "}
-                        {new Date(currentOpenRound.open_end!).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      <Link
+                        to="/player/competitions/$competitionId"
+                        params={{ competitionId: currentOpenRound.id.toString() }}
+                        className="text-charcoal/40 hover:text-charcoal transition-colors"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </Link>
                     </div>
-                    <Link
-                      to="/player/competitions/$competitionId"
-                      params={{ competitionId: currentOpenRound.id.toString() }}
-                      className="text-scorecard/80 hover:text-scorecard transition-colors"
-                    >
-                      <ChevronRight className="h-6 w-6" />
-                    </Link>
                   </div>
                 </div>
 

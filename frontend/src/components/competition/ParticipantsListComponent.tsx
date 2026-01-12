@@ -1,11 +1,14 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Clock, Users, CheckCircle2, Circle, Play } from "lucide-react";
+import { Clock, Users, CheckCircle2, Circle, Play, Edit2 } from "lucide-react";
 import {
   formatParticipantTypeDisplay,
   isMultiPlayerFormat,
 } from "../../utils/playerUtils";
 import type { TeeTimeParticipant } from "../../api/tee-times";
+import { AddPlayersToGroup } from "../tour/AddPlayersToGroup";
+import { useMyRegistration } from "../../api/tour-registration";
+import { Button } from "../ui/button";
 
 interface TeeTime {
   id: number;
@@ -68,6 +71,8 @@ interface ParticipantsListComponentProps {
   isTourCompetition?: boolean;
   /** When true, hides scheduled tee times (for open start competitions) */
   isOpenStart?: boolean;
+  /** Callback when group is updated (for refetching data) */
+  onGroupUpdated?: () => void;
 }
 
 export function ParticipantsListComponent({
@@ -81,7 +86,15 @@ export function ParticipantsListComponent({
   totalParticipants = 0,
   isTourCompetition = false,
   isOpenStart = false,
+  onGroupUpdated,
 }: ParticipantsListComponentProps) {
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
+
+  // Get registration data for tour competitions to access player IDs
+  const { data: registrationData } = useMyRegistration(
+    isTourCompetition ? parseInt(competitionId) : 0
+  );
+
   // Helper function to format participant display name
   const formatParticipantDisplay = (participant: TeeTimeParticipant) => {
     if (isTourCompetition) {
@@ -93,6 +106,17 @@ export function ParticipantsListComponent({
       ? `${participant.player_names}, ${participant.team_name} ${formatParticipantTypeDisplay(participant.position_name)}`
       : `${participant.team_name} ${formatParticipantTypeDisplay(participant.position_name)}`;
   };
+
+  // Check if any scores have been entered in current group
+  const hasScoresEntered = (teeTime: TeeTime | undefined): boolean => {
+    if (!teeTime) return false;
+    return teeTime.participants.some((p) =>
+      Array.isArray(p.score) && p.score.some((s) => s !== 0)
+    );
+  };
+
+  // Can edit group if: tour competition, open start, and no scores entered
+  const canEditGroup = isTourCompetition && isOpenStart && !hasScoresEntered(currentTeeTime);
   // For CompetitionDetail.tsx - simple start list view
   if (!showCurrentGroup) {
     return (
@@ -197,29 +221,60 @@ export function ParticipantsListComponent({
                     : `· Hole ${currentTeeTime.start_hole}`}
                 </span>
               </h3>
-              <span className="text-xs md:text-sm text-coral font-semibold font-primary">
-                Active
-              </span>
+              {canEditGroup ? (
+                <Button
+                  onClick={() => setShowEditGroupModal(true)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-turf hover:text-fairway hover:bg-turf/10"
+                >
+                  <Edit2 className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+              ) : (
+                <span className="text-xs md:text-sm text-coral font-semibold font-primary">
+                  Active
+                </span>
+              )}
             </div>
             <div className="divide-y divide-soft-grey">
               {currentTeeTime.participants.map(
-                (participant: TeeTimeParticipant) => (
-                  <div
-                    key={participant.id}
-                    className="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <h4 className="text-sm md:text-base font-medium text-fairway font-primary">
-                        {formatParticipantDisplay(participant)}
-                      </h4>
+                (participant: TeeTimeParticipant, index: number) => {
+                  // Find matching player in group data (for tour competitions)
+                  const groupPlayer = registrationData?.group?.players[index];
+
+                  // For tour competitions, use the name from group data (more reliable)
+                  // Otherwise fall back to formatParticipantDisplay
+                  const displayName = isTourCompetition && groupPlayer
+                    ? groupPlayer.name
+                    : formatParticipantDisplay(participant);
+
+                  return (
+                    <div
+                      key={participant.id}
+                      className="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <h4 className="text-sm md:text-base font-medium text-fairway font-primary">
+                          {displayName}
+                          {groupPlayer?.is_you && (
+                            <span className="text-xs text-turf ml-2">(you)</span>
+                          )}
+                        </h4>
+                        {isTourCompetition && groupPlayer?.handicap !== undefined && (
+                          <div className="text-sm text-charcoal/70">
+                            HCP {groupPlayer.handicap.toFixed(1)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isMultiPlayerFormat(participant.position_name) && (
+                          <Users className="w-4 h-4 inline-block text-turf" />
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-turf">
-                      {isMultiPlayerFormat(participant.position_name) && (
-                        <Users className="w-4 h-4 inline-block" />
-                      )}
-                    </div>
-                  </div>
-                )
+                  );
+                }
               )}
             </div>
           </div>
@@ -350,6 +405,22 @@ export function ParticipantsListComponent({
           );
         })()}
       </div>
+
+      {/* Edit Group Modal */}
+      {canEditGroup && (
+        <AddPlayersToGroup
+          isOpen={showEditGroupModal}
+          onClose={() => setShowEditGroupModal(false)}
+          competitionId={parseInt(competitionId)}
+          currentGroupSize={currentTeeTime?.participants.length || 0}
+          maxGroupSize={4}
+          mode="add_to_existing"
+          currentGroupMembers={registrationData?.group?.players || []}
+          onSuccess={() => {
+            onGroupUpdated?.();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -196,18 +196,19 @@ export class TourCompetitionRegistrationService {
       .prepare(
         `SELECT
           p.id as player_id,
-          p.name,
+          COALESCE(pp.display_name, p.name) as name,
           COALESCE(te.playing_handicap, p.handicap) as handicap,
           r.status as registration_status,
           r.tee_time_id as group_tee_time_id
          FROM tour_enrollments te
          JOIN players p ON te.player_id = p.id
+         LEFT JOIN player_profiles pp ON p.id = pp.player_id
          LEFT JOIN tour_competition_registrations r
            ON r.competition_id = ? AND r.player_id = p.id
          WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
          ORDER BY
            CASE WHEN r.status = 'looking_for_group' THEN 0 ELSE 1 END,
-           p.name`
+           COALESCE(pp.display_name, p.name)`
       )
       .all(competitionId, tourId) as AvailablePlayerRow[];
   }
@@ -254,8 +255,8 @@ export class TourCompetitionRegistrationService {
     competitionId: number,
     playerId: number,
     enrollmentId: number,
-    teeTimeId: number,
-    participantId: number,
+    teeTimeId: number | null,
+    participantId: number | null,
     status: RegistrationStatus,
     groupCreatedBy: number | null
   ): TourCompetitionRegistration {
@@ -346,9 +347,12 @@ export class TourCompetitionRegistrationService {
   private findGroupMembersByTeeTime(teeTimeId: number): GroupMemberRow[] {
     return this.db
       .prepare(
-        `SELECT r.player_id, p.name, COALESCE(te.playing_handicap, p.handicap) as handicap
+        `SELECT r.player_id,
+                COALESCE(pp.display_name, p.name) as name,
+                COALESCE(te.playing_handicap, p.handicap) as handicap
          FROM tour_competition_registrations r
          JOIN players p ON r.player_id = p.id
+         LEFT JOIN player_profiles pp ON p.id = pp.player_id
          JOIN tour_enrollments te ON r.enrollment_id = te.id
          WHERE r.tee_time_id = ?
          ORDER BY r.registered_at`
@@ -479,6 +483,16 @@ export class TourCompetitionRegistrationService {
       .run(teeTimeId, registrationId);
   }
 
+  private clearRegistrationGroupData(registrationId: number): void {
+    this.db
+      .prepare(
+        `UPDATE tour_competition_registrations
+         SET tee_time_id = NULL, participant_id = NULL, group_created_by = NULL, status = 'registered'
+         WHERE id = ?`
+      )
+      .run(registrationId);
+  }
+
   // ==========================================================================
   // Logic Methods (private, no SQL)
   // ==========================================================================
@@ -538,14 +552,16 @@ export class TourCompetitionRegistrationService {
   }
 
   private mapToAvailableStatus(
-    status: RegistrationStatus | null
+    status: RegistrationStatus | null,
+    hasTeeTime: boolean
   ): AvailablePlayer["status"] {
     if (!status) return "available";
     switch (status) {
       case "looking_for_group":
         return "looking_for_group";
       case "registered":
-        return "in_group";
+        // Only show as "in_group" if they actually have a tee_time assigned
+        return hasTeeTime ? "in_group" : "available";
       case "playing":
         return "playing";
       case "finished":
@@ -686,7 +702,7 @@ export class TourCompetitionRegistrationService {
 
   /**
    * Register a player for an open-start competition
-   * Creates tee_time and participant automatically
+   * Only creates tee_time and participant if not in looking_for_group mode
    */
   async register(
     competitionId: number,
@@ -723,32 +739,40 @@ export class TourCompetitionRegistrationService {
       throw new Error("Player is already registered for this competition");
     }
 
-    const teamId = await this.getOrCreateTourTeam(competition.tour_id);
-    const teeTime = this.insertTeeTimeRow(competitionId);
-    const participant = this.insertParticipantRow(
-      teamId,
-      teeTime.id,
-      playerId,
-      player.name
-    );
-
     const status = this.determineInitialStatus(mode);
     const groupCreatedBy = this.determineGroupCreatedBy(mode, playerId);
+
+    let teeTimeId: number | null = null;
+    let participantId: number | null = null;
+
+    // Only create tee_time and participant if not looking for group
+    if (mode !== "looking_for_group") {
+      const teamId = await this.getOrCreateTourTeam(competition.tour_id);
+      const teeTime = this.insertTeeTimeRow(competitionId);
+      const participant = this.insertParticipantRow(
+        teamId,
+        teeTime.id,
+        playerId,
+        player.name
+      );
+      teeTimeId = teeTime.id;
+      participantId = participant.id;
+    }
 
     const registration = this.insertRegistrationRow(
       competitionId,
       playerId,
       enrollment.id,
-      teeTime.id,
-      participant.id,
+      teeTimeId,
+      participantId,
       status,
       groupCreatedBy
     );
 
     const response: RegistrationResponse = { registration };
 
-    if (mode !== "looking_for_group") {
-      response.group = await this.getGroupByTeeTime(teeTime.id, playerId);
+    if (teeTimeId) {
+      response.group = await this.getGroupByTeeTime(teeTimeId, playerId);
     }
 
     return response;
@@ -763,9 +787,9 @@ export class TourCompetitionRegistrationService {
       throw new Error("Registration not found");
     }
 
-    // Allow withdrawal if haven't recorded scores yet
-    if (registration.participant_id && this.hasRecordedScores(registration.participant_id)) {
-      throw new Error("Cannot withdraw after recording scores");
+    // Cannot withdraw after starting to play
+    if (registration.status === "playing" || registration.status === "finished") {
+      throw new Error("Cannot withdraw after starting to play");
     }
 
     if (registration.participant_id) {
@@ -819,7 +843,7 @@ export class TourCompetitionRegistrationService {
       player_id: p.player_id,
       name: p.name,
       handicap: p.handicap ?? undefined,
-      status: this.mapToAvailableStatus(p.registration_status),
+      status: this.mapToAvailableStatus(p.registration_status, p.group_tee_time_id !== null),
       group_tee_time_id: p.group_tee_time_id ?? undefined,
     }));
   }
@@ -902,15 +926,25 @@ export class TourCompetitionRegistrationService {
       throw new Error("Use leaveGroup to remove yourself");
     }
 
-    await this.movePlayerToSoloGroup(competitionId, playerIdToRemove);
+    // Delete the participant and clear group data from registration
+    if (targetReg.participant_id) {
+      this.deleteParticipantRow(targetReg.participant_id);
+    }
+    this.clearRegistrationGroupData(targetReg.id);
+
+    // Clean up empty tee_time if no participants remain
+    const remainingCount = this.findParticipantCountByTeeTime(creatorReg.tee_time_id);
+    if (remainingCount === 0) {
+      this.deleteTeeTimeRow(creatorReg.tee_time_id);
+    }
 
     return this.getGroupByTeeTime(creatorReg.tee_time_id, groupCreatorPlayerId);
   }
 
   /**
-   * Leave the current group and become solo
+   * Leave the current group (removes group assignment)
    */
-  async leaveGroup(competitionId: number, playerId: number): Promise<PlayingGroup> {
+  async leaveGroup(competitionId: number, playerId: number): Promise<void> {
     const registration = await this.getRegistration(competitionId, playerId);
     if (!registration) {
       throw new Error("Registration not found");
@@ -921,10 +955,21 @@ export class TourCompetitionRegistrationService {
       throw new Error("Cannot leave group after recording scores");
     }
 
-    await this.movePlayerToSoloGroup(competitionId, playerId);
+    const oldTeeTimeId = registration.tee_time_id;
 
-    const newReg = await this.getRegistration(competitionId, playerId);
-    return this.getGroupByTeeTime(newReg!.tee_time_id!, playerId);
+    // Delete the participant and clear group data
+    if (registration.participant_id) {
+      this.deleteParticipantRow(registration.participant_id);
+    }
+    this.clearRegistrationGroupData(registration.id);
+
+    // Clean up empty tee_time if no participants remain
+    if (oldTeeTimeId) {
+      const remainingCount = this.findParticipantCountByTeeTime(oldTeeTimeId);
+      if (remainingCount === 0) {
+        this.deleteTeeTimeRow(oldTeeTimeId);
+      }
+    }
   }
 
   /**
@@ -947,6 +992,7 @@ export class TourCompetitionRegistrationService {
 
   /**
    * Start playing - mark registration as playing
+   * Creates tee_time and participant if they don't exist (for looking_for_group players going solo)
    * Returns the tee_time_id for navigation to scorecard
    */
   async startPlaying(competitionId: number, playerId: number): Promise<{ tee_time_id: number }> {
@@ -956,9 +1002,45 @@ export class TourCompetitionRegistrationService {
     }
 
     this.validateCanStartPlaying(registration.status);
+
+    let teeTimeId = registration.tee_time_id;
+
+    // If no tee_time assigned (looking_for_group players), create one now
+    if (!teeTimeId) {
+      const tourId = this.findCompetitionTourId(competitionId);
+      if (!tourId) {
+        throw new Error("Competition not found");
+      }
+
+      const player = this.findPlayerById(playerId);
+      if (!player) {
+        throw new Error("Player not found");
+      }
+
+      const teamId = await this.getOrCreateTourTeam(tourId);
+      const teeTime = this.insertTeeTimeRow(competitionId);
+      const participant = this.insertParticipantRow(
+        teamId,
+        teeTime.id,
+        playerId,
+        player.name
+      );
+
+      teeTimeId = teeTime.id;
+
+      // Update registration with tee_time and participant
+      this.db
+        .prepare(
+          `UPDATE tour_competition_registrations
+           SET tee_time_id = ?, participant_id = ?
+           WHERE id = ?`
+        )
+        .run(teeTimeId, participant.id, registration.id);
+    }
+
     this.updateRegistrationStartedRow(registration.id);
 
-    return { tee_time_id: registration.tee_time_id! };
+    return { tee_time_id: teeTimeId };
   }
 
   /**
@@ -1153,20 +1235,48 @@ export class TourCompetitionRegistrationService {
       }
 
       const nextOrder = this.findMaxTeeOrderForTeeTime(targetTeeTimeId) + 1;
-      this.updateParticipantTeeTime(
-        existingReg.participant_id!,
-        targetTeeTimeId,
-        nextOrder
-      );
+      let participantId: number;
 
-      if (existingReg.tee_time_id) {
-        const remaining = this.findParticipantCountByTeeTime(existingReg.tee_time_id);
-        if (remaining === 0) {
-          this.deleteTeeTimeRow(existingReg.tee_time_id);
+      if (existingReg.participant_id) {
+        // Player has existing participant - move it to new tee_time
+        this.updateParticipantTeeTime(
+          existingReg.participant_id,
+          targetTeeTimeId,
+          nextOrder
+        );
+        participantId = existingReg.participant_id;
+
+        // Clean up old tee_time if empty
+        if (existingReg.tee_time_id) {
+          const remaining = this.findParticipantCountByTeeTime(existingReg.tee_time_id);
+          if (remaining === 0) {
+            this.deleteTeeTimeRow(existingReg.tee_time_id);
+          }
         }
+      } else {
+        // Player has no participant (was looking_for_group or removed from group) - create new one
+        const participant = this.insertParticipantRow(
+          teamId,
+          targetTeeTimeId,
+          playerId,
+          playerName,
+          nextOrder
+        );
+        participantId = participant.id;
       }
 
       this.updateRegistrationTeeTime(existingReg.id, targetTeeTimeId, groupCreatedBy);
+
+      // Update participant_id if it was null
+      if (!existingReg.participant_id) {
+        this.db
+          .prepare(
+            `UPDATE tour_competition_registrations
+             SET participant_id = ?
+             WHERE id = ?`
+          )
+          .run(participantId, existingReg.id);
+      }
     } else {
       const nextOrder = this.findMaxTeeOrderForTeeTime(targetTeeTimeId) + 1;
       const participant = this.insertParticipantRow(

@@ -282,12 +282,12 @@ export function createTourCompetitionRegistrationApi(
         return c.json({ error: "No player profile found" }, 400);
       }
 
-      const group = await registrationService.leaveGroup(
+      await registrationService.leaveGroup(
         competitionId,
         playerId
       );
 
-      return c.json(group);
+      return c.json({ message: "Successfully left group" });
     } catch (error: any) {
       if (
         error.message === "Registration not found" ||

@@ -453,7 +453,7 @@ describe("TourCompetitionRegistrationService", () => {
   });
 
   describe("leaveGroup", () => {
-    test("should leave group and become solo", async () => {
+    test("should leave group and clear group assignment", async () => {
       const owner = createUser("owner@test.com", "ADMIN");
       const tour = createTour("Test Tour", owner.id);
       const course = createCourse("Test Course");
@@ -469,11 +469,17 @@ describe("TourCompetitionRegistrationService", () => {
 
       const originalTeeTimeId = (await service.getRegistration(competition.id, player2.id))?.tee_time_id;
 
-      const soloGroup = await service.leaveGroup(competition.id, player2.id);
+      await service.leaveGroup(competition.id, player2.id);
 
-      expect(soloGroup.players.length).toBe(1);
-      expect(soloGroup.players[0].player_id).toBe(player2.id);
-      expect(soloGroup.tee_time_id).not.toBe(originalTeeTimeId);
+      const updatedReg = await service.getRegistration(competition.id, player2.id);
+      expect(updatedReg?.tee_time_id).toBeNull();
+      expect(updatedReg?.participant_id).toBeNull();
+      expect(updatedReg?.status).toBe("registered");
+
+      // Original group should still have player1
+      const player1Group = await service.getGroupByTeeTime(originalTeeTimeId!, player1.id);
+      expect(player1Group.players.length).toBe(1);
+      expect(player1Group.players[0].player_id).toBe(player1.id);
     });
   });
 

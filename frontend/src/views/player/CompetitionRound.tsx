@@ -445,6 +445,10 @@ export default function CompetitionRound() {
             totalParticipants={totalParticipants}
             isTourCompetition={!!competition?.tour_id}
             isOpenStart={competition?.start_mode === "open"}
+            onGroupUpdated={() => {
+              refetchTeeTime();
+              refetchTeeTimes();
+            }}
           />
         );
 

@@ -21,10 +21,15 @@ export function BottomSheet({
   children,
   className,
   showHandle = true,
-  maxHeight = "70vh",
+  maxHeight = "80vh",
 }: BottomSheetProps) {
   const sheetRef = React.useRef<HTMLDivElement>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // Calculate content max height based on the sheet's maxHeight
+  const contentMaxHeight = title
+    ? `calc(${maxHeight} - 120px)`
+    : `calc(${maxHeight} - 60px)`;
 
   // Handle escape key press
   const handleEscapeKey = useCallback(
@@ -170,7 +175,7 @@ export function BottomSheet({
           ref={contentRef}
           className="overflow-y-auto overscroll-contain"
           style={{
-            maxHeight: title ? "calc(70vh - 120px)" : "calc(70vh - 60px)",
+            maxHeight: contentMaxHeight,
           }}
         >
           <div className="p-6">{children}</div>

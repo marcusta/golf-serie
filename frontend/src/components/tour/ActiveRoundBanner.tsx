@@ -73,44 +73,44 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
   };
 
   if (isFinished) {
-    // Finished state - green theme
+    // Finished state - green theme with left accent
     return (
-      <div className="bg-gradient-to-r from-turf to-fairway rounded-xl overflow-hidden shadow-lg">
+      <div className="border-l-4 border-turf bg-turf/10 overflow-hidden">
         {/* Header */}
-        <div className="px-4 py-2 bg-black/10 flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-scorecard" />
-          <span className="text-xs font-semibold text-scorecard uppercase tracking-wide">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-turf" />
+          <span className="text-sm font-semibold text-turf">
             Round Complete
           </span>
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-3">
+        <div className="px-4 pb-4 space-y-3">
           {/* Competition info */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-display font-semibold text-scorecard truncate">
+              <h3 className="text-lg font-display font-semibold text-charcoal truncate">
                 {competition_name}
               </h3>
-              <div className="flex items-center gap-1 text-scorecard/80 text-sm mt-1">
-                <MapPin className="h-3 w-3 flex-shrink-0" />
+              <div className="flex items-center gap-1 text-charcoal/70 text-sm mt-1">
+                <MapPin className="h-4 w-4 flex-shrink-0 text-turf" />
                 <span className="truncate">{course_name}</span>
               </div>
             </div>
 
-            {/* Final score badge */}
-            <div className="flex-shrink-0 bg-scorecard/20 rounded-lg px-3 py-2 text-center">
-              <div className="text-2xl font-display font-bold text-scorecard">
+            {/* Final score - plain text */}
+            <div className="flex-shrink-0 text-right">
+              <div className="text-2xl font-display font-bold text-turf">
                 {formatScore(current_score)}
               </div>
-              <div className="text-xs text-scorecard/80">Final</div>
+              <div className="text-xs text-charcoal/70">Final</div>
             </div>
           </div>
 
           {/* Group members with handicaps */}
           {group && group.length > 0 && (
-            <div className="flex items-start gap-2 text-scorecard/80 text-sm">
-              <Users className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 text-charcoal/70 text-sm">
+              <Users className="h-4 w-4 flex-shrink-0 mt-0.5 text-turf" />
               <span>Played with: {formatGroupMembers()}</span>
             </div>
           )}
@@ -123,7 +123,7 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
                 competitionId: competition_id.toString(),
                 teeTimeId: tee_time_id.toString(),
               }}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-scorecard hover:bg-scorecard/90 text-turf rounded-lg font-semibold transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-turf hover:bg-fairway text-scorecard rounded-lg font-semibold transition-colors"
             >
               <FileText className="h-5 w-5" />
               Scorecard
@@ -131,7 +131,7 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
             <Link
               to="/player/competitions/$competitionId"
               params={{ competitionId: competition_id.toString() }}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-scorecard/20 hover:bg-scorecard/30 text-scorecard rounded-lg font-semibold transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-turf/20 hover:bg-turf/30 text-turf rounded-lg font-semibold transition-colors"
             >
               <Trophy className="h-5 w-5" />
               Leaderboard
@@ -142,40 +142,40 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
     );
   }
 
-  // Playing state - orange theme
+  // Playing state - orange theme with left accent
   return (
-    <div className="bg-gradient-to-r from-coral to-orange-500 rounded-xl overflow-hidden shadow-lg">
+    <div className="border-l-4 border-coral bg-coral/10 overflow-hidden">
       {/* Header with pulse indicator */}
-      <div className="px-4 py-2 bg-black/10 flex items-center gap-2">
+      <div className="px-4 py-3 flex items-center gap-2">
         <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-scorecard opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-scorecard"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-coral opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-coral"></span>
         </span>
-        <span className="text-xs font-semibold text-scorecard uppercase tracking-wide">
+        <span className="text-sm font-semibold text-coral">
           Round in Progress
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-3">
+      <div className="px-4 pb-4 space-y-3">
         {/* Competition info */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-display font-semibold text-scorecard truncate">
+            <h3 className="text-lg font-display font-semibold text-charcoal truncate">
               {competition_name}
             </h3>
-            <div className="flex items-center gap-1 text-scorecard/80 text-sm mt-1">
-              <MapPin className="h-3 w-3 flex-shrink-0" />
+            <div className="flex items-center gap-1 text-charcoal/70 text-sm mt-1">
+              <MapPin className="h-4 w-4 flex-shrink-0 text-coral" />
               <span className="truncate">{course_name}</span>
             </div>
           </div>
 
-          {/* Score badge */}
-          <div className="flex-shrink-0 bg-scorecard/20 rounded-lg px-3 py-2 text-center">
-            <div className="text-2xl font-display font-bold text-scorecard">
+          {/* Score - plain text */}
+          <div className="flex-shrink-0 text-right">
+            <div className="text-2xl font-display font-bold text-coral">
               {formatScore(current_score)}
             </div>
-            <div className="text-xs text-scorecard/80">
+            <div className="text-xs text-charcoal/70">
               Hole {holes_played}/18
             </div>
           </div>
@@ -183,16 +183,16 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
 
         {/* Group members with handicaps */}
         {group && group.length > 0 && (
-          <div className="flex items-start gap-2 text-scorecard/80 text-sm">
-            <Users className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 text-charcoal/70 text-sm">
+            <Users className="h-4 w-4 flex-shrink-0 mt-0.5 text-coral" />
             <span>Playing with: {formatGroupMembers()}</span>
           </div>
         )}
 
         {/* Open until info */}
         {open_until && (
-          <div className="flex items-center gap-2 text-scorecard/70 text-xs">
-            <Clock className="h-3 w-3 flex-shrink-0" />
+          <div className="flex items-center gap-2 text-charcoal/70 text-sm">
+            <Clock className="h-4 w-4 flex-shrink-0 text-coral" />
             <span>Open until {formatOpenUntil(open_until)}</span>
           </div>
         )}
@@ -204,7 +204,7 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
             params={{
               competitionId: competition_id.toString(),
             }}
-            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-scorecard hover:bg-scorecard/90 text-coral rounded-lg font-semibold transition-colors"
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-coral hover:bg-coral/90 text-scorecard rounded-lg font-semibold transition-colors"
           >
             <Trophy className="h-5 w-5" />
             View Results
@@ -217,7 +217,7 @@ export function ActiveRoundBanner({ activeRound }: ActiveRoundBannerProps) {
               competitionId: competition_id.toString(),
               teeTimeId: tee_time_id.toString(),
             }}
-            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-scorecard hover:bg-scorecard/90 text-coral rounded-lg font-semibold transition-colors"
+            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-coral hover:bg-coral/90 text-scorecard rounded-lg font-semibold transition-colors"
           >
             <Play className="h-5 w-5" />
             Continue Playing
