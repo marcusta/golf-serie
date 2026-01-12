@@ -434,6 +434,13 @@ Use these commands to safely test migrations and changes against a copy of the p
 - Write descriptive error messages
 - Update tests when modifying existing functionality
 
+### Git Commit Guidelines
+- Use conventional commit format: `type(scope): description`
+- Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+- Write clear, descriptive commit messages with bullet points for multiple changes
+- **NEVER include `Co-Authored-By` lines in commit messages**
+- Stage only relevant files (exclude local config like `.claude/settings.local.json`)
+
 ---
 
 # 🔧 Backend Code Quality Rules
