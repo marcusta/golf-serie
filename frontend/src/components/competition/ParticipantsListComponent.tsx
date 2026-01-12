@@ -221,6 +221,15 @@ export function ParticipantsListComponent({
             ))}
           </div>
         )}
+
+        {/* QR Code Dialog */}
+        <QRCodeDialog
+          open={qrDialogState.open}
+          onOpenChange={(open) => setQrDialogState((prev) => ({ ...prev, open }))}
+          url={qrDialogState.url}
+          title={qrDialogState.title}
+          description="Scan to view this tee time group"
+        />
       </div>
     );
   }
