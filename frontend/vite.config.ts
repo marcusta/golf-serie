@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       visualizer({
         filename: "bundle-stats.html", // Output file name
-        open: true, // Automatically open in browser after build
+        open: false, // Automatically open in browser after build
       }),
     ],
     resolve: {
