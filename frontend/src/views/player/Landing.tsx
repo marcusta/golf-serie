@@ -126,18 +126,7 @@ export default function PlayerLanding() {
   } = usePublicSeries();
   const { data: courses, isLoading: coursesLoading } = useCourses();
 
-  // If user is authenticated, show personalized dashboard
-  if (isAuthenticated) {
-    return (
-      <>
-        <CommonHeader showBackButton={false} />
-        <Dashboard />
-      </>
-    );
-  }
-
-  // Otherwise show marketing landing page
-
+  // Calculate competitions data (must be before early return to follow Rules of Hooks)
   const { liveCompetitions, upcomingCompetitions, recentCompetitions } =
     useMemo(() => {
       if (!competitions) {
@@ -193,6 +182,18 @@ export default function PlayerLanding() {
         recentCompetitions: recent,
       };
     }, [competitions]);
+
+  // If user is authenticated, show personalized dashboard
+  if (isAuthenticated) {
+    return (
+      <>
+        <CommonHeader showBackButton={false} />
+        <Dashboard />
+      </>
+    );
+  }
+
+  // Otherwise show marketing landing page
 
   const getCourse = (courseId: number) => {
     return courses?.find((course) => course.id === courseId);
