@@ -112,11 +112,11 @@ export function ParticipantsListComponent({
   const formatParticipantDisplay = (participant: TeeTimeParticipant) => {
     if (isTourCompetition) {
       // For tour competitions, just show player name
-      return participant.player_names || "Player";
+      return participant.player_name || "Player";
     }
     // For series competitions, show player name with team/position info
-    return participant.player_names
-      ? `${participant.player_names}, ${participant.team_name} ${formatParticipantTypeDisplay(participant.position_name)}`
+    return participant.player_name
+      ? `${participant.player_name}, ${participant.team_name} ${formatParticipantTypeDisplay(participant.position_name)}`
       : `${participant.team_name} ${formatParticipantTypeDisplay(participant.position_name)}`;
   };
 

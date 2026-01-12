@@ -67,7 +67,7 @@ interface RegistrationRoundRow {
 interface GroupParticipantRow {
   tee_time_id: number;
   participant_id: number;
-  player_names: string | null;
+  player_name: string | null;
   score: string | null;
   is_locked: boolean;
   is_dq: number | null;
@@ -408,7 +408,7 @@ export class TourCompetitionRegistrationService {
         `SELECT
           tt.id as tee_time_id,
           par.id as participant_id,
-          par.player_names,
+          COALESCE(pp.display_name, pl.name, par.player_names) as player_name,
           par.score,
           par.is_locked,
           par.is_dq,
@@ -424,6 +424,7 @@ export class TourCompetitionRegistrationService {
          JOIN participants par ON par.tee_time_id = tt.id
          LEFT JOIN teams tm ON par.team_id = tm.id
          LEFT JOIN players pl ON par.player_id = pl.id
+         LEFT JOIN player_profiles pp ON pl.id = pp.player_id
          LEFT JOIN tour_enrollments te ON par.player_id = te.player_id AND c.tour_id = te.tour_id
          LEFT JOIN tour_categories tc ON te.category_id = tc.id
          LEFT JOIN tour_competition_registrations r ON r.participant_id = par.id
@@ -1155,7 +1156,7 @@ export class TourCompetitionRegistrationService {
         return {
           player_id: m.player_id ?? m.participant_id,
           participant_id: m.participant_id,
-          name: m.player_names || m.team_name || "",
+          name: m.player_name || m.team_name || "",
           handicap: m.handicap ?? undefined,
           category_name: m.category_name ?? undefined,
           registration_status: memberInfo.status,

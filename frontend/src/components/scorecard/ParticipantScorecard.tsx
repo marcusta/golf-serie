@@ -5,7 +5,7 @@ export interface ParticipantData {
   id: number;
   team_name: string;
   position_name: string;
-  player_names: string | null;
+  player_name: string | null;
   score: number[];
   tee_time_id: number;
 }
@@ -70,11 +70,11 @@ export function ParticipantScorecard({
             <Scorecard
               participant={{
                 id: participant.id.toString(),
-                name: participant.player_names || participant.position_name,
+                name: participant.player_name || participant.position_name,
                 // Hide team/position info for Tour competitions
                 type: isTourCompetition
                   ? undefined
-                  : participant.player_names
+                  : participant.player_name
                   ? `${participant.team_name}, ${participant.position_name}`
                   : participant.team_name,
                 scores: participant.score,

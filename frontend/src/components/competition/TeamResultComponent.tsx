@@ -306,8 +306,8 @@ export function TeamResultComponent({
                                     playerStatus !== "NOT_STARTED" ? "text-charcoal" : "text-soft-grey"
                                   }`}
                                 >
-                                  {player.participant.player_names
-                                    ? `${player.participant.player_names} (${player.participant.position_name})`
+                                  {player.participant.player_name
+                                    ? `${player.participant.player_name} (${player.participant.position_name})`
                                     : player.participant.position_name}
                                 </span>
                               </div>

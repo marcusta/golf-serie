@@ -121,7 +121,7 @@ export function calculateTeamResults(
       };
     }
     acc[teamName].participants.push({
-      name: entry.participant.player_names || "",
+      name: entry.participant.player_name || "",
       position: entry.participant.position_name,
       totalShots: entry.totalShots,
       relativeToPar: entry.relativeToPar,

@@ -308,7 +308,7 @@ export default function TourPlayerAssignment({
             id: `existing-${participant.id}`,
             enrollmentId: enrollment?.id || 0,
             playerId: participant.player_id,
-            playerName: participant.player_names || participant.position_name,
+            playerName: participant.player_name || participant.position_name,
             categoryName: enrollment?.category_name,
             handicap: enrollment?.handicap,
             assignedToTeeTimeId: teeTime.id,
@@ -349,7 +349,7 @@ export default function TourPlayerAssignment({
         ? enrollmentsForLookup.find((e) => e.player_id === participant.player_id)
         : null;
       return {
-        displayName: participant.player_names || participant.position_name,
+        displayName: participant.player_name || participant.position_name,
         handicap: playerData?.handicap ?? enrollment?.handicap,
       };
     },

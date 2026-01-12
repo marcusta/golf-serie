@@ -23,7 +23,7 @@ describe("convertLeaderboardToTeamInput", () => {
       id: 1,
       team_name: teamName,
       position_name: "Captain",
-      player_names: playerNames,
+      player_name: playerNames,
       score,
     },
     totalShots,

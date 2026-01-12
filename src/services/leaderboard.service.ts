@@ -57,7 +57,7 @@ interface ParticipantWithDetailsRow {
   team_id: number;
   tee_time_id: number;
   position_name: string;
-  player_names: string | null;
+  player_name: string | null;
   player_id: number | null;
   score: string | number[];
   is_locked: number;
@@ -571,7 +571,7 @@ export class LeaderboardService {
       team_id: row.team_id,
       tee_time_id: row.tee_time_id,
       position_name: row.position_name,
-      player_names: row.player_names,
+      player_name: row.player_name,
       player_id: row.player_id,
       score: parsedScore,
       is_locked: Boolean(row.is_locked),
@@ -711,8 +711,8 @@ export class LeaderboardService {
       if (aIsDQ && !bIsDQ) return 1;
       if (!aIsDQ && bIsDQ) return -1;
       if (aIsDQ && bIsDQ) {
-        const aName = a.participant.player_names || a.participant.team_name || "";
-        const bName = b.participant.player_names || b.participant.team_name || "";
+        const aName = a.participant.player_name || a.participant.team_name || "";
+        const bName = b.participant.player_name || b.participant.team_name || "";
         return aName.localeCompare(bName);
       }
       // DNF entries go above DQ but below normal entries
@@ -1179,11 +1179,14 @@ export class LeaderboardService {
   private findParticipantsForCompetition(competitionId: number): ParticipantWithDetailsRow[] {
     const stmt = this.db.prepare(`
       SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime, p.player_id,
-             te.category_id, tc.name as category_name
+             te.category_id, tc.name as category_name,
+             COALESCE(pp.display_name, pl.name, p.player_names) as player_name
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN teams tm ON p.team_id = tm.id
       LEFT JOIN competitions c ON t.competition_id = c.id
+      LEFT JOIN players pl ON p.player_id = pl.id
+      LEFT JOIN player_profiles pp ON pl.id = pp.player_id
       LEFT JOIN tour_enrollments te ON p.player_id = te.player_id AND c.tour_id = te.tour_id
       LEFT JOIN tour_categories tc ON te.category_id = tc.id
       WHERE t.competition_id = ?

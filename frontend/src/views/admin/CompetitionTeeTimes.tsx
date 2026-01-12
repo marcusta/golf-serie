@@ -1032,7 +1032,7 @@ export default function AdminCompetitionTeeTimes() {
                     // Display the snapshot handicap if available, otherwise fall back to enrollment handicap
                     const displayHandicap = participant.handicap_index ?? enrollment?.handicap;
                     const participantName = competition?.tour_id
-                      ? participant.player_names || participant.position_name
+                      ? participant.player_name || participant.position_name
                       : `${participant.team_name} ${participant.position_name}`;
                     const isDQ = Boolean(participant.is_dq);
                     return (
@@ -1112,9 +1112,9 @@ export default function AdminCompetitionTeeTimes() {
                           </button>
                         </div>
                       </div>
-                      {!competition?.tour_id && participant.player_names && (
+                      {!competition?.tour_id && participant.player_name && (
                         <div className="text-sm text-gray-500">
-                          {participant.player_names}
+                          {participant.player_name}
                         </div>
                       )}
                       {participant.locked_at && (

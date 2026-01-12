@@ -166,7 +166,7 @@ export interface Participant {
   team_id: number;
   tee_time_id: number;
   position_name: string;
-  player_names: string | null;
+  player_name: string | null;
   player_id: number | null;
   handicap_index: number | null; // Snapshot of handicap at time of playing
   score: number[];

@@ -178,7 +178,7 @@ export default function CompetitionDetail() {
         id: selectedParticipant.id,
         team_name: selectedParticipant.team_name,
         position_name: selectedParticipant.position_name,
-        player_names: selectedParticipant.player_names,
+        player_name: selectedParticipant.player_name,
         score: selectedParticipant.score,
         tee_time_id: selectedParticipant.tee_time_id,
       }

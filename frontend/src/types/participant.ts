@@ -9,7 +9,7 @@ export interface ParticipantData {
   id: number;
   team_name: string;
   position_name: string;
-  player_names?: string | null;
+  player_name?: string | null;
   /**
    * Raw scorecard array - one entry per hole
    * Only present when full score data is needed (e.g., for checking -1 values)

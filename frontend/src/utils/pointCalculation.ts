@@ -42,7 +42,7 @@ export function convertLeaderboardToTeamInput(
     const hasInvalidScore = entry.participant.score.includes(-1);
 
     acc[teamName].participants.push({
-      name: entry.participant.player_names || "",
+      name: entry.participant.player_name || "",
       position: entry.participant.position_name,
       totalShots: hasInvalidScore ? -1 : entry.totalShots,
       relativeToPar: hasInvalidScore ? 0 : entry.relativeToPar,

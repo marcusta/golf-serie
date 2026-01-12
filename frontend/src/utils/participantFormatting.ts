@@ -32,7 +32,7 @@ export function formatTeeTimeGroup(
       participantType: formatParticipantTypeDisplay(participant.position_name),
       isMultiPlayer: isMultiPlayerFormat(participant.position_name),
       scores: participant.score,
-      playerNames: participant.player_names,
+      playerNames: participant.player_name,
       playerId: participant.player_id,
     })),
   };
@@ -47,7 +47,7 @@ export function formatParticipantForScorecard(
     id: participant.id,
     team_name: participant.team_name,
     position_name: participant.position_name,
-    player_names: participant.player_names,
+    player_name: participant.player_name,
     score: participant.score,
     tee_time_id: participant.tee_time_id,
   };

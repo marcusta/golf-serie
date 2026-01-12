@@ -6,7 +6,7 @@ export interface TeeTimeParticipant {
   tee_order: number;
   team_id: number;
   position_name: string;
-  player_names: string | null;
+  player_name: string | null;
   created_at: string;
   updated_at: string;
   tee_time_id: number;

@@ -16,7 +16,6 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  Check,
   Clock,
   UserPlus,
   LogIn,
@@ -236,17 +235,6 @@ export default function TourDetail() {
     return (
       <div className="space-y-8">
         {/* Enrollment Status Banner */}
-        {isEnrolled && (
-          <div className="border-l-4 border-turf pl-4 py-3 bg-turf/5">
-            <div className="flex items-center gap-2 text-turf">
-              <Check className="w-4 h-4" />
-              <span className="font-medium font-primary">
-                You're enrolled in this tour
-              </span>
-            </div>
-          </div>
-        )}
-
         {isPending && (
           <div className="border-l-4 border-coral pl-4 py-3 bg-coral/5">
             <div className="flex items-center gap-2 text-coral">

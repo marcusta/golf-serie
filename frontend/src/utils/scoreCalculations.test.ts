@@ -368,7 +368,7 @@ describe("calculateTeamResults", () => {
       id: 1,
       team_name: teamName,
       position_name: positionName,
-      player_names: playerNames,
+      player_name: playerNames,
     },
     totalShots,
     relativeToPar,

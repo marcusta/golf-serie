@@ -374,12 +374,12 @@ export function LeaderboardComponent({
 
                     {/* Player Info - truncate long names */}
                     <div className="flex-1 min-w-0 mr-2">
-                      {entry.participant.player_names ? (
+                      {entry.participant.player_name ? (
                         <>
                           <h3 className={`text-sm font-semibold font-display truncate ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                             <PlayerNameLink
                               playerId={entry.participant.player_id}
-                              playerName={entry.participant.player_names}
+                              playerName={entry.participant.player_name}
                               skipFriendCheck={isTourCompetition}
                             />
                           </h3>
@@ -536,13 +536,13 @@ export function LeaderboardComponent({
                         </td>
                         <td className="py-4 px-4">
                           <div>
-                            {entry.participant.player_names ? (
+                            {entry.participant.player_name ? (
                               // Player has a name - show player name prominently
                               <>
                                 <div className={`text-body-md font-semibold font-display ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                                   <PlayerNameLink
                                     playerId={entry.participant.player_id}
-                                    playerName={entry.participant.player_names}
+                                    playerName={entry.participant.player_name}
                                     skipFriendCheck={isTourCompetition}
                                   />
                                 </div>
