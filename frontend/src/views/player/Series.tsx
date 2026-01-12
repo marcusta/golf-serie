@@ -18,14 +18,6 @@ import {
 } from "lucide-react";
 import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 
-// Types for enhanced series data
-interface SeriesStats {
-  totalSeries: number;
-  activeSeries: number;
-  totalTeams: number;
-  totalPlayers: number;
-}
-
 // Simplified interface without mock data fields
 interface EnhancedSeries extends Series {
   teamCount: number;
@@ -94,26 +86,6 @@ export default function PlayerSeries() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: series, isLoading, error } = usePublicSeries();
 
-  // Calculate real series statistics
-  const seriesStats: SeriesStats = useMemo(() => {
-    if (!series) {
-      return {
-        totalSeries: 0,
-        activeSeries: 0,
-        totalTeams: 0,
-        totalPlayers: 0,
-      };
-    }
-
-    const activeSeries = series.filter((s) => s.is_public).length;
-    return {
-      totalSeries: series.length,
-      activeSeries,
-      totalTeams: 0, // Will be calculated from actual standings data
-      totalPlayers: 0, // Will be calculated from actual standings data
-    };
-  }, [series]);
-
   // Use only real series data without mock enhancements
   const enhancedSeries: EnhancedSeries[] = useMemo(() => {
     if (!series) return [];
@@ -132,8 +104,13 @@ export default function PlayerSeries() {
         serie.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Find featured series (first public series with standings)
-  const featuredSeries = enhancedSeries.find((s) => s.is_public);
+  // Find featured series - prioritize ACTIVE > UPCOMING > COMPLETED
+  const featuredSeries = useMemo(() => {
+    if (enhancedSeries.length === 0) return null;
+
+    // Return the first public series (backend already sorted by priority)
+    return enhancedSeries.find((s) => s.is_public) || null;
+  }, [enhancedSeries]);
 
   if (isLoading) {
     return (
@@ -153,23 +130,9 @@ export default function PlayerSeries() {
               style={{ backgroundColor: "rgba(248, 249, 250, 0.2)" }}
             />
             <div
-              className="h-6 rounded mx-auto mb-8 w-96 animate-pulse"
+              className="h-6 rounded mx-auto w-96 animate-pulse"
               style={{ backgroundColor: "rgba(248, 249, 250, 0.2)" }}
             />
-            <div className="grid grid-cols-3 gap-6 max-w-md mx-auto">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="text-center">
-                  <div
-                    className="h-8 rounded mb-2 animate-pulse"
-                    style={{ backgroundColor: "rgba(248, 249, 250, 0.2)" }}
-                  />
-                  <div
-                    className="h-4 rounded animate-pulse"
-                    style={{ backgroundColor: "rgba(248, 249, 250, 0.2)" }}
-                  />
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -230,33 +193,9 @@ export default function PlayerSeries() {
       >
         <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-4xl font-bold mb-4 font-display">Golf Series</h1>
-          <p className="text-xl opacity-90 mb-8 font-primary">
+          <p className="text-xl opacity-90 font-primary">
             Discover competitive golf series and track your team's progress
           </p>
-          <div className="grid grid-cols-3 gap-6 max-w-md mx-auto">
-            <div className="text-center">
-              <div className="text-3xl font-bold font-display">
-                {seriesStats.activeSeries}
-              </div>
-              <div className="text-sm opacity-90 font-primary">
-                Active Series
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold font-display">
-                {seriesStats.totalTeams}
-              </div>
-              <div className="text-sm opacity-90 font-primary">Total Teams</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold font-display">
-                {seriesStats.totalPlayers}
-              </div>
-              <div className="text-sm opacity-90 font-primary">
-                Total Players
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -41,16 +41,6 @@ function LoadingSkeleton() {
     <div className="min-h-screen bg-scorecard animate-pulse">
       <div className="bg-fairway h-16" />
       <div className="h-[200px] bg-gray-300" />
-      <div className="bg-rough p-6">
-        <div className="container mx-auto grid grid-cols-2 gap-4">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="text-center space-y-2">
-              <div className="h-8 bg-gray-300 rounded" />
-              <div className="h-4 bg-gray-200 rounded" />
-            </div>
-          ))}
-        </div>
-      </div>
       <div className="container mx-auto px-4 py-6 space-y-8">
         <div className="h-32 bg-gray-200 rounded-xl" />
         <div className="grid grid-cols-2 gap-4">
@@ -407,30 +397,6 @@ export default function TourDetail() {
           </section>
         )}
 
-        {/* Primary Content Area - Landing Document */}
-        {landingDocument ? (
-          <section>
-            <div className="prose prose-gray max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {landingDocument.content}
-              </ReactMarkdown>
-            </div>
-          </section>
-        ) : (
-          tour.description && (
-            <section>
-              <h2 className="text-display-sm font-display font-semibold text-charcoal mb-6">
-                About This Tour
-              </h2>
-              <div className="prose prose-gray max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {tour.description}
-                </ReactMarkdown>
-              </div>
-            </section>
-          )
-        )}
-
         {/* Quick Access */}
         <section>
           <h3 className="text-display-sm font-display font-semibold text-charcoal mb-4">
@@ -500,6 +466,30 @@ export default function TourDetail() {
             </Link>
           </div>
         </section>
+
+        {/* Primary Content Area - Landing Document */}
+        {landingDocument ? (
+          <section>
+            <div className="prose prose-gray max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {landingDocument.content}
+              </ReactMarkdown>
+            </div>
+          </section>
+        ) : (
+          tour.description && (
+            <section>
+              <h2 className="text-display-sm font-display font-semibold text-charcoal mb-6">
+                About This Tour
+              </h2>
+              <div className="prose prose-gray max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {tour.description}
+                </ReactMarkdown>
+              </div>
+            </section>
+          )
+        )}
 
         {/* Upcoming Competitions Section */}
         {upcomingCompetitions.length > 0 && (
@@ -622,38 +612,6 @@ export default function TourDetail() {
             )}
           </div>
         )}
-
-        {/* Info Bar */}
-        <div className="bg-rough p-4 md:p-6 border-b border-soft-grey">
-          <div className="container mx-auto">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div className="space-y-1">
-                <div className="text-display-sm font-display font-bold text-fairway">
-                  {competitionsLoading ? (
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  ) : (
-                    totalCompetitions
-                  )}
-                </div>
-                <div className="text-label-sm font-medium text-charcoal uppercase tracking-wide">
-                  {totalCompetitions === 1 ? "Competition" : "Competitions"}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="text-display-sm font-display font-bold text-fairway">
-                  {competitionsLoading ? (
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  ) : (
-                    upcomingCompetitions.length
-                  )}
-                </div>
-                <div className="text-label-sm font-medium text-charcoal uppercase tracking-wide">
-                  Upcoming
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* Content Area */}

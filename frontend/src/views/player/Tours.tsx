@@ -407,10 +407,20 @@ function TourCard({
             </Link>
           )}
 
+          {/* View Tour Info for public tours (even if enrollment closed) */}
+          {tour.visibility === "public" && !isEnrolled && !canRequest && (
+            <Link
+              to={`/player/tours/${tour.id}`}
+              className="w-full bg-turf/10 text-turf border border-turf py-2 px-3 rounded-lg text-sm font-medium hover:bg-turf/20 transition-colors text-center block font-primary"
+            >
+              View Tour Info
+            </Link>
+          )}
+
           {!enrollment && tour.enrollment_mode === "closed" && (
-            <div className="text-center text-sm text-charcoal/60 font-primary py-2">
-              <Lock className="w-4 h-4 inline mr-1" />
-              Invite only
+            <div className="text-center text-sm text-charcoal/60 font-primary py-2 flex items-center justify-center gap-2">
+              <Lock className="w-4 h-4" />
+              <span>Enrollment by invitation only</span>
             </div>
           )}
         </div>

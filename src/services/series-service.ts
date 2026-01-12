@@ -290,11 +290,35 @@ export class SeriesService {
   }
 
   private findPublicSeriesRows(): SeriesRow[] {
+    // Sort by status priority (ACTIVE → UPCOMING → COMPLETED)
+    // Within each status, sort by most recent competition date
     return this.db.prepare(`
-      SELECT id, name, description, banner_image_url, is_public, landing_document_id, owner_id, created_at, updated_at
-      FROM series
-      WHERE is_public = 1
-      ORDER BY strftime('%s.%f', created_at) DESC
+      SELECT
+        s.id, s.name, s.description, s.banner_image_url, s.is_public,
+        s.landing_document_id, s.owner_id, s.created_at, s.updated_at,
+        MAX(c.date) as latest_competition_date,
+        COUNT(c.id) as competition_count,
+        SUM(CASE WHEN c.is_results_final = 1 THEN 1 ELSE 0 END) as finalized_count
+      FROM series s
+      LEFT JOIN competitions c ON s.id = c.series_id
+      WHERE s.is_public = 1
+      GROUP BY s.id
+      ORDER BY
+        CASE
+          -- ACTIVE: has competitions, not all finalized, latest competition is not too old
+          WHEN competition_count > 0
+               AND finalized_count < competition_count
+               AND julianday('now') - julianday(latest_competition_date) <= 180
+          THEN 1
+          -- UPCOMING: no competitions OR all in future
+          WHEN competition_count = 0
+               OR julianday(MAX(c.date)) > julianday('now')
+          THEN 2
+          -- COMPLETED: all competitions finalized OR last competition is old
+          ELSE 3
+        END,
+        latest_competition_date DESC,
+        strftime('%s.%f', s.created_at) DESC
     `).all() as SeriesRow[];
   }
 

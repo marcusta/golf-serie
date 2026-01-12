@@ -25,25 +25,6 @@ function Skeleton({ className = "" }: SkeletonProps) {
   return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
 }
 
-function StatsBarSkeleton() {
-  return (
-    <div
-      className="py-8 border-b border-soft-grey"
-      style={{ backgroundColor: "var(--light-rough)" }}
-    >
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-8 w-16 mx-auto" />
-              <Skeleton className="h-4 w-20 mx-auto" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function HeroSkeleton() {
   return (
@@ -136,26 +117,19 @@ export default function PlayerLanding() {
     refetch: refetchCompetitions,
   } = useCompetitions();
   const {
-    data: series,
     isLoading: seriesLoading,
     error: seriesError,
     refetch: refetchSeries,
   } = usePublicSeries();
   const { data: courses, isLoading: coursesLoading } = useCourses();
 
-  const { liveCompetitions, upcomingCompetitions, recentCompetitions, stats } =
+  const { liveCompetitions, upcomingCompetitions, recentCompetitions } =
     useMemo(() => {
       if (!competitions) {
         return {
           liveCompetitions: [],
           upcomingCompetitions: [],
           recentCompetitions: [],
-          stats: {
-            totalCompetitions: 0,
-            activeSeries: 0,
-            totalParticipants: 0,
-            roundsScored: 0,
-          },
         };
       }
 
@@ -198,24 +172,12 @@ export default function PlayerLanding() {
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 2);
 
-      const totalParticipants = competitions.reduce(
-        (sum, comp) => sum + comp.participant_count,
-        0
-      );
-      const roundsScored = Math.floor(totalParticipants * 1.5);
-
       return {
         liveCompetitions: live,
         upcomingCompetitions: upcoming,
         recentCompetitions: recent,
-        stats: {
-          totalCompetitions: competitions.length,
-          activeSeries: series?.length || 0,
-          totalParticipants,
-          roundsScored,
-        },
       };
-    }, [competitions, series]);
+    }, [competitions]);
 
   const getCourse = (courseId: number) => {
     return courses?.find((course) => course.id === courseId);
@@ -339,6 +301,24 @@ export default function PlayerLanding() {
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-6 sm:gap-4 justify-center mb-8 sm:mb-0 px-4 sm:px-0">
                 <Link
+                  to="/player/tours"
+                  className="px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 inline-flex items-center justify-center"
+                  style={{
+                    backgroundColor: "var(--turf-green)",
+                    color: "var(--scorecard-white)",
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.target as HTMLElement).style.backgroundColor =
+                      "#1B5E3F")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.target as HTMLElement).style.backgroundColor =
+                      "var(--turf-green)")
+                  }
+                >
+                  Browse Tours
+                </Link>
+                <Link
                   to="/player/series"
                   className="px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 inline-flex items-center justify-center"
                   style={{
@@ -385,54 +365,6 @@ export default function PlayerLanding() {
         </section>
       )}
 
-      {/* Stats Bar */}
-      {isLoading ? (
-        <StatsBarSkeleton />
-      ) : (
-        <section
-          className="py-8 border-b border-soft-grey"
-          style={{ backgroundColor: "var(--light-rough)" }}
-        >
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-              <div className="space-y-2">
-                <div className="text-display-md text-fairway">
-                  {stats.activeSeries}
-                </div>
-                <div className="text-label-sm text-charcoal/70 uppercase tracking-wide">
-                  Active Series
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-display-md text-fairway">
-                  {stats.totalCompetitions}
-                </div>
-                <div className="text-label-sm text-charcoal/70 uppercase tracking-wide">
-                  Total Competitions
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-display-md text-fairway">
-                  {stats.totalParticipants}
-                </div>
-                <div className="text-label-sm text-charcoal/70 uppercase tracking-wide">
-                  Active Players
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-display-md text-fairway">
-                  {stats.roundsScored > 1000
-                    ? `${(stats.roundsScored / 1000).toFixed(1)}k`
-                    : stats.roundsScored}
-                </div>
-                <div className="text-label-sm text-charcoal/70 uppercase tracking-wide">
-                  Rounds Scored
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Live Activity Section */}
       {isLoading ? (
@@ -670,6 +602,16 @@ export default function PlayerLanding() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
+              to="/player/tours"
+              className="px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 inline-flex items-center justify-center"
+              style={{
+                backgroundColor: "var(--turf-green)",
+                color: "var(--scorecard-white)",
+              }}
+            >
+              Browse Tours
+            </Link>
+            <Link
               to="/player/series"
               className="px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 inline-flex items-center justify-center"
               style={{
@@ -677,7 +619,7 @@ export default function PlayerLanding() {
                 color: "var(--scorecard-white)",
               }}
             >
-              Get Started Today
+              View Series
             </Link>
             <Link
               to="/player/competitions"
@@ -688,7 +630,7 @@ export default function PlayerLanding() {
                 backgroundColor: "transparent",
               }}
             >
-              Learn More
+              Browse Competitions
             </Link>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  useCompetitions,
+  useStandAloneCompetitions,
   useCompetitionLeaderboard,
   type Competition,
 } from "../../api/competitions";
@@ -16,6 +16,7 @@ import {
   Eye,
 } from "lucide-react";
 import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
+import { parseDate, formatDateLong, formatTime } from "../../utils/dateFormatting";
 
 type FilterStatus = "all" | "upcoming" | "live" | "completed";
 
@@ -31,24 +32,22 @@ interface CompetitionStatus {
 // Loading skeleton components
 function CompetitionCardSkeleton() {
   return (
-    <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden animate-pulse">
-      <div className="p-6">
-        <div className="flex items-start gap-4">
-          <div className="w-16 h-16 bg-soft-grey rounded-xl flex-shrink-0"></div>
-          <div className="flex-1 min-w-0 space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="h-6 bg-soft-grey rounded w-48"></div>
-              <div className="h-6 bg-soft-grey rounded w-20"></div>
-            </div>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="h-4 bg-soft-grey rounded w-32"></div>
-              <div className="h-4 bg-soft-grey rounded w-28"></div>
-              <div className="h-4 bg-soft-grey rounded w-24"></div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="h-4 bg-soft-grey rounded w-40"></div>
-              <div className="h-10 bg-soft-grey rounded w-32"></div>
-            </div>
+    <div className="py-6 animate-pulse">
+      <div className="flex items-start gap-4">
+        <div className="w-16 h-16 bg-soft-grey rounded-xl flex-shrink-0"></div>
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="h-6 bg-soft-grey rounded w-48"></div>
+            <div className="h-6 bg-soft-grey rounded w-20"></div>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="h-4 bg-soft-grey rounded w-32"></div>
+            <div className="h-4 bg-soft-grey rounded w-28"></div>
+            <div className="h-4 bg-soft-grey rounded w-24"></div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="h-4 bg-soft-grey rounded w-40"></div>
+            <div className="h-10 bg-soft-grey rounded w-32"></div>
           </div>
         </div>
       </div>
@@ -58,7 +57,7 @@ function CompetitionCardSkeleton() {
 
 function LiveCompetitionSkeleton() {
   return (
-    <div className="bg-scorecard rounded-xl border shadow-lg overflow-hidden animate-pulse">
+    <div className="bg-scorecard rounded-xl overflow-hidden animate-pulse">
       <div className="h-48 bg-soft-grey relative"></div>
       <div className="p-6">
         <div className="grid md:grid-cols-3 gap-6">
@@ -98,7 +97,7 @@ function LiveCompetitionSkeleton() {
 }
 
 export default function PlayerCompetitions() {
-  const { data: competitions, isLoading, error } = useCompetitions();
+  const { data: competitions, isLoading, error } = useStandAloneCompetitions();
   const { data: courses } = useCourses();
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -108,7 +107,20 @@ export default function PlayerCompetitions() {
   };
 
   const getCompetitionStatus = (date: string): CompetitionStatus => {
-    const competitionDate = new Date(date);
+    const competitionDate = parseDate(date);
+
+    // If date is invalid, treat as upcoming with no specific day count
+    if (!competitionDate) {
+      return {
+        status: "upcoming",
+        label: "Upcoming",
+        daysText: "UPCOMING",
+        color: "text-scorecard",
+        bgColor: "bg-coral",
+        gradientClass: "bg-gradient-to-br from-coral to-orange-600",
+      };
+    }
+
     const today = new Date();
     const diffTime = competitionDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -239,7 +251,7 @@ export default function PlayerCompetitions() {
         {/* Regular Competitions Skeleton */}
         <div className="space-y-6">
           <div className="h-6 bg-soft-grey rounded w-40 animate-pulse"></div>
-          <div className="grid gap-6">
+          <div className="divide-y divide-soft-grey">
             {[1, 2, 3].map((i) => (
               <CompetitionCardSkeleton key={i} />
             ))}
@@ -463,7 +475,7 @@ function LiveCompetitionCard({
     useCompetitionLeaderboard(competition.id);
 
   return (
-    <div className="bg-scorecard rounded-xl border shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+    <div className="bg-scorecard rounded-xl overflow-hidden hover:bg-gray-50/30 transition-colors">
       <div className="relative">
         {/* Golf Course Background */}
         <div className="h-48 bg-gradient-to-br from-turf to-fairway relative overflow-hidden">
@@ -594,10 +606,7 @@ function LiveCompetitionCard({
                 <div className="flex justify-between">
                   <span>Started:</span>
                   <span>
-                    {new Date(competition.date).toLocaleTimeString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatTime(competition.date)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -702,12 +711,7 @@ function CompetitionCard({
           <div className="grid md:grid-cols-3 gap-4 mb-4">
             <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
               <Calendar className="w-4 h-4" />
-              {new Date(competition.date).toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {formatDateLong(competition.date)}
             </div>
             <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
               <MapPin className="w-4 h-4" />
