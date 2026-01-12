@@ -93,7 +93,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rough/20 to-scorecard">
       {/* Hero Section with Image - Clean, no overlap */}
-      <div className="relative h-[200px] md:h-[280px] overflow-hidden mb-6">
+      <div className="relative h-[260px] md:h-[280px] overflow-hidden mb-6">
         {/* Background Image */}
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -103,12 +103,12 @@ export function Dashboard() {
         />
 
         {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-charcoal/70 via-charcoal/50 to-charcoal/80 opacity-50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-charcoal/70 via-charcoal/50 to-charcoal/80 opacity-40" />
 
         {/* Welcome Text */}
-        <div className="relative h-full flex flex-col justify-end px-4 pb-8">
+        <div className="relative h-full flex flex-col justify-end px-4 pb-4">
           <div className="container mx-auto max-w-6xl">
-            <h1 className="text-[2rem] md:text-[2.5rem] text-scorecard drop-shadow-lg">
+            <h1 className="text-[2rem] md:text-[2.5rem] text-scorecard drop-shadow-lg leading-tight">
               Welcome back,
               <br />
               <span className="font-bold">
@@ -130,7 +130,7 @@ export function Dashboard() {
               </h2>
             </div>
             {/* Horizontal scroll on mobile, vertical on desktop */}
-            <div className="md:hidden overflow-x-auto px-4 pb-2">
+            <div className="md:hidden overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex gap-3" style={{ minWidth: "min-content" }}>
                 {currentRounds.map((round) => (
                   <Link
@@ -312,7 +312,7 @@ export function Dashboard() {
           {toursAndSeries && toursAndSeries.tours.length > 0 ? (
             <>
               {/* Horizontal scroll on mobile */}
-              <div className="md:hidden overflow-x-auto px-4 pb-2">
+              <div className="md:hidden overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex gap-3" style={{ minWidth: "min-content" }}>
                   {toursAndSeries.tours.map((tour) => (
                     <Link
