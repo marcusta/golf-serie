@@ -1,4 +1,4 @@
-import { CourseService } from "../services/course-service";
+import { CourseService, type ImportCourseData } from "../services/course-service";
 import { CourseTeeService } from "../services/course-tee.service";
 import type {
   CreateCourseDto,
@@ -150,6 +150,31 @@ export function createCoursesApi(courseService: CourseService, courseTeeService?
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
             status: 404,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    async importCourses(req: Request): Promise<Response> {
+      try {
+        const data = (await req.json()) as ImportCourseData | ImportCourseData[];
+        const results = await courseService.importCourses(data);
+        return new Response(JSON.stringify(results), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
             headers: { "Content-Type": "application/json" },
           });
         }

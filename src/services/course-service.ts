@@ -2,6 +2,44 @@ import { Database } from "bun:sqlite";
 import type { Course, CreateCourseDto, UpdateCourseDto } from "../types";
 import { GOLF } from "../constants/golf";
 import { parseParsArray } from "../utils/parsing";
+import { CourseTeeService } from "./course-tee.service";
+
+// Types for course import
+export interface ImportScorecardHole {
+  hole: number;
+  par: number;
+  hcp_men: number;
+  hcp_women: number;
+}
+
+export interface ImportTeeRating {
+  tee_name: string;
+  men: { course_rating: number; slope: number } | null;
+  women: { course_rating: number; slope: number } | null;
+}
+
+export interface ImportCourseMetadata {
+  club_name: string;
+  course_name: string;
+  location?: string;
+  total_par: number;
+  total_holes: number;
+}
+
+export interface ImportCourseData {
+  course_metadata: ImportCourseMetadata;
+  scorecard: ImportScorecardHole[];
+  tee_ratings: ImportTeeRating[];
+}
+
+export interface ImportCourseResult {
+  success: boolean;
+  courseName: string;
+  courseId: number;
+  action: "created" | "updated";
+  teesProcessed: number;
+  errors?: string[];
+}
 
 interface ParsData {
   holes: number[];
@@ -21,7 +59,10 @@ interface CourseRow {
 }
 
 export class CourseService {
-  constructor(private db: Database) {}
+  constructor(
+    private db: Database,
+    private teeService?: CourseTeeService
+  ) {}
 
   // ─────────────────────────────────────────────────────────────────
   // Logic Methods (no SQL)
@@ -84,6 +125,27 @@ export class CourseService {
     }
   }
 
+  private validateImportCourseData(data: ImportCourseData): void {
+    if (!data.course_metadata?.course_name?.trim()) {
+      throw new Error("Course name is required");
+    }
+    if (!Array.isArray(data.scorecard) || data.scorecard.length !== GOLF.HOLES_PER_ROUND) {
+      throw new Error(`Scorecard must have exactly ${GOLF.HOLES_PER_ROUND} holes`);
+    }
+    if (!Array.isArray(data.tee_ratings) || data.tee_ratings.length === 0) {
+      throw new Error("At least one tee rating is required");
+    }
+  }
+
+  private extractParsFromScorecard(scorecard: ImportScorecardHole[]): number[] {
+    return scorecard.map(hole => hole.par);
+  }
+
+  private extractStrokeIndexFromScorecard(scorecard: ImportScorecardHole[]): number[] {
+    // Use men's handicap as primary (most courses use same for both genders)
+    return scorecard.map(hole => hole.hcp_men);
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // Query Methods (single SQL statement each)
   // ─────────────────────────────────────────────────────────────────
@@ -105,6 +167,11 @@ export class CourseService {
   private findCourseRowById(id: number): CourseRow | null {
     const stmt = this.db.prepare("SELECT * FROM courses WHERE id = ?");
     return stmt.get(id) as CourseRow | null;
+  }
+
+  private findCourseRowByName(name: string): CourseRow | null {
+    const stmt = this.db.prepare("SELECT * FROM courses WHERE LOWER(name) = LOWER(?)");
+    return stmt.get(name) as CourseRow | null;
   }
 
   private updateCourseNameRow(id: number, name: string): CourseRow {
@@ -235,5 +302,138 @@ export class CourseService {
     }
 
     this.deleteCourseRow(id);
+  }
+
+  async importCourses(
+    data: ImportCourseData | ImportCourseData[]
+  ): Promise<ImportCourseResult[]> {
+    if (!this.teeService) {
+      throw new Error("CourseTeeService is required for import functionality");
+    }
+
+    // Normalize to array
+    const courses = Array.isArray(data) ? data : [data];
+    const results: ImportCourseResult[] = [];
+
+    for (const courseData of courses) {
+      try {
+        // Validate course data
+        this.validateImportCourseData(courseData);
+
+        const courseName = courseData.course_metadata.course_name.trim();
+        const pars = this.extractParsFromScorecard(courseData.scorecard);
+        const strokeIndex = this.extractStrokeIndexFromScorecard(courseData.scorecard);
+
+        // Validate pars and stroke index
+        this.validateParsArray(pars);
+        this.validateStrokeIndex(strokeIndex);
+
+        // Check if course exists
+        const existingCourseRow = this.findCourseRowByName(courseName);
+        let courseId: number;
+        let action: "created" | "updated";
+
+        if (existingCourseRow) {
+          // Update existing course
+          await this.updateHoles(existingCourseRow.id, pars, strokeIndex);
+          courseId = existingCourseRow.id;
+          action = "updated";
+        } else {
+          // Create new course
+          const newCourse = await this.create({ name: courseName });
+          await this.updateHoles(newCourse.id, pars, strokeIndex);
+          courseId = newCourse.id;
+          action = "created";
+        }
+
+        // Process tee ratings
+        const existingTees = this.teeService.findByCourse(courseId);
+        let teesProcessed = 0;
+
+        for (const teeRating of courseData.tee_ratings) {
+          const teeName = teeRating.tee_name.trim();
+
+          // Find existing tee (case-insensitive)
+          const existingTee = existingTees.find(
+            t => t.name.toLowerCase() === teeName.toLowerCase()
+          );
+
+          let teeId: number;
+
+          if (existingTee) {
+            // Update existing tee (just update name to match import case)
+            const updatedTee = this.teeService.update(existingTee.id, { name: teeName });
+            teeId = updatedTee.id;
+          } else {
+            // Create new tee with ratings array to avoid creating unwanted default ratings
+            const ratings = [];
+            if (teeRating.men) {
+              ratings.push({
+                gender: "men" as const,
+                course_rating: teeRating.men.course_rating,
+                slope_rating: teeRating.men.slope,
+              });
+            }
+            if (teeRating.women) {
+              ratings.push({
+                gender: "women" as const,
+                course_rating: teeRating.women.course_rating,
+                slope_rating: teeRating.women.slope,
+              });
+            }
+
+            if (ratings.length === 0) {
+              throw new Error(`Tee ${teeName} has no ratings`);
+            }
+
+            const newTee = this.teeService.create(courseId, {
+              name: teeName,
+              ratings,
+            });
+            teeId = newTee.id;
+          }
+
+          // For existing tees, upsert gender-specific ratings
+          if (existingTee) {
+            if (teeRating.men) {
+              this.teeService.upsertRating(teeId, {
+                gender: "men",
+                course_rating: teeRating.men.course_rating,
+                slope_rating: teeRating.men.slope,
+              });
+            }
+
+            if (teeRating.women) {
+              this.teeService.upsertRating(teeId, {
+                gender: "women",
+                course_rating: teeRating.women.course_rating,
+                slope_rating: teeRating.women.slope,
+              });
+            }
+          }
+
+          teesProcessed++;
+        }
+
+        results.push({
+          success: true,
+          courseName,
+          courseId,
+          action,
+          teesProcessed,
+        });
+      } catch (error) {
+        results.push({
+          success: false,
+          courseName: courseData.course_metadata?.course_name || "Unknown",
+          courseId: -1,
+          action: "created",
+          teesProcessed: 0,
+          errors: [error instanceof Error ? error.message : "Unknown error"],
+        });
+      }
+    }
+
+    return results;
   }
 }

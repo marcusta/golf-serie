@@ -40,8 +40,8 @@ import { createCompetitionResultsService } from "./services/competition-results.
 
 export function createApp(db: Database): Hono {
   // Initialize services
-  const courseService = new CourseService(db);
   const courseTeeService = new CourseTeeService(db);
+  const courseService = new CourseService(db, courseTeeService);
   const teamService = new TeamService(db);
   const competitionService = new CompetitionService(db);
   const competitionCategoryTeeService = new CompetitionCategoryTeeService(db);
@@ -233,6 +233,10 @@ export function createApp(db: Database): Hono {
   app.put("/api/courses/:id/holes", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await coursesApi.updateHoles(c.req.raw, id);
+  });
+
+  app.post("/api/courses/import", async (c) => {
+    return await coursesApi.importCourses(c.req.raw);
   });
 
   // Course Tee routes

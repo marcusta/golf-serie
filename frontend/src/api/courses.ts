@@ -144,6 +144,67 @@ export function useDeleteCourse() {
   });
 }
 
+// Import types
+export interface ImportScorecardHole {
+  hole: number;
+  par: number;
+  hcp_men: number;
+  hcp_women: number;
+}
+
+export interface ImportTeeRating {
+  tee_name: string;
+  men: { course_rating: number; slope: number } | null;
+  women: { course_rating: number; slope: number } | null;
+}
+
+export interface ImportCourseMetadata {
+  club_name: string;
+  course_name: string;
+  location?: string;
+  total_par: number;
+  total_holes: number;
+}
+
+export interface ImportCourseData {
+  course_metadata: ImportCourseMetadata;
+  scorecard: ImportScorecardHole[];
+  tee_ratings: ImportTeeRating[];
+}
+
+export interface ImportCourseResult {
+  success: boolean;
+  courseName: string;
+  courseId: number;
+  action: "created" | "updated";
+  teesProcessed: number;
+  errors?: string[];
+}
+
+export function useImportCourses() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: ImportCourseData | ImportCourseData[]) => {
+      const response = await fetch(`${API_BASE_URL}/courses/import`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Import failed");
+      }
+      return response.json() as Promise<ImportCourseResult[]>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+}
+
 // Course Tee Rating Types
 export type TeeRatingGender = "men" | "women";
 

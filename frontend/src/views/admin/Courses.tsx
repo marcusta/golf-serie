@@ -10,15 +10,19 @@ import {
   useUpdateCourseTee,
   useDeleteCourseTee,
   useUpsertCourseTeeRating,
+  useImportCourses,
   type Course,
   type CourseTee,
+  type ImportCourseResult,
 } from "@/api/courses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Map, Target, TrendingUp, Plus, Edit, Trash2, Settings, Loader2 } from "lucide-react";
+import { Map, Target, TrendingUp, Plus, Edit, Trash2, Settings, Loader2, Upload, FileJson } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -84,6 +88,7 @@ export default function Courses() {
   const updateCourse = useUpdateCourse();
   const updateCourseHoles = useUpdateCourseHoles();
   const deleteCourse = useDeleteCourse();
+  const importCourses = useImportCourses();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -93,6 +98,12 @@ export default function Courses() {
     Array.from({ length: 18 }, (_, i) => i + 1)
   );
   const [step, setStep] = useState<"name" | "pars">("name");
+
+  // Import state
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importJson, setImportJson] = useState("");
+  const [importResults, setImportResults] = useState<ImportCourseResult[] | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Tee management state
   const [showTeeDialog, setShowTeeDialog] = useState(false);
@@ -143,6 +154,40 @@ export default function Courses() {
       } catch (error) {
         console.error("Failed to delete course:", error);
         alert("Failed to delete course. Please try again.");
+      }
+    }
+  };
+
+  // Import handlers
+  const handleOpenImport = () => {
+    setImportJson("");
+    setImportResults(null);
+    setImportError(null);
+    setShowImportDialog(true);
+  };
+
+  const handleImport = async () => {
+    setImportError(null);
+    setImportResults(null);
+
+    try {
+      const data = JSON.parse(importJson);
+      const results = await importCourses.mutateAsync(data);
+      setImportResults(results);
+
+      // If all successful, show success and close after 2 seconds
+      if (results.every(r => r.success)) {
+        setTimeout(() => {
+          setShowImportDialog(false);
+        }, 2000);
+      }
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        setImportError("Invalid JSON format. Please check your data.");
+      } else if (error instanceof Error) {
+        setImportError(error.message);
+      } else {
+        setImportError("An unknown error occurred during import.");
       }
     }
   };
@@ -420,6 +465,14 @@ export default function Courses() {
             {courses?.length || 0}{" "}
             {courses?.length === 1 ? "course" : "courses"}
           </Badge>
+          <Button
+            onClick={handleOpenImport}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
           <Button onClick={handleCreate} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Add Course
@@ -875,6 +928,119 @@ export default function Courses() {
               onClick={() => setShowTeeDialog(false)}
             >
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileJson className="h-5 w-5" />
+              Import Course Data
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                Paste your course data in JSON format. You can import a single course or multiple courses (as an array).
+              </p>
+              <details className="text-xs text-gray-500 cursor-pointer">
+                <summary className="font-medium hover:text-gray-700">Show expected format</summary>
+                <pre className="mt-2 p-3 bg-gray-50 rounded border overflow-x-auto">
+{`{
+  "course_metadata": {
+    "club_name": "Linköpings Golfklubb",
+    "course_name": "Course Name",
+    "location": "City, Country",
+    "total_par": 71,
+    "total_holes": 18
+  },
+  "scorecard": [
+    { "hole": 1, "par": 4, "hcp_men": 10, "hcp_women": 10 },
+    ...
+  ],
+  "tee_ratings": [
+    {
+      "tee_name": "Yellow",
+      "men": { "course_rating": 69.5, "slope": 124 },
+      "women": { "course_rating": 76.0, "slope": 134 }
+    },
+    ...
+  ]
+}`}
+                </pre>
+              </details>
+            </div>
+
+            <Textarea
+              placeholder="Paste JSON data here..."
+              value={importJson}
+              onChange={(e) => setImportJson(e.target.value)}
+              className="min-h-[200px] font-mono text-sm"
+            />
+
+            {importError && (
+              <Alert variant="destructive">
+                <AlertDescription>{importError}</AlertDescription>
+              </Alert>
+            )}
+
+            {importResults && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm">Import Results:</h4>
+                {importResults.map((result, index) => (
+                  <Alert
+                    key={index}
+                    variant={result.success ? "default" : "destructive"}
+                    className={result.success ? "border-green-500 bg-green-50" : ""}
+                  >
+                    <AlertDescription>
+                      <div className="flex items-center justify-between">
+                        <span>
+                          <strong>{result.courseName}</strong>:{" "}
+                          {result.success ? (
+                            <>
+                              {result.action === "created" ? "Created" : "Updated"} successfully
+                              ({result.teesProcessed} tees processed)
+                            </>
+                          ) : (
+                            <>Failed: {result.errors?.join(", ")}</>
+                          )}
+                        </span>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowImportDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleImport}
+              disabled={!importJson.trim() || importCourses.isPending}
+            >
+              {importCourses.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
