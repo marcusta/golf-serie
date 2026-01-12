@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useMemo } from "react";
+import { RoundList } from "@/components/rounds/RoundList";
 
 export function Dashboard() {
   useAuth();
@@ -287,61 +288,14 @@ export function Dashboard() {
                 <h2 className="text-body-xl font-bold text-charcoal">Recent Results</h2>
               </div>
               <Link
-                to="/player/profile"
+                to="/player/rounds"
                 className="text-turf hover:underline text-body-sm font-medium flex items-center gap-1"
               >
-                Full History
+                View All
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
-            <div className="bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey">
-              {recentRounds.map((round) => {
-                const scoreClass = round.relative_to_par < 0
-                  ? "text-turf"
-                  : round.relative_to_par === 0
-                  ? "text-charcoal"
-                  : "text-coral";
-                const scorePrefix = round.relative_to_par > 0 ? "+" : "";
-
-                return (
-                  <Link
-                    key={round.participant_id}
-                    to="/player/competitions/$competitionId"
-                    params={{ competitionId: round.competition_id.toString() }}
-                    search={{ view: "teams" }}
-                    hash="leaderboard"
-                    className="block px-5 py-4 hover:bg-gray-50/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-semibold text-charcoal mb-1">
-                          {round.competition_name}
-                        </div>
-                        <div className="flex items-center gap-3 text-body-sm text-charcoal/70 mb-2">
-                          <span>{round.course_name}</span>
-                          <span>•</span>
-                          <span>{new Date(round.competition_date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-body-sm">
-                          <span className="text-charcoal/70">
-                            Gross: <span className="font-semibold text-charcoal">{round.gross_score}</span>
-                          </span>
-                          {round.net_score && (
-                            <span className="text-charcoal/70">
-                              Net: <span className="font-semibold text-charcoal">{round.net_score}</span>
-                            </span>
-                          )}
-                          <span className={`font-bold ${scoreClass}`}>
-                            {scorePrefix}{round.relative_to_par}
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            <RoundList rounds={recentRounds} />
           </div>
         )}
 

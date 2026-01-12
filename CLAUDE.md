@@ -147,11 +147,27 @@ npm run lint           # ESLint checking
 
 ### Unified Topbar System
 
-**CRITICAL**: All player views MUST use the unified topbar architecture for consistency.
+**CRITICAL**: Use the correct layout pattern based on page hierarchy to avoid double navigation and containment issues.
 
-#### Required Pattern for All Player Views
+#### When to Use PlayerPageLayout
+
+**Use PlayerPageLayout for DETAIL/CONTEXT pages:**
+- Series detail pages (SeriesDetail, SeriesStandings, SeriesCompetitions)
+- Tour detail pages (TourDetail, TourStandings, TourCompetitions)
+- Competition detail pages (CompetitionDetail, TeeTimeDetail)
+- Document detail pages (SeriesDocumentDetail, TourDocumentDetail)
+- Player profile pages (MyProfile, PlayerPublicProfile)
+
+**DO NOT use PlayerPageLayout for TOP-LEVEL list/index pages:**
+- Dashboard
+- All Rounds (player/rounds)
+- Tours list (player/tours)
+- Series list (player/series)
+- Competitions list (player/competitions)
+
+#### Pattern for Detail Pages (WITH PlayerPageLayout)
 ```tsx
-export default function MyPlayerView() {
+export default function MyDetailView() {
   return (
     <PlayerPageLayout
       title="Page Title"
@@ -166,8 +182,31 @@ export default function MyPlayerView() {
 }
 ```
 
+#### Pattern for Top-Level Pages (WITHOUT PlayerPageLayout)
+```tsx
+export default function MyTopLevelView() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough">
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-display-lg text-charcoal mb-2">Page Title</h1>
+          <p className="text-body-lg text-charcoal/70">Description</p>
+        </div>
+        {/* Page content */}
+      </div>
+    </div>
+  );
+}
+```
+
+**Why this matters:**
+- PlayerLayout (parent router wrapper) already provides navigation tabs and outer container
+- PlayerPageLayout adds its own header bar with back button and menu
+- Using PlayerPageLayout on top-level pages creates double navigation (both tab bar AND header bar)
+- This causes visual clutter and breaks the design hierarchy
+
 **Key Components**:
-- **PlayerPageLayout**: Main wrapper (`src/components/layout/PlayerPageLayout.tsx`)
+- **PlayerPageLayout**: Main wrapper for detail pages (`src/components/layout/PlayerPageLayout.tsx`)
 - **CommonHeader**: Header with automatic HamburgerMenu (`src/components/navigation/CommonHeader.tsx`)
 - **HamburgerMenu**: Context-aware navigation (`src/components/navigation/HamburgerMenu.tsx`)
 

@@ -69,12 +69,66 @@ export async function createParticipant(
     team_id: number;
     position_name: string;
     tee_order: number;
+    player_id?: number;
   }
 ) {
   const API_URL = `http://localhost:${port}/api`;
   const response = await fetch(`${API_URL}/participants`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return await response.json();
+}
+
+// Helper to create a user
+export async function createUser(
+  port: number,
+  email: string,
+  password: string,
+  name: string
+) {
+  const API_URL = `http://localhost:${port}/api`;
+  const response = await fetch(`${API_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name }),
+  });
+  return await response.json();
+}
+
+// Helper to login a user
+export async function loginUser(port: number, email: string, password: string) {
+  const API_URL = `http://localhost:${port}/api`;
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json();
+  const cookie = response.headers.get("set-cookie")?.split(";")[0].split("=")[1] || "";
+
+  return { ...data, cookie };
+}
+
+// Helper to create a player profile
+export async function createPlayerProfile(
+  port: number,
+  authCookie: string,
+  data: {
+    display_name?: string;
+    bio?: string;
+    home_course_id?: number;
+  }
+) {
+  const API_URL = `http://localhost:${port}/api`;
+  const response = await fetch(`${API_URL}/players/me/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: `auth_token=${authCookie}`,
+    },
     body: JSON.stringify(data),
   });
   return await response.json();

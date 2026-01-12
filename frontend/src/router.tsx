@@ -43,6 +43,7 @@ import TourCompetitions from "./views/player/TourCompetitions";
 import TourStandings from "./views/player/TourStandings";
 import MyProfile from "./views/player/MyProfile";
 import PlayerPublicProfile from "./views/player/PlayerPublicProfile";
+import AllRounds from "./views/player/AllRounds";
 
 // Import Auth views
 import Login from "./views/auth/Login";
@@ -245,6 +246,12 @@ const playerPublicProfileRoute = new Route({
   component: PlayerPublicProfile,
 });
 
+const allRoundsRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/rounds",
+  component: AllRounds,
+});
+
 const competitionDetailRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/competitions/$competitionId",
@@ -318,6 +325,7 @@ const routeTree = rootRoute.addChildren([
     playerToursRoute,
     myProfileRoute,
     playerPublicProfileRoute,
+    allRoundsRoute,
     seriesDetailRoute,
     seriesDocumentsRoute,
     seriesDocumentDetailRoute,
