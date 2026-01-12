@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
-  Users,
   UserPlus,
   LogOut,
   Play,
@@ -10,6 +9,7 @@ import {
   User,
   ChevronRight,
   X,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,8 @@ import {
   type RegistrationStatus,
 } from "@/api/tour-registration";
 import { AddPlayersToGroup } from "./AddPlayersToGroup";
+import { QRCodeDialog } from "@/components/competition/QRCodeDialog";
+import { getTeeTimeUrl } from "@/utils/qrCodeUrls";
 
 interface GroupStatusCardProps {
   competitionId: number;
@@ -97,6 +99,7 @@ export function GroupStatusCard({
   hideActions = false,
 }: GroupStatusCardProps) {
   const [showAddPlayers, setShowAddPlayers] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const navigate = useNavigate();
 
   const leaveGroupMutation = useLeaveGroup();
@@ -251,40 +254,68 @@ export function GroupStatusCard({
   // Render for registered/playing status
   return (
     <div className="bg-scorecard border border-soft-grey rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-soft-grey">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                isPlaying ? "bg-coral/20" : "bg-turf/20"
-              }`}
-            >
-              {isPlaying ? (
-                <Play className="h-5 w-5 text-coral" />
-              ) : (
-                <Users className="h-5 w-5 text-turf" />
-              )}
-            </div>
-            <div>
-              <h4 className="text-label-lg font-semibold text-charcoal">
-                {hasGroup ? "Your Group" : "Playing Solo"}
-              </h4>
-              <p className="text-body-sm text-charcoal/70">
-                {currentGroupSize}/4 players
-              </p>
-            </div>
-          </div>
-          <StatusBadge status={registration.status} allHolesCompleted={hideActions} />
-        </div>
-      </div>
-
-      {/* Group members */}
+      {/* Group members section with inline actions */}
       {hasGroup && (
         <div className="p-4 border-b border-soft-grey bg-rough/30">
-          <p className="text-label-sm font-medium text-charcoal/70 mb-2">
-            {hideActions || isFinished ? "Played with:" : "Playing with:"}
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-label-sm font-medium text-charcoal/70">
+              {hideActions || isFinished ? "Played with:" : "Playing with:"}
+            </p>
+            {/* Compact action toolbar */}
+            {canModifyGroup && (
+              <div className="flex items-center gap-1">
+                {/* Add Players */}
+                <button
+                  onClick={() => setShowAddPlayers(true)}
+                  disabled={currentGroupSize >= 4}
+                  className="p-1.5 text-turf hover:bg-turf/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title="Add players to group"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </button>
+
+                {/* Share Group - only for group creator with tee time */}
+                {isGroupCreator && teeTimeId && (
+                  <button
+                    onClick={() => setShowShareDialog(true)}
+                    className="p-1.5 text-turf hover:bg-turf/10 rounded-lg transition-colors"
+                    title="Share group with QR code"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </button>
+                )}
+
+                {/* Leave/Withdraw */}
+                {hasGroup ? (
+                  <button
+                    onClick={handleLeaveGroup}
+                    disabled={leaveGroupMutation.isPending}
+                    className="p-1.5 text-charcoal/70 hover:bg-rough/40 rounded-lg transition-colors disabled:opacity-50"
+                    title="Leave group"
+                  >
+                    {leaveGroupMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LogOut className="h-4 w-4" />
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleWithdraw}
+                    disabled={withdrawMutation.isPending}
+                    className="p-1.5 text-flag hover:bg-flag/10 rounded-lg transition-colors disabled:opacity-50"
+                    title="Withdraw from competition"
+                  >
+                    {withdrawMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LogOut className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <div className="space-y-2">
             {groupMembers.map((member) => (
               <div
@@ -315,6 +346,41 @@ export function GroupStatusCard({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Solo player - no header, just show actions before primary button */}
+      {!hasGroup && canModifyGroup && (
+        <div className="px-4 pt-4 flex justify-end gap-1">
+          <button
+            onClick={() => setShowAddPlayers(true)}
+            disabled={currentGroupSize >= 4}
+            className="p-1.5 text-turf hover:bg-turf/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Add players to group"
+          >
+            <UserPlus className="h-4 w-4" />
+          </button>
+          {isGroupCreator && teeTimeId && (
+            <button
+              onClick={() => setShowShareDialog(true)}
+              className="p-1.5 text-turf hover:bg-turf/10 rounded-lg transition-colors"
+              title="Share group with QR code"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={handleWithdraw}
+            disabled={withdrawMutation.isPending}
+            className="p-1.5 text-flag hover:bg-flag/10 rounded-lg transition-colors disabled:opacity-50"
+            title="Withdraw from competition"
+          >
+            {withdrawMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="h-4 w-4" />
+            )}
+          </button>
         </div>
       )}
 
@@ -356,59 +422,6 @@ export function GroupStatusCard({
             </div>
           ) : null}
 
-          {/* Group management buttons */}
-          {canModifyGroup && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddPlayers(true)}
-              disabled={currentGroupSize >= 4}
-              className="flex-1 border-soft-grey text-charcoal hover:bg-rough/20"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Players
-            </Button>
-
-            {hasGroup && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLeaveGroup}
-                disabled={leaveGroupMutation.isPending}
-                className="flex-1 border-soft-grey text-charcoal hover:bg-rough/20"
-              >
-                {leaveGroupMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Leave Group
-                  </>
-                )}
-              </Button>
-            )}
-
-            {!hasGroup && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleWithdraw}
-                disabled={withdrawMutation.isPending}
-                className="flex-1 border-flag/50 text-flag hover:bg-flag/10"
-              >
-                {withdrawMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Withdraw
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        )}
         </div>
       )}
 
@@ -421,6 +434,17 @@ export function GroupStatusCard({
         maxGroupSize={4}
         onSuccess={onUpdate}
       />
+
+      {/* Share Group Dialog */}
+      {teeTimeId && (
+        <QRCodeDialog
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+          url={getTeeTimeUrl(competitionId, teeTimeId)}
+          title="Share Group"
+          description="Share this QR code or link with your group members to get them to the scorecard"
+        />
+      )}
     </div>
   );
 }

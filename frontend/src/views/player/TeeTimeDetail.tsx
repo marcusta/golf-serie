@@ -1,5 +1,6 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Share2 } from "lucide-react";
+import { useState } from "react";
 import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import {
   useTeeTime,
@@ -12,9 +13,13 @@ import {
   formatParticipantTypeDisplay,
   isMultiPlayerFormat,
 } from "../../utils/playerUtils";
+import { Button } from "../../components/ui/button";
+import { QRCodeDialog } from "../../components/competition/QRCodeDialog";
+import { getTeeTimeUrl } from "../../utils/qrCodeUrls";
 
 export default function TeeTimeDetail() {
   const { competitionId, teeTimeId } = useParams({ strict: false });
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const { data: teeTime, isLoading } = useTeeTime(
     teeTimeId ? parseInt(teeTimeId) : 0
   );
@@ -72,6 +77,16 @@ export default function TeeTimeDetail() {
       title={`Tee ${teeTime.teetime}`}
       subtitle={teeTime.course_name}
       onBackClick={() => window.history.back()}
+      customActions={
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowShareDialog(true)}
+          className="text-turf hover:text-fairway hover:bg-turf/10"
+        >
+          <Share2 className="h-5 w-5" />
+        </Button>
+      }
       className="h-screen flex flex-col"
     >
       <div className="flex-1 bg-gray-50">
@@ -99,6 +114,17 @@ export default function TeeTimeDetail() {
         onScoreUpdate={handleScoreUpdate}
         onComplete={handleComplete}
       />
+
+      {/* Share Dialog */}
+      {competitionId && teeTimeId && (
+        <QRCodeDialog
+          open={showShareDialog}
+          onOpenChange={setShowShareDialog}
+          url={getTeeTimeUrl(parseInt(competitionId), parseInt(teeTimeId))}
+          title="Share Scorecard"
+          description="Share this QR code or link to get others to this scorecard"
+        />
+      )}
     </PlayerPageLayout>
   );
 }

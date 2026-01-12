@@ -259,21 +259,39 @@ export function ParticipantsListComponent({
                     : `· Hole ${currentTeeTime.start_hole}`}
                 </span>
               </h3>
-              {canEditGroup ? (
+              <div className="flex items-center gap-2">
+                {/* Share button - always visible */}
                 <Button
-                  onClick={() => setShowEditGroupModal(true)}
+                  onClick={() =>
+                    setQrDialogState({
+                      open: true,
+                      url: getTeeTimeUrl(parseInt(competitionId), currentTeeTime.id),
+                      title: "Share Group",
+                    })
+                  }
                   variant="ghost"
                   size="sm"
                   className="text-turf hover:text-fairway hover:bg-turf/10"
                 >
-                  <Edit2 className="h-4 w-4 mr-1" />
-                  Edit
+                  <QrCode className="h-4 w-4" />
                 </Button>
-              ) : (
-                <span className="text-xs md:text-sm text-coral font-semibold font-primary">
-                  Active
-                </span>
-              )}
+                {/* Edit button - only for editable groups */}
+                {canEditGroup ? (
+                  <Button
+                    onClick={() => setShowEditGroupModal(true)}
+                    variant="ghost"
+                    size="sm"
+                    className="text-turf hover:text-fairway hover:bg-turf/10"
+                  >
+                    <Edit2 className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                ) : (
+                  <span className="text-xs md:text-sm text-coral font-semibold font-primary">
+                    Active
+                  </span>
+                )}
+              </div>
             </div>
             <div className="divide-y divide-soft-grey">
               {currentTeeTime.participants.map(
@@ -466,7 +484,7 @@ export function ParticipantsListComponent({
         onOpenChange={(open) => setQrDialogState((prev) => ({ ...prev, open }))}
         url={qrDialogState.url}
         title={qrDialogState.title}
-        description="Scan to view this tee time group"
+        description="Share this QR code or link with your group members to get them to the scorecard"
       />
     </div>
   );
