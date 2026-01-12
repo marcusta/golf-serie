@@ -33,7 +33,7 @@ import { calculateTotalParticipants } from "../../utils/scoreCalculations";
 
 import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import { useSeriesTeams } from "../../api/series";
-import { SeriesLinkBanner } from "../../components/competition/SeriesLinkBanner";
+import { SeriesLinkBanner, TourLinkBanner } from "../../components/competition";
 import { JoinCompetitionFlow, GroupStatusCard } from "../../components/tour";
 import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
 import { QRCodeDialog } from "../../components/competition/QRCodeDialog";
@@ -298,6 +298,8 @@ export default function CompetitionDetail() {
       onBackClick={handleBackNavigation}
       seriesId={competition.series_id}
       seriesName={competition.series_name}
+      tourId={competition.tour_id}
+      tourName={competition.tour_name}
       customActions={
         <div className="flex items-center gap-4">
           {/* QR Code Share Button */}
@@ -362,6 +364,14 @@ export default function CompetitionDetail() {
             <span>{totalParticipants} participants</span>
           </div>
         </div>
+
+        {/* Conditionally render the TourLinkBanner */}
+        {competition?.tour_id && competition.tour_name && (
+          <TourLinkBanner
+            tourId={competition.tour_id}
+            tourName={competition.tour_name}
+          />
+        )}
 
         {/* Conditionally render the SeriesLinkBanner */}
         {competition?.series_id && competition.series_name && (

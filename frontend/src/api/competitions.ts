@@ -28,6 +28,7 @@ export interface Competition {
 // Enhanced Competition interface
 export interface EnhancedCompetition extends Competition {
   series_name?: string;
+  tour_name?: string;
 }
 
 export interface LeaderboardEntry {
@@ -133,6 +134,9 @@ export function useCompetition(competitionId: number) {
       }
       const competition: Competition = await competitionResponse.json();
 
+      let enhanced: EnhancedCompetition = { ...competition };
+
+      // Fetch series details if series_id exists
       if (competition.series_id) {
         try {
           const seriesResponse = await fetch(
@@ -140,16 +144,29 @@ export function useCompetition(competitionId: number) {
           );
           if (seriesResponse.ok) {
             const series: Series = await seriesResponse.json();
-            return { ...competition, series_name: series.name };
+            enhanced.series_name = series.name;
           }
         } catch (error) {
           console.error("Failed to fetch series details", error);
-          // Return competition data even if series fetch fails
-          return { ...competition, series_name: undefined };
         }
       }
 
-      return competition;
+      // Fetch tour details if tour_id exists
+      if (competition.tour_id) {
+        try {
+          const tourResponse = await fetch(
+            `${API_BASE_URL}/tours/${competition.tour_id}`
+          );
+          if (tourResponse.ok) {
+            const tour: { id: number; name: string } = await tourResponse.json();
+            enhanced.tour_name = tour.name;
+          }
+        } catch (error) {
+          console.error("Failed to fetch tour details", error);
+        }
+      }
+
+      return enhanced;
     },
     enabled: competitionId > 0,
   });

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 import { CommonHeader } from "../../components/navigation/CommonHeader";
+import { useAuth } from "../../hooks/useAuth";
+import { Dashboard } from "./Dashboard";
 
 interface SkeletonProps {
   className?: string;
@@ -110,6 +112,7 @@ function ErrorState({
 }
 
 export default function PlayerLanding() {
+  const { isAuthenticated } = useAuth();
   const {
     data: competitions,
     isLoading: competitionsLoading,
@@ -122,6 +125,18 @@ export default function PlayerLanding() {
     refetch: refetchSeries,
   } = usePublicSeries();
   const { data: courses, isLoading: coursesLoading } = useCourses();
+
+  // If user is authenticated, show personalized dashboard
+  if (isAuthenticated) {
+    return (
+      <>
+        <CommonHeader showBackButton={false} />
+        <Dashboard />
+      </>
+    );
+  }
+
+  // Otherwise show marketing landing page
 
   const { liveCompetitions, upcomingCompetitions, recentCompetitions } =
     useMemo(() => {

@@ -216,6 +216,11 @@ export function HamburgerMenu({
 
   const generalLinks = [
     {
+      to: "/player",
+      label: isAuthenticated ? "Dashboard" : "Home",
+      icon: isAuthenticated ? LayoutDashboard : Home,
+    },
+    {
       to: "/player/tours",
       label: "Tours",
       icon: Flag,
@@ -229,11 +234,6 @@ export function HamburgerMenu({
       to: "/player/series",
       label: "All Series",
       icon: Award,
-    },
-    {
-      to: "/player",
-      label: "Home",
-      icon: Home,
     },
   ];
 

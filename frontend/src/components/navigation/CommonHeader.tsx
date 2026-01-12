@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, Flag } from "lucide-react";
 import TapScoreLogo from "../ui/TapScoreLogo";
 import { HamburgerMenu } from "./HamburgerMenu";
 
@@ -56,10 +56,18 @@ export function CommonHeader({
             </button>
           )}
 
-          {/* Logo - hidden on mobile, shown on desktop */}
-          <div className="hidden md:block">
-            <TapScoreLogo size="md" variant="color" layout="horizontal" />
-          </div>
+          {/* Logo - always visible, responsive sizing */}
+          {!title && (
+            <div className="flex-1">
+              <TapScoreLogo size="sm" variant="color" layout="horizontal" className="md:hidden" />
+              <TapScoreLogo size="md" variant="color" layout="horizontal" className="hidden md:block" />
+            </div>
+          )}
+          {title && (
+            <div className="hidden md:block">
+              <TapScoreLogo size="md" variant="color" layout="horizontal" />
+            </div>
+          )}
 
           {title && (
             <>
@@ -76,6 +84,17 @@ export function CommonHeader({
                     </p>
                   )}
                 </div>
+                {/* Render tour link if tourId exists */}
+                {tourId && (
+                  <Link
+                    to="/player/tours/$tourId"
+                    params={{ tourId: tourId.toString() }}
+                    title={`View Tour: ${tourName || ""}`}
+                    className="p-1.5 hover:bg-turf rounded-lg transition-colors flex-shrink-0"
+                  >
+                    <Flag className="h-4 w-4 text-turf" />
+                  </Link>
+                )}
                 {/* Render series link if seriesId exists */}
                 {seriesId && (
                   <Link
