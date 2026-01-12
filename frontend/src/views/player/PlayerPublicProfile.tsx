@@ -155,11 +155,21 @@ export default function PlayerPublicProfile() {
 
   return (
     <PlayerPageLayout title={profile.display_name || profile.name}>
-      {/* Hero section with gradient */}
-      <div className="bg-gradient-to-b from-turf to-fairway h-[160px]" />
+      {/* Hero section with image */}
+      <div className="relative h-[200px] md:h-[220px] overflow-hidden z-0">
+        {/* Background Image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url('/splash-images/golf-from-sky.jpg')`,
+          }}
+        />
+        {/* Dark Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-charcoal/70 via-charcoal/50 to-charcoal/80 opacity-40" />
+      </div>
 
       {/* Profile card - overlaps hero */}
-      <div className="container mx-auto px-4 -mt-20">
+      <div className="container mx-auto px-4 -mt-20 relative z-10">
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <div className="flex items-start gap-4">
             {/* Avatar */}
@@ -206,38 +216,53 @@ export default function PlayerPublicProfile() {
           )}
         </div>
 
-        {/* Stats row */}
-        <div className="bg-white rounded-xl mb-6">
-          <div className="flex divide-x divide-soft-grey">
-            <div className="flex-1 py-4 text-center">
-              <div className="text-2xl font-bold text-turf">
-                {profile.total_rounds}
+        {/* Stats - Circular Tiles */}
+        <div className="mb-6">
+          <div className="flex items-center justify-center gap-4 md:gap-8">
+            {/* Total Rounds Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-charcoal to-charcoal/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-2xl md:text-3xl font-bold text-scorecard">
+                  {profile.total_rounds}
+                </div>
               </div>
-              <div className="text-sm text-charcoal/60">Rounds</div>
+              <div className="text-label-sm text-charcoal/70 mt-2">Rounds</div>
             </div>
-            <div className="flex-1 py-4 text-center">
-              <div className="text-2xl font-bold text-turf">
-                {profile.competitions_played}
+
+            {/* Competitions Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-coral to-coral/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-2xl md:text-3xl font-bold text-scorecard">
+                  {profile.competitions_played}
+                </div>
               </div>
-              <div className="text-sm text-charcoal/60">Competitions</div>
+              <div className="text-label-sm text-charcoal/70 mt-2">Comps</div>
             </div>
-            <div className="flex-1 py-4 text-center">
-              <div className="text-2xl font-bold text-turf">
-                {profile.best_score || "–"}
+
+            {/* Best Score Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-sky to-sky/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-2xl md:text-3xl font-bold text-scorecard">
+                  {profile.best_score || "–"}
+                </div>
               </div>
-              <div className="text-sm text-charcoal/60">Best</div>
+              <div className="text-label-sm text-charcoal/70 mt-2">Best</div>
             </div>
-            <div className="flex-1 py-4 text-center">
-              <div className="text-2xl font-bold text-turf">
-                {profile.average_score?.toFixed(1) || "–"}
+
+            {/* Average Score Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-turf to-turf/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-2xl md:text-3xl font-bold text-scorecard">
+                  {profile.average_score?.toFixed(1) || "–"}
+                </div>
               </div>
-              <div className="text-sm text-charcoal/60">Avg</div>
+              <div className="text-label-sm text-charcoal/70 mt-2">Avg</div>
             </div>
           </div>
         </div>
 
         {/* Handicap info */}
-        <div className="bg-white rounded-xl border-l-4 border-turf mb-6">
+        <div className="bg-white rounded-xl border-l-2 border-turf mb-6">
           <div className="flex items-center gap-2 px-4 pt-4">
             <Target className="h-5 w-5 text-turf" />
             <h2 className="text-lg font-display font-bold text-charcoal">

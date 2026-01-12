@@ -15,7 +15,7 @@ export function RoundList({ rounds, showViewAll = false, viewAllLink }: RoundLis
 
   return (
     <>
-      <div className="bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey shadow-md">
+      <div className="bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey shadow-lg">
         {rounds.map((round) => {
           const scoreClass = round.relative_to_par < 0
             ? "text-turf"
@@ -31,7 +31,7 @@ export function RoundList({ rounds, showViewAll = false, viewAllLink }: RoundLis
               params={{ competitionId: round.competition_id.toString() }}
               search={{ view: "teams" }}
               hash="leaderboard"
-              className="block px-5 py-4 hover:bg-charcoal/5 transition-colors border-l-4 border-transparent hover:border-charcoal/20"
+              className="block px-5 py-4 hover:bg-charcoal/5 transition-colors border-l-4 border-charcoal/20 hover:border-charcoal/40"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">

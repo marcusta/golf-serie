@@ -12,7 +12,7 @@ interface ProfileSeriesProps {
 export function ProfileSeries({ series, isLoading, title = "My Series" }: ProfileSeriesProps) {
   if (isLoading) {
     return (
-      <div className="bg-white rounded-xl border-l-4 border-turf mb-6 animate-pulse">
+      <div className="bg-white rounded-xl border-l-2 border-turf mb-6 animate-pulse">
         <div className="px-4 pt-4 pb-2">
           <div className="h-6 bg-gray-200 rounded w-1/4" />
         </div>
@@ -29,7 +29,7 @@ export function ProfileSeries({ series, isLoading, title = "My Series" }: Profil
   }
 
   return (
-    <div className="bg-white rounded-xl border-l-4 border-turf mb-6">
+    <div className="bg-white rounded-xl border-l-2 border-turf mb-6">
       <div className="flex items-center gap-2 px-4 pt-4 pb-2">
         <Trophy className="h-5 w-5 text-turf" />
         <h2 className="text-lg font-display font-bold text-charcoal">

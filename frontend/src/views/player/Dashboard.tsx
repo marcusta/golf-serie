@@ -91,9 +91,9 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rough/20 to-scorecard">
-      {/* Hero Section with Image - Clean, no overlap */}
-      <div className="relative h-[260px] md:h-[280px] overflow-hidden mb-6">
+    <div className="min-h-screen bg-gradient-to-br from-rough/40 via-scorecard/95 to-scorecard">
+      {/* Hero Section with Image */}
+      <div className="relative h-[280px] md:h-[300px] overflow-hidden z-0">
         {/* Background Image */}
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -106,7 +106,7 @@ export function Dashboard() {
         <div className="absolute inset-0 bg-gradient-to-b from-charcoal/70 via-charcoal/50 to-charcoal/80 opacity-40" />
 
         {/* Welcome Text */}
-        <div className="relative h-full flex flex-col justify-end px-4 pb-4">
+        <div className="relative h-full flex flex-col justify-end px-4 pb-16">
           <div className="container mx-auto max-w-6xl">
             <h1 className="text-[2rem] md:text-[2.5rem] text-scorecard drop-shadow-lg leading-tight">
               Welcome back,
@@ -115,6 +115,56 @@ export function Dashboard() {
                 {profile.display_name || profile.name}
               </span>
             </h1>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Card - Overlapping Hero */}
+      <div className="container mx-auto px-3 max-w-6xl relative z-10 -mt-12 mb-8">
+        <div className="bg-white rounded-2xl shadow-lg py-5 px-3">
+          <div className="flex items-center justify-center gap-3 md:gap-8">
+            {/* Handicap Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-turf to-turf/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-xl md:text-3xl font-bold text-scorecard">
+                  {profile.handicap.toFixed(1)}
+                </div>
+              </div>
+              <div className="text-label-sm text-charcoal/70 mt-2">HCP</div>
+            </div>
+
+            {/* Total Rounds Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-charcoal to-charcoal/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-xl md:text-3xl font-bold text-scorecard">
+                  {profile.total_rounds}
+                </div>
+              </div>
+              <div className="text-label-sm text-charcoal/70 mt-2">Rounds</div>
+            </div>
+
+            {/* Active Tours Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-coral to-coral/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-xl md:text-3xl font-bold text-scorecard">
+                  {toursAndSeries?.tours.length || 0}
+                </div>
+              </div>
+              <div className="text-label-sm text-charcoal/70 mt-2">Tours</div>
+            </div>
+
+            {/* Best Position Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-sky to-sky/80 shadow-lg flex flex-col items-center justify-center">
+                <div className="text-xl md:text-3xl font-bold text-scorecard">
+                  {toursAndSeries?.tours.find((t) => t.position)?.position ||
+                    "—"}
+                </div>
+              </div>
+              <div className="text-label-sm text-charcoal/70 mt-2">
+                Best Pos
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -140,7 +190,7 @@ export function Dashboard() {
                       competitionId: round.competition_id.toString(),
                       teeTimeId: round.tee_time_id.toString(),
                     }}
-                    className="block bg-gradient-to-br from-flag/10 to-flag/5 rounded-xl px-4 py-4 shadow-md border-l-2 border-flag/50 hover:shadow-lg hover:border-flag transition-all flex-shrink-0"
+                    className="block bg-white rounded-xl px-4 py-4 shadow-lg border-l-4 border-flag hover:shadow-xl hover:border-flag/80 transition-all flex-shrink-0"
                     style={{ width: "280px" }}
                   >
                     <div className="font-semibold text-charcoal mb-2 line-clamp-1">
@@ -165,7 +215,7 @@ export function Dashboard() {
               </div>
             </div>
             {/* Desktop vertical list */}
-            <div className="hidden md:block bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey shadow-md">
+            <div className="hidden md:block bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey shadow-lg">
               {currentRounds.map((round) => (
                 <Link
                   key={round.tee_time_id}
@@ -174,7 +224,7 @@ export function Dashboard() {
                     competitionId: round.competition_id.toString(),
                     teeTimeId: round.tee_time_id.toString(),
                   }}
-                  className="block px-5 py-4 hover:bg-turf/5 transition-colors border-l-2 border-flag/30 hover:border-flag"
+                  className="block px-5 py-4 hover:bg-turf/5 transition-colors border-l-4 border-flag hover:border-flag/80"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -199,54 +249,6 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* Stats - Circular Tiles (after active rounds) */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center gap-4 md:gap-8">
-            {/* Handicap Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-turf to-turf/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.handicap.toFixed(1)}
-                </div>
-              </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">HCP</div>
-            </div>
-
-            {/* Total Rounds Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-charcoal to-charcoal/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.total_rounds}
-                </div>
-              </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Rounds</div>
-            </div>
-
-            {/* Active Tours Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-coral to-coral/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {toursAndSeries?.tours.length || 0}
-                </div>
-              </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Tours</div>
-            </div>
-
-            {/* Best Position Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-sky to-sky/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {toursAndSeries?.tours.find((t) => t.position)?.position ||
-                    "—"}
-                </div>
-              </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">
-                Best Pos
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Upcoming This Week */}
         {upcomingThisWeek.length > 0 && (
           <div className="mb-8">
@@ -255,7 +257,7 @@ export function Dashboard() {
                 Upcoming This Week
               </h2>
             </div>
-            <div className="bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey shadow-md">
+            <div className="bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey shadow-lg">
               {upcomingThisWeek.map((round) => {
                 const openUntil = round.open_until
                   ? new Date(round.open_until)
@@ -274,7 +276,7 @@ export function Dashboard() {
                     to="/player/competitions/$competitionId"
                     params={{ competitionId: round.competition_id.toString() }}
                     search={{ view: "teams" }}
-                    className="block px-5 py-4 hover:bg-coral/5 transition-colors border-l-4 border-coral/30 hover:border-coral"
+                    className="block px-5 py-4 hover:bg-coral/5 transition-colors border-l-4 border-coral hover:border-coral/80"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -319,7 +321,7 @@ export function Dashboard() {
                       key={tour.tour_id}
                       to="/player/tours/$tourId"
                       params={{ tourId: tour.tour_id.toString() }}
-                      className="block bg-gradient-to-br from-turf/5 to-turf/10 hover:from-turf/10 hover:to-turf/15 rounded-xl px-4 py-4 shadow-md hover:shadow-lg transition-all border-l-2 border-turf/50 hover:border-turf flex-shrink-0"
+                      className="block bg-white rounded-xl px-4 py-4 shadow-lg border-l-4 border-turf hover:shadow-xl hover:border-turf/80 transition-all flex-shrink-0"
                       style={{ width: "280px" }}
                     >
                       <div className="flex items-center gap-2 mb-3">
@@ -363,7 +365,7 @@ export function Dashboard() {
                     key={tour.tour_id}
                     to="/player/tours/$tourId"
                     params={{ tourId: tour.tour_id.toString() }}
-                    className="block bg-gradient-to-br from-turf/5 to-turf/10 hover:from-turf/10 hover:to-turf/15 rounded-xl px-5 py-4 shadow-md hover:shadow-lg transition-all border-l-2 border-turf/30 hover:border-turf"
+                    className="block bg-white rounded-xl px-5 py-4 shadow-lg border-l-4 border-turf hover:shadow-xl hover:border-turf/80 transition-all"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -405,7 +407,7 @@ export function Dashboard() {
               </div>
             </>
           ) : (
-            <div className="bg-scorecard rounded-xl shadow-md text-center py-12 text-charcoal/60 mx-4 md:mx-0">
+            <div className="bg-scorecard rounded-xl shadow-lg text-center py-12 text-charcoal/60 mx-4 md:mx-0">
               <Trophy className="h-16 w-16 mx-auto mb-4 opacity-40" />
               <h3 className="text-body-lg font-medium mb-2">No Active Tours</h3>
               <p className="text-body-sm mb-4">
@@ -445,7 +447,7 @@ export function Dashboard() {
           <h2 className="text-body-md font-bold text-charcoal mb-4">
             Quick Access
           </h2>
-          <div className="bg-scorecard rounded-xl overflow-hidden shadow-md">
+          <div className="bg-scorecard rounded-xl overflow-hidden shadow-lg">
             <div className="divide-y divide-soft-grey">
               <Link
                 to="/player/tours"
