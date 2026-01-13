@@ -467,17 +467,19 @@ export default function MyProfile() {
                 </label>
                 <div className="flex gap-2">
                   {(["public", "friends", "private"] as const).map((v) => (
-                    <button
+                    <Button
                       key={v}
+                      type="button"
+                      variant={editForm.visibility === v ? "default" : "outline"}
                       onClick={() => setEditForm({ ...editForm, visibility: v })}
-                      className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      className={`flex-1 rounded ${
                         editForm.visibility === v
-                          ? "bg-turf text-white border-turf"
-                          : "bg-white text-charcoal border-gray-200 hover:border-turf"
+                          ? "bg-turf hover:bg-fairway text-white border-turf"
+                          : "hover:border-turf"
                       }`}
                     >
                       {v.charAt(0).toUpperCase() + v.slice(1)}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -508,56 +510,50 @@ export default function MyProfile() {
           )}
         </div>
 
-        {/* Stats - Circular Tiles */}
-        <div className="mb-6">
-          <div className="flex items-center justify-center gap-4 md:gap-8">
-            {/* Total Rounds Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-charcoal to-charcoal/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.total_rounds}
-                </div>
+        {/* Stats Grid */}
+        <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6 mb-6">
+          <h3 className="text-sm font-bold text-charcoal mb-4 uppercase tracking-wide">
+            Statistics
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Total Rounds */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-charcoal mb-1">
+                {profile.total_rounds}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Rounds</div>
+              <div className="text-sm text-charcoal/70">Rounds</div>
             </div>
 
-            {/* Competitions Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-coral to-coral/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.competitions_played}
-                </div>
+            {/* Competitions */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-coral mb-1">
+                {profile.competitions_played}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Comps</div>
+              <div className="text-sm text-charcoal/70">Comps</div>
             </div>
 
-            {/* Best Score Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-sky to-sky/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.best_score || "–"}
-                </div>
+            {/* Best Score */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-sky mb-1">
+                {profile.best_score || "–"}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Best</div>
+              <div className="text-sm text-charcoal/70">Best</div>
             </div>
 
-            {/* Average Score Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-turf to-turf/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.average_score?.toFixed(1) || "–"}
-                </div>
+            {/* Average Score */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-turf mb-1">
+                {profile.average_score?.toFixed(1) || "–"}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Avg</div>
+              <div className="text-sm text-charcoal/70">Avg</div>
             </div>
           </div>
         </div>
 
         {/* Handicap section */}
-        <div className="bg-white rounded-xl border-l-2 border-turf mb-6">
-          <div className="flex items-center justify-between px-4 pt-4">
-            <h2 className="text-lg font-display font-bold text-charcoal flex items-center gap-2">
-              <Target className="h-5 w-5 text-turf" />
+        <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-charcoal uppercase tracking-wide">
               Handicap Index
             </h2>
             <Button
@@ -572,7 +568,7 @@ export default function MyProfile() {
 
           {/* Handicap form */}
           {showHandicapForm && (
-            <div className="bg-gray-50 rounded-lg p-4 mx-4 mt-4">
+            <div className="bg-white rounded p-4 mb-4">
               <div className="grid gap-3">
                 <div>
                   <label className="block text-sm font-medium text-charcoal mb-1">
@@ -625,7 +621,7 @@ export default function MyProfile() {
           )}
 
           {/* Current handicap */}
-          <div className="text-center py-4 mx-4 border-b border-soft-grey">
+          <div className="bg-white rounded p-4 text-center">
             <div className="text-4xl font-bold text-turf">
               {profile.handicap.toFixed(1)}
             </div>
@@ -634,15 +630,15 @@ export default function MyProfile() {
 
           {/* Handicap history */}
           {profile.handicap_history && profile.handicap_history.length > 0 && (
-            <div className="px-4 py-4">
+            <div className="mt-4">
               <h3 className="text-sm font-medium text-charcoal/60 mb-2">
                 Recent History
               </h3>
-              <div className="divide-y divide-soft-grey">
+              <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
                 {profile.handicap_history.slice(0, 5).map((entry) => (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between text-sm py-2"
+                    className="flex items-center justify-between text-sm px-4 py-3"
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-medium">
@@ -674,27 +670,19 @@ export default function MyProfile() {
         <ProfileSeries series={toursAndSeries?.series} />
 
         {/* Account Settings */}
-        <div className="bg-white rounded-xl border-l-2 border-turf mb-6">
-          <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-            <Settings className="h-5 w-5 text-turf" />
-            <h2 className="text-lg font-display font-bold text-charcoal">
-              Account Settings
-            </h2>
-          </div>
+        <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6 mb-6">
+          <h2 className="text-sm font-bold text-charcoal uppercase tracking-wide mb-4">
+            Account Settings
+          </h2>
 
-          <div className="divide-y divide-soft-grey">
+          <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
             {/* Email section */}
             <div className="px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-charcoal/60" />
-                  <div>
-                    <div className="text-sm font-medium text-charcoal">Email</div>
-                    <div className="text-sm text-charcoal/60">{user?.email}</div>
-                  </div>
-                </div>
+              <div className="flex items-center gap-3 mb-2">
+                <Mail className="h-4 w-4 text-charcoal/60" />
+                <div className="text-sm font-medium text-charcoal">Email</div>
                 {emailSuccess ? (
-                  <span className="flex items-center gap-1 text-sm text-green-600">
+                  <span className="flex items-center gap-1 text-sm text-green-600 ml-auto">
                     <Check className="h-4 w-4" />
                     Updated
                   </span>
@@ -703,14 +691,16 @@ export default function MyProfile() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowEmailForm(!showEmailForm)}
+                    className="ml-auto"
                   >
                     Change
                   </Button>
                 )}
               </div>
+              <div className="text-sm text-charcoal/60 ml-7">{user?.email}</div>
 
               {showEmailForm && (
-                <div className="mt-4 space-y-3 bg-gray-50 rounded-lg p-4">
+                <div className="mt-4 space-y-3 bg-soft-grey/20 rounded p-4">
                   <div>
                     <label className="block text-sm font-medium text-charcoal mb-1">
                       New Email
@@ -770,16 +760,11 @@ export default function MyProfile() {
 
             {/* Password section */}
             <div className="px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Key className="h-4 w-4 text-charcoal/60" />
-                  <div>
-                    <div className="text-sm font-medium text-charcoal">Password</div>
-                    <div className="text-sm text-charcoal/60">••••••••</div>
-                  </div>
-                </div>
+              <div className="flex items-center gap-3 mb-2">
+                <Key className="h-4 w-4 text-charcoal/60" />
+                <div className="text-sm font-medium text-charcoal">Password</div>
                 {passwordSuccess ? (
-                  <span className="flex items-center gap-1 text-sm text-green-600">
+                  <span className="flex items-center gap-1 text-sm text-green-600 ml-auto">
                     <Check className="h-4 w-4" />
                     Updated
                   </span>
@@ -788,14 +773,16 @@ export default function MyProfile() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowPasswordForm(!showPasswordForm)}
+                    className="ml-auto"
                   >
                     Change
                   </Button>
                 )}
               </div>
+              <div className="text-sm text-charcoal/60 ml-7">••••••••</div>
 
               {showPasswordForm && (
-                <div className="mt-4 space-y-3 bg-gray-50 rounded-lg p-4">
+                <div className="mt-4 space-y-3 bg-soft-grey/20 rounded p-4">
                   <div>
                     <label className="block text-sm font-medium text-charcoal mb-1">
                       Current Password

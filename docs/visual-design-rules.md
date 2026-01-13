@@ -340,8 +340,49 @@ Use solid colors, not transparent:
 
 ## Icons
 
-- Use icons inline with text for context
-- Avoid large decorative icon boxes that duplicate information
+### Functional vs. Decorative Icons
+
+**Icons should be functional, not decorative embellishments.**
+
+**Use icons for:**
+- **Actions** (buttons, controls) - helps quick recognition
+- **Status indicators** - conveys meaning at a glance
+- **Navigation** - aids wayfinding
+- **Data visualization** - clarifies information type (e.g., calendar for dates, location for places)
+
+**Avoid icons for:**
+- **Decorative headers** - adds visual noise without purpose
+- **Section titles** - text alone is clearer
+- **Redundant labeling** - when text already explains everything
+- **Every single heading** - creates pattern fatigue
+
+```tsx
+// Good - Icon adds functional value
+<Button onClick={handleEdit}>
+  <Edit2 className="h-4 w-4 mr-2" />
+  Edit Profile
+</Button>
+
+// Good - Icon clarifies data type
+<div className="flex items-center gap-1 text-sm">
+  <Calendar className="h-4 w-4 text-turf" />
+  <span>Sep 5, 2025</span>
+</div>
+
+// Bad - Decorative icon in header adds no value
+<h2 className="flex items-center gap-2">
+  <Target className="h-5 w-5 text-turf" />
+  Handicap Index
+</h2>
+
+// Better - Just the text
+<h2 className="font-display font-bold">
+  Handicap Index
+</h2>
+```
+
+### Icon Sizing & Colors
+
 - Icon sizing:
   - Inline with text: `h-4 w-4`
   - Button icons: `h-5 w-5`
@@ -350,6 +391,7 @@ Use solid colors, not transparent:
   - Interactive elements: `text-turf`
   - Metadata: `text-charcoal/70`
   - Disabled: `text-charcoal/40`
+- Avoid large decorative icon boxes that duplicate information
 
 ---
 
@@ -381,7 +423,7 @@ When reviewing a view, look for and eliminate:
 - [ ] Metadata is inline text, not pills
 - [ ] Position numbers are plain text, not circles
 - [ ] Hover states use background color, not shadow/transform
-- [ ] Icons serve a purpose, not just decoration
+- [ ] Icons only used for actions, status, navigation, or data clarification - not decorative headers
 - [ ] Left accents used for color coding
 - [ ] Navigation buttons can be pills, action buttons match content
 - [ ] Badges use solid colors, not transparent

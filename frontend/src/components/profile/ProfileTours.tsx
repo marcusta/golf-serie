@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Flag, Check, Clock, Hash, ChevronRight } from "lucide-react";
+import { Flag, Check, Clock, ChevronRight } from "lucide-react";
 import type { PlayerTourInfo } from "@/api/player-profile";
 
 interface ProfileToursProps {
@@ -12,11 +12,9 @@ interface ProfileToursProps {
 export function ProfileTours({ tours, isLoading, title = "My Tours" }: ProfileToursProps) {
   if (isLoading) {
     return (
-      <div className="bg-white rounded-xl border-l-2 border-turf mb-6 animate-pulse">
-        <div className="px-4 pt-4 pb-2">
-          <div className="h-6 bg-gray-200 rounded w-1/4" />
-        </div>
-        <div className="divide-y divide-soft-grey">
+      <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6 mb-6 animate-pulse">
+        <div className="h-6 bg-gray-200 rounded w-1/4 mb-3" />
+        <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
           {[...Array(2)].map((_, i) => (
             <div key={i} className="px-4 py-3">
               <div className="h-4 bg-gray-200 rounded w-1/2 mb-2" />
@@ -29,16 +27,13 @@ export function ProfileTours({ tours, isLoading, title = "My Tours" }: ProfileTo
   }
 
   return (
-    <div className="bg-white rounded-xl border-l-2 border-turf mb-6">
-      <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-        <Flag className="h-5 w-5 text-turf" />
-        <h2 className="text-lg font-display font-bold text-charcoal">
-          {title}
-        </h2>
-      </div>
+    <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6 mb-6">
+      <h2 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
+        {title}
+      </h2>
 
       {tours && tours.length > 0 ? (
-        <div className="divide-y divide-soft-grey">
+        <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
           {tours.map((tour) => (
             <Link
               key={tour.tour_id}
@@ -46,12 +41,12 @@ export function ProfileTours({ tours, isLoading, title = "My Tours" }: ProfileTo
               params={{ tourId: tour.tour_id.toString() }}
               className="block"
             >
-              <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors">
+              <div className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-turf/5 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-charcoal truncate">
-                      {tour.tour_name}
-                    </span>
+                  <div className="font-medium text-charcoal mb-1">
+                    {tour.tour_name}
+                  </div>
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-sm text-charcoal/60">
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                         tour.enrollment_status === "active"
@@ -72,24 +67,22 @@ export function ProfileTours({ tours, isLoading, title = "My Tours" }: ProfileTo
                           ? "Requested"
                           : "Pending"}
                     </span>
-                  </div>
-                  <div className="text-sm text-charcoal/60 flex items-center gap-2 mt-1">
                     {tour.category_name && (
                       <>
-                        <span>{tour.category_name}</span>
                         <span className="text-charcoal/40">•</span>
+                        <span>{tour.category_name}</span>
                       </>
                     )}
+                    <span className="text-charcoal/40">•</span>
                     <span>{tour.competitions_played} competitions played</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {tour.enrollment_status === "active" &&
                     tour.position !== undefined && (
                       <div className="text-right">
-                        <div className="flex items-center gap-1 text-turf font-bold">
-                          <Hash className="h-4 w-4" />
-                          {tour.position}
+                        <div className="text-turf font-bold">
+                          # {tour.position}
                         </div>
                         {tour.total_points !== undefined && (
                           <div className="text-sm text-charcoal/60">
@@ -105,7 +98,7 @@ export function ProfileTours({ tours, isLoading, title = "My Tours" }: ProfileTo
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 px-4 text-charcoal/60">
+        <div className="bg-white rounded text-center py-8 px-4 text-charcoal/60">
           <Flag className="h-8 w-8 mx-auto mb-2 opacity-40" />
           <p>Not enrolled in any tours yet</p>
           <Link to="/player/tours" className="text-turf text-sm hover:underline">

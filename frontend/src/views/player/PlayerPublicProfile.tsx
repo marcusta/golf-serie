@@ -216,61 +216,53 @@ export default function PlayerPublicProfile() {
           )}
         </div>
 
-        {/* Stats - Circular Tiles */}
-        <div className="mb-6">
-          <div className="flex items-center justify-center gap-4 md:gap-8">
-            {/* Total Rounds Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-charcoal to-charcoal/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.total_rounds}
-                </div>
+        {/* Stats Grid */}
+        <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6 mb-6">
+          <h3 className="text-sm font-bold text-charcoal mb-4 uppercase tracking-wide">
+            Statistics
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Total Rounds */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-charcoal mb-1">
+                {profile.total_rounds}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Rounds</div>
+              <div className="text-sm text-charcoal/70">Rounds</div>
             </div>
 
-            {/* Competitions Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-coral to-coral/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.competitions_played}
-                </div>
+            {/* Competitions */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-coral mb-1">
+                {profile.competitions_played}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Comps</div>
+              <div className="text-sm text-charcoal/70">Comps</div>
             </div>
 
-            {/* Best Score Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-sky to-sky/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.best_score || "–"}
-                </div>
+            {/* Best Score */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-sky mb-1">
+                {profile.best_score || "–"}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Best</div>
+              <div className="text-sm text-charcoal/70">Best</div>
             </div>
 
-            {/* Average Score Circle */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-turf to-turf/80 shadow-lg flex flex-col items-center justify-center">
-                <div className="text-2xl md:text-3xl font-bold text-scorecard">
-                  {profile.average_score?.toFixed(1) || "–"}
-                </div>
+            {/* Average Score */}
+            <div className="bg-white rounded p-4 text-center">
+              <div className="text-3xl md:text-4xl font-bold text-turf mb-1">
+                {profile.average_score?.toFixed(1) || "–"}
               </div>
-              <div className="text-label-sm text-charcoal/70 mt-2">Avg</div>
+              <div className="text-sm text-charcoal/70">Avg</div>
             </div>
           </div>
         </div>
 
         {/* Handicap info */}
-        <div className="bg-white rounded-xl border-l-2 border-turf mb-6">
-          <div className="flex items-center gap-2 px-4 pt-4">
-            <Target className="h-5 w-5 text-turf" />
-            <h2 className="text-lg font-display font-bold text-charcoal">
-              Handicap Index
-            </h2>
-          </div>
+        <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6 mb-6">
+          <h2 className="text-sm font-bold text-charcoal uppercase tracking-wide mb-4">
+            Handicap Index
+          </h2>
 
-          <div className="text-center py-4 mx-4 border-b border-soft-grey">
+          <div className="bg-white rounded p-4 text-center mb-4">
             <div className="text-4xl font-bold text-turf">
               {profile.handicap.toFixed(1)}
             </div>
@@ -279,15 +271,15 @@ export default function PlayerPublicProfile() {
 
           {/* Recent handicap history */}
           {profile.handicap_history && profile.handicap_history.length > 1 && (
-            <div className="px-4 py-4">
+            <div>
               <h3 className="text-sm font-medium text-charcoal/60 mb-2">
                 Recent Changes
               </h3>
-              <div className="divide-y divide-soft-grey">
+              <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
                 {profile.handicap_history.slice(0, 3).map((entry) => (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between text-sm py-2"
+                    className="flex items-center justify-between text-sm px-4 py-3"
                   >
                     <span className="font-medium">
                       {entry.handicap_index.toFixed(1)}
