@@ -16,8 +16,27 @@ import {
 } from "@/api/games";
 import { useCourseTees } from "@/api/courses";
 import type { GameScoringMode } from "@/types/games";
-import { Loader2, ChevronLeft, ChevronRight, Search, X, Plus, GripVertical, MoreVertical, ChevronDown, Trash2, UserPlus } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  X,
+  Plus,
+  GripVertical,
+  MoreVertical,
+  ChevronDown,
+  Trash2,
+  UserPlus,
+  Check,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +45,42 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ItemGroup, Item, ItemContent, ItemTitle, ItemDescription, ItemSeparator } from "@/components/ui/item";
+import {
+  ItemGroup,
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemSeparator,
+} from "@/components/ui/item";
 import { Badge } from "@/components/ui/badge";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, useDroppable, useDraggable, DragOverlay } from "@dnd-kit/core";
+import {
+  DndContext,
+  pointerWithin,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+  useDroppable,
+  useDraggable,
+  DragOverlay,
+} from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { getGamePlayerDisplayName } from "@/utils/player-display";
@@ -125,11 +174,18 @@ function DraggablePlayer({
       {showRemove && onRemove && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-charcoal/60 hover:text-turf">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-charcoal/60 hover:text-turf"
+            >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="z-50 bg-scorecard shadow-lg">
+          <DropdownMenuContent
+            align="end"
+            className="z-50 bg-scorecard shadow-lg"
+          >
             <DropdownMenuItem onClick={onRemove}>
               <Trash2 className="h-4 w-4 mr-2" />
               Remove from game
@@ -141,6 +197,72 @@ function DraggablePlayer({
   );
 }
 
+// ============================================================================
+// Draggable Player In Group Component (with slot number)
+// ============================================================================
+
+interface DraggablePlayerInGroupProps {
+  id: number;
+  slotNumber: number;
+  displayName: string;
+  isGuest: boolean;
+  playHandicap: number | null | undefined;
+  onRemove: () => void;
+}
+
+function DraggablePlayerInGroup({
+  id,
+  slotNumber,
+  displayName,
+  isGuest,
+  playHandicap,
+  onRemove,
+}: DraggablePlayerInGroupProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-center py-3 hover:bg-turf/5 transition-colors min-h-[44px] ${
+        isDragging ? "opacity-50" : ""
+      }`}
+      style={{ touchAction: "none" }}
+    >
+      <button
+        type="button"
+        {...listeners}
+        {...attributes}
+        className="cursor-grab active:cursor-grabbing text-charcoal/40 hover:text-turf mr-3 touch-none"
+        style={{ WebkitUserSelect: "none", userSelect: "none" }}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <span className="text-sm font-medium text-charcoal/40 mr-3 w-4">
+        {slotNumber}.
+      </span>
+      <div className="flex-1">
+        <div className="text-sm font-medium text-charcoal">{displayName}</div>
+        <div className="text-xs text-charcoal/70 mt-0.5">
+          {isGuest && "Guest • "}PHCP: {playHandicap?.toFixed(1) || "0.0"}
+        </div>
+      </div>
+      <Button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        variant="ghost"
+        size="icon"
+        className="text-coral hover:text-flag h-7 w-7"
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
 // ============================================================================
 // Main Component
@@ -179,27 +301,38 @@ export default function GameSetup() {
 
   // Step 4 collapse states
   const [unassignedCollapsed, setUnassignedCollapsed] = useState(false);
-  const [groupsCollapsed, setGroupsCollapsed] = useState<Record<number, boolean>>({});
+  const [groupsCollapsed, setGroupsCollapsed] = useState<
+    Record<number, boolean>
+  >({});
 
   // Step 4 tap-to-assign modal
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [assignTarget, setAssignTarget] = useState<{ groupIndex: number; slotIndex: number } | null>(null);
+  const [assignTarget, setAssignTarget] = useState<{
+    groupIndex: number;
+    slotIndex: number;
+  } | null>(null);
 
   // Step 4 manual assignment flag (disable auto-assignment after user interaction)
   const [hasManuallyAssigned, setHasManuallyAssigned] = useState(false);
 
   // Step 5 scoring mode multiselect state
-  const [selectedScoringModes, setSelectedScoringModes] = useState<Set<'gross' | 'net'>>(
-    state.scoringMode === 'both' ? new Set(['gross', 'net']) :
-    state.scoringMode === 'gross' ? new Set(['gross']) :
-    new Set(['net'])
+  const [selectedScoringModes, setSelectedScoringModes] = useState<
+    Set<"gross" | "net">
+  >(
+    state.scoringMode === "both"
+      ? new Set(["gross", "net"])
+      : state.scoringMode === "gross"
+      ? new Set(["gross"])
+      : new Set(["net"])
   );
 
   // API hooks
   const { data: courses, isLoading: coursesLoading } = useCourses();
   const { data: allPlayers, isLoading: playersLoading } = usePlayers();
   const { data: courseTees } = useCourseTees(state.courseId || 0);
-  const { data: gamePlayers, refetch: refetchGamePlayers } = useGamePlayers(state.gameId || 0);
+  const { data: gamePlayers, refetch: refetchGamePlayers } = useGamePlayers(
+    state.gameId || 0
+  );
 
   const createGame = useCreateGame();
   const updateGame = useUpdateGame();
@@ -214,9 +347,10 @@ export default function GameSetup() {
   const filteredCourses = useMemo(() => {
     if (!courses) return [];
     const query = courseSearchQuery.toLowerCase();
-    return courses.filter((c) =>
-      c.name.toLowerCase().includes(query) ||
-      c.club_name?.toLowerCase().includes(query)
+    return courses.filter(
+      (c) =>
+        c.name.toLowerCase().includes(query) ||
+        c.club_name?.toLowerCase().includes(query)
     );
   }, [courses, courseSearchQuery]);
 
@@ -224,9 +358,12 @@ export default function GameSetup() {
   const filteredPlayers = useMemo(() => {
     if (!allPlayers) return [];
     const query = playerSearchQuery.toLowerCase();
-    const alreadyAddedPlayerIds = gamePlayers?.map((gp) => gp.player_id).filter(Boolean) || [];
+    const alreadyAddedPlayerIds =
+      gamePlayers?.map((gp) => gp.player_id).filter(Boolean) || [];
     return allPlayers.filter(
-      (p) => p.name.toLowerCase().includes(query) && !alreadyAddedPlayerIds.includes(p.id)
+      (p) =>
+        p.name.toLowerCase().includes(query) &&
+        !alreadyAddedPlayerIds.includes(p.id)
     );
   }, [allPlayers, playerSearchQuery, gamePlayers]);
 
@@ -257,7 +394,13 @@ export default function GameSetup() {
 
   // Auto-assign players to Group 1 if ≤4 total players (only if user hasn't manually assigned)
   useEffect(() => {
-    if (step === 4 && !hasManuallyAssigned && gamePlayers && gamePlayers.length > 0 && gamePlayers.length <= 4) {
+    if (
+      step === 4 &&
+      !hasManuallyAssigned &&
+      gamePlayers &&
+      gamePlayers.length > 0 &&
+      gamePlayers.length <= 4
+    ) {
       // Check if any players are unassigned
       const unassignedPlayers = gamePlayers.filter(
         (gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))
@@ -266,9 +409,15 @@ export default function GameSetup() {
       if (unassignedPlayers.length > 0) {
         // Auto-assign all unassigned players to Group 1 (no duplicates)
         setState((prev) => {
-          const newGroups = [...prev.groups];
-          const uniquePlayerIds = Array.from(new Set(gamePlayers.map((gp) => gp.id)));
-          newGroups[0].playerIds = uniquePlayerIds;
+          const uniquePlayerIds = Array.from(
+            new Set(gamePlayers.map((gp) => gp.id))
+          );
+          const newGroups = prev.groups.map((group, idx) => {
+            if (idx === 0) {
+              return { ...group, playerIds: uniquePlayerIds };
+            }
+            return group;
+          });
           return { ...prev, groups: newGroups };
         });
       }
@@ -427,47 +576,62 @@ export default function GameSetup() {
   const handleAddGroup = () => {
     setState((prev) => ({
       ...prev,
-      groups: [...prev.groups, { name: `Group ${prev.groups.length + 1}`, playerIds: [] }],
+      groups: [
+        ...prev.groups,
+        { name: `Group ${prev.groups.length + 1}`, playerIds: [] },
+      ],
     }));
   };
 
   const handleRemoveGroup = (groupIndex: number) => {
+    setHasManuallyAssigned(true);
     setState((prev) => ({
       ...prev,
       groups: prev.groups.filter((_, i) => i !== groupIndex),
     }));
   };
 
-  const handleAssignPlayerToGroup = (gamePlayerId: number, groupIndex: number) => {
+  const handleAssignPlayerToGroup = (
+    gamePlayerId: number,
+    groupIndex: number
+  ) => {
     setHasManuallyAssigned(true);
     setState((prev) => {
-      const newGroups = [...prev.groups];
-
-      // Check if player is already in the group (prevent duplicates)
-      if (newGroups[groupIndex].playerIds.includes(gamePlayerId)) {
+      // Check if player is already in the target group (prevent duplicates)
+      if (prev.groups[groupIndex].playerIds.includes(gamePlayerId)) {
         return prev;
       }
 
-      // Remove player from all groups first to get accurate count
-      newGroups.forEach((g) => {
-        g.playerIds = g.playerIds.filter((id) => id !== gamePlayerId);
-      });
+      // Count players in target group after removal from other groups
+      const playersInTargetAfterRemoval = prev.groups[
+        groupIndex
+      ].playerIds.filter((id) => id !== gamePlayerId).length;
 
-      // Now check if adding this player would exceed the limit
-      if (newGroups[groupIndex].playerIds.length + 1 > 4) {
+      // Check if adding this player would exceed the limit
+      if (playersInTargetAfterRemoval + 1 > 4) {
         toast.error("Group limit: maximum 4 players per group");
         return prev;
       }
 
-      // Add to target group
-      newGroups[groupIndex].playerIds.push(gamePlayerId);
+      // Create new groups with player removed from all groups, then added to target
+      const newGroups = prev.groups.map((group, idx) => {
+        // Remove from all groups first
+        const filteredIds = group.playerIds.filter((id) => id !== gamePlayerId);
+
+        // Add to target group
+        if (idx === groupIndex) {
+          return { ...group, playerIds: [...filteredIds, gamePlayerId] };
+        }
+
+        return { ...group, playerIds: filteredIds };
+      });
+
       return { ...prev, groups: newGroups };
     });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    console.log('🔵 handleDragEnd called', { activeId: active.id, overId: over?.id });
     setActivePlayerId(null);
 
     if (!over) return;
@@ -479,7 +643,9 @@ export default function GameSetup() {
     setHasManuallyAssigned(true);
 
     // Find which group the active item is currently in
-    const activeGroupIndex = state.groups.findIndex((g) => g.playerIds.includes(activeId));
+    const activeGroupIndex = state.groups.findIndex((g) =>
+      g.playerIds.includes(activeId)
+    );
     const isActiveUnassigned = activeGroupIndex === -1;
 
     // Determine the target location
@@ -498,71 +664,94 @@ export default function GameSetup() {
     // If same location, do nothing
     if (
       (isActiveUnassigned && targetIsUnassigned) ||
-      (!isActiveUnassigned && !targetIsUnassigned && activeGroupIndex === targetGroupIndex)
+      (!isActiveUnassigned &&
+        !targetIsUnassigned &&
+        activeGroupIndex === targetGroupIndex)
     ) {
       return;
     }
 
     setState((prev) => {
-      const newGroups = [...prev.groups];
-
       // Moving from unassigned to a group
-      if (isActiveUnassigned && !targetIsUnassigned && targetGroupIndex !== -1) {
-        const targetGroup = newGroups[targetGroupIndex];
-        console.log('🟢 Moving from unassigned to group', {
-          activeId,
-          targetGroupIndex,
-          beforePlayerIds: [...targetGroup.playerIds]
+      if (
+        isActiveUnassigned &&
+        !targetIsUnassigned &&
+        targetGroupIndex !== -1
+      ) {
+        const newGroups = prev.groups.map((group, idx) => {
+          if (idx !== targetGroupIndex) return group;
+
+          // Find first empty slot
+          const firstEmptySlot = group.playerIds.findIndex((id) => !id);
+
+          if (firstEmptySlot !== -1) {
+            // Assign to first empty slot - create new array
+            const newPlayerIds = [...group.playerIds];
+            newPlayerIds[firstEmptySlot] = activeId;
+            return { ...group, playerIds: newPlayerIds };
+          } else if (group.playerIds.length < 4) {
+            // No empty slots, but group isn't full - add to end
+            return { ...group, playerIds: [...group.playerIds, activeId] };
+          } else {
+            // Group is full
+            toast.error("Group limit: maximum 4 players per group");
+            return group;
+          }
         });
 
-        // Find first empty slot
-        const firstEmptySlot = targetGroup.playerIds.findIndex((id) => !id);
-
-        if (firstEmptySlot !== -1) {
-          // Assign to first empty slot
-          targetGroup.playerIds[firstEmptySlot] = activeId;
-          console.log('  → Assigned to slot', firstEmptySlot);
-        } else if (targetGroup.playerIds.length < 4) {
-          // No empty slots, but group isn't full - add to end
-          targetGroup.playerIds.push(activeId);
-          console.log('  → Pushed to end');
-        } else {
-          // Group is full
-          toast.error("Group limit: maximum 4 players per group");
-          return prev;
+        if (newGroups === prev.groups) {
+          return prev; // Group was full, no change
         }
-        console.log('  → afterPlayerIds:', [...targetGroup.playerIds]);
         return { ...prev, groups: newGroups };
       }
 
       // Moving from a group to unassigned
       if (!isActiveUnassigned && targetIsUnassigned) {
-        newGroups[activeGroupIndex].playerIds = newGroups[activeGroupIndex].playerIds.filter(
-          (id) => id !== activeId
-        );
+        const newGroups = prev.groups.map((group, idx) => {
+          if (idx !== activeGroupIndex) return group;
+          return {
+            ...group,
+            playerIds: group.playerIds.filter((id) => id !== activeId),
+          };
+        });
         return { ...prev, groups: newGroups };
       }
 
       // Moving between different groups
-      if (!isActiveUnassigned && !targetIsUnassigned && activeGroupIndex !== targetGroupIndex && targetGroupIndex !== -1) {
-        const targetGroup = newGroups[targetGroupIndex];
+      if (
+        !isActiveUnassigned &&
+        !targetIsUnassigned &&
+        activeGroupIndex !== targetGroupIndex &&
+        targetGroupIndex !== -1
+      ) {
+        const newGroups = prev.groups.map((group, idx) => {
+          // Remove from source group
+          if (idx === activeGroupIndex) {
+            return {
+              ...group,
+              playerIds: group.playerIds.filter((id) => id !== activeId),
+            };
+          }
 
-        // Remove from old group
-        newGroups[activeGroupIndex].playerIds = newGroups[activeGroupIndex].playerIds.filter(
-          (id) => id !== activeId
-        );
+          // Add to target group
+          if (idx === targetGroupIndex) {
+            const firstEmptySlot = group.playerIds.findIndex((id) => !id);
 
-        // Find first empty slot in target group
-        const firstEmptySlot = targetGroup.playerIds.findIndex((id) => !id);
+            if (firstEmptySlot !== -1) {
+              const newPlayerIds = [...group.playerIds];
+              newPlayerIds[firstEmptySlot] = activeId;
+              return { ...group, playerIds: newPlayerIds };
+            } else if (group.playerIds.length < 4) {
+              return { ...group, playerIds: [...group.playerIds, activeId] };
+            } else {
+              toast.error("Group limit: maximum 4 players per group");
+              return group;
+            }
+          }
 
-        if (firstEmptySlot !== -1) {
-          targetGroup.playerIds[firstEmptySlot] = activeId;
-        } else if (targetGroup.playerIds.length < 4) {
-          targetGroup.playerIds.push(activeId);
-        } else {
-          toast.error("Group limit: maximum 4 players per group");
-          return prev;
-        }
+          return group;
+        });
+
         return { ...prev, groups: newGroups };
       }
 
@@ -570,11 +759,19 @@ export default function GameSetup() {
     });
   };
 
-  const handleRemovePlayerFromGroup = (gamePlayerId: number, groupIndex: number) => {
+  const handleRemovePlayerFromGroup = (
+    gamePlayerId: number,
+    groupIndex: number
+  ) => {
     setHasManuallyAssigned(true);
     setState((prev) => {
-      const newGroups = [...prev.groups];
-      newGroups[groupIndex].playerIds = newGroups[groupIndex].playerIds.filter((id) => id !== gamePlayerId);
+      const newGroups = prev.groups.map((group, idx) => {
+        if (idx !== groupIndex) return group;
+        return {
+          ...group,
+          playerIds: group.playerIds.filter((id) => id !== gamePlayerId),
+        };
+      });
       return { ...prev, groups: newGroups };
     });
   };
@@ -589,21 +786,23 @@ export default function GameSetup() {
 
     setHasManuallyAssigned(true);
     setState((prev) => {
-      const newGroups = [...prev.groups];
-      const targetGroup = newGroups[assignTarget.groupIndex];
+      const newGroups = prev.groups.map((group, idx) => {
+        // Remove player from all groups first
+        const filteredIds = group.playerIds.filter((id) => id !== gamePlayerId);
 
-      // Remove player from all groups first
-      newGroups.forEach((g) => {
-        g.playerIds = g.playerIds.filter((id) => id !== gamePlayerId);
+        // Assign to target slot in target group
+        if (idx === assignTarget.groupIndex) {
+          const newPlayerIds = [...filteredIds];
+          // Ensure array is long enough for the slot
+          while (newPlayerIds.length <= assignTarget.slotIndex) {
+            newPlayerIds.push(0);
+          }
+          newPlayerIds[assignTarget.slotIndex] = gamePlayerId;
+          return { ...group, playerIds: newPlayerIds };
+        }
+
+        return { ...group, playerIds: filteredIds };
       });
-
-      // Create new player array for target group
-      const newPlayerIds = [...targetGroup.playerIds];
-
-      // Assign new player to slot
-      newPlayerIds[assignTarget.slotIndex] = gamePlayerId;
-
-      targetGroup.playerIds = newPlayerIds;
 
       return { ...prev, groups: newGroups };
     });
@@ -623,7 +822,7 @@ export default function GameSetup() {
   // Step 5: Game Configuration & Finalization
   // ============================================================================
 
-  const handleToggleScoringMode = (mode: 'gross' | 'net') => {
+  const handleToggleScoringMode = (mode: "gross" | "net") => {
     setSelectedScoringModes((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(mode)) {
@@ -639,12 +838,12 @@ export default function GameSetup() {
 
       // Update state.scoringMode based on selection
       let scoringMode: GameScoringMode;
-      if (newSet.has('gross') && newSet.has('net')) {
-        scoringMode = 'both';
-      } else if (newSet.has('gross')) {
-        scoringMode = 'gross';
+      if (newSet.has("gross") && newSet.has("net")) {
+        scoringMode = "both";
+      } else if (newSet.has("gross")) {
+        scoringMode = "gross";
       } else {
-        scoringMode = 'net';
+        scoringMode = "net";
       }
 
       setState((prevState) => ({ ...prevState, scoringMode }));
@@ -685,9 +884,15 @@ export default function GameSetup() {
       // Navigate to game play or guest select
       const hasGuests = gamePlayers?.some((p) => p.guest_name);
       if (hasGuests) {
-        navigate({ to: "/games/$gameId/guest-select", params: { gameId: state.gameId.toString() } });
+        navigate({
+          to: "/games/$gameId/guest-select",
+          params: { gameId: state.gameId.toString() },
+        });
       } else {
-        navigate({ to: "/player/games/$gameId/play", params: { gameId: state.gameId.toString() } });
+        navigate({
+          to: "/player/games/$gameId/play",
+          params: { gameId: state.gameId.toString() },
+        });
       }
     } catch (error) {
       console.error("Failed to finish setup:", error);
@@ -705,8 +910,15 @@ export default function GameSetup() {
   const canProceedStep3 = (gamePlayers?.length || 0) >= 1;
   // Step 4: All groups valid and all players assigned
   const canProceedStep4 =
-    state.groups.every((g) => g.playerIds.filter(Boolean).length > 0 && g.playerIds.filter(Boolean).length <= 4) &&
-    (gamePlayers?.every((gp) => state.groups.some((g) => g.playerIds.includes(gp.id))) || false);
+    state.groups.every(
+      (g) =>
+        g.playerIds.filter(Boolean).length > 0 &&
+        g.playerIds.filter(Boolean).length <= 4
+    ) &&
+    (gamePlayers?.every((gp) =>
+      state.groups.some((g) => g.playerIds.includes(gp.id))
+    ) ||
+      false);
 
   // ============================================================================
   // Render Loading
@@ -742,11 +954,19 @@ export default function GameSetup() {
         </div>
 
         {/* Step Content */}
-        <div className="bg-scorecard rounded-2xl shadow-lg p-6 mb-6" style={{ paddingTop: step === 4 ? '1rem' : '1.5rem', paddingBottom: step === 4 ? '0' : '1.5rem' }}>
+        <div
+          className="bg-scorecard rounded-2xl shadow-lg p-6 mb-6"
+          style={{
+            paddingTop: step === 4 ? "1rem" : "1.5rem",
+            paddingBottom: step === 4 ? "0" : "1.5rem",
+          }}
+        >
           {/* Step 1: Course Selection */}
           {step === 1 && (
             <div>
-              <h2 className="text-display-sm text-charcoal mb-2">Select Course</h2>
+              <h2 className="text-display-sm text-charcoal mb-2">
+                Select Course
+              </h2>
               <p className="text-body-md text-charcoal/70 mb-6">
                 Choose the course where you'll be playing
               </p>
@@ -767,30 +987,39 @@ export default function GameSetup() {
 
               {/* Course List */}
               {filteredCourses.length === 0 ? (
-                <div className="px-5 py-8 text-center text-charcoal/60">
+                <div className="bg-white rounded-2xl shadow-lg px-5 py-8 text-center text-charcoal/60">
                   No courses found
                 </div>
               ) : (
-                <div className="divide-y divide-soft-grey">
+                <div className="bg-white rounded-2xl shadow-lg overflow-hidden divide-y divide-soft-grey">
                   {filteredCourses.map((course) => {
                     // Check if course has a real club (not "Default Club" placeholder)
-                    const hasRealClub = course.club_name && course.club_name !== "Default Club";
+                    const hasRealClub =
+                      course.club_name && course.club_name !== "Default Club";
 
                     return (
                       <button
                         key={course.id}
-                        onClick={() => handleCourseSelect(course.id, course.name)}
+                        onClick={() =>
+                          handleCourseSelect(course.id, course.name)
+                        }
                         disabled={createGame.isPending}
-                        className="disabled:opacity-50 disabled:cursor-not-allowed w-full text-left px-4 py-3 hover:bg-turf/5 transition-colors"
+                        className="disabled:opacity-50 disabled:cursor-not-allowed w-full text-left px-4 py-3 hover:bg-turf/10 transition-colors"
                       >
                         <div className="text-[15px] font-medium text-charcoal">
                           {hasRealClub ? course.club_name : course.name}
                         </div>
                         <div className="text-[13px] text-charcoal/70 mt-0.5">
                           {hasRealClub ? (
-                            <>{course.name} • Par {course.pars.total} • {course.pars.holes.length} holes</>
+                            <>
+                              {course.name} • Par {course.pars.total} •{" "}
+                              {course.pars.holes.length} holes
+                            </>
                           ) : (
-                            <>Par {course.pars.total} • {course.pars.holes.length} holes</>
+                            <>
+                              Par {course.pars.total} •{" "}
+                              {course.pars.holes.length} holes
+                            </>
                           )}
                         </div>
                       </button>
@@ -804,31 +1033,37 @@ export default function GameSetup() {
           {/* Step 2: Tee Box Selection */}
           {step === 2 && (
             <div>
-              <h2 className="text-display-sm text-charcoal mb-2">Select Tee Box</h2>
+              <h2 className="text-display-sm text-charcoal mb-2">
+                Select Default Tee Box
+              </h2>
               <p className="text-body-md text-charcoal/70 mb-6">
                 Choose the default tee box for all players
               </p>
 
-              <div>
-                <label className="block text-label-md text-charcoal mb-3">
-                  Tee Box
-                </label>
-                <Select
-                  value={selectedTeeId}
-                  onValueChange={handleTeeSelection}
-                  disabled={assignTee.isPending}
-                >
-                  <SelectTrigger className="w-full h-12 text-base">
-                    <SelectValue placeholder="Choose a tee box..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courseTees?.map((tee: CourseTee) => (
-                      <SelectItem key={tee.id} value={tee.id.toString()}>
-                        {tee.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
+                  <label className="text-sm font-semibold text-charcoal">
+                    Tee Box
+                  </label>
+                </div>
+                <div className="p-6">
+                  <Select
+                    value={selectedTeeId}
+                    onValueChange={handleTeeSelection}
+                    disabled={assignTee.isPending}
+                  >
+                    <SelectTrigger className="w-full h-12 text-base">
+                      <SelectValue placeholder="Choose a tee box..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courseTees?.map((tee: CourseTee) => (
+                        <SelectItem key={tee.id} value={tee.id.toString()}>
+                          {tee.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           )}
@@ -836,10 +1071,9 @@ export default function GameSetup() {
           {/* Step 3: Player Setup */}
           {step === 3 && (
             <div>
-              <h2 className="text-display-sm text-charcoal mb-2">Add Players</h2>
-              <p className="text-body-md text-charcoal/70 mb-6">
-                Add registered players or guests to your game
-              </p>
+              <h2 className="text-display-sm text-charcoal mb-2">
+                Add Players
+              </h2>
 
               {/* Search Registered Players */}
               <div className="mb-6">
@@ -858,13 +1092,13 @@ export default function GameSetup() {
                 </div>
 
                 {playerSearchQuery && filteredPlayers.length > 0 && (
-                  <ItemGroup className="mt-2 max-h-48 overflow-y-auto border border-soft-grey rounded-xl bg-scorecard">
+                  <ItemGroup className="mt-2 max-h-48 overflow-y-auto border border-soft-grey rounded-xl bg-white shadow-md">
                     {filteredPlayers.map((player, index) => (
                       <React.Fragment key={player.id}>
                         <Item
                           asChild
                           size="sm"
-                          className="cursor-pointer hover:bg-turf/5 transition-colors"
+                          className="cursor-pointer hover:bg-turf/10 transition-colors"
                         >
                           <button
                             onClick={() => handleAddRegisteredPlayer(player)}
@@ -873,11 +1107,15 @@ export default function GameSetup() {
                           >
                             <ItemContent>
                               <ItemTitle>{player.name}</ItemTitle>
-                              <ItemDescription>HCP: {player.handicap.toFixed(1)}</ItemDescription>
+                              <ItemDescription>
+                                HCP: {player.handicap.toFixed(1)}
+                              </ItemDescription>
                             </ItemContent>
                           </button>
                         </Item>
-                        {index < filteredPlayers.length - 1 && <ItemSeparator />}
+                        {index < filteredPlayers.length - 1 && (
+                          <ItemSeparator />
+                        )}
                       </React.Fragment>
                     ))}
                   </ItemGroup>
@@ -889,7 +1127,7 @@ export default function GameSetup() {
                 <Button
                   onClick={() => setGuestModalOpen(true)}
                   variant="outline"
-                  className="w-full h-11 justify-start text-turf border-turf/40 hover:bg-turf/5"
+                  className="w-full h-11 justify-start bg-white text-turf border-turf/40 hover:bg-turf/10 hover:border-turf/60 font-semibold"
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Create guest player
@@ -898,21 +1136,29 @@ export default function GameSetup() {
 
               {/* Current Players List */}
               {gamePlayers && gamePlayers.length > 0 && (
-                <div>
-                  <h3 className="text-label-lg text-charcoal mb-3">
-                    Players Added ({gamePlayers.length})
-                  </h3>
-                  <div className="divide-y divide-soft-grey">
+                <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
+                    <h3 className="text-sm font-semibold text-charcoal">
+                      Players Added ({gamePlayers.length})
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-soft-grey px-3">
                     {gamePlayers.map((gp) => {
                       const displayName = getGamePlayerDisplayName(gp);
                       const isGuest = Boolean(gp.guest_name);
 
                       return (
-                        <div key={gp.id} className="flex items-center py-3 hover:bg-sky/5 transition-colors">
+                        <div
+                          key={gp.id}
+                          className="flex items-center py-3 hover:bg-turf/5 transition-colors"
+                        >
                           <div className="flex-1 min-w-0">
-                            <div className="text-[15px] font-medium text-charcoal">{displayName}</div>
+                            <div className="text-[15px] font-medium text-charcoal">
+                              {displayName}
+                            </div>
                             <div className="text-[13px] text-charcoal/70 mt-0.5">
-                              {isGuest && "Guest • "}PHCP: {gp.play_handicap?.toFixed(1) || "0.0"}
+                              {isGuest && "Guest • "}PHCP:{" "}
+                              {gp.play_handicap?.toFixed(1) || "0.0"}
                             </div>
                           </div>
                           <Button
@@ -920,7 +1166,7 @@ export default function GameSetup() {
                             disabled={removeGamePlayer.isPending}
                             variant="ghost"
                             size="icon"
-                            className="text-coral hover:text-flag h-8 w-8 ml-2"
+                            className="text-coral hover:text-flag hover:bg-coral/10 h-8 w-8 ml-2"
                           >
                             <X className="h-5 w-5" />
                           </Button>
@@ -938,7 +1184,9 @@ export default function GameSetup() {
                   className="h-[100dvh] sm:h-auto sm:max-w-md sm:mx-auto sm:my-8 sm:rounded-2xl flex flex-col p-0"
                 >
                   <div className="p-6 border-b border-soft-grey">
-                    <SheetTitle className="text-xl font-semibold text-charcoal">Add Guest Player</SheetTitle>
+                    <SheetTitle className="text-xl font-semibold text-charcoal">
+                      Add Guest Player
+                    </SheetTitle>
                     <SheetDescription className="text-sm text-charcoal/70 mt-1">
                       Enter guest player details
                     </SheetDescription>
@@ -977,7 +1225,12 @@ export default function GameSetup() {
                         <label className="block text-sm text-charcoal/70 mb-2">
                           Gender
                         </label>
-                        <Select value={guestGender} onValueChange={(value: "male" | "female") => setGuestGender(value)}>
+                        <Select
+                          value={guestGender}
+                          onValueChange={(value: "male" | "female") =>
+                            setGuestGender(value)
+                          }
+                        >
                           <SelectTrigger className="h-12 border-soft-grey">
                             <SelectValue />
                           </SelectTrigger>
@@ -1014,74 +1267,122 @@ export default function GameSetup() {
 
           {/* Step 5: Game Configuration */}
           {step === 5 && (
-            <div>
-              <h2 className="text-display-sm text-charcoal mb-6">Game Settings</h2>
+            <div className="space-y-4">
+              <h2 className="text-display-sm text-charcoal mb-6">
+                Game Settings
+              </h2>
 
               {/* Game Type */}
-              <label className="block text-label-md text-charcoal mb-3">Game Type</label>
-              <div className="mb-6">
-                <div className="px-4 py-3">
-                  <div className="text-[15px] font-medium text-charcoal">Stroke Play</div>
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
+                  <label className="text-sm font-semibold text-charcoal">
+                    Game Type
+                  </label>
+                </div>
+                <div className="px-6 py-4">
+                  <div className="text-[15px] font-medium text-charcoal">
+                    Stroke Play
+                  </div>
                   <div className="text-[13px] text-charcoal/70 mt-0.5">
                     Standard stroke play format
                   </div>
                 </div>
               </div>
 
-              <div className="h-px bg-soft-grey mb-6" />
-
               {/* Scoring Mode */}
-              <label className="block text-label-md text-charcoal mb-3">Scoring Mode</label>
-              <div className="divide-y divide-soft-grey mb-6">
-                <button
-                  onClick={() => handleToggleScoringMode('gross')}
-                  className={`w-full text-left px-4 py-3 transition-colors ${
-                    selectedScoringModes.has('gross')
-                      ? "bg-turf/10"
-                      : "hover:bg-turf/5"
-                  }`}
-                >
-                  <div className="text-[15px] font-medium text-charcoal">Gross</div>
-                  <div className="text-[13px] text-charcoal/70 mt-0.5">
-                    Count raw scores only
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleToggleScoringMode('net')}
-                  className={`w-full text-left px-4 py-3 transition-colors ${
-                    selectedScoringModes.has('net')
-                      ? "bg-turf/10"
-                      : "hover:bg-turf/5"
-                  }`}
-                >
-                  <div className="text-[15px] font-medium text-charcoal">Net</div>
-                  <div className="text-[13px] text-charcoal/70 mt-0.5">
-                    Apply handicaps to scores
-                  </div>
-                </button>
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
+                  <label className="text-sm font-semibold text-charcoal">
+                    Scoring Mode
+                  </label>
+                </div>
+                <div className="divide-y divide-soft-grey">
+                  <button
+                    onClick={() => handleToggleScoringMode("gross")}
+                    className={`w-full flex items-center gap-3 px-6 py-4 transition-all ${
+                      selectedScoringModes.has("gross")
+                        ? "bg-turf/30 border-l-4 border-turf pl-5"
+                        : "bg-white hover:bg-turf/5 border-l-4 border-transparent pl-5"
+                    }`}
+                  >
+                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                      selectedScoringModes.has("gross")
+                        ? "border-turf bg-turf"
+                        : "border-soft-grey bg-white"
+                    }`}>
+                      {selectedScoringModes.has("gross") && (
+                        <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-[15px] font-medium text-charcoal">
+                        Gross
+                      </div>
+                      <div className="text-[13px] text-charcoal/70 mt-0.5">
+                        Count raw scores only
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleToggleScoringMode("net")}
+                    className={`w-full flex items-center gap-3 px-6 py-4 transition-all ${
+                      selectedScoringModes.has("net")
+                        ? "bg-turf/30 border-l-4 border-turf pl-5"
+                        : "bg-white hover:bg-turf/5 border-l-4 border-transparent pl-5"
+                    }`}
+                  >
+                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                      selectedScoringModes.has("net")
+                        ? "border-turf bg-turf"
+                        : "border-soft-grey bg-white"
+                    }`}>
+                      {selectedScoringModes.has("net") && (
+                        <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-[15px] font-medium text-charcoal">
+                        Net
+                      </div>
+                      <div className="text-[13px] text-charcoal/70 mt-0.5">
+                        Apply handicaps to scores
+                      </div>
+                    </div>
+                  </button>
+                </div>
               </div>
 
-              <div className="h-px bg-soft-grey mb-6" />
-
               {/* Summary */}
-              <div>
-                <h3 className="text-label-lg text-charcoal mb-4">Setup Summary</h3>
-                <div className="space-y-3 text-body-sm">
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
+                  <h3 className="text-sm font-semibold text-charcoal">
+                    Setup Summary
+                  </h3>
+                </div>
+                <div className="p-6 space-y-3 text-body-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-charcoal/70">Course:</span>
-                    <span className="text-charcoal font-medium">{state.courseName}</span>
+                    <span className="text-charcoal font-medium">
+                      {state.courseName}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-charcoal/70">Players:</span>
-                    <span className="text-charcoal font-medium">{gamePlayers?.length || 0}</span>
+                    <span className="text-charcoal font-medium">
+                      {gamePlayers?.length || 0}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-charcoal/70">Groups:</span>
-                    <span className="text-charcoal font-medium">{state.groups.length}</span>
+                    <span className="text-charcoal font-medium">
+                      {state.groups.length}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-charcoal/70">Scoring:</span>
-                    <span className="text-charcoal font-medium capitalize">{state.scoringMode}</span>
+                    <span className="text-charcoal font-medium capitalize">
+                      {state.scoringMode}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1098,161 +1399,225 @@ export default function GameSetup() {
             onDragEnd={handleDragEnd}
           >
             {/* Unassigned Area (sticky, outside card) */}
-            {gamePlayers && gamePlayers.filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))).length > 0 && (
-              <div className="sticky top-0 z-10 bg-scorecard rounded-2xl shadow-lg p-6 mb-4">
-                <Collapsible open={!unassignedCollapsed} onOpenChange={() => setUnassignedCollapsed(!unassignedCollapsed)}>
-                  <CollapsibleTrigger asChild>
-                    <button className="w-full flex items-center gap-2 px-2 py-3 hover:bg-turf/5 transition-colors text-left -mx-2">
-                      {unassignedCollapsed ? <ChevronRight className="h-4 w-4 text-turf" /> : <ChevronDown className="h-4 w-4 text-turf" />}
-                      <span className="text-sm font-medium text-charcoal">Unassigned</span>
-                      <Badge variant="secondary" className="bg-turf/10 text-turf border-0">
-                        {gamePlayers.filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))).length}
-                      </Badge>
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <DroppableGroup id="unassigned">
-                      <div className="divide-y divide-soft-grey max-h-[400px] overflow-y-auto -mx-6 px-6">
-                        {gamePlayers
-                          .filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id)))
-                          .map((gp) => {
-                            const displayName = getGamePlayerDisplayName(gp);
-                            const isGuest = Boolean(gp.guest_name);
-                            return (
-                              <div key={gp.id} className="relative">
-                                <DraggablePlayer
-                                  id={gp.id}
-                                  displayName={displayName}
-                                  isGuest={isGuest}
-                                  playHandicap={gp.play_handicap}
-                                  showDragHandle={true}
-                                  showRemove={false}
-                                />
-                                <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-charcoal/60 hover:text-turf">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="z-50 bg-scorecard shadow-lg">
-                                      {state.groups.map((group, idx) => (
-                                        <DropdownMenuItem
-                                          key={idx}
-                                          onClick={() => handleAssignPlayerToGroup(gp.id, idx)}
+            {gamePlayers &&
+              gamePlayers.filter(
+                (gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))
+              ).length > 0 && (
+                <div className="sticky top-0 z-10 bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
+                  <Collapsible
+                    open={!unassignedCollapsed}
+                    onOpenChange={() =>
+                      setUnassignedCollapsed(!unassignedCollapsed)
+                    }
+                  >
+                    <div className="bg-turf/20 border-b border-turf/30">
+                      <CollapsibleTrigger asChild>
+                        <button className="w-full flex items-center gap-2 px-6 py-3 hover:bg-turf/25 transition-colors text-left">
+                          {unassignedCollapsed ? (
+                            <ChevronRight className="h-4 w-4 text-turf" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-turf" />
+                          )}
+                          <span className="text-sm font-semibold text-charcoal">
+                            Unassigned
+                          </span>
+                          <Badge
+                            variant="secondary"
+                            className="bg-coral/20 text-coral border-0 font-semibold"
+                          >
+                            {
+                              gamePlayers.filter(
+                                (gp) =>
+                                  !state.groups.some((g) =>
+                                    g.playerIds.includes(gp.id)
+                                  )
+                              ).length
+                            }
+                          </Badge>
+                        </button>
+                      </CollapsibleTrigger>
+                    </div>
+                    <CollapsibleContent>
+                      <DroppableGroup id="unassigned">
+                        <div className="divide-y divide-soft-grey max-h-[400px] overflow-y-auto px-3">
+                          {gamePlayers
+                            .filter(
+                              (gp) =>
+                                !state.groups.some((g) =>
+                                  g.playerIds.includes(gp.id)
+                                )
+                            )
+                            .map((gp) => {
+                              const displayName = getGamePlayerDisplayName(gp);
+                              const isGuest = Boolean(gp.guest_name);
+                              return (
+                                <div key={gp.id} className="relative">
+                                  <DraggablePlayer
+                                    id={gp.id}
+                                    displayName={displayName}
+                                    isGuest={isGuest}
+                                    playHandicap={gp.play_handicap}
+                                    showDragHandle={true}
+                                    showRemove={false}
+                                  />
+                                  <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 text-charcoal/60 hover:text-turf"
                                         >
-                                          <UserPlus className="h-4 w-4 mr-2" />
-                                          Assign to {group.name}
-                                        </DropdownMenuItem>
-                                      ))}
-                                      <DropdownMenuItem
-                                        onClick={() => handleRemovePlayer(gp.id)}
+                                          <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        align="end"
+                                        className="z-50 bg-scorecard shadow-lg"
                                       >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Remove from game
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                        {state.groups.map((group, idx) => (
+                                          <DropdownMenuItem
+                                            key={idx}
+                                            onClick={() =>
+                                              handleAssignPlayerToGroup(
+                                                gp.id,
+                                                idx
+                                              )
+                                            }
+                                          >
+                                            <UserPlus className="h-4 w-4 mr-2" />
+                                            Assign to {group.name}
+                                          </DropdownMenuItem>
+                                        ))}
+                                        <DropdownMenuItem
+                                          onClick={() =>
+                                            handleRemovePlayer(gp.id)
+                                          }
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Remove from game
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </DroppableGroup>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            )}
+                              );
+                            })}
+                        </div>
+                      </DroppableGroup>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )}
 
             {/* Groups Section (outside card, below) */}
             <div>
               {/* Groups with Slots */}
               <div className="space-y-3 px-1">
-                  {state.groups.map((group, groupIndex) => (
-                    <Collapsible
-                      key={groupIndex}
-                      open={!groupsCollapsed[groupIndex]}
-                      onOpenChange={() => handleToggleGroupCollapse(groupIndex)}
-                    >
-                      <div className="bg-scorecard rounded-lg border border-soft-grey overflow-hidden mx-0.5">
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-soft-grey">
-                          <CollapsibleTrigger asChild>
-                            <button className="flex items-center gap-2 hover:text-turf transition-colors">
-                              {groupsCollapsed[groupIndex] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                              <span className="text-sm font-medium text-charcoal">{group.name}</span>
-                              <Badge variant="secondary" className="bg-soft-grey/30 text-charcoal border-0">
-                                {group.playerIds.filter(Boolean).length}/4
-                              </Badge>
-                            </button>
-                          </CollapsibleTrigger>
-                          {state.groups.length > 1 && (
-                            <Button
-                              onClick={() => handleRemoveGroup(groupIndex)}
-                              variant="ghost"
-                              size="icon"
-                              className="text-coral hover:text-flag h-7 w-7"
+                {state.groups.map((group, groupIndex) => (
+                  <Collapsible
+                    key={groupIndex}
+                    open={!groupsCollapsed[groupIndex]}
+                    onOpenChange={() => handleToggleGroupCollapse(groupIndex)}
+                  >
+                    <div className="bg-white rounded-lg border border-soft-grey overflow-hidden mx-0.5">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-turf/30 bg-turf/20">
+                        <CollapsibleTrigger asChild>
+                          <button className="flex items-center gap-2 hover:bg-turf/25 -mx-2 -my-1 px-2 py-1 rounded transition-colors">
+                            {groupsCollapsed[groupIndex] ? (
+                              <ChevronRight className="h-4 w-4 text-turf" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-turf" />
+                            )}
+                            <span className="text-sm font-semibold text-charcoal">
+                              {group.name}
+                            </span>
+                            <Badge
+                              variant="secondary"
+                              className="bg-turf/30 text-charcoal border-0 font-semibold"
                             >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                              {group.playerIds.filter(Boolean).length}/4
+                            </Badge>
+                          </button>
+                        </CollapsibleTrigger>
+                        {state.groups.length > 1 && (
+                          <Button
+                            onClick={() => handleRemoveGroup(groupIndex)}
+                            variant="ghost"
+                            size="icon"
+                            className="text-coral hover:text-flag hover:bg-coral/10 h-7 w-7"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
 
-                        <CollapsibleContent>
-                          <DroppableGroup id={`group-${groupIndex}`}>
-                            <div className="divide-y divide-soft-grey">
-                              {[0, 1, 2, 3].map((slotIndex) => {
-                                const playerId = group.playerIds[slotIndex];
-                                const player = playerId ? gamePlayers?.find((gp) => gp.id === playerId) : null;
+                      <CollapsibleContent>
+                        <DroppableGroup id={`group-${groupIndex}`}>
+                          <div className="divide-y divide-soft-grey px-1">
+                            {[0, 1, 2, 3].map((slotIndex) => {
+                              const playerId = group.playerIds[slotIndex];
+                              const player = playerId
+                                ? gamePlayers?.find((gp) => gp.id === playerId)
+                                : null;
 
+                              if (player) {
+                                // Render draggable player
+                                return (
+                                  <DraggablePlayerInGroup
+                                    key={slotIndex}
+                                    id={playerId}
+                                    slotNumber={slotIndex + 1}
+                                    displayName={getGamePlayerDisplayName(
+                                      player
+                                    )}
+                                    isGuest={Boolean(player.guest_name)}
+                                    playHandicap={player.play_handicap}
+                                    onRemove={() =>
+                                      handleRemovePlayerFromGroup(
+                                        playerId,
+                                        groupIndex
+                                      )
+                                    }
+                                  />
+                                );
+                              } else {
+                                // Render empty slot
                                 return (
                                   <div
                                     key={slotIndex}
-                                    onClick={() => handleOpenAssignModal(groupIndex, slotIndex)}
-                                    className="w-full flex items-center px-4 py-3 hover:bg-turf/5 transition-colors min-h-[44px] cursor-pointer"
+                                    onClick={() =>
+                                      handleOpenAssignModal(
+                                        groupIndex,
+                                        slotIndex
+                                      )
+                                    }
+                                    className="w-full flex items-center px-4 py-3 hover:bg-turf/10 transition-colors min-h-[44px] cursor-pointer"
                                   >
+                                    <GripVertical className="h-4 w-4 text-charcoal/20 mr-3" />
                                     <span className="text-sm font-medium text-charcoal/40 mr-3 w-4">
                                       {slotIndex + 1}.
                                     </span>
-                                    {player ? (
-                                      <>
-                                        <div className="flex-1">
-                                          <div className="text-sm font-medium text-charcoal">{getGamePlayerDisplayName(player)}</div>
-                                          <div className="text-xs text-charcoal/70 mt-0.5">
-                                            {Boolean(player.guest_name) && "Guest • "}PHCP: {player.play_handicap?.toFixed(1) || "0.0"}
-                                          </div>
-                                        </div>
-                                        <Button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRemovePlayerFromGroup(playerId, groupIndex);
-                                          }}
-                                          variant="ghost"
-                                          size="icon"
-                                          className="text-coral hover:text-flag h-7 w-7"
-                                        >
-                                          <X className="h-4 w-4" />
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <span className="flex-1 text-sm text-charcoal/40">Tap to assign player</span>
-                                    )}
+                                    <span className="flex-1 text-sm italic text-charcoal/50">
+                                      Tap to assign player
+                                    </span>
                                   </div>
                                 );
-                              })}
-                            </div>
-                          </DroppableGroup>
-                        </CollapsibleContent>
-                      </div>
-                    </Collapsible>
-                  ))}
+                              }
+                            })}
+                          </div>
+                        </DroppableGroup>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                ))}
 
                 <Button
                   onClick={handleAddGroup}
                   variant="outline"
-                  className="w-full border-2 border-dashed border-turf/40 text-turf hover:bg-turf/5 h-10 mx-0.5"
+                  className="w-full border-2 border-dashed border-turf/40 bg-white text-turf hover:bg-turf/10 hover:border-turf/60 h-11 mx-0.5 font-semibold"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-5 w-5 mr-2" />
                   Add Group
                 </Button>
               </div>
@@ -1264,7 +1629,9 @@ export default function GameSetup() {
                   <GripVertical className="h-5 w-5 text-turf mr-3" />
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-charcoal">
-                      {getGamePlayerDisplayName(gamePlayers?.find((gp) => gp.id === activePlayerId)!)}
+                      {getGamePlayerDisplayName(
+                        gamePlayers?.find((gp) => gp.id === activePlayerId)!
+                      )}
                     </div>
                     <div className="text-xs text-charcoal/70 mt-0.5">
                       Drag to assign
@@ -1279,81 +1646,112 @@ export default function GameSetup() {
         {/* Tap-to-Assign Sheet Modal */}
         {step === 4 && (
           <Sheet open={assignModalOpen} onOpenChange={setAssignModalOpen}>
-                <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>
-                      Assign to {assignTarget ? state.groups[assignTarget.groupIndex].name : ""} - Slot {assignTarget ? assignTarget.slotIndex + 1 : ""}
-                    </SheetTitle>
-                    <SheetDescription>
-                      Select a player to assign to this slot
-                    </SheetDescription>
-                  </SheetHeader>
+            <SheetContent
+              side="bottom"
+              className="max-h-[80vh] overflow-y-auto"
+            >
+              <SheetHeader>
+                <SheetTitle>
+                  Assign to{" "}
+                  {assignTarget
+                    ? state.groups[assignTarget.groupIndex].name
+                    : ""}{" "}
+                  - Slot {assignTarget ? assignTarget.slotIndex + 1 : ""}
+                </SheetTitle>
+                <SheetDescription>
+                  Select a player to assign to this slot
+                </SheetDescription>
+              </SheetHeader>
 
-                  <div className="mt-6 space-y-4">
-                    {/* Unassigned Players Section */}
-                    {gamePlayers && gamePlayers.filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))).length > 0 && (
-                      <div>
-                        <div className="border-l-4 border-coral pl-3 mb-2">
-                          <h3 className="text-sm font-medium text-charcoal">Unassigned</h3>
-                        </div>
-                        <div className="divide-y divide-soft-grey border border-soft-grey rounded-lg overflow-hidden">
-                          {gamePlayers
-                            .filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id)))
-                            .map((gp) => {
-                              const displayName = getGamePlayerDisplayName(gp);
-                              const isGuest = Boolean(gp.guest_name);
-                              return (
-                                <button
-                                  key={gp.id}
-                                  onClick={() => handleAssignPlayerToSlot(gp.id)}
-                                  className="w-full px-4 py-3 text-left hover:bg-sky/5 transition-colors"
-                                >
-                                  <div className="text-sm font-medium text-charcoal">{displayName}</div>
-                                  <div className="text-xs text-charcoal/70 mt-0.5">
-                                    {isGuest && "Guest • "}PHCP: {gp.play_handicap?.toFixed(1) || "0.0"}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                        </div>
+              <div className="mt-6 space-y-4">
+                {/* Unassigned Players Section */}
+                {gamePlayers &&
+                  gamePlayers.filter(
+                    (gp) =>
+                      !state.groups.some((g) => g.playerIds.includes(gp.id))
+                  ).length > 0 && (
+                    <div>
+                      <div className="border-l-4 border-coral pl-3 mb-2">
+                        <h3 className="text-sm font-medium text-charcoal">
+                          Unassigned
+                        </h3>
                       </div>
-                    )}
+                      <div className="divide-y divide-soft-grey border border-soft-grey rounded-lg overflow-hidden">
+                        {gamePlayers
+                          .filter(
+                            (gp) =>
+                              !state.groups.some((g) =>
+                                g.playerIds.includes(gp.id)
+                              )
+                          )
+                          .map((gp) => {
+                            const displayName = getGamePlayerDisplayName(gp);
+                            const isGuest = Boolean(gp.guest_name);
+                            return (
+                              <button
+                                key={gp.id}
+                                onClick={() => handleAssignPlayerToSlot(gp.id)}
+                                className="w-full px-4 py-3 text-left hover:bg-sky/5 transition-colors"
+                              >
+                                <div className="text-sm font-medium text-charcoal">
+                                  {displayName}
+                                </div>
+                                <div className="text-xs text-charcoal/70 mt-0.5">
+                                  {isGuest && "Guest • "}PHCP:{" "}
+                                  {gp.play_handicap?.toFixed(1) || "0.0"}
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
 
-                    {/* Other Groups Section */}
-                    {state.groups.map((group, idx) => {
-                      const playersInGroup = group.playerIds.filter(Boolean).map((id) => gamePlayers?.find((gp) => gp.id === id)).filter(Boolean);
-                      if (playersInGroup.length === 0) return null;
+                {/* Other Groups Section */}
+                {state.groups.map((group, idx) => {
+                  const playersInGroup = group.playerIds
+                    .filter(Boolean)
+                    .map((id) => gamePlayers?.find((gp) => gp.id === id))
+                    .filter(Boolean);
+                  if (playersInGroup.length === 0) return null;
 
-                      return (
-                        <div key={idx}>
-                          <div className="border-l-4 border-soft-grey pl-3 mb-2">
-                            <h3 className="text-sm font-medium text-charcoal">{group.name}</h3>
-                          </div>
-                          <div className="divide-y divide-soft-grey border border-soft-grey rounded-lg overflow-hidden">
-                            {playersInGroup.map((player) => {
-                              if (!player) return null;
-                              const displayName = getGamePlayerDisplayName(player);
-                              const isGuest = Boolean(player.guest_name);
-                              return (
-                                <button
-                                  key={player.id}
-                                  onClick={() => handleAssignPlayerToSlot(player.id)}
-                                  className="w-full px-4 py-3 text-left hover:bg-sky/5 transition-colors"
-                                >
-                                  <div className="text-sm font-medium text-charcoal">{displayName}</div>
-                                  <div className="text-xs text-charcoal/70 mt-0.5">
-                                    {isGuest && "Guest • "}PHCP: {player.play_handicap?.toFixed(1) || "0.0"}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </SheetContent>
-              </Sheet>
+                  return (
+                    <div key={idx}>
+                      <div className="border-l-4 border-soft-grey pl-3 mb-2">
+                        <h3 className="text-sm font-medium text-charcoal">
+                          {group.name}
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-soft-grey border border-soft-grey rounded-lg overflow-hidden">
+                        {playersInGroup.map((player) => {
+                          if (!player) return null;
+                          const displayName = getGamePlayerDisplayName(player);
+                          const isGuest = Boolean(player.guest_name);
+                          return (
+                            <button
+                              key={player.id}
+                              onClick={() =>
+                                handleAssignPlayerToSlot(player.id)
+                              }
+                              className="w-full px-4 py-3 text-left hover:bg-sky/5 transition-colors"
+                            >
+                              <div className="text-sm font-medium text-charcoal">
+                                {displayName}
+                              </div>
+                              <div className="text-xs text-charcoal/70 mt-0.5">
+                                {isGuest && "Guest • "}PHCP:{" "}
+                                {player.play_handicap?.toFixed(1) || "0.0"}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </SheetContent>
+          </Sheet>
         )}
 
         {/* Navigation Buttons */}
