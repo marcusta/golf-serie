@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, useDroppable, DragOverlay } from "@dnd-kit/core";
+import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, useDroppable, useDraggable, DragOverlay } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { getGamePlayerDisplayName } from "@/utils/player-display";
@@ -66,6 +66,77 @@ function DroppableGroup({ id, children }: DroppableGroupProps) {
       className={`transition-colors ${isOver ? "bg-turf/10 rounded-lg" : ""}`}
     >
       {children}
+    </div>
+  );
+}
+
+// ============================================================================
+// Draggable Player Component
+// ============================================================================
+
+interface DraggablePlayerProps {
+  id: number;
+  displayName: string;
+  isGuest: boolean;
+  playHandicap: number | null | undefined;
+  onRemove?: () => void;
+  showRemove?: boolean;
+  showDragHandle?: boolean;
+}
+
+function DraggablePlayer({
+  id,
+  displayName,
+  isGuest,
+  playHandicap,
+  onRemove,
+  showRemove = false,
+  showDragHandle = true,
+}: DraggablePlayerProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-center py-3 hover:bg-turf/5 transition-colors min-h-[44px] ${
+        isDragging ? "opacity-50" : ""
+      }`}
+      style={{ touchAction: "none" }}
+    >
+      {showDragHandle && (
+        <button
+          type="button"
+          {...listeners}
+          {...attributes}
+          className="cursor-grab active:cursor-grabbing text-charcoal/40 hover:text-turf mr-3 touch-none"
+          style={{ WebkitUserSelect: "none", userSelect: "none" }}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
+      <div className="flex-1">
+        <div className="text-sm font-medium text-charcoal">{displayName}</div>
+        <div className="text-xs text-charcoal/70 mt-0.5">
+          {isGuest && "Guest • "}PHCP: {playHandicap?.toFixed(1) || "0.0"}
+        </div>
+      </div>
+      {showRemove && onRemove && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-charcoal/60 hover:text-turf">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="z-50 bg-scorecard shadow-lg">
+            <DropdownMenuItem onClick={onRemove}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove from game
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }
@@ -113,6 +184,9 @@ export default function GameSetup() {
   // Step 4 tap-to-assign modal
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState<{ groupIndex: number; slotIndex: number } | null>(null);
+
+  // Step 4 manual assignment flag (disable auto-assignment after user interaction)
+  const [hasManuallyAssigned, setHasManuallyAssigned] = useState(false);
 
   // Step 5 scoring mode multiselect state
   const [selectedScoringModes, setSelectedScoringModes] = useState<Set<'gross' | 'net'>>(
@@ -165,8 +239,8 @@ export default function GameSetup() {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250, // 250ms press and hold before drag starts (allows scrolling)
-        tolerance: 5, // Allow 5px of movement during delay
+        delay: 150, // 150ms press and hold before drag starts (balance between responsiveness and scroll)
+        tolerance: 8, // Allow 8px of movement during delay (prevents accidental activation)
       },
     }),
     useSensor(KeyboardSensor, {
@@ -181,9 +255,9 @@ export default function GameSetup() {
     }
   }, [step, state.gameId, refetchGamePlayers]);
 
-  // Auto-assign players to Group 1 if ≤4 total players
+  // Auto-assign players to Group 1 if ≤4 total players (only if user hasn't manually assigned)
   useEffect(() => {
-    if (step === 4 && gamePlayers && gamePlayers.length > 0 && gamePlayers.length <= 4) {
+    if (step === 4 && !hasManuallyAssigned && gamePlayers && gamePlayers.length > 0 && gamePlayers.length <= 4) {
       // Check if any players are unassigned
       const unassignedPlayers = gamePlayers.filter(
         (gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))
@@ -199,7 +273,14 @@ export default function GameSetup() {
         });
       }
     }
-  }, [step, gamePlayers]);
+  }, [step, gamePlayers, hasManuallyAssigned]);
+
+  // Reset manual assignment flag when leaving step 4
+  useEffect(() => {
+    if (step !== 4) {
+      setHasManuallyAssigned(false);
+    }
+  }, [step]);
 
   // ============================================================================
   // Step 1: Course Selection
@@ -358,6 +439,7 @@ export default function GameSetup() {
   };
 
   const handleAssignPlayerToGroup = (gamePlayerId: number, groupIndex: number) => {
+    setHasManuallyAssigned(true);
     setState((prev) => {
       const newGroups = [...prev.groups];
 
@@ -385,12 +467,16 @@ export default function GameSetup() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    console.log('🔵 handleDragEnd called', { activeId: active.id, overId: over?.id });
     setActivePlayerId(null);
 
     if (!over) return;
 
     const activeId = active.id as number;
     const overId = over.id;
+
+    // Mark as manually assigned to prevent auto-assignment
+    setHasManuallyAssigned(true);
 
     // Find which group the active item is currently in
     const activeGroupIndex = state.groups.findIndex((g) => g.playerIds.includes(activeId));
@@ -423,20 +509,29 @@ export default function GameSetup() {
       // Moving from unassigned to a group
       if (isActiveUnassigned && !targetIsUnassigned && targetGroupIndex !== -1) {
         const targetGroup = newGroups[targetGroupIndex];
+        console.log('🟢 Moving from unassigned to group', {
+          activeId,
+          targetGroupIndex,
+          beforePlayerIds: [...targetGroup.playerIds]
+        });
+
         // Find first empty slot
         const firstEmptySlot = targetGroup.playerIds.findIndex((id) => !id);
 
         if (firstEmptySlot !== -1) {
           // Assign to first empty slot
           targetGroup.playerIds[firstEmptySlot] = activeId;
+          console.log('  → Assigned to slot', firstEmptySlot);
         } else if (targetGroup.playerIds.length < 4) {
           // No empty slots, but group isn't full - add to end
           targetGroup.playerIds.push(activeId);
+          console.log('  → Pushed to end');
         } else {
           // Group is full
           toast.error("Group limit: maximum 4 players per group");
           return prev;
         }
+        console.log('  → afterPlayerIds:', [...targetGroup.playerIds]);
         return { ...prev, groups: newGroups };
       }
 
@@ -476,6 +571,7 @@ export default function GameSetup() {
   };
 
   const handleRemovePlayerFromGroup = (gamePlayerId: number, groupIndex: number) => {
+    setHasManuallyAssigned(true);
     setState((prev) => {
       const newGroups = [...prev.groups];
       newGroups[groupIndex].playerIds = newGroups[groupIndex].playerIds.filter((id) => id !== gamePlayerId);
@@ -491,6 +587,7 @@ export default function GameSetup() {
   const handleAssignPlayerToSlot = (gamePlayerId: number) => {
     if (!assignTarget) return;
 
+    setHasManuallyAssigned(true);
     setState((prev) => {
       const newGroups = [...prev.groups];
       const targetGroup = newGroups[assignTarget.groupIndex];
@@ -992,88 +1089,83 @@ export default function GameSetup() {
           )}
         </div>
 
-        {/* Step 4: Unassigned Area (sticky, outside card) */}
-        {step === 4 && gamePlayers && gamePlayers.filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))).length > 0 && (
-          <div className="sticky top-0 z-10 bg-scorecard rounded-2xl shadow-lg p-6 mb-4">
-            <Collapsible open={!unassignedCollapsed} onOpenChange={() => setUnassignedCollapsed(!unassignedCollapsed)}>
-              <CollapsibleTrigger asChild>
-                <button className="w-full flex items-center gap-2 px-2 py-3 hover:bg-turf/5 transition-colors text-left -mx-2">
-                  {unassignedCollapsed ? <ChevronRight className="h-4 w-4 text-turf" /> : <ChevronDown className="h-4 w-4 text-turf" />}
-                  <span className="text-sm font-medium text-charcoal">Unassigned</span>
-                  <Badge variant="secondary" className="bg-turf/10 text-turf border-0">
-                    {gamePlayers.filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))).length}
-                  </Badge>
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={pointerWithin}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                >
-                  <DroppableGroup id="unassigned">
-                    <div className="divide-y divide-soft-grey max-h-[400px] overflow-y-auto -mx-6 px-6">
-                      {gamePlayers
-                        .filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id)))
-                        .map((gp) => {
-                          const displayName = getGamePlayerDisplayName(gp);
-                          const isGuest = Boolean(gp.guest_name);
-                          return (
-                            <div key={gp.id} className="flex items-center py-3 hover:bg-turf/5 transition-colors min-h-[44px]">
-                              <button type="button" className="cursor-grab active:cursor-grabbing text-charcoal/40 hover:text-turf mr-3">
-                                <GripVertical className="h-4 w-4" />
-                              </button>
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-charcoal">{displayName}</div>
-                                <div className="text-xs text-charcoal/70 mt-0.5">
-                                  {isGuest && "Guest • "}PHCP: {gp.play_handicap?.toFixed(1) || "0.0"}
+        {/* Step 4: Drag and Drop Context wrapping BOTH unassigned and groups */}
+        {step === 4 && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            {/* Unassigned Area (sticky, outside card) */}
+            {gamePlayers && gamePlayers.filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))).length > 0 && (
+              <div className="sticky top-0 z-10 bg-scorecard rounded-2xl shadow-lg p-6 mb-4">
+                <Collapsible open={!unassignedCollapsed} onOpenChange={() => setUnassignedCollapsed(!unassignedCollapsed)}>
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full flex items-center gap-2 px-2 py-3 hover:bg-turf/5 transition-colors text-left -mx-2">
+                      {unassignedCollapsed ? <ChevronRight className="h-4 w-4 text-turf" /> : <ChevronDown className="h-4 w-4 text-turf" />}
+                      <span className="text-sm font-medium text-charcoal">Unassigned</span>
+                      <Badge variant="secondary" className="bg-turf/10 text-turf border-0">
+                        {gamePlayers.filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))).length}
+                      </Badge>
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <DroppableGroup id="unassigned">
+                      <div className="divide-y divide-soft-grey max-h-[400px] overflow-y-auto -mx-6 px-6">
+                        {gamePlayers
+                          .filter((gp) => !state.groups.some((g) => g.playerIds.includes(gp.id)))
+                          .map((gp) => {
+                            const displayName = getGamePlayerDisplayName(gp);
+                            const isGuest = Boolean(gp.guest_name);
+                            return (
+                              <div key={gp.id} className="relative">
+                                <DraggablePlayer
+                                  id={gp.id}
+                                  displayName={displayName}
+                                  isGuest={isGuest}
+                                  playHandicap={gp.play_handicap}
+                                  showDragHandle={true}
+                                  showRemove={false}
+                                />
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-charcoal/60 hover:text-turf">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="z-50 bg-scorecard shadow-lg">
+                                      {state.groups.map((group, idx) => (
+                                        <DropdownMenuItem
+                                          key={idx}
+                                          onClick={() => handleAssignPlayerToGroup(gp.id, idx)}
+                                        >
+                                          <UserPlus className="h-4 w-4 mr-2" />
+                                          Assign to {group.name}
+                                        </DropdownMenuItem>
+                                      ))}
+                                      <DropdownMenuItem
+                                        onClick={() => handleRemovePlayer(gp.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Remove from game
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </div>
-                              <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-charcoal/60 hover:text-turf">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="z-50 bg-scorecard shadow-lg">
-                                {state.groups.map((group, idx) => (
-                                  <DropdownMenuItem
-                                    key={idx}
-                                    onClick={() => handleAssignPlayerToGroup(gp.id, idx)}
-                                  >
-                                    <UserPlus className="h-4 w-4 mr-2" />
-                                    Assign to {group.name}
-                                  </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuItem
-                                  onClick={() => handleRemovePlayer(gp.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Remove from game
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                          );
-                        })}
-                    </div>
-                  </DroppableGroup>
-                </DndContext>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        )}
+                            );
+                          })}
+                      </div>
+                    </DroppableGroup>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
 
-        {/* Groups Section (outside card, below) - Only for Step 4 */}
-        {step === 4 && (
-          <div>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={pointerWithin}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
+            {/* Groups Section (outside card, below) */}
+            <div>
               {/* Groups with Slots */}
               <div className="space-y-3 px-1">
                   {state.groups.map((group, groupIndex) => (
@@ -1113,11 +1205,10 @@ export default function GameSetup() {
                                 const player = playerId ? gamePlayers?.find((gp) => gp.id === playerId) : null;
 
                                 return (
-                                  <button
+                                  <div
                                     key={slotIndex}
-                                    type="button"
                                     onClick={() => handleOpenAssignModal(groupIndex, slotIndex)}
-                                    className="w-full flex items-center px-4 py-3 hover:bg-turf/5 transition-colors min-h-[44px] text-left"
+                                    className="w-full flex items-center px-4 py-3 hover:bg-turf/5 transition-colors min-h-[44px] cursor-pointer"
                                   >
                                     <span className="text-sm font-medium text-charcoal/40 mr-3 w-4">
                                       {slotIndex + 1}.
@@ -1146,7 +1237,7 @@ export default function GameSetup() {
                                     ) : (
                                       <span className="flex-1 text-sm text-charcoal/40">Tap to assign player</span>
                                     )}
-                                  </button>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -1165,21 +1256,24 @@ export default function GameSetup() {
                   Add Group
                 </Button>
               </div>
+            </div>
 
-              <DragOverlay>
-                {activePlayerId ? (
-                  <div className="bg-scorecard rounded-lg border-2 border-turf shadow-lg px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <GripVertical className="h-4 w-4 text-charcoal/40" />
-                      <span className="text-sm font-medium text-charcoal">
-                        {getGamePlayerDisplayName(gamePlayers?.find((gp) => gp.id === activePlayerId)!)}
-                      </span>
+            <DragOverlay>
+              {activePlayerId ? (
+                <div className="bg-scorecard rounded-lg border-2 border-turf shadow-xl px-4 py-3 min-h-[56px] flex items-center">
+                  <GripVertical className="h-5 w-5 text-turf mr-3" />
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-charcoal">
+                      {getGamePlayerDisplayName(gamePlayers?.find((gp) => gp.id === activePlayerId)!)}
+                    </div>
+                    <div className="text-xs text-charcoal/70 mt-0.5">
+                      Drag to assign
                     </div>
                   </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
-          </div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
 
         {/* Tap-to-Assign Sheet Modal */}
