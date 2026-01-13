@@ -211,10 +211,11 @@ npm run lint           # ESLint checking
 
 - **Visual Design Rules** → `docs/visual-design-rules.md`
   - Clean UI patterns avoiding "AI-generated template" look
-  - One level of containment per visual group (no nested borders)
+  - One level of 3D effects (no nested shadows)
+  - Visual hierarchy through corner roundness (outer soft, inner sharp)
   - Use dividers between list items, not individual cards
   - Subtle hover states (background changes, not shadows/transforms)
-  - Left accents for grouping instead of full borders
+  - Left accent bars for grouping instead of full borders
 
 - **TapScore Style Guide** → `docs/STYLE_GUIDE.md`
   - Complete design system with brand colors, typography, component patterns
@@ -224,11 +225,15 @@ npm run lint           # ESLint checking
   - Mobile-first responsive patterns
 
 ### Key Design Principles
-- One level of containment per visual group (no nested borders)
+- **Visual hierarchy through roundness**: Outer containers use `rounded-2xl`, inner boxes use `rounded`, navigation buttons use `rounded-full`
+- **One level of 3D effects**: Only major containers have shadows (`shadow-lg`), inner elements are flat
+- **Background contrast strategy**: Use `bg-soft-grey/30` for containers to make white content boxes pop naturally
+- **Typography-based structure**: Use uppercase bold labels for sections instead of nested colored header boxes
+- **Button roundness signals purpose**: Pills (`rounded-full`) for navigation/flow, sharp corners (`rounded`) for content actions
+- **Left accent bars for grouping**: Use `border-l-4` with color coding instead of full borders
 - Maintain WCAG AA contrast ratios (minimum 4.5:1 for text)
 - Mobile-first with minimum 44px touch targets
 - Use TapScore brand colors from style guide
-- Follow established component patterns
 
 ## Frontend Testing
 

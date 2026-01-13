@@ -936,16 +936,34 @@ export default function GameSetup() {
   // Render Steps
   // ============================================================================
 
+  // Step names for header
+  const getStepName = (stepNumber: number): string => {
+    switch (stepNumber) {
+      case 1:
+        return "Select Course";
+      case 2:
+        return "Select Tee Box";
+      case 3:
+        return "Add Players";
+      case 4:
+        return "Assign Groups";
+      case 5:
+        return "Game Settings";
+      default:
+        return "";
+    }
+  };
+
   return (
     <PlayerPageLayout
       title="Game Setup"
-      subtitle={`Step ${step} of 5`}
+      subtitle={`Step ${step} of 5 · ${getStepName(step)}`}
       onBackClick={() => navigate({ to: "/player" })}
     >
       <div className="max-w-4xl mx-auto px-2">
         {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="h-2 bg-soft-grey/30 rounded-full overflow-hidden">
+        <div>
+          <div className="h-2 bg-soft-grey/30 rounded overflow-hidden">
             <div
               className="h-full bg-turf transition-all duration-300"
               style={{ width: `${(step / 5) * 100}%` }}
@@ -953,26 +971,18 @@ export default function GameSetup() {
           </div>
         </div>
 
-        {/* Step Content */}
-        <div
-          className="bg-scorecard rounded-2xl shadow-lg p-6 mb-6"
-          style={{
-            paddingTop: step === 4 ? "1rem" : "1.5rem",
-            paddingBottom: step === 4 ? "0" : "1.5rem",
-          }}
-        >
+        {/* Step Content - Steps 1, 2, 3, 5 */}
+        {step !== 4 && (
+          <div className="bg-soft-grey/30 rounded-b-2xl shadow-lg p-6 mb-6">
+            {/* Steps 1, 2, 3, 5 content */}
           {/* Step 1: Course Selection */}
           {step === 1 && (
             <div>
-              <h2 className="text-display-sm text-charcoal mb-2">
-                Select Course
-              </h2>
-              <p className="text-body-md text-charcoal/70 mb-6">
-                Choose the course where you'll be playing
-              </p>
-
               {/* Search Filter */}
               <div className="mb-6">
+                <label className="block text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
+                  Search Courses
+                </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-charcoal/40 z-10" />
                   <Input
@@ -980,18 +990,18 @@ export default function GameSetup() {
                     value={courseSearchQuery}
                     onChange={(e) => setCourseSearchQuery(e.target.value)}
                     placeholder="Search by course or club name..."
-                    className="pl-10 h-12"
+                    className="pl-10 h-12 bg-white"
                   />
                 </div>
               </div>
 
               {/* Course List */}
               {filteredCourses.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-lg px-5 py-8 text-center text-charcoal/60">
+                <div className="bg-white rounded px-5 py-8 text-center text-charcoal/60">
                   No courses found
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden divide-y divide-soft-grey">
+                <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
                   {filteredCourses.map((course) => {
                     // Check if course has a real club (not "Default Club" placeholder)
                     const hasRealClub =
@@ -1033,37 +1043,26 @@ export default function GameSetup() {
           {/* Step 2: Tee Box Selection */}
           {step === 2 && (
             <div>
-              <h2 className="text-display-sm text-charcoal mb-2">
-                Select Default Tee Box
-              </h2>
-              <p className="text-body-md text-charcoal/70 mb-6">
-                Choose the default tee box for all players
-              </p>
-
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
-                  <label className="text-sm font-semibold text-charcoal">
-                    Tee Box
-                  </label>
-                </div>
-                <div className="p-6">
-                  <Select
-                    value={selectedTeeId}
-                    onValueChange={handleTeeSelection}
-                    disabled={assignTee.isPending}
-                  >
-                    <SelectTrigger className="w-full h-12 text-base">
-                      <SelectValue placeholder="Choose a tee box..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courseTees?.map((tee: CourseTee) => (
-                        <SelectItem key={tee.id} value={tee.id.toString()}>
-                          {tee.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="bg-white rounded p-4">
+                <label className="block text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
+                  Tee Box
+                </label>
+                <Select
+                  value={selectedTeeId}
+                  onValueChange={handleTeeSelection}
+                  disabled={assignTee.isPending}
+                >
+                  <SelectTrigger className="w-full h-12 text-base border-soft-grey">
+                    <SelectValue placeholder="Choose a tee box..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courseTees?.map((tee: CourseTee) => (
+                      <SelectItem key={tee.id} value={tee.id.toString()}>
+                        {tee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           )}
@@ -1071,13 +1070,9 @@ export default function GameSetup() {
           {/* Step 3: Player Setup */}
           {step === 3 && (
             <div>
-              <h2 className="text-display-sm text-charcoal mb-2">
-                Add Players
-              </h2>
-
               {/* Search Registered Players */}
               <div className="mb-6">
-                <label className="block text-label-md text-charcoal mb-2">
+                <label className="block text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
                   Search Registered Players
                 </label>
                 <div className="relative">
@@ -1087,12 +1082,12 @@ export default function GameSetup() {
                     value={playerSearchQuery}
                     onChange={(e) => setPlayerSearchQuery(e.target.value)}
                     placeholder="Search by name..."
-                    className="pl-10 h-12"
+                    className="pl-10 h-12 bg-white"
                   />
                 </div>
 
                 {playerSearchQuery && filteredPlayers.length > 0 && (
-                  <ItemGroup className="mt-2 max-h-48 overflow-y-auto border border-soft-grey rounded-xl bg-white shadow-md">
+                  <ItemGroup className="mt-2 max-h-48 overflow-y-auto border border-soft-grey rounded bg-white">
                     {filteredPlayers.map((player, index) => (
                       <React.Fragment key={player.id}>
                         <Item
@@ -1127,7 +1122,7 @@ export default function GameSetup() {
                 <Button
                   onClick={() => setGuestModalOpen(true)}
                   variant="outline"
-                  className="w-full h-11 justify-start bg-white text-turf border-turf/40 hover:bg-turf/10 hover:border-turf/60 font-semibold"
+                  className="w-full h-11 justify-start bg-white text-turf border-turf/40 hover:bg-turf/10 hover:border-turf/60 font-semibold rounded"
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Create guest player
@@ -1136,13 +1131,11 @@ export default function GameSetup() {
 
               {/* Current Players List */}
               {gamePlayers && gamePlayers.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                  <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
-                    <h3 className="text-sm font-semibold text-charcoal">
-                      Players Added ({gamePlayers.length})
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-soft-grey px-3">
+                <div>
+                  <h3 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
+                    Players Added ({gamePlayers.length})
+                  </h3>
+                  <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey px-3">
                     {gamePlayers.map((gp) => {
                       const displayName = getGamePlayerDisplayName(gp);
                       const isGuest = Boolean(gp.guest_name);
@@ -1267,130 +1260,126 @@ export default function GameSetup() {
 
           {/* Step 5: Game Configuration */}
           {step === 5 && (
-            <div className="space-y-4">
-              <h2 className="text-display-sm text-charcoal mb-6">
-                Game Settings
-              </h2>
-
-              {/* Game Type */}
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
-                  <label className="text-sm font-semibold text-charcoal">
+            <div>
+              {/* No inner card - content directly in gray container */}
+              <div>
+                {/* Game Type Section */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
                     Game Type
-                  </label>
-                </div>
-                <div className="px-6 py-4">
-                  <div className="text-[15px] font-medium text-charcoal">
-                    Stroke Play
+                  </h3>
+                  <div className="bg-white rounded p-4">
+                    <div className="text-[15px] font-medium text-charcoal">
+                      Stroke Play
+                    </div>
+                    <div className="text-[13px] text-charcoal/70 mt-0.5">
+                      Standard stroke play format
+                    </div>
                   </div>
-                  <div className="text-[13px] text-charcoal/70 mt-0.5">
-                    Standard stroke play format
-                  </div>
                 </div>
-              </div>
 
-              {/* Scoring Mode */}
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
-                  <label className="text-sm font-semibold text-charcoal">
+                {/* Scoring Mode Section */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
                     Scoring Mode
-                  </label>
+                  </h3>
+                  <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
+                    <button
+                      onClick={() => handleToggleScoringMode("gross")}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
+                        selectedScoringModes.has("gross")
+                          ? "opacity-100"
+                          : "opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                        selectedScoringModes.has("gross")
+                          ? "border-turf bg-turf"
+                          : "border-charcoal/30 bg-white"
+                      }`}>
+                        {selectedScoringModes.has("gross") && (
+                          <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <div className="text-[15px] font-medium text-charcoal">
+                          Gross
+                        </div>
+                        <div className="text-[13px] text-charcoal/70 mt-0.5">
+                          Count raw scores only
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleToggleScoringMode("net")}
+                      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors ${
+                        selectedScoringModes.has("net")
+                          ? "opacity-100"
+                          : "opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                        selectedScoringModes.has("net")
+                          ? "border-turf bg-turf"
+                          : "border-charcoal/30 bg-white"
+                      }`}>
+                        {selectedScoringModes.has("net") && (
+                          <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <div className="text-[15px] font-medium text-charcoal">
+                          Net
+                        </div>
+                        <div className="text-[13px] text-charcoal/70 mt-0.5">
+                          Apply handicaps to scores
+                        </div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-                <div className="divide-y divide-soft-grey">
-                  <button
-                    onClick={() => handleToggleScoringMode("gross")}
-                    className={`w-full flex items-center gap-3 px-6 py-4 transition-all ${
-                      selectedScoringModes.has("gross")
-                        ? "bg-turf/30 border-l-4 border-turf pl-5"
-                        : "bg-white hover:bg-turf/5 border-l-4 border-transparent pl-5"
-                    }`}
-                  >
-                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                      selectedScoringModes.has("gross")
-                        ? "border-turf bg-turf"
-                        : "border-soft-grey bg-white"
-                    }`}>
-                      {selectedScoringModes.has("gross") && (
-                        <Check className="h-4 w-4 text-white" strokeWidth={3} />
-                      )}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="text-[15px] font-medium text-charcoal">
-                        Gross
-                      </div>
-                      <div className="text-[13px] text-charcoal/70 mt-0.5">
-                        Count raw scores only
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => handleToggleScoringMode("net")}
-                    className={`w-full flex items-center gap-3 px-6 py-4 transition-all ${
-                      selectedScoringModes.has("net")
-                        ? "bg-turf/30 border-l-4 border-turf pl-5"
-                        : "bg-white hover:bg-turf/5 border-l-4 border-transparent pl-5"
-                    }`}
-                  >
-                    <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                      selectedScoringModes.has("net")
-                        ? "border-turf bg-turf"
-                        : "border-soft-grey bg-white"
-                    }`}>
-                      {selectedScoringModes.has("net") && (
-                        <Check className="h-4 w-4 text-white" strokeWidth={3} />
-                      )}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="text-[15px] font-medium text-charcoal">
-                        Net
-                      </div>
-                      <div className="text-[13px] text-charcoal/70 mt-0.5">
-                        Apply handicaps to scores
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
 
-              {/* Summary */}
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-turf/20 border-b border-turf/30 px-6 py-3">
-                  <h3 className="text-sm font-semibold text-charcoal">
+                {/* Summary Section */}
+                <div>
+                  <h3 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
                     Setup Summary
                   </h3>
-                </div>
-                <div className="p-6 space-y-3 text-body-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-charcoal/70">Course:</span>
-                    <span className="text-charcoal font-medium">
-                      {state.courseName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-charcoal/70">Players:</span>
-                    <span className="text-charcoal font-medium">
-                      {gamePlayers?.length || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-charcoal/70">Groups:</span>
-                    <span className="text-charcoal font-medium">
-                      {state.groups.length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-charcoal/70">Scoring:</span>
-                    <span className="text-charcoal font-medium capitalize">
-                      {state.scoringMode}
-                    </span>
+                  <div className="bg-white rounded p-4">
+                    <div className="space-y-3 text-body-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-charcoal/70">Course:</span>
+                        <span className="text-charcoal font-medium">
+                          {state.courseName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-charcoal/70">Players:</span>
+                        <span className="text-charcoal font-medium">
+                          {gamePlayers?.length || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-charcoal/70">Groups:</span>
+                        <span className="text-charcoal font-medium">
+                          {state.groups.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-charcoal/70">Scoring:</span>
+                        <span className="text-charcoal font-medium capitalize">
+                          {state.scoringMode}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
-        </div>
+          </div>
+        )}
 
-        {/* Step 4: Drag and Drop Context wrapping BOTH unassigned and groups */}
+        {/* Step 4: Group Assignment - Split layout with Unassigned in container, Groups outside */}
         {step === 4 && (
           <DndContext
             sensors={sensors}
@@ -1398,143 +1387,144 @@ export default function GameSetup() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            {/* Unassigned Area (sticky, outside card) */}
-            {gamePlayers &&
-              gamePlayers.filter(
-                (gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))
-              ).length > 0 && (
-                <div className="sticky top-0 z-10 bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
-                  <Collapsible
-                    open={!unassignedCollapsed}
-                    onOpenChange={() =>
-                      setUnassignedCollapsed(!unassignedCollapsed)
-                    }
-                  >
-                    <div className="bg-turf/20 border-b border-turf/30">
-                      <CollapsibleTrigger asChild>
-                        <button className="w-full flex items-center gap-2 px-6 py-3 hover:bg-turf/25 transition-colors text-left">
-                          {unassignedCollapsed ? (
-                            <ChevronRight className="h-4 w-4 text-turf" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-turf" />
-                          )}
-                          <span className="text-sm font-semibold text-charcoal">
-                            Unassigned
-                          </span>
-                          <Badge
-                            variant="secondary"
-                            className="bg-coral/20 text-coral border-0 font-semibold"
-                          >
-                            {
-                              gamePlayers.filter(
+            {/* Unassigned Area inside gray container */}
+            <div className="bg-soft-grey/30 rounded-b-2xl shadow-lg p-6 mb-4">
+              {gamePlayers &&
+                gamePlayers.filter(
+                  (gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))
+                ).length > 0 && (
+                  <div className="sticky top-0 z-10 border-l-4 border-coral bg-white rounded overflow-hidden">
+                    <Collapsible
+                      open={!unassignedCollapsed}
+                      onOpenChange={() =>
+                        setUnassignedCollapsed(!unassignedCollapsed)
+                      }
+                    >
+                      <div className="bg-coral/10">
+                        <CollapsibleTrigger asChild>
+                          <button className="w-full flex items-center gap-2 px-4 py-3 hover:bg-coral/20 transition-colors text-left">
+                            {unassignedCollapsed ? (
+                              <ChevronRight className="h-4 w-4 text-charcoal" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-charcoal" />
+                            )}
+                            <span className="text-sm font-bold uppercase tracking-wide text-charcoal">
+                              Unassigned
+                            </span>
+                            <Badge
+                              variant="secondary"
+                              className="bg-coral text-white border-0 font-semibold"
+                            >
+                              {
+                                gamePlayers.filter(
+                                  (gp) =>
+                                    !state.groups.some((g) =>
+                                      g.playerIds.includes(gp.id)
+                                    )
+                                ).length
+                              }
+                            </Badge>
+                          </button>
+                        </CollapsibleTrigger>
+                      </div>
+                      <CollapsibleContent>
+                        <DroppableGroup id="unassigned">
+                          <div className="divide-y divide-soft-grey max-h-[400px] overflow-y-auto px-3">
+                            {gamePlayers
+                              .filter(
                                 (gp) =>
                                   !state.groups.some((g) =>
                                     g.playerIds.includes(gp.id)
                                   )
-                              ).length
-                            }
-                          </Badge>
-                        </button>
-                      </CollapsibleTrigger>
-                    </div>
-                    <CollapsibleContent>
-                      <DroppableGroup id="unassigned">
-                        <div className="divide-y divide-soft-grey max-h-[400px] overflow-y-auto px-3">
-                          {gamePlayers
-                            .filter(
-                              (gp) =>
-                                !state.groups.some((g) =>
-                                  g.playerIds.includes(gp.id)
-                                )
-                            )
-                            .map((gp) => {
-                              const displayName = getGamePlayerDisplayName(gp);
-                              const isGuest = Boolean(gp.guest_name);
-                              return (
-                                <div key={gp.id} className="relative">
-                                  <DraggablePlayer
-                                    id={gp.id}
-                                    displayName={displayName}
-                                    isGuest={isGuest}
-                                    playHandicap={gp.play_handicap}
-                                    showDragHandle={true}
-                                    showRemove={false}
-                                  />
-                                  <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-7 w-7 text-charcoal/60 hover:text-turf"
+                              )
+                              .map((gp) => {
+                                const displayName = getGamePlayerDisplayName(gp);
+                                const isGuest = Boolean(gp.guest_name);
+                                return (
+                                  <div key={gp.id} className="relative">
+                                    <DraggablePlayer
+                                      id={gp.id}
+                                      displayName={displayName}
+                                      isGuest={isGuest}
+                                      playHandicap={gp.play_handicap}
+                                      showDragHandle={true}
+                                      showRemove={false}
+                                    />
+                                    <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-charcoal/60 hover:text-turf"
+                                          >
+                                            <MoreVertical className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                          align="end"
+                                          className="z-50 bg-scorecard shadow-lg"
                                         >
-                                          <MoreVertical className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent
-                                        align="end"
-                                        className="z-50 bg-scorecard shadow-lg"
-                                      >
-                                        {state.groups.map((group, idx) => (
+                                          {state.groups.map((group, idx) => (
+                                            <DropdownMenuItem
+                                              key={idx}
+                                              onClick={() =>
+                                                handleAssignPlayerToGroup(
+                                                  gp.id,
+                                                  idx
+                                                )
+                                              }
+                                            >
+                                              <UserPlus className="h-4 w-4 mr-2" />
+                                              Assign to {group.name}
+                                            </DropdownMenuItem>
+                                          ))}
                                           <DropdownMenuItem
-                                            key={idx}
                                             onClick={() =>
-                                              handleAssignPlayerToGroup(
-                                                gp.id,
-                                                idx
-                                              )
+                                              handleRemovePlayer(gp.id)
                                             }
                                           >
-                                            <UserPlus className="h-4 w-4 mr-2" />
-                                            Assign to {group.name}
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Remove from game
                                           </DropdownMenuItem>
-                                        ))}
-                                        <DropdownMenuItem
-                                          onClick={() =>
-                                            handleRemovePlayer(gp.id)
-                                          }
-                                        >
-                                          <Trash2 className="h-4 w-4 mr-2" />
-                                          Remove from game
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </DroppableGroup>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
-              )}
+                                );
+                              })}
+                          </div>
+                        </DroppableGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                )}
+            </div>
 
-            {/* Groups Section (outside card, below) */}
-            <div>
-              {/* Groups with Slots */}
-              <div className="space-y-3 px-1">
+            {/* Groups Section - OUTSIDE gray container */}
+            <div className="max-w-4xl mx-auto px-2 mb-6">
+              <div className="space-y-3">
                 {state.groups.map((group, groupIndex) => (
                   <Collapsible
                     key={groupIndex}
                     open={!groupsCollapsed[groupIndex]}
                     onOpenChange={() => handleToggleGroupCollapse(groupIndex)}
                   >
-                    <div className="bg-white rounded-lg border border-soft-grey overflow-hidden mx-0.5">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-turf/30 bg-turf/20">
+                    <div className="border-l-4 border-turf bg-white rounded overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 bg-turf/10">
                         <CollapsibleTrigger asChild>
-                          <button className="flex items-center gap-2 hover:bg-turf/25 -mx-2 -my-1 px-2 py-1 rounded transition-colors">
+                          <button className="flex items-center gap-2 hover:bg-turf/20 -mx-2 -my-1 px-2 py-1 rounded transition-colors">
                             {groupsCollapsed[groupIndex] ? (
-                              <ChevronRight className="h-4 w-4 text-turf" />
+                              <ChevronRight className="h-4 w-4 text-charcoal" />
                             ) : (
-                              <ChevronDown className="h-4 w-4 text-turf" />
+                              <ChevronDown className="h-4 w-4 text-charcoal" />
                             )}
-                            <span className="text-sm font-semibold text-charcoal">
+                            <span className="text-sm font-bold uppercase tracking-wide text-charcoal">
                               {group.name}
                             </span>
                             <Badge
                               variant="secondary"
-                              className="bg-turf/30 text-charcoal border-0 font-semibold"
+                              className="bg-turf text-white border-0 font-semibold"
                             >
                               {group.playerIds.filter(Boolean).length}/4
                             </Badge>
@@ -1554,7 +1544,7 @@ export default function GameSetup() {
 
                       <CollapsibleContent>
                         <DroppableGroup id={`group-${groupIndex}`}>
-                          <div className="divide-y divide-soft-grey px-1">
+                          <div className="divide-y divide-soft-grey px-4">
                             {[0, 1, 2, 3].map((slotIndex) => {
                               const playerId = group.playerIds[slotIndex];
                               const player = playerId
@@ -1562,7 +1552,6 @@ export default function GameSetup() {
                                 : null;
 
                               if (player) {
-                                // Render draggable player
                                 return (
                                   <DraggablePlayerInGroup
                                     key={slotIndex}
@@ -1582,7 +1571,6 @@ export default function GameSetup() {
                                   />
                                 );
                               } else {
-                                // Render empty slot
                                 return (
                                   <div
                                     key={slotIndex}
@@ -1615,7 +1603,7 @@ export default function GameSetup() {
                 <Button
                   onClick={handleAddGroup}
                   variant="outline"
-                  className="w-full border-2 border-dashed border-turf/40 bg-white text-turf hover:bg-turf/10 hover:border-turf/60 h-11 mx-0.5 font-semibold"
+                  className="w-full border-2 border-dashed border-turf/40 bg-white text-turf hover:bg-turf/10 hover:border-turf/60 h-11 font-semibold rounded"
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Add Group

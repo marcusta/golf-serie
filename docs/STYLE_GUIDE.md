@@ -5,6 +5,13 @@
 
 TapScore uses a custom design system built on Tailwind CSS v4 with carefully crafted brand colors, typography, and component patterns optimized for golf tournament management interfaces.
 
+> **🎯 IMPORTANT:** Before implementing any UI, read [visual-design-rules.md](./visual-design-rules.md) for core design principles including:
+> - Visual hierarchy through corner roundness (outer soft, inner sharp)
+> - One level of 3D effects (no nested shadows)
+> - Background contrast strategy (gray backgrounds make white content pop)
+> - Typography-based hierarchy (uppercase bold labels instead of nested header boxes)
+> - Button roundness guidelines (pills for navigation, sharp for content actions)
+
 ---
 
 ## 🌈 Color System
@@ -33,6 +40,32 @@ TapScore uses a custom design system built on Tailwind CSS v4 with carefully cra
 | **Error** | `bg-flag text-scorecard` | `bg-flag/10 text-flag` | `bg-flag/5` |
 | **Info** | `bg-sky text-scorecard` | `bg-sky/10 text-sky` | `bg-sky/5` |
 | **Neutral** | `bg-charcoal text-scorecard` | `bg-soft-grey text-charcoal` | `bg-scorecard` |
+
+### Container Background Strategy (2024 Design Update)
+
+**New Pattern:** Use subtle gray backgrounds to create natural contrast for white content boxes:
+
+```tsx
+// ✅ Recommended: Gray container with white boxes
+<div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6">
+  <div className="bg-white rounded p-4">
+    {/* White box naturally pops against gray */}
+  </div>
+</div>
+
+// ❌ Old Pattern: White on white requires nested shadows
+<div className="bg-white p-6">
+  <div className="bg-white rounded-xl shadow-lg p-4">
+    {/* Needs shadow to separate from background */}
+  </div>
+</div>
+```
+
+**Benefits:**
+- Better visual hierarchy without excessive shadows
+- Cleaner, more modern aesthetic
+- Reduces "nested 3D effect" problems
+- Works perfectly with left accent bars for color coding
 
 ---
 
@@ -149,29 +182,81 @@ TapScore uses Tailwind CSS v4, which requires custom colors to be defined in the
 }
 ```
 
-### Cards
+### Cards (2024 Design Update)
 
-#### Standard Card
+#### Container + Content Pattern
+
+**New recommended pattern** - Use gray containers with sharp white content boxes:
+
+```tsx
+{/* Outer container - soft corners, has shadow */}
+<div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6">
+
+  {/* Section with uppercase label */}
+  <div className="mb-6">
+    <h3 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
+      Players Added
+    </h3>
+
+    {/* Inner content box - sharp corners, no shadow */}
+    <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
+      {/* Items with dividers, not individual cards */}
+      <div className="px-4 py-3 hover:bg-turf/5">Item 1</div>
+      <div className="px-4 py-3 hover:bg-turf/5">Item 2</div>
+    </div>
+  </div>
+</div>
+```
+
+**Key Principles:**
+- **Outer container**: `rounded-2xl` (soft), `shadow-lg`, gray background
+- **Inner boxes**: `rounded` (sharp), no shadow, white background
+- **Section labels**: Outside boxes, not inside colored headers
+- **Lists**: Use `divide-y` for items, not individual cards
+
+#### Grouped Content with Left Accents
+
+For categorized or state-based content:
+
+```tsx
+{/* Primary category (turf) */}
+<div className="border-l-4 border-turf bg-white rounded overflow-hidden">
+  <div className="bg-turf/10 px-4 py-3">
+    <span className="font-bold uppercase text-sm">Group 1</span>
+    <Badge className="bg-turf text-white">4/4</Badge>
+  </div>
+  <div className="divide-y divide-soft-grey px-4">
+    <div className="py-3">Player 1</div>
+    <div className="py-3">Player 2</div>
+  </div>
+</div>
+
+{/* Warning/Alert category (coral) */}
+<div className="border-l-4 border-coral bg-white rounded overflow-hidden">
+  <div className="bg-coral/10 px-4 py-3">
+    <span className="font-bold uppercase text-sm">Unassigned</span>
+    <Badge className="bg-coral text-white">3</Badge>
+  </div>
+  <div className="divide-y divide-soft-grey px-4">
+    <div className="py-3">Player A</div>
+  </div>
+</div>
+```
+
+#### Legacy Card Pattern (Deprecated)
+
 ```css
+/* ⚠️ OLD PATTERN - Avoid for new components */
 .card {
   background: var(--scorecard-white);
   border: 1px solid var(--soft-grey);
   border-radius: 1rem;
   box-shadow: 0 2px 8px rgba(27, 67, 50, 0.08);
   padding: 1.5rem;
-  transition: all 0.2s ease;
 }
 ```
 
-**Usage:**
-```html
-<div class="card">
-  <div class="card-header">
-    <h3 class="text-display-sm text-charcoal">Competition Results</h3>
-  </div>
-  <!-- Content -->
-</div>
-```
+**Why deprecated:** Creates visual weight with border + shadow, harder to maintain hierarchy.
 
 ### Form Elements
 
