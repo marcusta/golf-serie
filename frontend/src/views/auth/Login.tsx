@@ -2,6 +2,10 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "../../hooks/useAuth";
 import TapScoreLogo from "../../components/ui/TapScoreLogo";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -29,69 +33,73 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-scorecard rounded-2xl shadow-lg p-8 border-2 border-soft-grey">
-          <div className="flex justify-center mb-6">
+        <div className="bg-scorecard rounded-lg p-8">
+          <div className="flex justify-center mb-8">
             <TapScoreLogo size="lg" variant="color" layout="vertical" />
           </div>
 
-          <h1 className="text-2xl font-bold text-charcoal text-center mb-6 font-['Inter']">
+          <h1 className="text-display-md text-charcoal text-center mb-8">
             Admin Login
           </h1>
 
           {error && (
-            <div className="bg-coral/10 border border-coral text-coral rounded-lg p-3 mb-4 text-sm">
-              {error}
-            </div>
+            <Alert
+              variant="destructive"
+              className="mb-6 bg-coral/10 border-coral/30 text-coral"
+            >
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-charcoal mb-1 font-['Inter']"
+                className="block text-sm font-medium text-charcoal"
               >
                 Email
               </label>
-              <input
+              <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
+                className="border-soft-grey focus-visible:ring-turf"
                 placeholder="admin@example.com"
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-charcoal mb-1 font-['Inter']"
+                className="block text-sm font-medium text-charcoal"
               >
                 Password
               </label>
-              <input
+              <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
+                className="border-soft-grey focus-visible:ring-turf"
                 placeholder="••••••••"
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-turf text-scorecard rounded-xl font-semibold hover:bg-fairway transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-['Inter']"
+              className="w-full bg-turf hover:bg-fairway text-scorecard border-turf hover:border-fairway"
             >
               {isLoading ? "Signing in..." : "Sign In"}
-            </button>
+            </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-charcoal/70 font-['Inter']">
+          <div className="mt-8 pt-6 border-t border-soft-grey/50 space-y-3">
+            <p className="text-sm text-charcoal/70 text-center">
               Don't have an account?{" "}
               <Link
                 to="/register"
@@ -100,15 +108,15 @@ export default function Login() {
                 Register
               </Link>
             </p>
-          </div>
 
-          <div className="mt-4 text-center">
-            <Link
-              to="/player"
-              className="text-sm text-charcoal/50 hover:text-charcoal font-['Inter']"
-            >
-              ← Back to Player View
-            </Link>
+            <div className="text-center">
+              <Link
+                to="/player"
+                className="text-sm text-charcoal/50 hover:text-charcoal transition-colors"
+              >
+                ← Back
+              </Link>
+            </div>
           </div>
         </div>
       </div>

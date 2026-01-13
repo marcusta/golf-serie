@@ -14,7 +14,9 @@ export default function App() {
   // Check if we're in a layout that already has its own header
   const hasOwnHeader =
     location.pathname.includes("/admin") ||
-    location.pathname.includes("/player");
+    location.pathname.includes("/player") ||
+    location.pathname === "/login" ||
+    location.pathname === "/register";
 
   if (isCompetitionRound || hasOwnHeader) {
     // Full-screen layout for competition rounds or layouts with their own headers

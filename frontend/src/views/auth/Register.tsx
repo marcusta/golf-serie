@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useAuth } from "../../hooks/useAuth";
 import TapScoreLogo from "../../components/ui/TapScoreLogo";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Alert, AlertDescription } from "../../components/ui/alert";
+import { AlertCircle, CheckCircle2, Lock } from "lucide-react";
 import type { AutoEnrollment } from "../../api/auth";
 
 export default function Register() {
@@ -18,7 +22,9 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [autoEnrollments, setAutoEnrollments] = useState<AutoEnrollment[] | null>(null);
+  const [autoEnrollments, setAutoEnrollments] = useState<
+    AutoEnrollment[] | null
+  >(null);
 
   // Update email when URL param changes
   useEffect(() => {
@@ -65,47 +71,48 @@ export default function Register() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <div className="bg-scorecard rounded-2xl shadow-lg p-8 border-2 border-soft-grey">
-            <div className="flex justify-center mb-6">
+          <div className="bg-scorecard rounded-lg p-8">
+            <div className="flex justify-center mb-8">
               <TapScoreLogo size="lg" variant="color" layout="vertical" />
             </div>
 
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-turf/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-turf" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-charcoal font-['Inter']">
+            <div className="text-center mb-8">
+              <CheckCircle2 className="w-12 h-12 text-turf mx-auto mb-4" />
+              <h1 className="text-display-md text-charcoal mb-2">
                 Welcome to TapScore!
               </h1>
-              <p className="text-charcoal/70 mt-2 font-['Inter']">
+              <p className="text-body-lg text-charcoal/70">
                 Your account has been created successfully.
               </p>
             </div>
 
-            <div className="bg-turf/5 border border-turf/20 rounded-xl p-4 mb-6">
-              <h2 className="text-sm font-semibold text-turf mb-3 font-['Inter']">
-                You've been enrolled in {autoEnrollments.length === 1 ? 'a tour' : `${autoEnrollments.length} tours`}:
+            <div className="border-l-4 border-turf bg-turf/5 pl-4 py-4 mb-8">
+              <h2 className="text-sm font-semibold text-turf mb-3">
+                You've been enrolled in{" "}
+                {autoEnrollments.length === 1
+                  ? "a tour"
+                  : `${autoEnrollments.length} tours`}
+                :
               </h2>
               <ul className="space-y-2">
                 {autoEnrollments.map((enrollment) => (
-                  <li key={enrollment.enrollment_id} className="flex items-center gap-2 text-charcoal font-['Inter']">
-                    <svg className="w-4 h-4 text-turf flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                  <li
+                    key={enrollment.enrollment_id}
+                    className="flex items-center gap-2 text-charcoal"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-turf flex-shrink-0" />
                     <span>{enrollment.tour_name}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <button
+            <Button
               onClick={() => navigate({ to: "/player" })}
-              className="w-full py-3 bg-turf text-scorecard rounded-xl font-semibold hover:bg-fairway transition-colors font-['Inter']"
+              className="w-full bg-turf hover:bg-fairway text-scorecard border-turf hover:border-fairway"
             >
               Continue to Player View
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -115,109 +122,109 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-scorecard rounded-2xl shadow-lg p-8 border-2 border-soft-grey">
-          <div className="flex justify-center mb-6">
+        <div className="bg-scorecard rounded-lg p-8">
+          <div className="flex justify-center mb-8">
             <TapScoreLogo size="lg" variant="color" layout="vertical" />
           </div>
 
-          <h1 className="text-2xl font-bold text-charcoal text-center mb-6 font-['Inter']">
+          <h1 className="text-display-md text-charcoal text-center mb-8">
             Create Account
           </h1>
 
           {error && (
-            <div className="bg-coral/10 border border-coral text-coral rounded-lg p-3 mb-4 text-sm">
-              {error}
-            </div>
+            <Alert
+              variant="destructive"
+              className="mb-6 bg-coral/10 border-coral/30 text-coral"
+            >
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-charcoal mb-1 font-['Inter']"
+                className="block text-sm font-medium text-charcoal"
               >
                 Email
               </label>
               {isEmailFromUrl ? (
-                <div className="relative">
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    readOnly
-                    className="w-full px-4 py-2.5 border-2 border-turf/50 bg-turf/5 rounded-xl text-charcoal font-['Inter'] cursor-not-allowed"
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <svg className="w-5 h-5 text-turf" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
+                <>
+                  <div className="relative">
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      readOnly
+                      className="border-turf/50 bg-turf/5 cursor-not-allowed pr-10"
+                    />
+                    <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-turf" />
                   </div>
-                </div>
+                  <p className="text-xs text-turf">
+                    This email was provided via your invitation link
+                  </p>
+                </>
               ) : (
-                <input
+                <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
+                  className="border-soft-grey focus-visible:ring-turf"
                   placeholder="you@example.com"
                 />
               )}
-              {isEmailFromUrl && (
-                <p className="text-xs text-turf mt-1 font-['Inter']">
-                  This email was provided via your invitation link
-                </p>
-              )}
             </div>
 
-            <div>
+            <div className="space-y-2">
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-charcoal mb-1 font-['Inter']"
+                className="block text-sm font-medium text-charcoal"
               >
                 Password
               </label>
-              <input
+              <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
+                className="border-soft-grey focus-visible:ring-turf"
                 placeholder="••••••••"
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <label
                 htmlFor="confirmPassword"
-                className="block text-sm font-medium text-charcoal mb-1 font-['Inter']"
+                className="block text-sm font-medium text-charcoal"
               >
                 Confirm Password
               </label>
-              <input
+              <Input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
+                className="border-soft-grey focus-visible:ring-turf"
                 placeholder="••••••••"
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-turf text-scorecard rounded-xl font-semibold hover:bg-fairway transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-['Inter']"
+              className="w-full bg-turf hover:bg-fairway text-scorecard border-turf hover:border-fairway"
             >
               {isLoading ? "Creating account..." : "Create Account"}
-            </button>
+            </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-charcoal/70 font-['Inter']">
+          <div className="mt-8 pt-6 border-t border-soft-grey/50 space-y-3">
+            <p className="text-sm text-charcoal/70 text-center">
               Already have an account?{" "}
               <Link
                 to="/login"
@@ -226,15 +233,15 @@ export default function Register() {
                 Sign In
               </Link>
             </p>
-          </div>
 
-          <div className="mt-4 text-center">
-            <Link
-              to="/player"
-              className="text-sm text-charcoal/50 hover:text-charcoal font-['Inter']"
-            >
-              ← Back to Player View
-            </Link>
+            <div className="text-center">
+              <Link
+                to="/player"
+                className="text-sm text-charcoal/50 hover:text-charcoal transition-colors"
+              >
+                ← Back
+              </Link>
+            </div>
           </div>
         </div>
       </div>
