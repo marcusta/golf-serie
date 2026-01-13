@@ -4,6 +4,7 @@ import { useMyProfile } from "@/api/player-profile";
 import { useMyToursAndSeries } from "@/api/player-profile";
 import { useActiveRounds } from "@/api/tour-registration";
 import { useMyRounds } from "@/api/player-profile";
+import { useMyGames } from "@/api/games";
 import {
   Trophy,
   ChevronRight,
@@ -13,6 +14,7 @@ import {
   Calendar,
   Award,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import { useMemo } from "react";
 import { RoundList } from "@/components/rounds/RoundList";
@@ -25,12 +27,14 @@ export function Dashboard() {
   const { data: activeRounds, isLoading: activeRoundsLoading } =
     useActiveRounds();
   const { data: recentRounds, isLoading: recentRoundsLoading } = useMyRounds(5);
+  const { data: myGames, isLoading: gamesLoading } = useMyGames();
 
   const isLoading =
     profileLoading ||
     toursLoading ||
     activeRoundsLoading ||
-    recentRoundsLoading;
+    recentRoundsLoading ||
+    gamesLoading;
 
   // Calculate this week's upcoming competitions from active rounds
   const upcomingThisWeek = useMemo(() => {
@@ -59,6 +63,12 @@ export function Dashboard() {
     if (!activeRounds) return [];
     return activeRounds.filter((round) => round.status === "playing");
   }, [activeRounds]);
+
+  // Get active casual games
+  const activeGames = useMemo(() => {
+    if (!myGames) return [];
+    return myGames.filter((game) => game.status === "active");
+  }, [myGames]);
 
   if (isLoading) {
     return (
@@ -92,8 +102,32 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rough/40 via-scorecard/95 to-scorecard">
+      {/* Play Golf Button - Circular, Centered at Top, Floating Above Everything */}
+      <Link to="/player/games/new" className="group block fixed left-1/2 -translate-x-1/2 top-12 md:top-14 z-50">
+        <div
+          className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-turf via-turf to-turf/80 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+          style={{
+            boxShadow:
+              "0 12px 28px rgba(45, 106, 79, 0.4), 0 6px 12px rgba(0, 0, 0, 0.15), inset 0 -3px 8px rgba(0, 0, 0, 0.2), inset 0 3px 6px rgba(255, 255, 255, 0.3)",
+          }}
+        >
+          {/* Inner glow */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/30 to-transparent opacity-60" />
+
+          {/* Text - Two Lines */}
+          <div className="relative z-10 text-center leading-tight">
+            <div className="text-base md:text-lg font-bold text-scorecard drop-shadow-md">
+              Play
+            </div>
+            <div className="text-base md:text-lg font-bold text-scorecard drop-shadow-md">
+              Golf
+            </div>
+          </div>
+        </div>
+      </Link>
+
       {/* Hero Section with Image */}
-      <div className="relative h-[280px] md:h-[300px] overflow-hidden z-0">
+      <div className="relative h-[280px] md:h-[300px] overflow-hidden">
         {/* Background Image */}
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -171,6 +205,44 @@ export function Dashboard() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 pb-8 max-w-6xl">
+        {/* Active Casual Games Section */}
+        {activeGames.length > 0 && (
+          <div className="mb-8">
+            <div className="mb-4">
+              <h2 className="text-body-lg font-bold text-charcoal">
+                Active Games
+              </h2>
+            </div>
+            <div className="bg-scorecard rounded-xl overflow-hidden divide-y divide-soft-grey shadow-lg">
+              {activeGames.map((game) => (
+                <Link
+                  key={game.game_id}
+                  to="/player/games/$gameId/play"
+                  params={{ gameId: game.game_id.toString() }}
+                  className="block px-5 py-4 hover:bg-sky/5 transition-colors border-l-4 border-sky hover:border-sky/80"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="font-semibold text-charcoal mb-1">
+                        {game.course_name}
+                      </div>
+                      <div className="flex items-center gap-3 text-body-sm text-charcoal/70 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-4 w-4" />
+                          <span>{game.player_count} players</span>
+                        </div>
+                        <span>•</span>
+                        <span>{game.my_current_score}</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0 mt-1" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Active Rounds Section - Horizontal Scroll on Mobile */}
         {currentRounds.length > 0 && (
           <div className="mb-8 -mx-4 md:mx-0">

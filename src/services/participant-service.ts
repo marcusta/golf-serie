@@ -122,6 +122,7 @@ export class ParticipantService {
   private transformParticipantRow(row: ParticipantRow): Participant {
     return {
       ...row,
+      player_name: row.player_names,
       score: this.parseScoreJson(row.score),
       is_locked: Boolean(row.is_locked),
       is_dq: Boolean(row.is_dq),

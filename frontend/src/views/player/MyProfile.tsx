@@ -34,6 +34,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { ProfileRecentRounds, ProfileTours, ProfileSeries } from "@/components/profile";
 
@@ -194,6 +196,7 @@ export default function MyProfile() {
         bio: profile.bio || "",
         home_course_id: profile.home_course_id || null,
         visibility: profile.visibility,
+        gender: profile.gender,
       });
       setIsEditing(true);
     }
@@ -396,13 +399,13 @@ export default function MyProfile() {
                 <label className="block text-sm font-medium text-charcoal mb-1">
                   Bio
                 </label>
-                <textarea
+                <Textarea
                   value={editForm.bio || ""}
                   onChange={(e) =>
                     setEditForm({ ...editForm, bio: e.target.value })
                   }
                   placeholder="Tell us about yourself..."
-                  className="flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 min-h-[80px]"
+                  className="min-h-[80px]"
                 />
               </div>
 
@@ -410,25 +413,52 @@ export default function MyProfile() {
                 <label className="block text-sm font-medium text-charcoal mb-1">
                   Home Course
                 </label>
-                <select
-                  value={editForm.home_course_id || ""}
-                  onChange={(e) =>
+                <Select
+                  value={editForm.home_course_id?.toString()}
+                  onValueChange={(value) =>
                     setEditForm({
                       ...editForm,
-                      home_course_id: e.target.value
-                        ? parseInt(e.target.value)
-                        : null,
+                      home_course_id: value ? parseInt(value) : null,
                     })
                   }
-                  className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2"
                 >
-                  <option value="">No home course</option>
-                  {courses?.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No home course" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses?.map((course) => (
+                      <SelectItem key={course.id} value={course.id.toString()}>
+                        {course.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-charcoal mb-1">
+                  Gender
+                </label>
+                <Select
+                  value={editForm.gender}
+                  onValueChange={(value) =>
+                    setEditForm({
+                      ...editForm,
+                      gender: value as "male" | "female" | undefined,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not specified" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-charcoal/60 mt-1">
+                  Required for accurate play handicap calculation
+                </p>
               </div>
 
               <div>

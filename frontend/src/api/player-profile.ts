@@ -21,6 +21,7 @@ export interface PlayerProfileFull {
   name: string;
   handicap: number;
   user_id?: number;
+  gender?: "male" | "female";
 
   // Profile extended
   display_name?: string;
@@ -59,6 +60,7 @@ export interface UpdateProfileDto {
   avatar_url?: string;
   home_course_id?: number | null;
   visibility?: ProfileVisibility;
+  gender?: "male" | "female";
 }
 
 export interface RecordHandicapDto {

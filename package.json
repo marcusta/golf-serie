@@ -22,6 +22,8 @@
     "check-db": "bun ./scripts/check-db.ts",
     "seed-tour": "bun run src/database/migrate.ts && bun run src/database/seed-tour.ts",
     "seed-tour:prod": "DB_PATH=deploy-tmp/db.sqlite bun run src/database/seed-tour.ts",
+    "seed-genders": "bun run src/database/seed-player-genders.ts",
+    "seed-genders:prod": "DB_PATH=deploy-tmp/db.sqlite bun run src/database/seed-player-genders.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/**/*.ts",
     "setup": "bun install && bun run src/database/migrate.ts && bun run src/database/seed.ts",

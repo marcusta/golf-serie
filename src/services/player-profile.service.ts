@@ -63,6 +63,7 @@ interface PlayerRow {
   name: string;
   handicap: number;
   user_id: number | null;
+  gender: string | null;
   created_by: number | null;
   created_at: string;
   updated_at: string;
@@ -265,6 +266,18 @@ export class PlayerProfileService {
       `
       )
       .run(handicap, playerId);
+  }
+
+  private updatePlayerGenderRow(playerId: number, gender: string): void {
+    this.db
+      .prepare(
+        `
+        UPDATE players
+        SET gender = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `
+      )
+      .run(gender, playerId);
   }
 
   private findRoundHistoryRows(
@@ -506,6 +519,7 @@ export class PlayerProfileService {
       name: player.name,
       handicap: player.handicap,
       user_id: player.user_id ?? undefined,
+      gender: player.gender as "male" | "female" | undefined,
       display_name: profile.display_name,
       bio: profile.bio,
       avatar_url: profile.avatar_url,
@@ -690,13 +704,21 @@ export class PlayerProfileService {
       this.validateVisibility(data.visibility);
     }
 
+    // Update gender in players table if provided
+    if (data.gender !== undefined) {
+      this.updatePlayerGenderRow(playerId, data.gender);
+    }
+
     const { updates, values } = this.buildProfileUpdateFields(data);
 
-    if (updates.length === 0) {
+    if (updates.length === 0 && data.gender === undefined) {
       return this.getProfile(playerId)!;
     }
 
-    this.updateProfileRow(playerId, updates, values);
+    if (updates.length > 0) {
+      this.updateProfileRow(playerId, updates, values);
+    }
+
     return this.getProfile(playerId)!;
   }
 

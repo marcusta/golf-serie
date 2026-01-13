@@ -14,6 +14,8 @@ import { createSeriesApi } from "./api/series";
 import { createTeamsApi } from "./api/teams";
 import { createTeeTimesApi } from "./api/tee-times";
 import { createToursApi } from "./api/tours";
+import { createGamesApi } from "./api/games";
+import { createGameScoresApi } from "./api/game-scores";
 import { createAuthMiddleware, requireAuth, requireRole } from "./middleware/auth";
 import { createAuthService } from "./services/auth.service";
 import { ClubService } from "./services/club.service";
@@ -39,6 +41,9 @@ import { createTourCompetitionRegistrationService } from "./services/tour-compet
 import { createTourService } from "./services/tour.service";
 import { createTourCompetitionRegistrationApi } from "./api/tour-competition-registration";
 import { createCompetitionResultsService } from "./services/competition-results.service";
+import { GameService } from "./services/game.service";
+import { GameGroupService } from "./services/game-group.service";
+import { GameScoreService } from "./services/game-score.service";
 
 export function createApp(db: Database): Hono {
   // Initialize services
@@ -64,6 +69,9 @@ export function createApp(db: Database): Hono {
   const tourCategoryService = createTourCategoryService(db);
   const tourCompetitionRegistrationService = createTourCompetitionRegistrationService(db);
   const competitionResultsService = createCompetitionResultsService(db);
+  const gameService = new GameService(db);
+  const gameGroupService = new GameGroupService(db);
+  const gameScoreService = new GameScoreService(db);
 
   // Auth service with auto-enrollment dependencies
   const authService = createAuthService(db, {
@@ -92,6 +100,8 @@ export function createApp(db: Database): Hono {
     tourEnrollmentService,
     playerService
   );
+  const gamesApi = createGamesApi(gameService, gameGroupService, gameScoreService);
+  const gameScoresApi = createGameScoresApi(gameScoreService);
 
   // Create Hono app
   const app = new Hono();
@@ -476,6 +486,123 @@ export function createApp(db: Database): Hono {
       c.req.raw,
       competitionId
     );
+  });
+
+  // ============================================================================
+  // Casual Games Routes
+  // ============================================================================
+
+  // Games
+  app.post("/api/games", requireAuth(), async (c) => {
+    const user = c.get("user");
+    return await gamesApi.create(c.req.raw, user!.id);
+  });
+
+  app.get("/api/games/my", requireAuth(), async (c) => {
+    const user = c.get("user");
+    return await gamesApi.findMyGames(user!.id);
+  });
+
+  app.get("/api/games/:id", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    return await gamesApi.findById(gameId);
+  });
+
+  app.put("/api/games/:id", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    return await gamesApi.update(c.req.raw, gameId, user!.id);
+  });
+
+  app.put("/api/games/:id/status", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    return await gamesApi.updateStatus(c.req.raw, gameId, user!.id);
+  });
+
+  app.delete("/api/games/:id", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    return await gamesApi.deleteGame(gameId, user!.id);
+  });
+
+  // Game Players
+  app.post("/api/games/:id/players", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    return await gamesApi.addPlayer(c.req.raw, gameId, user!.id);
+  });
+
+  app.delete("/api/games/:id/players/:playerId", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const playerId = parseInt(c.req.param("playerId"));
+    const user = c.get("user");
+    return await gamesApi.removePlayer(gameId, playerId, user!.id);
+  });
+
+  app.put("/api/games/:id/players/:playerId/tee", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const playerId = parseInt(c.req.param("playerId"));
+    const user = c.get("user");
+    return await gamesApi.assignTee(c.req.raw, gameId, playerId, user!.id);
+  });
+
+  app.get("/api/games/:id/players", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    return await gamesApi.getPlayers(gameId);
+  });
+
+  // Game Groups
+  app.post("/api/games/:id/groups", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    return await gamesApi.createGroup(c.req.raw, gameId, user!.id);
+  });
+
+  app.put("/api/games/:id/groups/:groupId/members", requireAuth(), async (c) => {
+    const groupId = parseInt(c.req.param("groupId"));
+    const user = c.get("user");
+    return await gamesApi.setGroupMembers(c.req.raw, groupId, user!.id);
+  });
+
+  app.delete("/api/games/:id/groups/:groupId", requireAuth(), async (c) => {
+    const groupId = parseInt(c.req.param("groupId"));
+    const user = c.get("user");
+    return await gamesApi.deleteGroup(groupId, user!.id);
+  });
+
+  app.get("/api/games/:id/groups", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    return await gamesApi.getGroups(gameId);
+  });
+
+  app.get("/api/games/:id/groups/:groupId/scores", requireAuth(), async (c) => {
+    const groupId = parseInt(c.req.param("groupId"));
+    return await gamesApi.getGroupScores(groupId);
+  });
+
+  // Game Leaderboard
+  app.get("/api/games/:id/leaderboard", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    return await gamesApi.getLeaderboard(gameId);
+  });
+
+  // Game Scores
+  app.put("/api/game-scores/:memberId/hole/:hole", requireAuth(), async (c) => {
+    const memberId = parseInt(c.req.param("memberId"));
+    const hole = parseInt(c.req.param("hole"));
+    return await gameScoresApi.updateScore(c.req.raw, memberId, hole);
+  });
+
+  app.post("/api/game-scores/:memberId/lock", requireAuth(), async (c) => {
+    const memberId = parseInt(c.req.param("memberId"));
+    return await gameScoresApi.lockScore(memberId);
+  });
+
+  app.post("/api/game-scores/:memberId/unlock", requireAuth(), async (c) => {
+    const memberId = parseInt(c.req.param("memberId"));
+    const user = c.get("user");
+    return await gameScoresApi.unlockScore(memberId, user!.id);
   });
 
   // TeeTime routes

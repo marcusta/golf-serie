@@ -4,6 +4,7 @@ import { API_BASE_URL } from "./config";
 export interface Course {
   id: number;
   name: string;
+  club_name?: string; // Joined from clubs table
   pars: {
     holes: number[];
     out: number;

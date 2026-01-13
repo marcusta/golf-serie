@@ -112,6 +112,99 @@ npm run lint           # ESLint checking
 - Real-time updates with automatic cache invalidation
 - **Unified Topbar Architecture**: All player views use PlayerPageLayout for consistent navigation
 
+### Component Library Standards
+
+**CRITICAL RULE**: Always prefer shadcn/ui components over browser default HTML elements.
+
+- **Always use shadcn components when they exist:**
+  - Use `<Button>` instead of `<button>`
+  - Use `<Input>` instead of `<input>`
+  - Use `<Select>` instead of `<select>`
+  - Use `<Textarea>` instead of `<textarea>`
+  - Check `frontend/src/components/ui/` for available components before creating custom implementations
+
+- **If a shadcn component doesn't exist:**
+  - Install it from shadcn/ui if available
+  - Only create custom components if shadcn doesn't offer an equivalent
+  - Follow shadcn's patterns when creating custom components
+
+- **Component locations:**
+  - shadcn components: `frontend/src/components/ui/`
+  - Custom components: `frontend/src/components/`
+  - Page-specific components: Within the relevant view file or view subdirectory
+
+**Why:** shadcn/ui provides consistent styling, accessibility, animations, and mobile support across the entire application. Using shadcn components ensures a cohesive user experience and reduces maintenance burden.
+
+### User Feedback & Notifications
+
+**CRITICAL RULE**: Choose the appropriate shadcn notification component based on user workflow and message priority.
+
+#### When to Use Dialog (Modal)
+**Purpose:** Blocks workflow, requires explicit user action before proceeding.
+
+**Use for:**
+- Destructive actions needing confirmation (delete game, remove all players, reset data)
+- Required decisions before proceeding (choose between mutually exclusive options)
+- Critical errors that prevent continuation and need user acknowledgment
+- Multi-step forms or complex inputs that need focused attention
+- Collecting user input that's required to continue
+
+**Examples:**
+- "Delete this game? This action cannot be undone."
+- "Choose authentication method before continuing"
+- "Critical error: Unable to load game data"
+
+**Installation:** `npx shadcn@latest add dialog`
+
+#### When to Use Alert (Inline)
+**Purpose:** Persistent, contextual, non-blocking messages within a specific UI section.
+
+**Use for:**
+- Form validation errors that need to stay visible while user fixes them
+- Warnings about section-specific issues (missing required fields in current step)
+- Informational messages related to specific content area
+- State changes that affect a section (read-only mode, locked scorecard, sync status)
+- Instructions or tips that should remain visible during task
+
+**Examples:**
+- "Please add at least 1 player before continuing" (shown at top of player list)
+- "This scorecard is locked and cannot be edited"
+- "Your handicap will be calculated after your first round"
+
+**Installation:** `npx shadcn@latest add alert`
+
+#### When to Use Sonner (Toast)
+**Purpose:** Temporary, non-blocking, auto-dismissing messages for immediate feedback.
+
+**Use for:**
+- Success confirmations (saved, updated, added, removed, created)
+- Non-critical validation errors during active workflows (drag-and-drop, quick edits)
+- Background process feedback (data syncing, auto-save, loading states)
+- Transient errors that don't block the user from continuing
+- Quick status updates that don't require user action
+
+**Examples:**
+- "Player added successfully"
+- "Group limit: maximum 4 players per group" (during drag-and-drop)
+- "Changes saved"
+- "Failed to update score. Please try again."
+
+**Installation:** `npx shadcn@latest add sonner`
+**Setup Required:** Add `<Toaster />` component to root layout (usually in `App.tsx` or main layout)
+
+#### Decision Tree
+
+1. **Does this block the user's workflow or require a decision?**
+   - Yes → Use **Dialog**
+   - No → Go to step 2
+
+2. **Does this message need to stay visible while the user takes action?**
+   - Yes → Use **Alert**
+   - No → Go to step 3
+
+3. **Is this immediate feedback for a user action?**
+   - Yes → Use **Sonner** (toast)
+
 ## Design System & Visual Guidelines
 
 **IMPORTANT**: Before creating or modifying any UI components, review these design system documents:
@@ -157,6 +250,7 @@ npm run lint           # ESLint checking
 - Competition detail pages (CompetitionDetail, TeeTimeDetail)
 - Document detail pages (SeriesDocumentDetail, TourDocumentDetail)
 - Player profile pages (MyProfile, PlayerPublicProfile)
+- Game detail pages (GameSetup, GamePlay)
 
 **DO NOT use PlayerPageLayout for TOP-LEVEL list/index pages:**
 - Dashboard
@@ -164,6 +258,8 @@ npm run lint           # ESLint checking
 - Tours list (player/tours)
 - Series list (player/series)
 - Competitions list (player/competitions)
+
+**⚠️ REMINDER:** When using PlayerPageLayout, you MUST also update `PlayerLayout.tsx` `isDetailView` condition! See warning below.
 
 #### Pattern for Detail Pages (WITH PlayerPageLayout)
 ```tsx
@@ -205,8 +301,39 @@ export default function MyTopLevelView() {
 - Using PlayerPageLayout on top-level pages creates double navigation (both tab bar AND header bar)
 - This causes visual clutter and breaks the design hierarchy
 
+#### ⚠️ CRITICAL: Update PlayerLayout.tsx When Adding New Detail Pages
+
+**ALWAYS DO THIS** when creating a new player view that uses PlayerPageLayout:
+
+1. **Add the route pattern to `frontend/src/views/player/PlayerLayout.tsx`**
+2. **Update the `isDetailView` condition** to include your new route
+
+**Example** - Adding a new game setup route:
+```tsx
+// In PlayerLayout.tsx, line ~14-28
+const isDetailView =
+  location.pathname.endsWith("/player") ||
+  // ... existing patterns ...
+  location.pathname.match(/\/player\/games\/new/) || // ADD THIS
+  location.pathname.match(/\/player\/games\/\d+\/play/) || // ADD THIS
+  // ... rest of patterns ...
+```
+
+**Why:** If you forget this step, your page will have:
+- ❌ Both "Competitions/Series" tabs AND PlayerPageLayout header (double navigation)
+- ❌ Extra container wrapping causing layout issues
+- ❌ Confusing user experience
+
+**Routes that need this** (examples):
+- `/player/games/new` → Game setup wizard
+- `/player/games/:id/play` → Game play view
+- `/player/series/:id` → Series detail
+- `/player/tours/:id` → Tour detail
+- `/player/competitions/:id` → Competition detail
+
 **Key Components**:
 - **PlayerPageLayout**: Main wrapper for detail pages (`src/components/layout/PlayerPageLayout.tsx`)
+- **PlayerLayout**: Parent router wrapper with tabs (`src/views/player/PlayerLayout.tsx`) ← Update the `isDetailView` here!
 - **CommonHeader**: Header with automatic HamburgerMenu (`src/components/navigation/CommonHeader.tsx`)
 - **HamburgerMenu**: Context-aware navigation (`src/components/navigation/HamburgerMenu.tsx`)
 
@@ -236,6 +363,36 @@ When working with specific frontend features, consult these detailed guides:
 - Custom migration system extending base `Migration` class
 - Prepared statements for all database queries
 - Comprehensive error handling with proper HTTP status codes
+
+### Player Display Names Pattern
+
+**CRITICAL RULE:** Whenever displaying a player name in the UI, always use `player_profiles.display_name` first, then fall back to `players.name`.
+
+**Helper Function** (use this for consistency):
+```typescript
+import { getPlayerDisplayName } from "../utils/player-display";
+
+// In transform methods:
+const displayName = getPlayerDisplayName(row.player_display_name, row.player_name);
+```
+
+**Database Query Pattern** (use this in all player queries):
+```sql
+SELECT
+  t.*,
+  p.name as player_name,
+  pp.display_name as player_display_name
+FROM your_table t
+LEFT JOIN players p ON t.player_id = p.id
+LEFT JOIN player_profiles pp ON p.id = pp.player_id
+```
+
+**Why:**
+- `display_name` is the user's preferred name (set in their profile)
+- `name` is the system name (from user registration)
+- Always respect the user's display preference
+
+**Location:** `src/utils/player-display.ts` contains helper functions and SQL fragments
 
 ## Service Layer Code Organization
 

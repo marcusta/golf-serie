@@ -86,15 +86,18 @@ export function createPlayersApi(
       }
 
       const body = await c.req.json();
-      const profile = playerProfileService.updateProfile(player.id, {
+      playerProfileService.updateProfile(player.id, {
         display_name: body.display_name,
         bio: body.bio,
         avatar_url: body.avatar_url,
         home_course_id: body.home_course_id,
         visibility: body.visibility,
+        gender: body.gender,
       });
 
-      return c.json(profile);
+      // Return full profile with gender from players table
+      const fullProfile = playerProfileService.getFullProfile(player.id);
+      return c.json(fullProfile);
     } catch (error: any) {
       return c.json({ error: error.message }, 400);
     }

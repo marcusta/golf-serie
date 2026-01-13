@@ -83,13 +83,14 @@ export class CourseService {
     };
   }
 
-  private transformCourseRow(row: CourseRow): Course {
+  private transformCourseRow(row: CourseRow & { club_name?: string | null }): Course {
     const pars = parseParsArray(row.pars);
     const strokeIndex = row.stroke_index ? JSON.parse(row.stroke_index) : undefined;
     return {
       id: row.id,
       name: row.name,
       club_id: row.club_id ?? undefined,
+      club_name: row.club_name ?? undefined,
       pars: this.calculatePars(pars),
       stroke_index: strokeIndex,
       created_at: row.created_at,
@@ -167,6 +168,16 @@ export class CourseService {
   private findAllCourseRows(): CourseRow[] {
     const stmt = this.db.prepare("SELECT * FROM courses");
     return stmt.all() as CourseRow[];
+  }
+
+  private findAllCoursesWithClub(): Array<CourseRow & { club_name: string | null }> {
+    const stmt = this.db.prepare(`
+      SELECT c.*, cl.name as club_name
+      FROM courses c
+      LEFT JOIN clubs cl ON c.club_id = cl.id
+      ORDER BY COALESCE(cl.name, c.name), c.name
+    `);
+    return stmt.all() as Array<CourseRow & { club_name: string | null }>;
   }
 
   private findCourseRowById(id: number): CourseRow | null {
@@ -264,7 +275,7 @@ export class CourseService {
   }
 
   async findAll(): Promise<Course[]> {
-    const rows = this.findAllCourseRows();
+    const rows = this.findAllCoursesWithClub();
     return rows.map((row) => this.transformCourseRow(row));
   }
 

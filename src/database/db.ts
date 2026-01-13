@@ -43,6 +43,8 @@ import { AddSeriesAdminsMigration } from "./migrations/041_add_series_admins";
 import { AddCompetitionOwnershipMigration } from "./migrations/042_add_competition_ownership";
 import { AddTourIdToPointTemplatesMigration } from "./migrations/043_add_tour_id_to_point_templates";
 import { AddClubsMigration } from "./migrations/044_add_clubs";
+import { AddCasualGamesMigration } from "./migrations/045_add_casual_games";
+import { AddPlayerGenderFieldsMigration } from "./migrations/046_add_player_gender_fields";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -118,6 +120,8 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddCompetitionOwnershipMigration(db),
     new AddTourIdToPointTemplatesMigration(db),
     new AddClubsMigration(db),
+    new AddCasualGamesMigration(db),
+    new AddPlayerGenderFieldsMigration(db),
   ];
 
   // Apply pending migrations

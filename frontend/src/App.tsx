@@ -1,5 +1,6 @@
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import TapScoreLogo from "./components/ui/TapScoreLogo";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function App() {
   const { location } = useRouterState();
@@ -17,7 +18,12 @@ export default function App() {
 
   if (isCompetitionRound || hasOwnHeader) {
     // Full-screen layout for competition rounds or layouts with their own headers
-    return <Outlet />;
+    return (
+      <>
+        <Outlet />
+        <Toaster />
+      </>
+    );
   }
 
   // Regular layout for other pages (fallback/landing pages)
@@ -38,6 +44,7 @@ export default function App() {
           </div>
         </main>
       </div>
+      <Toaster />
     </div>
   );
 }
