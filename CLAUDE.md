@@ -37,10 +37,12 @@ This project uses **specialized sub-agents** for implementation tasks to improve
 Skills: Skills:    Skills: Skills:        Skills:
 - service - frontend - service - e2e      - code-
   -audit    -design   -testing -testing     review
-- sql-
-  -security
-- complexity
-  -check
+- sql-   - component
+  -security  -check
+- complexity - contrast
+  -check     -validator
+           - navigation
+             -guard
 ```
 
 **Complete Development Pipeline**: Plan → Implement → Test → Review → Commit
@@ -82,6 +84,12 @@ Read docs/backend/BACKEND_GUIDE.md for backend patterns."
 - `docs/visual-design-rules.md` - **MANDATORY** design principles
 - `docs/STYLE_GUIDE.md` - **MANDATORY** design system
 - `CLAUDE.md` (this file) - General domain knowledge
+
+**Skills loaded:**
+- `frontend-design` - Design system enforcement and visual hierarchy
+- `component-check` - Validates shadcn/ui component usage
+- `contrast-validator` - WCAG AA contrast ratio validation
+- `navigation-guard` - PlayerPageLayout usage validation
 
 **Example task:**
 ```
