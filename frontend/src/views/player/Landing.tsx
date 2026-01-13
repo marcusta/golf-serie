@@ -187,7 +187,7 @@ export default function PlayerLanding() {
   if (isAuthenticated) {
     return (
       <>
-        <CommonHeader showBackButton={false} />
+        <CommonHeader showBackButton={false} className="sticky top-0 z-40" />
         <Dashboard />
       </>
     );

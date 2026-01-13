@@ -31,7 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, useDroppable, DragOverlay } from "@dnd-kit/core";
+import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent, useDroppable, DragOverlay } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { getGamePlayerDisplayName } from "@/utils/player-display";
@@ -161,6 +161,12 @@ export default function GameSetup() {
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8, // Require 8px movement before drag starts (allows scrolling)
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250, // 250ms press and hold before drag starts (allows scrolling)
+        tolerance: 5, // Allow 5px of movement during delay
       },
     }),
     useSensor(KeyboardSensor, {

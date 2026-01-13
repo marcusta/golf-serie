@@ -103,7 +103,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rough/40 via-scorecard/95 to-scorecard">
       {/* Play Golf Button - Circular, Centered at Top, Floating Above Everything */}
-      <Link to="/player/games/new" className="group block fixed left-1/2 -translate-x-1/2 top-12 md:top-14 z-50">
+      <Link to="/player/games/new" className="group block fixed left-1/2 -translate-x-1/2 z-50" style={{ top: '5px' }}>
         <div
           className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-turf via-turf to-turf/80 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
           style={{
