@@ -114,6 +114,13 @@ export default function GameSetup() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState<{ groupIndex: number; slotIndex: number } | null>(null);
 
+  // Step 5 scoring mode multiselect state
+  const [selectedScoringModes, setSelectedScoringModes] = useState<Set<'gross' | 'net'>>(
+    state.scoringMode === 'both' ? new Set(['gross', 'net']) :
+    state.scoringMode === 'gross' ? new Set(['gross']) :
+    new Set(['net'])
+  );
+
   // API hooks
   const { data: courses, isLoading: coursesLoading } = useCourses();
   const { data: allPlayers, isLoading: playersLoading } = usePlayers();
@@ -513,6 +520,35 @@ export default function GameSetup() {
   // Step 5: Game Configuration & Finalization
   // ============================================================================
 
+  const handleToggleScoringMode = (mode: 'gross' | 'net') => {
+    setSelectedScoringModes((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(mode)) {
+        newSet.delete(mode);
+      } else {
+        newSet.add(mode);
+      }
+
+      // Ensure at least one mode is selected
+      if (newSet.size === 0) {
+        newSet.add(mode);
+      }
+
+      // Update state.scoringMode based on selection
+      let scoringMode: GameScoringMode;
+      if (newSet.has('gross') && newSet.has('net')) {
+        scoringMode = 'both';
+      } else if (newSet.has('gross')) {
+        scoringMode = 'gross';
+      } else {
+        scoringMode = 'net';
+      }
+
+      setState((prevState) => ({ ...prevState, scoringMode }));
+      return newSet;
+    });
+  };
+
   const handleFinishSetup = async () => {
     if (!state.gameId) return;
 
@@ -876,68 +912,73 @@ export default function GameSetup() {
           {/* Step 5: Game Configuration */}
           {step === 5 && (
             <div>
-              <h2 className="text-display-sm text-charcoal mb-2">Game Settings</h2>
-              <p className="text-body-md text-charcoal/70 mb-6">
-                Configure game type and scoring mode
-              </p>
+              <h2 className="text-display-sm text-charcoal mb-6">Game Settings</h2>
 
-              <div className="space-y-6">
-                {/* Game Type */}
-                <div>
-                  <label className="block text-label-md text-charcoal mb-3">Game Type</label>
-                  <div className="p-4 bg-soft-grey/20 rounded-xl">
-                    <div className="font-medium text-charcoal">Stroke Play</div>
-                    <div className="text-body-sm text-charcoal/60 mt-1">
-                      Standard stroke play format
-                    </div>
+              {/* Game Type */}
+              <label className="block text-label-md text-charcoal mb-3">Game Type</label>
+              <div className="mb-6">
+                <div className="px-4 py-3">
+                  <div className="text-[15px] font-medium text-charcoal">Stroke Play</div>
+                  <div className="text-[13px] text-charcoal/70 mt-0.5">
+                    Standard stroke play format
                   </div>
                 </div>
+              </div>
 
-                {/* Scoring Mode */}
-                <div>
-                  <label className="block text-label-md text-charcoal mb-3">Scoring Mode</label>
-                  <div className="space-y-2">
-                    {(["gross", "net", "both"] as GameScoringMode[]).map((mode) => (
-                      <button
-                        key={mode}
-                        onClick={() => setState((prev) => ({ ...prev, scoringMode: mode }))}
-                        className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
-                          state.scoringMode === mode
-                            ? "border-turf bg-turf/10"
-                            : "border-soft-grey hover:border-turf/50"
-                        }`}
-                      >
-                        <div className="font-medium text-charcoal capitalize">{mode}</div>
-                        <div className="text-body-sm text-charcoal/60 mt-1">
-                          {mode === "gross" && "Count raw scores only"}
-                          {mode === "net" && "Apply handicaps to scores"}
-                          {mode === "both" && "Track both gross and net scores"}
-                        </div>
-                      </button>
-                    ))}
+              <div className="h-px bg-soft-grey mb-6" />
+
+              {/* Scoring Mode */}
+              <label className="block text-label-md text-charcoal mb-3">Scoring Mode</label>
+              <div className="divide-y divide-soft-grey mb-6">
+                <button
+                  onClick={() => handleToggleScoringMode('gross')}
+                  className={`w-full text-left px-4 py-3 transition-colors ${
+                    selectedScoringModes.has('gross')
+                      ? "bg-turf/10"
+                      : "hover:bg-turf/5"
+                  }`}
+                >
+                  <div className="text-[15px] font-medium text-charcoal">Gross</div>
+                  <div className="text-[13px] text-charcoal/70 mt-0.5">
+                    Count raw scores only
                   </div>
-                </div>
+                </button>
+                <button
+                  onClick={() => handleToggleScoringMode('net')}
+                  className={`w-full text-left px-4 py-3 transition-colors ${
+                    selectedScoringModes.has('net')
+                      ? "bg-turf/10"
+                      : "hover:bg-turf/5"
+                  }`}
+                >
+                  <div className="text-[15px] font-medium text-charcoal">Net</div>
+                  <div className="text-[13px] text-charcoal/70 mt-0.5">
+                    Apply handicaps to scores
+                  </div>
+                </button>
+              </div>
 
-                {/* Summary */}
-                <div className="p-4 bg-turf/5 rounded-xl border border-turf/20">
-                  <h3 className="text-label-lg text-charcoal mb-3">Setup Summary</h3>
-                  <div className="space-y-2 text-body-sm">
-                    <div className="flex justify-between">
-                      <span className="text-charcoal/70">Course:</span>
-                      <span className="text-charcoal font-medium">{state.courseName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-charcoal/70">Players:</span>
-                      <span className="text-charcoal font-medium">{gamePlayers?.length || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-charcoal/70">Groups:</span>
-                      <span className="text-charcoal font-medium">{state.groups.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-charcoal/70">Scoring:</span>
-                      <span className="text-charcoal font-medium capitalize">{state.scoringMode}</span>
-                    </div>
+              <div className="h-px bg-soft-grey mb-6" />
+
+              {/* Summary */}
+              <div>
+                <h3 className="text-label-lg text-charcoal mb-4">Setup Summary</h3>
+                <div className="space-y-3 text-body-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-charcoal/70">Course:</span>
+                    <span className="text-charcoal font-medium">{state.courseName}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-charcoal/70">Players:</span>
+                    <span className="text-charcoal font-medium">{gamePlayers?.length || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-charcoal/70">Groups:</span>
+                    <span className="text-charcoal font-medium">{state.groups.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-charcoal/70">Scoring:</span>
+                    <span className="text-charcoal font-medium capitalize">{state.scoringMode}</span>
                   </div>
                 </div>
               </div>
