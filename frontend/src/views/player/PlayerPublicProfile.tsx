@@ -7,7 +7,6 @@ import {
 import {
   AlertCircle,
   RefreshCw,
-  Target,
   MapPin,
   Eye,
   EyeOff,

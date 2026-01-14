@@ -14,7 +14,6 @@ import {
   Calendar,
   Award,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import { useMemo } from "react";
 import { RoundList } from "@/components/rounds/RoundList";

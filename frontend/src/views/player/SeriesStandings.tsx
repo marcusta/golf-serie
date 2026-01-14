@@ -405,7 +405,7 @@ export default function SeriesStandings() {
 
           {/* Clean Hierarchical List */}
           <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
-            {enhancedTeamStandings.map((standing, index) => (
+            {enhancedTeamStandings.map((standing) => (
               <div key={standing.team_id}>
                 {/* Team Row */}
                 <div
