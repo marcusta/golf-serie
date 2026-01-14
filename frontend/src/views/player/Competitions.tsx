@@ -409,8 +409,8 @@ export default function PlayerCompetitions() {
           )}
 
         {/* Regular Competitions Grid */}
-        <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-charcoal font-display">
+        <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6">
+          <h3 className="text-sm font-bold text-charcoal mb-4 uppercase tracking-wide">
             {statusFilter === "all"
               ? "All Competitions"
               : statusFilter === "live"
@@ -423,7 +423,7 @@ export default function PlayerCompetitions() {
           {filteredCompetitions.length === 0 ? (
             <EmptyState statusFilter={statusFilter} searchQuery={searchQuery} />
           ) : (
-            <div className="divide-y divide-soft-grey">
+            <div className="space-y-3">
               {filteredCompetitions.map((competition) => (
                 <CompetitionCard
                   key={competition.id}
@@ -641,16 +641,25 @@ function CompetitionCard({
 }) {
   const { data: leaderboard } = useCompetitionLeaderboard(competition.id);
 
-  const getIconForStatus = (status: FilterStatus) => {
+  // Position color helper for podium positions
+  const getPositionColor = (index: number) => {
+    if (index === 0) return "text-yellow-500"; // Gold
+    if (index === 1) return "text-gray-400"; // Silver
+    if (index === 2) return "text-orange-500"; // Bronze
+    return "text-charcoal";
+  };
+
+  // Status accent colors for left border
+  const getStatusAccentColor = (status: FilterStatus) => {
     switch (status) {
       case "live":
-        return "🔴";
+        return "border-flag";
       case "upcoming":
-        return "📅";
+        return "border-coral";
       case "completed":
-        return "🏆";
+        return "border-turf";
       default:
-        return "⛳";
+        return "border-soft-grey";
     }
   };
 
@@ -689,24 +698,20 @@ function CompetitionCard({
   const actionButton = getActionButton();
 
   return (
-    <div className="py-6 hover:bg-gray-50/50 transition-colors">
-      <div className="flex items-start gap-4">
-        <div
-          className={`w-16 h-16 ${status.gradientClass} rounded-xl flex items-center justify-center flex-shrink-0`}
-        >
-          <span className="text-2xl">{getIconForStatus(status.status)}</span>
+    <div
+      className={`border-l-4 ${getStatusAccentColor(status.status)} bg-white rounded overflow-hidden hover:bg-turf/5 transition-colors`}
+    >
+      <div className="px-4 py-4">
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <h3 className="text-lg font-bold text-charcoal font-display">
+            {competition.name}
+          </h3>
+          <span
+            className={`${status.color} ${status.bgColor} text-xs font-semibold px-3 py-1 rounded-full border-0 font-primary`}
+          >
+            {status.daysText || status.label}
+          </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-4 mb-3">
-            <h3 className="text-xl font-bold text-charcoal font-display">
-              {competition.name}
-            </h3>
-            <span
-              className={`${status.color} ${status.bgColor} text-xs font-semibold px-3 py-1 rounded-full font-primary`}
-            >
-              {status.daysText || status.label}
-            </span>
-          </div>
 
           <div className="grid md:grid-cols-3 gap-4 mb-4">
             <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
@@ -727,13 +732,13 @@ function CompetitionCard({
           {(status.status === "completed" || status.status === "live") &&
             leaderboard &&
             leaderboard.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <h4 className="font-medium text-charcoal mb-3 font-display">
+              <div className="mt-3 pt-3 border-t border-soft-grey/50">
+                <h4 className="text-xs font-bold text-charcoal mb-2 uppercase tracking-wide">
                   {status.status === "completed"
                     ? "Final Results"
                     : "Live Leaderboard"}
                 </h4>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {leaderboard.slice(0, 3).map((entry, index) => (
                     <div
                       key={entry.participant.id}
@@ -741,15 +746,9 @@ function CompetitionCard({
                     >
                       <div className="flex items-center gap-2">
                         <span
-                          className={`${
-                            index === 0
-                              ? "text-yellow-500"
-                              : index === 1
-                              ? "text-gray-400"
-                              : "text-orange-500"
-                          }`}
+                          className={`text-sm font-bold w-5 ${getPositionColor(index)}`}
                         >
-                          {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                          {index + 1}
                         </span>
                         <span className="text-sm font-medium font-primary">
                           {entry.participant.team_name}{" "}
@@ -781,14 +780,13 @@ function CompetitionCard({
               </div>
             )}
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-charcoal font-primary">
-              <span className="font-medium">Course:</span> Par{" "}
-              {course?.pars?.total || 72} • 18 holes
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-sm text-charcoal/70 font-primary">
+              Par {course?.pars?.total || 72} • 18 holes
             </div>
             <Link
               to={getCompetitionLink()}
-              className={`${actionButton.className} text-scorecard px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 font-primary`}
+              className={`${actionButton.className} text-scorecard px-4 py-2 rounded font-medium transition-colors flex items-center gap-2 font-primary`}
             >
               <actionButton.icon className="w-4 h-4" />
               {actionButton.text}
@@ -796,7 +794,6 @@ function CompetitionCard({
           </div>
         </div>
       </div>
-    </div>
   );
 }
 
