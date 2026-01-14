@@ -400,10 +400,10 @@ export function Dashboard() {
         {/* Upcoming This Week */}
         {upcomingThisWeek.length > 0 && (
           <div className="mb-8">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-charcoal mb-4">
+              Upcoming This Week
+            </h2>
             <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-charcoal mb-4">
-                Upcoming This Week
-              </h2>
               <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
                 {upcomingThisWeek.map((round) => {
                   const openUntil = round.open_until
@@ -578,19 +578,19 @@ export function Dashboard() {
         {/* Recent Results */}
         {recentRounds && recentRounds.length > 0 && (
           <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-charcoal">
+                Recent Results
+              </h2>
+              <Link
+                to="/player/rounds"
+                className="text-turf hover:underline text-body-sm font-medium flex items-center gap-1"
+              >
+                View All
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
             <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold uppercase tracking-wide text-charcoal">
-                  Recent Results
-                </h2>
-                <Link
-                  to="/player/rounds"
-                  className="text-turf hover:underline text-body-sm font-medium flex items-center gap-1"
-                >
-                  View All
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
-              </div>
               <RoundList rounds={recentRounds} />
             </div>
           </div>

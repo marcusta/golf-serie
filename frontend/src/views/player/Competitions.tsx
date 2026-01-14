@@ -423,7 +423,7 @@ export default function PlayerCompetitions() {
           {filteredCompetitions.length === 0 ? (
             <EmptyState statusFilter={statusFilter} searchQuery={searchQuery} />
           ) : (
-            <div className="space-y-3">
+            <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
               {filteredCompetitions.map((competition) => (
                 <CompetitionCard
                   key={competition.id}
@@ -699,101 +699,99 @@ function CompetitionCard({
 
   return (
     <div
-      className={`border-l-4 ${getStatusAccentColor(status.status)} bg-white rounded overflow-hidden hover:bg-turf/5 transition-colors`}
+      className={`border-l-4 ${getStatusAccentColor(status.status)} hover:bg-turf/5 transition-colors px-4 py-4`}
     >
-      <div className="px-4 py-4">
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <h3 className="text-lg font-bold text-charcoal font-display">
-            {competition.name}
-          </h3>
-          <span
-            className={`${status.color} ${status.bgColor} text-xs font-semibold px-3 py-1 rounded-full border-0 font-primary`}
-          >
-            {status.daysText || status.label}
-          </span>
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <h3 className="text-lg font-bold text-charcoal font-display">
+          {competition.name}
+        </h3>
+        <span
+          className={`${status.color} ${status.bgColor} text-xs font-semibold px-3 py-1 rounded-full border-0 font-primary`}
+        >
+          {status.daysText || status.label}
+        </span>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4 mb-4">
+        <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
+          <Calendar className="w-4 h-4" />
+          {formatDateLong(competition.date)}
         </div>
-
-          <div className="grid md:grid-cols-3 gap-4 mb-4">
-            <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
-              <Calendar className="w-4 h-4" />
-              {formatDateLong(competition.date)}
-            </div>
-            <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
-              <MapPin className="w-4 h-4" />
-              {course?.name || "Course TBD"}
-            </div>
-            <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
-              <Users className="w-4 h-4" />
-              {competition.participant_count} participants
-            </div>
-          </div>
-
-          {/* Leaderboard preview for completed/live competitions */}
-          {(status.status === "completed" || status.status === "live") &&
-            leaderboard &&
-            leaderboard.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-soft-grey/50">
-                <h4 className="text-xs font-bold text-charcoal mb-2 uppercase tracking-wide">
-                  {status.status === "completed"
-                    ? "Final Results"
-                    : "Live Leaderboard"}
-                </h4>
-                <div className="space-y-1">
-                  {leaderboard.slice(0, 3).map((entry, index) => (
-                    <div
-                      key={entry.participant.id}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-sm font-bold w-5 ${getPositionColor(index)}`}
-                        >
-                          {index + 1}
-                        </span>
-                        <span className="text-sm font-medium font-primary">
-                          {entry.participant.team_name}{" "}
-                          {entry.participant.position_name}
-                        </span>
-                      </div>
-                      <span
-                        className={`text-sm font-bold ${
-                          status.status === "completed"
-                            ? "text-turf"
-                            : entry.relativeToPar < 0
-                            ? "text-turf"
-                            : entry.relativeToPar === 0
-                            ? "text-charcoal"
-                            : "text-flag"
-                        } font-display`}
-                      >
-                        {status.status === "completed"
-                          ? `${entry.totalShots} pts`
-                          : entry.relativeToPar === 0
-                          ? "E"
-                          : entry.relativeToPar > 0
-                          ? `+${entry.relativeToPar}`
-                          : entry.relativeToPar}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          <div className="flex items-center justify-between mt-3">
-            <div className="text-sm text-charcoal/70 font-primary">
-              Par {course?.pars?.total || 72} • 18 holes
-            </div>
-            <Link
-              to={getCompetitionLink()}
-              className={`${actionButton.className} text-scorecard px-4 py-2 rounded font-medium transition-colors flex items-center gap-2 font-primary`}
-            >
-              <actionButton.icon className="w-4 h-4" />
-              {actionButton.text}
-            </Link>
-          </div>
+        <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
+          <MapPin className="w-4 h-4" />
+          {course?.name || "Course TBD"}
+        </div>
+        <div className="flex items-center gap-2 text-sm text-charcoal opacity-70 font-primary">
+          <Users className="w-4 h-4" />
+          {competition.participant_count} participants
         </div>
       </div>
+
+      {/* Leaderboard preview for completed/live competitions */}
+      {(status.status === "completed" || status.status === "live") &&
+        leaderboard &&
+        leaderboard.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-soft-grey/50">
+            <h4 className="text-xs font-bold text-charcoal mb-2 uppercase tracking-wide">
+              {status.status === "completed"
+                ? "Final Results"
+                : "Live Leaderboard"}
+            </h4>
+            <div className="space-y-1">
+              {leaderboard.slice(0, 3).map((entry, index) => (
+                <div
+                  key={entry.participant.id}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-sm font-bold w-5 ${getPositionColor(index)}`}
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="text-sm font-medium font-primary">
+                      {entry.participant.team_name}{" "}
+                      {entry.participant.position_name}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-sm font-bold ${
+                      status.status === "completed"
+                        ? "text-turf"
+                        : entry.relativeToPar < 0
+                        ? "text-turf"
+                        : entry.relativeToPar === 0
+                        ? "text-charcoal"
+                        : "text-flag"
+                    } font-display`}
+                  >
+                    {status.status === "completed"
+                      ? `${entry.totalShots} pts`
+                      : entry.relativeToPar === 0
+                      ? "E"
+                      : entry.relativeToPar > 0
+                      ? `+${entry.relativeToPar}`
+                      : entry.relativeToPar}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      <div className="flex items-center justify-between mt-3">
+        <div className="text-sm text-charcoal/70 font-primary">
+          Par {course?.pars?.total || 72} • 18 holes
+        </div>
+        <Link
+          to={getCompetitionLink()}
+          className={`${actionButton.className} text-scorecard px-4 py-2 rounded font-medium transition-colors flex items-center gap-2 font-primary`}
+        >
+          <actionButton.icon className="w-4 h-4" />
+          {actionButton.text}
+        </Link>
+      </div>
+    </div>
   );
 }
 
