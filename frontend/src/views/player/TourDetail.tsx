@@ -458,7 +458,7 @@ export default function TourDetail() {
         {/* Primary Content Area - Landing Document */}
         {landingDocument ? (
           <section>
-            <div className="prose prose-gray max-w-none">
+            <div className="prose prose-charcoal max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {landingDocument.content}
               </ReactMarkdown>
@@ -470,7 +470,7 @@ export default function TourDetail() {
               <h2 className="text-display-sm font-display font-semibold text-charcoal mb-6">
                 About This Tour
               </h2>
-              <div className="prose prose-gray max-w-none">
+              <div className="prose prose-charcoal max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {tour.description}
                 </ReactMarkdown>

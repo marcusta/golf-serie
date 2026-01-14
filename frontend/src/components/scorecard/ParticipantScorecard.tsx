@@ -8,6 +8,11 @@ export interface ParticipantData {
   player_name: string | null;
   score: number[];
   tee_time_id: number;
+  // Handicap data for net scoring (optional, from games)
+  stroke_index?: number[] | null;
+  handicap_strokes_per_hole?: number[] | null;
+  course_handicap?: number | null;
+  handicap_index?: number | null;
 }
 
 export interface CourseData {
@@ -80,10 +85,26 @@ export function ParticipantScorecard({
                 scores: participant.score,
               }}
               course={course}
-              strokeIndex={netScoringData?.strokeIndex}
-              handicapStrokesPerHole={netScoringData?.handicapStrokesPerHole}
-              courseHandicap={netScoringData?.courseHandicap}
-              handicapIndex={netScoringData?.handicapIndex}
+              strokeIndex={
+                netScoringData?.strokeIndex ||
+                participant.stroke_index ||
+                undefined
+              }
+              handicapStrokesPerHole={
+                netScoringData?.handicapStrokesPerHole ||
+                participant.handicap_strokes_per_hole ||
+                undefined
+              }
+              courseHandicap={
+                netScoringData?.courseHandicap ??
+                participant.course_handicap ??
+                undefined
+              }
+              handicapIndex={
+                netScoringData?.handicapIndex ??
+                participant.handicap_index ??
+                undefined
+              }
             />
           </div>
         </div>

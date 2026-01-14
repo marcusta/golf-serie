@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
 import type {
   Game,
-  GameWithDetails,
   GamePlayer,
   GameGroup,
   GameScore,
@@ -11,9 +10,9 @@ import type {
   AddGamePlayerDto,
   CreateGameGroupDto,
   GameLeaderboardEntry,
-  GameForDashboard,
   GameStatus,
 } from "../../../src/types";
+import type { GameScoreWithDetails, GameWithDetails } from "../types/games";
 
 // ============================================================================
 // Query Hooks
@@ -21,9 +20,10 @@ import type {
 
 /**
  * Fetch all games for the current user
+ * Returns GameWithDetails[] - use game.id for the game ID
  */
 export function useMyGames() {
-  return useQuery<GameForDashboard[]>({
+  return useQuery<GameWithDetails[]>({
     queryKey: ["games", "my"],
     queryFn: async () => {
       const response = await fetch(`${API_BASE_URL}/games/my`, {
@@ -97,12 +97,12 @@ export function useGameGroups(gameId: number) {
 /**
  * Fetch scores for a specific group
  */
-export function useGameGroupScores(groupId: number) {
-  return useQuery<GameScore[]>({
+export function useGameGroupScores(gameId: number, groupId: number) {
+  return useQuery<GameScoreWithDetails[]>({
     queryKey: ["game-group", groupId, "scores"],
     queryFn: async () => {
       const response = await fetch(
-        `${API_BASE_URL}/games/groups/${groupId}/scores`,
+        `${API_BASE_URL}/games/${gameId}/groups/${groupId}/scores`,
         {
           credentials: "include",
         }
@@ -112,7 +112,7 @@ export function useGameGroupScores(groupId: number) {
       }
       return response.json();
     },
-    enabled: groupId > 0,
+    enabled: gameId > 0 && groupId > 0,
   });
 }
 

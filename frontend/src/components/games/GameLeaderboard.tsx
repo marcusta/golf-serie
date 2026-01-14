@@ -194,9 +194,20 @@ export function GameLeaderboard({
                     {/* Score Section - Gross/Net/Thru with fixed widths */}
                     <div className={`flex items-center ${showNetScores ? 'gap-1' : ''}`}>
                       {status === "NOT_STARTED" ? (
-                        <div className="w-10 text-center text-sm text-gray-500">
-                          {displayProgress}
-                        </div>
+                        <>
+                          <div className="w-10 text-center text-sm text-gray-500">
+                            -
+                          </div>
+                          {showNetScores && (
+                            <div className="w-10 text-center text-sm text-gray-500">
+                              -
+                            </div>
+                          )}
+                          <div className="w-8 text-center text-xs text-gray-500">
+                            -
+                          </div>
+                        </>
+
                       ) : (
                         <>
                           {/* Gross Score */}
@@ -285,8 +296,11 @@ export function GameLeaderboard({
                         <td className="py-4 px-4 text-center">
                           {status === "NOT_STARTED" ? (
                             <div className="text-center">
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500 mb-1">
                                 Not Started
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                Starting hole {entry.startHole}
                               </div>
                             </div>
                           ) : (

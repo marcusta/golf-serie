@@ -6,6 +6,7 @@ import {
   isValidScore,
   calculateHoleTotal,
   calculatePlayedPar,
+  calculateNetScores,
 } from "../../utils/scoreCalculations";
 import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
 
@@ -99,16 +100,20 @@ export function Scorecard({
     let netToPar: number | null = null;
 
     if (showNetScoring && handicapStrokesPerHole) {
-      // Calculate net score for front nine (holes 0-8)
-      const frontNetStrokes = handicapStrokesPerHole.slice(0, 9).reduce((sum, strokes) => sum + strokes, 0);
-      netFrontTotal = frontTotal - frontNetStrokes;
+      // Use utility function that correctly calculates net scores only for played holes
+      const coursePars = course.holes.map((h) => h.par);
+      const netStats = calculateNetScores(
+        participant.scores,
+        coursePars,
+        handicapStrokesPerHole
+      );
 
-      // Calculate net score for back nine (holes 9-17)
-      const backNetStrokes = handicapStrokesPerHole.slice(9, 18).reduce((sum, strokes) => sum + strokes, 0);
-      netBackTotal = backTotal - backNetStrokes;
-
-      netTotalScore = netFrontTotal + netBackTotal;
-      netToPar = netTotalScore > 0 ? netTotalScore - totalPlayedPar : 0;
+      if (netStats) {
+        netFrontTotal = netStats.netFrontTotal;
+        netBackTotal = netStats.netBackTotal;
+        netTotalScore = netStats.netTotal;
+        netToPar = netStats.netRelativeToPar;
+      }
     }
 
     return {

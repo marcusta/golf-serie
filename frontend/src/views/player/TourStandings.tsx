@@ -79,8 +79,9 @@ function ErrorState({
             </Button>
           )}
           <Button
+            variant="outline"
             onClick={() => window.history.back()}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf rounded-lg transition-colors"
+            className="border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf"
           >
             Back to Tour
           </Button>
@@ -252,7 +253,7 @@ export default function TourStandings() {
             </p>
             <Button
               onClick={() => window.history.back()}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-turf hover:bg-fairway text-scorecard rounded-xl transition-colors font-medium"
+              className="px-6 py-3 bg-turf hover:bg-fairway text-scorecard transition-colors font-medium"
             >
               Back to Tour Overview
             </Button>
@@ -435,53 +436,61 @@ export default function TourStandings() {
               {/* Scoring Type Pills and View Mode Pills */}
               <div className="flex flex-wrap gap-2">
                 {standings.scoring_mode === "both" && (
-                  <div className="flex rounded-lg overflow-hidden border border-soft-grey">
-                    <button
+                  <div className="flex rounded overflow-hidden border border-soft-grey">
+                    <Button
                       onClick={() => setSelectedScoringType("gross")}
-                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors ${
+                      variant="ghost"
+                      size="sm"
+                      className={`rounded-none px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors ${
                         (selectedScoringType === "gross" || (!selectedScoringType && standings.selected_scoring_type === "gross"))
-                          ? "bg-turf text-scorecard"
+                          ? "bg-turf text-scorecard hover:bg-turf/90"
                           : "bg-scorecard text-charcoal hover:bg-rough/30"
                       }`}
                     >
                       Gross
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => setSelectedScoringType("net")}
-                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
+                      variant="ghost"
+                      size="sm"
+                      className={`rounded-none px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
                         (selectedScoringType === "net" || (!selectedScoringType && standings.selected_scoring_type === "net"))
-                          ? "bg-turf text-scorecard"
+                          ? "bg-turf text-scorecard hover:bg-turf/90"
                           : "bg-scorecard text-charcoal hover:bg-rough/30"
                       }`}
                     >
                       Net
-                    </button>
+                    </Button>
                   </div>
                 )}
 
                 {/* View Mode Pills - Actual vs Projected */}
                 {standings.has_projected_results && (
-                  <div className="flex rounded-lg overflow-hidden border border-soft-grey">
-                    <button
+                  <div className="flex rounded overflow-hidden border border-soft-grey">
+                    <Button
                       onClick={() => setViewMode('actual')}
-                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors ${
+                      variant="ghost"
+                      size="sm"
+                      className={`rounded-none px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors ${
                         viewMode === 'actual'
-                          ? "bg-turf text-scorecard"
+                          ? "bg-turf text-scorecard hover:bg-turf/90"
                           : "bg-scorecard text-charcoal hover:bg-rough/30"
                       }`}
                     >
                       Actual
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => setViewMode('projected')}
-                      className={`px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
+                      variant="ghost"
+                      size="sm"
+                      className={`rounded-none px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors border-l border-soft-grey ${
                         viewMode === 'projected'
-                          ? "bg-turf text-scorecard"
+                          ? "bg-turf text-scorecard hover:bg-turf/90"
                           : "bg-scorecard text-charcoal hover:bg-rough/30"
                       }`}
                     >
                       Projected
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -551,11 +560,11 @@ export default function TourStandings() {
                     <div
                       className={`w-6 text-lg font-bold ${
                         standing.position === 1
-                          ? "text-amber-600"
+                          ? "text-coral"
                           : standing.position === 2
-                          ? "text-slate-500"
+                          ? "text-charcoal/70"
                           : standing.position === 3
-                          ? "text-orange-600"
+                          ? "text-coral/70"
                           : "text-charcoal/60"
                       }`}
                     >
@@ -590,15 +599,17 @@ export default function TourStandings() {
                     )}
 
                     {/* Info Button */}
-                    <button
+                    <Button
                       onClick={(e) => {
                         e.stopPropagation();
                         setPlayerInfoOpen(playerInfoOpen === standing.player_id ? null : standing.player_id);
                       }}
-                      className="w-4 text-charcoal/40 hover:text-turf transition-colors"
+                      variant="ghost"
+                      size="icon"
+                      className="w-4 h-4 p-0 text-charcoal/40 hover:text-turf hover:bg-transparent transition-colors"
                     >
                       <Info className="h-4 w-4" />
-                    </button>
+                    </Button>
 
                     {/* Expand Arrow */}
                     <div className="w-4">
@@ -640,11 +651,11 @@ export default function TourStandings() {
                                 isFuture || notParticipated
                                   ? "text-charcoal/30"
                                   : competition.position === 1
-                                  ? "text-amber-600"
+                                  ? "text-coral"
                                   : competition.position === 2
-                                  ? "text-slate-500"
+                                  ? "text-charcoal/70"
                                   : competition.position === 3
-                                  ? "text-orange-600"
+                                  ? "text-coral/70"
                                   : "text-charcoal/60"
                               }`}
                             >

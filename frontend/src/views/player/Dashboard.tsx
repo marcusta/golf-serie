@@ -64,10 +64,10 @@ export function Dashboard() {
     return activeRounds.filter((round) => round.status === "playing");
   }, [activeRounds]);
 
-  // Get active casual games
+  // Get ongoing casual games (not completed)
   const activeGames = useMemo(() => {
     if (!myGames) return [];
-    return myGames.filter((game) => game.status === "active");
+    return myGames.filter((game) => game.status !== "completed");
   }, [myGames]);
 
   if (isLoading) {
@@ -205,39 +205,112 @@ export function Dashboard() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 pb-8 max-w-6xl">
-        {/* Active Casual Games Section */}
+        {/* My Casual Games Section - Horizontal Scroll on Mobile */}
         {activeGames.length > 0 && (
-          <div className="mb-8">
-            <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-charcoal mb-4">
-                Active Games
+          <div className="mb-8 -mx-4 md:mx-0">
+            <div className="flex items-center justify-between mb-4 px-4 md:px-0">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-charcoal">
+                Active Rounds
               </h2>
-              <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
-                {activeGames.map((game) => (
-                  <Link
-                    key={game.game_id}
-                    to="/player/games/$gameId/play"
-                    params={{ gameId: game.game_id.toString() }}
-                    className="block px-5 py-4 hover:bg-sky/5 transition-colors border-l-4 border-sky hover:border-sky/80"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-semibold text-charcoal mb-1">
+              <Link
+                to="/player/games"
+                className="text-turf hover:underline text-body-sm font-medium flex items-center gap-1"
+              >
+                View All
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            {/* Horizontal scroll on mobile */}
+            <div className="md:hidden bg-soft-grey/30 rounded-2xl shadow-lg p-4">
+              <div className="overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex gap-3" style={{ minWidth: "min-content" }}>
+                  {activeGames.map((game) => {
+                    const gameDate = game.scheduled_date || game.started_at;
+                    const formattedDate = gameDate
+                      ? new Date(gameDate).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : null;
+                    return (
+                      <Link
+                        key={game.id}
+                        to="/player/games/$gameId/play"
+                        params={{ gameId: game.id.toString() }}
+                        className="block bg-white rounded px-4 py-4 border-l-4 border-turf hover:border-turf/80 transition-all flex-shrink-0"
+                        style={{ width: "280px" }}
+                      >
+                        <div className="font-semibold text-charcoal mb-2 line-clamp-1">
+                          {game.name || "Casual Round"}
+                        </div>
+                        <div className="text-body-sm text-charcoal/70 mb-1 line-clamp-1">
                           {game.course_name}
                         </div>
-                        <div className="flex items-center gap-3 text-body-sm text-charcoal/70 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <Users className="h-4 w-4" />
-                            <span>{game.player_count} players</span>
+                        {formattedDate && (
+                          <div className="text-body-sm text-charcoal/60 mb-3">
+                            {formattedDate}
                           </div>
-                          <span>•</span>
-                          <span>{game.my_current_score}</span>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <div className="text-body-sm text-turf font-semibold">
+                            {game.my_holes_played ?? 0} holes
+                          </div>
+                          <div className="text-body-lg font-bold text-charcoal">
+                            {game.my_current_score || "E"}
+                          </div>
                         </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            {/* Desktop vertical list */}
+            <div className="hidden md:block bg-soft-grey/30 rounded-2xl shadow-lg p-6">
+              <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
+                {activeGames.map((game) => {
+                  const gameDate = game.scheduled_date || game.started_at;
+                  const formattedDate = gameDate
+                    ? new Date(gameDate).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : null;
+                  return (
+                    <Link
+                      key={game.id}
+                      to="/player/games/$gameId/play"
+                      params={{ gameId: game.id.toString() }}
+                      className="block px-5 py-4 hover:bg-turf/5 transition-colors border-l-4 border-turf hover:border-turf/80"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-charcoal mb-1">
+                            {game.name || "Casual Round"}
+                          </div>
+                          <div className="text-body-sm text-charcoal/70 mb-1">
+                            {game.course_name}
+                          </div>
+                          {formattedDate && (
+                            <div className="text-body-sm text-charcoal/60 mb-2">
+                              {formattedDate}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-4">
+                            <span className="text-body-sm text-turf font-medium">
+                              {game.my_holes_played ?? 0} holes
+                            </span>
+                            <span className="text-body-sm font-bold text-charcoal">
+                              {game.my_current_score || "E"}
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0 mt-1" />
                       </div>
-                      <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0 mt-1" />
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -248,7 +321,7 @@ export function Dashboard() {
           <div className="mb-8 -mx-4 md:mx-0">
             <div className="mb-4 px-4 md:px-0">
               <h2 className="text-sm font-bold uppercase tracking-wide text-charcoal mb-4">
-                Active Rounds
+                Active Competition Rounds
               </h2>
             </div>
             {/* Horizontal scroll on mobile */}

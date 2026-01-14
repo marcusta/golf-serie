@@ -35,8 +35,6 @@ export class StrokePlayStrategy extends GameTypeStrategy {
         (s) => s > 0 || s === GOLF.UNREPORTED_HOLE
       ).length;
 
-      if (holesPlayed === 0) continue; // Skip players with no scores
-
       // Calculate gross total and relative to par
       const grossTotal = this.calculateGrossTotal(scoreArray);
       const relativeToPar = this.calculateRelativeToPar(scoreArray, context.pars);
@@ -55,13 +53,18 @@ export class StrokePlayStrategy extends GameTypeStrategy {
       if (context.scoringMode !== "gross" && handicaps.has(memberId)) {
         const handicapIndex = handicaps.get(memberId)!;
 
-        // Calculate course handicap (using standard ratings for now)
-        // TODO: Get actual course rating/slope from tee assignment
+        // Get tee-specific ratings if available, otherwise use standard ratings
+        const teeRating = context.playerTeeRatings?.get(memberId);
+        const slopeRating = teeRating?.slopeRating ?? GOLF.STANDARD_SLOPE_RATING;
+        const courseRating = teeRating?.courseRating ?? GOLF.STANDARD_COURSE_RATING;
+        const par = teeRating?.par ?? totalPar;
+
+        // Calculate course handicap using actual tee ratings
         const courseHandicap = calculateCourseHandicap(
           handicapIndex,
-          GOLF.STANDARD_SLOPE_RATING,
-          GOLF.STANDARD_COURSE_RATING,
-          totalPar
+          slopeRating,
+          courseRating,
+          par
         );
 
         // Distribute handicap strokes across holes

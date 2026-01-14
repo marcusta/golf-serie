@@ -15,6 +15,7 @@ import type {
 
 const createGameSchema = z.object({
   course_id: z.number().positive(),
+  name: z.string().optional(),
   game_type: z.string().optional(),
   scoring_mode: z.enum(["gross", "net", "both"]).optional(),
   scheduled_date: z.string().optional(),
@@ -23,6 +24,7 @@ const createGameSchema = z.object({
 
 const updateGameSchema = z.object({
   course_id: z.number().positive().optional(),
+  name: z.string().optional(),
   game_type: z.string().optional(),
   scoring_mode: z.enum(["gross", "net", "both"]).optional(),
   scheduled_date: z.string().optional(),
@@ -439,7 +441,7 @@ export function createGamesApi(
 
     async getGroupScores(groupId: number): Promise<Response> {
       try {
-        const scores = gameScoreService.findScoresForGroup(groupId);
+        const scores = gameScoreService.findScoresForGroupWithDetails(groupId);
         return new Response(JSON.stringify(scores), {
           status: 200,
           headers: { "Content-Type": "application/json" },

@@ -46,6 +46,8 @@ import PlayerPublicProfile from "./views/player/PlayerPublicProfile";
 import AllRounds from "./views/player/AllRounds";
 import GameGuestSelect from "./views/player/GameGuestSelect";
 import GameSetup from "./views/player/GameSetup";
+import GamePlay from "./views/player/GamePlay";
+import MyGames from "./views/player/MyGames";
 
 // Import Auth views
 import Login from "./views/auth/Login";
@@ -273,6 +275,12 @@ const teeTimeDetailRoute = new Route({
 });
 
 // Casual Games routes
+const myGamesRoute = new Route({
+  getParentRoute: () => playerRoute,
+  path: "/games",
+  component: MyGames,
+});
+
 const gameGuestSelectRoute = new Route({
   getParentRoute: () => rootRoute,
   path: "/games/$gameId/guest-select",
@@ -288,18 +296,7 @@ const gameSetupRoute = new Route({
 const gamePlayRoute = new Route({
   getParentRoute: () => playerRoute,
   path: "/games/$gameId/play",
-  component: () => (
-    <div className="min-h-screen bg-gradient-to-br from-scorecard to-rough flex items-center justify-center">
-      <div className="text-center px-4">
-        <h2 className="text-display-sm text-charcoal mb-2">
-          Game Play Coming Soon
-        </h2>
-        <p className="text-body-md text-charcoal/70">
-          This feature is currently under development.
-        </p>
-      </div>
-    </div>
-  ),
+  component: GamePlay,
 });
 
 // Default redirect to player landing page
@@ -371,6 +368,7 @@ const routeTree = rootRoute.addChildren([
     tourStandingsRoute,
     competitionDetailRoute,
     teeTimeDetailRoute,
+    myGamesRoute,
     gameSetupRoute,
     gamePlayRoute,
   ]),

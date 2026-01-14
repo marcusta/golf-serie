@@ -6,6 +6,7 @@ export interface Game {
   id: number;
   owner_id: number;
   course_id: number;
+  name?: string;
   game_type: string;
   scoring_mode: GameScoringMode;
   status: GameStatus;
@@ -64,6 +65,20 @@ export interface GameScore {
   updated_at: string;
 }
 
+export interface GameScoreWithDetails extends GameScore {
+  member_name: string;
+  game_player_id: number;
+  player_id: number | null;
+  guest_name: string | null;
+  // Handicap-related fields (from backend)
+  course_handicap: number | null;
+  stroke_index: number[] | null;
+  handicap_strokes_per_hole: number[] | null;
+  tee_id: number | null;
+  course_rating: number | null;
+  slope_rating: number | null;
+}
+
 export interface GameLeaderboardEntry {
   memberName: string;
   gamePlayerId: number;
@@ -74,6 +89,7 @@ export interface GameLeaderboardEntry {
   holesPlayed: number;
   position: number;
   isLocked: boolean;
+  startHole: number;
   customData?: Record<string, any>;
 }
 
@@ -82,6 +98,9 @@ export interface GameWithDetails extends Game {
   owner_name: string;
   player_count: number;
   group_count: number;
+  // Optional user-specific fields (may not be populated)
+  my_holes_played?: number;
+  my_current_score?: string;
 }
 
 export interface GameForDashboard {

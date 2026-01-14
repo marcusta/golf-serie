@@ -4,6 +4,7 @@ import type { ParticipantScore, PlayerForRoundCheck } from "../types";
 
 import {
   calculateHoleTotal,
+  calculateNetScores,
   calculateParticipantScore,
   calculatePlayedPar,
   calculateTeamResults,
@@ -439,5 +440,92 @@ describe("calculateTeamResults", () => {
     expect(results).toHaveLength(1);
     expect(results[0].position).toBe(1);
     expect(results[0].points).toBe(3); // 1 base + 2 bonus
+  });
+});
+
+describe("calculateNetScores", () => {
+  const standardPars = [4, 4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4]; // Par 72
+
+  it("calculates net scores for complete round with even handicap distribution", () => {
+    // 18 handicap = 1 stroke per hole
+    const handicapStrokesPerHole = Array(18).fill(1);
+    // Scores: all 5s = 90 gross
+    const scores = Array(18).fill(5);
+
+    const result = calculateNetScores(scores, standardPars, handicapStrokesPerHole);
+
+    expect(result).not.toBeNull();
+    expect(result!.netTotal).toBe(72); // 90 - 18 = 72
+    expect(result!.netRelativeToPar).toBe(0); // 72 - 72 = 0
+    expect(result!.netFrontTotal).toBe(36); // (5*9) - (1*9) = 36
+    expect(result!.netBackTotal).toBe(36);
+  });
+
+  it("correctly calculates net for partial round - only subtracts handicap for played holes", () => {
+    // This is the key bug fix test
+    // HCP 19 distributes as [1,1,2,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1] (front has one 2, rest are 1s)
+    const handicapStrokesPerHole = [1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+    // Only 2 holes played: scores [4, 4, 0, 0, 0, ...]
+    const scores = [4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    // Pars for first 2 holes: 4, 4
+
+    const result = calculateNetScores(scores, standardPars, handicapStrokesPerHole);
+
+    expect(result).not.toBeNull();
+    // Net should be (4-1) + (4-1) = 6, NOT 8 - 19 = -11
+    expect(result!.netTotal).toBe(6);
+    // Net to par: 6 - 8 = -2 (2 under par for holes played)
+    expect(result!.netRelativeToPar).toBe(-2);
+    expect(result!.netFrontTotal).toBe(6);
+    expect(result!.netBackTotal).toBe(0);
+  });
+
+  it("returns null when player gave up", () => {
+    const handicapStrokesPerHole = Array(18).fill(1);
+    const scores = [4, 4, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    const result = calculateNetScores(scores, standardPars, handicapStrokesPerHole);
+
+    expect(result).toBeNull();
+  });
+
+  it("handles no holes played", () => {
+    const handicapStrokesPerHole = Array(18).fill(1);
+    const scores = Array(18).fill(0);
+
+    const result = calculateNetScores(scores, standardPars, handicapStrokesPerHole);
+
+    expect(result).not.toBeNull();
+    expect(result!.netTotal).toBe(0);
+    expect(result!.netRelativeToPar).toBe(0);
+    expect(result!.netFrontTotal).toBe(0);
+    expect(result!.netBackTotal).toBe(0);
+  });
+
+  it("correctly handles high handicap player", () => {
+    // 36 handicap = 2 strokes per hole
+    const handicapStrokesPerHole = Array(18).fill(2);
+    // Player shoots bogey golf: par + 1 on every hole
+    const scores = standardPars.map((par) => par + 1); // 90 gross
+
+    const result = calculateNetScores(scores, standardPars, handicapStrokesPerHole);
+
+    expect(result).not.toBeNull();
+    expect(result!.netTotal).toBe(54); // 90 - 36 = 54
+    expect(result!.netRelativeToPar).toBe(-18); // 54 - 72 = -18
+  });
+
+  it("correctly splits front and back nine", () => {
+    // Front nine gets 2 strokes each, back nine gets 0
+    const handicapStrokesPerHole = [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    // All 4s
+    const scores = Array(18).fill(4);
+
+    const result = calculateNetScores(scores, standardPars, handicapStrokesPerHole);
+
+    expect(result).not.toBeNull();
+    expect(result!.netFrontTotal).toBe(18); // (4*9) - (2*9) = 18
+    expect(result!.netBackTotal).toBe(36); // (4*9) - 0 = 36
+    expect(result!.netTotal).toBe(54);
   });
 });

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { JoinCompetitionFlow } from "@/components/tour";
 
@@ -59,8 +60,9 @@ function ErrorState({
             </Button>
           )}
           <Button
+            variant="outline"
             onClick={() => window.history.back()}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf rounded-lg transition-colors"
+            className="border-soft-grey text-charcoal hover:bg-rough/20 hover:border-turf"
           >
             Back to Tour
           </Button>
@@ -230,7 +232,7 @@ export default function TourCompetitions() {
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-charcoal/50" />
-            <input
+            <Input
               type="text"
               placeholder="Search competitions..."
               value={searchQuery}
@@ -241,29 +243,33 @@ export default function TourCompetitions() {
           <div className="flex gap-1 flex-wrap">
             {/* Show "Open" filter prominently if there are open competitions */}
             {hasOpenCompetitions && (
-              <button
+              <Button
                 onClick={() => setFilter("open")}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors rounded ${
+                variant="ghost"
+                size="sm"
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                   filter === "open"
-                    ? "text-coral border-b-2 border-coral"
-                    : "text-charcoal/70 hover:text-coral"
+                    ? "text-coral border-b-2 border-coral rounded-none"
+                    : "text-charcoal/70 hover:text-coral hover:bg-transparent"
                 }`}
               >
                 Live
-              </button>
+              </Button>
             )}
             {(["all", "upcoming", "past"] as const).map((f) => (
-              <button
+              <Button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors rounded ${
+                variant="ghost"
+                size="sm"
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                   filter === f
-                    ? "text-turf border-b-2 border-turf"
-                    : "text-charcoal/70 hover:text-turf"
+                    ? "text-turf border-b-2 border-turf rounded-none"
+                    : "text-charcoal/70 hover:text-turf hover:bg-transparent"
                 }`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -391,16 +397,16 @@ export default function TourCompetitions() {
                         {/* Quick Join button for open competitions */}
                         {isOpen && isEnrolled && !isThisCompetitionRegistered && (
                           <div className="mt-3">
-                            <button
+                            <Button
                               onClick={(e) => {
                                 e.preventDefault();
                                 setJoinCompetition(competition);
                               }}
-                              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-turf hover:bg-fairway text-scorecard rounded-lg font-medium text-sm transition-colors"
+                              className="w-full bg-turf hover:bg-fairway text-scorecard font-medium text-sm transition-colors"
                             >
                               <Users className="h-4 w-4" />
                               Join This Round
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </div>

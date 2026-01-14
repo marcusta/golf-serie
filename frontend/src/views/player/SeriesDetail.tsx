@@ -13,7 +13,6 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  ChevronRight,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -202,7 +201,7 @@ export default function SeriesDetail() {
         ) : (
           series.description && (
             <section>
-              <h2 className="text-display-sm font-display font-semibold text-charcoal mb-6">
+              <h2 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
                 About This Series
               </h2>
               <div className="prose prose-gray max-w-none">
@@ -216,7 +215,7 @@ export default function SeriesDetail() {
 
         {/* Quick Access */}
         <section>
-          <h3 className="text-display-sm font-display font-semibold text-charcoal mb-4">
+          <h3 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
             Quick Access
           </h3>
           <div className="divide-y divide-soft-grey">
@@ -240,7 +239,6 @@ export default function SeriesDetail() {
                   )}
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
             </Link>
 
             {/* All Competitions */}
@@ -263,7 +261,6 @@ export default function SeriesDetail() {
                   )}
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
             </Link>
 
             {/* Documents */}
@@ -287,7 +284,6 @@ export default function SeriesDetail() {
                     )}
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0" />
               </Link>
             )}
           </div>
@@ -346,31 +342,31 @@ export default function SeriesDetail() {
           <div className="container mx-auto">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div className="space-y-1">
-                <div className="text-display-sm font-display font-bold text-fairway">
+                <div className="text-display-sm font-bold text-fairway">
                   {competitionsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   ) : (
                     totalCompetitions
                   )}
                 </div>
-                <div className="text-label-sm font-medium text-charcoal uppercase tracking-wide">
+                <div className="text-label-sm text-charcoal uppercase tracking-wide">
                   {totalCompetitions === 1 ? "Competition" : "Competitions"}
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-display-sm font-display font-bold text-fairway">
+                <div className="text-display-sm font-bold text-fairway">
                   {standingsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   ) : (
                     activeTeams
                   )}
                 </div>
-                <div className="text-label-sm font-medium text-charcoal uppercase tracking-wide">
+                <div className="text-label-sm text-charcoal uppercase tracking-wide">
                   Active Teams
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="text-display-sm font-display font-bold text-fairway">
+                <div className="text-display-sm font-bold text-fairway">
                   {competitionsLoading ? (
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   ) : latestCompetition ? (
@@ -379,7 +375,7 @@ export default function SeriesDetail() {
                     "None"
                   )}
                 </div>
-                <div className="text-label-sm font-medium text-charcoal uppercase tracking-wide">
+                <div className="text-label-sm text-charcoal uppercase tracking-wide">
                   Latest Result
                 </div>
               </div>

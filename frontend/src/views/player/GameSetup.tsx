@@ -93,6 +93,7 @@ interface GameSetupState {
   gameId: number | null;
   courseId: number | null;
   courseName: string | null;
+  gameName: string;
   groups: Array<{ name: string; playerIds: number[] }>;
   gameType: string;
   scoringMode: GameScoringMode;
@@ -278,6 +279,7 @@ export default function GameSetup() {
     gameId: null,
     courseId: null,
     courseName: null,
+    gameName: "",
     groups: [{ name: "Group 1", playerIds: [] }],
     gameType: "stroke_play",
     scoringMode: "gross",
@@ -436,6 +438,12 @@ export default function GameSetup() {
   // ============================================================================
 
   const handleCourseSelect = async (courseId: number, courseName: string) => {
+    // Validate game name
+    if (!state.gameName.trim()) {
+      toast.error("Please enter a game name");
+      return;
+    }
+
     try {
       let gameId = state.gameId;
 
@@ -443,12 +451,13 @@ export default function GameSetup() {
         // Update existing game
         await updateGame.mutateAsync({
           gameId,
-          data: { course_id: courseId },
+          data: { course_id: courseId, name: state.gameName.trim() },
         });
       } else {
         // Create new game
         const game = await createGame.mutateAsync({
           course_id: courseId,
+          name: state.gameName.trim(),
           game_type: "stroke_play",
           scoring_mode: "gross",
         });
@@ -822,7 +831,7 @@ export default function GameSetup() {
   // Step 5: Game Configuration & Finalization
   // ============================================================================
 
-  const handleToggleScoringMode = (mode: "gross" | "net") => {
+  const handleToggleScoringMode = async (mode: "gross" | "net") => {
     setSelectedScoringModes((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(mode)) {
@@ -847,6 +856,20 @@ export default function GameSetup() {
       }
 
       setState((prevState) => ({ ...prevState, scoringMode }));
+
+      // Update backend with new scoring mode
+      if (state.gameId) {
+        updateGame
+          .mutateAsync({
+            gameId: state.gameId,
+            data: { scoring_mode: scoringMode },
+          })
+          .catch((error) => {
+            console.error("Failed to update scoring mode:", error);
+            toast.error("Failed to update scoring mode");
+          });
+      }
+
       return newSet;
     });
   };
@@ -978,6 +1001,20 @@ export default function GameSetup() {
           {/* Step 1: Course Selection */}
           {step === 1 && (
             <div>
+              {/* Game Name Input */}
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
+                  Game Name
+                </label>
+                <Input
+                  type="text"
+                  value={state.gameName}
+                  onChange={(e) => setState((prev) => ({ ...prev, gameName: e.target.value }))}
+                  placeholder="My Saturday Round"
+                  className="h-12 bg-white"
+                />
+              </div>
+
               {/* Search Filter */}
               <div className="mb-6">
                 <label className="block text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
@@ -1346,6 +1383,12 @@ export default function GameSetup() {
                   </h3>
                   <div className="bg-white rounded p-4">
                     <div className="space-y-3 text-body-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-charcoal/70">Game Name:</span>
+                        <span className="text-charcoal font-medium">
+                          {state.gameName}
+                        </span>
+                      </div>
                       <div className="flex justify-between items-center">
                         <span className="text-charcoal/70">Course:</span>
                         <span className="text-charcoal font-medium">

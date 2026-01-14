@@ -149,6 +149,19 @@ export class GameGroupService {
     return result.next_order;
   }
 
+  private findGameScoreExists(memberId: number): boolean {
+    const stmt = this.db.prepare("SELECT 1 FROM game_scores WHERE game_group_member_id = ?");
+    return stmt.get(memberId) !== null;
+  }
+
+  private insertGameScoreRow(memberId: number): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO game_scores (game_group_member_id, score)
+      VALUES (?, '[]')
+    `);
+    stmt.run(memberId);
+  }
+
   private findGameExists(gameId: number): boolean {
     const stmt = this.db.prepare("SELECT 1 FROM games WHERE id = ?");
     return stmt.get(gameId) !== null;
@@ -253,6 +266,11 @@ export class GameGroupService {
 
     const row = this.insertGroupMemberRow(groupId, gamePlayerId, finalTeeOrder);
 
+    // Initialize game score record if it doesn't exist
+    if (!this.findGameScoreExists(row.id)) {
+      this.insertGameScoreRow(row.id);
+    }
+
     return this.transformGameGroupMemberRow(row);
   }
 
@@ -325,6 +343,12 @@ export class GameGroupService {
         }
 
         const row = this.insertGroupMemberRow(groupId, gamePlayerId, index + 1);
+
+        // Initialize game score record if it doesn't exist
+        if (!this.findGameScoreExists(row.id)) {
+          this.insertGameScoreRow(row.id);
+        }
+
         members.push(this.transformGameGroupMemberRow(row));
       });
 

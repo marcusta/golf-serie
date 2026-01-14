@@ -1,9 +1,10 @@
 import { Database } from "bun:sqlite";
-import type { GameScore, GameLeaderboardEntry } from "../types";
+import type { GameScore, GameScoreWithDetails, GameLeaderboardEntry } from "../types";
 import { gameTypeRegistry } from "./game-strategies/registry";
 import type { GameLeaderboardContext } from "./game-strategies/base";
 import { safeParseJsonWithDefault } from "../utils/parsing";
 import { GOLF } from "../constants/golf";
+import { calculateCourseHandicap, distributeHandicapStrokes } from "../utils/handicap";
 
 // ============================================================================
 // Internal Row Types (database representation)
@@ -27,6 +28,21 @@ interface GameScoreWithDetailsRow extends GameScoreRow {
   player_id: number | null;
   guest_name: string | null;
   handicap_index_from_player: number | null;
+  start_hole: number;
+  tee_id: number | null;
+  guest_gender: string | null;
+  course_rating: number | null;
+  slope_rating: number | null;
+  stroke_index: string | null; // JSON string from tee or course
+  pars: string; // JSON string from course
+}
+
+interface PlayerTeeRatingRow {
+  game_group_member_id: number;
+  tee_id: number | null;
+  gender: string; // 'male' or 'female'
+  course_rating: number | null;
+  slope_rating: number | null;
 }
 
 interface GameContextRow {
@@ -76,15 +92,33 @@ export class GameScoreService {
     const stmt = this.db.prepare(`
       SELECT
         gs.*,
-        COALESCE(p.name, gp.guest_name) as member_name,
+        COALESCE(pp.display_name, p.name, gp.guest_name) as member_name,
         gp.id as game_player_id,
         gp.player_id,
         gp.guest_name,
-        p.handicap as handicap_index_from_player
+        p.handicap as handicap_index_from_player,
+        gg.start_hole,
+        gp.tee_id,
+        gp.guest_gender,
+        ctr.course_rating,
+        ctr.slope_rating,
+        COALESCE(ct.stroke_index, c.stroke_index) as stroke_index,
+        c.pars
       FROM game_scores gs
       JOIN game_group_members ggm ON ggm.id = gs.game_group_member_id
       JOIN game_players gp ON gp.id = ggm.game_player_id
+      JOIN game_groups gg ON gg.id = ggm.game_group_id
+      JOIN games g ON g.id = gg.game_id
+      JOIN courses c ON c.id = g.course_id
       LEFT JOIN players p ON p.id = gp.player_id
+      LEFT JOIN player_profiles pp ON pp.player_id = p.id
+      LEFT JOIN course_tees ct ON ct.id = gp.tee_id
+      LEFT JOIN course_tee_ratings ctr ON ctr.tee_id = gp.tee_id
+        AND ctr.gender = CASE
+          WHEN p.gender = 'female' THEN 'women'
+          WHEN gp.guest_gender = 'female' THEN 'women'
+          ELSE 'men'
+        END
       WHERE ggm.game_group_id = ?
       ORDER BY ggm.tee_order
     `);
@@ -95,16 +129,20 @@ export class GameScoreService {
     const stmt = this.db.prepare(`
       SELECT
         gs.*,
-        COALESCE(p.name, gp.guest_name) as member_name,
+        COALESCE(pp.display_name, p.name, gp.guest_name) as member_name,
         gp.id as game_player_id,
         gp.player_id,
         gp.guest_name,
-        p.handicap as handicap_index_from_player
+        gp.tee_id,
+        gp.guest_gender,
+        p.handicap as handicap_index_from_player,
+        gg.start_hole
       FROM game_scores gs
       JOIN game_group_members ggm ON ggm.id = gs.game_group_member_id
       JOIN game_players gp ON gp.id = ggm.game_player_id
       JOIN game_groups gg ON gg.id = ggm.game_group_id
       LEFT JOIN players p ON p.id = gp.player_id
+      LEFT JOIN player_profiles pp ON pp.player_id = p.id
       WHERE gg.game_id = ?
     `);
     return stmt.all(gameId) as GameScoreWithDetailsRow[];
@@ -125,6 +163,32 @@ export class GameScoreService {
       WHERE g.id = ?
     `);
     return stmt.get(gameId) as GameContextRow | null;
+  }
+
+  private findPlayerTeeRatingsForGameRows(gameId: number): PlayerTeeRatingRow[] {
+    const stmt = this.db.prepare(`
+      SELECT
+        ggm.id as game_group_member_id,
+        gp.tee_id,
+        CASE
+          WHEN gp.guest_gender = 'female' THEN 'women'
+          ELSE 'men'
+        END as gender,
+        ctr.course_rating,
+        ctr.slope_rating
+      FROM game_group_members ggm
+      JOIN game_players gp ON gp.id = ggm.game_player_id
+      JOIN game_groups gg ON gg.id = ggm.game_group_id
+      LEFT JOIN players p ON p.id = gp.player_id
+      LEFT JOIN player_profiles pp ON pp.player_id = p.id
+      LEFT JOIN course_tee_ratings ctr ON ctr.tee_id = gp.tee_id
+        AND ctr.gender = CASE
+          WHEN gp.guest_gender = 'female' THEN 'women'
+          ELSE 'men'
+        END
+      WHERE gg.game_id = ?
+    `);
+    return stmt.all(gameId) as PlayerTeeRatingRow[];
   }
 
   private insertGameScoreRow(memberId: number): GameScoreRow {
@@ -201,6 +265,53 @@ export class GameScoreService {
     };
   }
 
+  private transformGameScoreWithDetailsRow(row: GameScoreWithDetailsRow): GameScoreWithDetails {
+    const baseScore = this.transformGameScoreRow(row);
+
+    // Calculate handicap data if all required fields are available
+    let courseHandicap: number | null = null;
+    let strokeIndex: number[] | null = null;
+    let handicapStrokesPerHole: number[] | null = null;
+
+    // Get handicap index (use snapshot if available, otherwise current)
+    const handicapIndex = row.handicap_index ?? row.handicap_index_from_player;
+
+    // Calculate handicap data if player has tee assignment and handicap
+    if (row.tee_id && handicapIndex !== null && row.course_rating !== null && row.slope_rating !== null) {
+      // Parse pars to get total par
+      const pars = this.parseParsArray(row.pars);
+      const totalPar = pars.reduce((sum, par) => sum + par, 0);
+
+      // Parse stroke index (fallback to default if not available)
+      strokeIndex = this.parseStrokeIndex(row.stroke_index);
+
+      // Calculate course handicap
+      courseHandicap = calculateCourseHandicap(
+        handicapIndex,
+        row.slope_rating,
+        row.course_rating,
+        totalPar
+      );
+
+      // Distribute strokes per hole
+      handicapStrokesPerHole = distributeHandicapStrokes(courseHandicap, strokeIndex);
+    }
+
+    return {
+      ...baseScore,
+      member_name: row.member_name,
+      game_player_id: row.game_player_id,
+      player_id: row.player_id,
+      guest_name: row.guest_name,
+      course_handicap: courseHandicap,
+      stroke_index: strokeIndex,
+      handicap_strokes_per_hole: handicapStrokesPerHole,
+      tee_id: row.tee_id,
+      course_rating: row.course_rating,
+      slope_rating: row.slope_rating,
+    };
+  }
+
   private parseScoreJson(json: string | null): number[] {
     return safeParseJsonWithDefault<number[]>(json, []);
   }
@@ -208,6 +319,10 @@ export class GameScoreService {
   private parseParsArray(json: string): number[] {
     try {
       const parsed = JSON.parse(json);
+      // Handle both flat array format [4,4,3,...] and object format {"holes": [4,4,3,...]}
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
       if (parsed && typeof parsed === "object" && Array.isArray(parsed.holes)) {
         return parsed.holes;
       }
@@ -227,6 +342,28 @@ export class GameScoreService {
 
   private calculateHolesPlayed(scores: number[]): number {
     return scores.filter((s) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
+  }
+
+  private buildPlayerTeeRatingsMap(
+    rows: PlayerTeeRatingRow[],
+    totalPar: number
+  ): Map<number, import("./game-strategies/base").PlayerTeeRating> {
+    const ratingsMap = new Map();
+
+    for (const row of rows) {
+      // Skip if player has no tee assigned or no ratings available
+      if (!row.tee_id || row.course_rating === null || row.slope_rating === null) {
+        continue;
+      }
+
+      ratingsMap.set(row.game_group_member_id, {
+        courseRating: row.course_rating,
+        slopeRating: row.slope_rating,
+        par: totalPar,
+      });
+    }
+
+    return ratingsMap;
   }
 
   // ============================================================================
@@ -330,6 +467,14 @@ export class GameScoreService {
   }
 
   /**
+   * Get all scores for a group with enriched player details
+   */
+  findScoresForGroupWithDetails(groupId: number): GameScoreWithDetails[] {
+    const rows = this.findScoresForGroupRows(groupId);
+    return rows.map((row) => this.transformGameScoreWithDetailsRow(row));
+  }
+
+  /**
    * Calculate leaderboard for a game using game type strategy
    */
   getLeaderboard(gameId: number): GameLeaderboardEntry[] {
@@ -342,6 +487,7 @@ export class GameScoreService {
     // Parse pars and stroke index
     const pars = this.parseParsArray(contextRow.pars);
     const strokeIndex = this.parseStrokeIndex(contextRow.stroke_index);
+    const totalPar = pars.reduce((sum, par) => sum + par, 0);
 
     // Get all scores for the game
     const scoreRows = this.findAllScoresForGameRows(gameId);
@@ -352,6 +498,7 @@ export class GameScoreService {
     const memberNames = new Map<number, string>();
     const memberPlayerIds = new Map<number, number>();
     const isLockedMap = new Map<number, boolean>();
+    const startHoles = new Map<number, number>();
 
     for (const row of scoreRows) {
       const scoreArray = this.parseScoreJson(row.score);
@@ -359,6 +506,7 @@ export class GameScoreService {
       memberNames.set(row.game_group_member_id, row.member_name);
       memberPlayerIds.set(row.game_group_member_id, row.game_player_id);
       isLockedMap.set(row.game_group_member_id, Boolean(row.is_locked));
+      startHoles.set(row.game_group_member_id, row.start_hole);
 
       // Use handicap snapshot if available, otherwise use current
       if (row.handicap_index !== null) {
@@ -368,6 +516,10 @@ export class GameScoreService {
       }
     }
 
+    // Fetch tee ratings for all players
+    const teeRatingRows = this.findPlayerTeeRatingsForGameRows(gameId);
+    const playerTeeRatings = this.buildPlayerTeeRatingsMap(teeRatingRows, totalPar);
+
     // Get strategy and calculate results
     const strategy = gameTypeRegistry.get(contextRow.game_type, this.db);
 
@@ -376,6 +528,7 @@ export class GameScoreService {
       pars,
       strokeIndex,
       scoringMode: contextRow.scoring_mode as any,
+      playerTeeRatings,
     };
 
     const results = strategy.calculateResults(scores, handicaps, context);
@@ -391,6 +544,7 @@ export class GameScoreService {
       holesPlayed: result.holesPlayed,
       position: result.position,
       isLocked: isLockedMap.get(result.memberId) ?? false,
+      startHole: startHoles.get(result.memberId) ?? 1,
       customData: result.customDisplayData,
     }));
   }

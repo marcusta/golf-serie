@@ -7,14 +7,8 @@ import {
   type Series,
 } from "../../api/series";
 import {
-  Trophy,
-  Users,
-  Crown,
   AlertTriangle,
-  Star,
-  Eye,
   ChevronRight,
-  Mail,
 } from "lucide-react";
 import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 
@@ -203,8 +197,7 @@ export default function PlayerSeries() {
       <main className="container mx-auto px-4 py-8">
         {featuredSeries && (
           <div className="mb-8">
-            <h3 className="text-xl font-bold font-display mb-6 text-charcoal flex items-center gap-2">
-              <Star className="w-5 h-5 text-coral" />
+            <h3 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
               Featured Series
             </h3>
 
@@ -215,26 +208,23 @@ export default function PlayerSeries() {
         {/* Search and All Series */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold font-display text-charcoal">
+            <h3 className="text-sm font-bold text-charcoal uppercase tracking-wide">
               All Series
             </h3>
-            <div className="text-sm text-turf font-primary">
+            <div className="text-sm text-charcoal/70 font-primary">
               {filteredSeries.length} series available
             </div>
           </div>
 
           {/* Search Bar */}
           <div className="max-w-md">
-            <div className="relative">
-              <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-turf" />
-              <input
-                type="text"
-                placeholder="Search series..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-soft-grey rounded-lg focus:outline-none focus:ring-2 focus:ring-turf focus:border-turf font-primary"
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="Search series..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 border border-soft-grey rounded focus:outline-none focus:ring-2 focus:ring-turf focus:border-turf font-primary"
+            />
           </div>
 
           {filteredSeries.length === 0 ? (
@@ -249,25 +239,26 @@ export default function PlayerSeries() {
         </div>
 
         {/* CTA Section */}
-        <div className="mt-16 text-center">
+        <div className="mt-16">
           <div
-            className="text-scorecard rounded-xl p-8 mx-4"
+            className="text-scorecard rounded-2xl p-8"
             style={{
               background:
                 "linear-gradient(135deg, var(--fairway-green), var(--turf-green))",
             }}
           >
-            <h3 className="text-2xl font-bold mb-4 font-display">
-              Want to create your own series?
-            </h3>
-            <p className="text-lg text-scorecard mb-6 font-primary">
-              TapScore makes it easy to organize and manage golf series for your
-              club or group
-            </p>
-            <button className="bg-coral text-scorecard px-8 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors flex items-center gap-2 mx-auto font-primary">
-              <Mail className="w-5 h-5" />
-              Contact Us
-            </button>
+            <div className="text-center">
+              <h3 className="text-2xl font-bold mb-4 font-display">
+                Want to create your own series?
+              </h3>
+              <p className="text-lg text-scorecard mb-6 font-primary">
+                TapScore makes it easy to organize and manage golf series for your
+                club or group
+              </p>
+              <button className="bg-coral text-scorecard px-8 py-3 rounded font-semibold hover:bg-coral/90 transition-colors mx-auto font-primary">
+                Contact Us
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -285,7 +276,7 @@ function FeaturedSeriesCard({ series }: { series: EnhancedSeries }) {
   const teamCount = standings?.team_standings?.length || 0;
 
   return (
-    <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+    <div className="bg-soft-grey/30 rounded-2xl shadow-lg overflow-hidden">
       <div className="relative">
         {series.banner_image_url ? (
           <div className="h-48 relative overflow-hidden">
@@ -299,9 +290,8 @@ function FeaturedSeriesCard({ series }: { series: EnhancedSeries }) {
               style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
             ></div>
             <div className="absolute top-4 left-4">
-              <span className="bg-scorecard text-coral text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1 font-primary shadow-lg">
-                <Trophy className="w-3 h-3" />
-                FEATURED
+              <span className="bg-coral text-scorecard text-xs font-bold px-3 py-1 rounded-full font-primary uppercase tracking-wide">
+                Featured
               </span>
             </div>
             <div className="absolute bottom-4 left-4 text-scorecard">
@@ -325,14 +315,13 @@ function FeaturedSeriesCard({ series }: { series: EnhancedSeries }) {
           >
             <div className="absolute top-4 left-4">
               <span
-                className="text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1 font-primary shadow-lg"
+                className="text-xs font-bold px-3 py-1 rounded-full font-primary uppercase tracking-wide"
                 style={{
-                  backgroundColor: "rgba(248, 249, 250, 0.9)",
+                  backgroundColor: "var(--scorecard-white)",
                   color: "var(--sunset-coral)",
                 }}
               >
-                <Trophy className="w-3 h-3" />
-                FEATURED
+                Featured
               </span>
             </div>
             <div className="absolute bottom-4 left-4 text-scorecard">
@@ -349,39 +338,39 @@ function FeaturedSeriesCard({ series }: { series: EnhancedSeries }) {
         )}
       </div>
 
-      <div className="bg-scorecard p-6">
+      <div className="bg-white rounded p-6">
         <div className="grid md:grid-cols-2 gap-6">
           {/* Current Standings Preview */}
           <div>
-            <h4 className="font-semibold text-charcoal mb-3 font-display">
+            <h4 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
               Current Standings
             </h4>
             {topThree.length > 0 ? (
-              <div className="space-y-2">
+              <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey border border-soft-grey/50">
                 {topThree.map((standing, index) => (
                   <div
                     key={standing.team_id}
-                    className={`flex items-center justify-between p-2 rounded-lg ${
+                    className={`flex items-center justify-between p-3 ${
                       index === 0
-                        ? "bg-yellow-50 border border-yellow-200"
+                        ? "border-l-4 border-yellow-500 bg-yellow-50/50"
                         : index === 1
-                        ? "bg-gray-50 border border-gray-200"
-                        : "bg-orange-50 border border-orange-200"
+                        ? "border-l-4 border-gray-400 bg-gray-50/50"
+                        : "border-l-4 border-orange-500 bg-orange-50/50"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <span
-                        className={
+                        className={`text-lg font-bold ${
                           index === 0
                             ? "text-yellow-500"
                             : index === 1
                             ? "text-gray-400"
                             : "text-orange-500"
-                        }
+                        }`}
                       >
-                        {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                        {index + 1}
                       </span>
-                      <span className="text-sm font-medium font-primary">
+                      <span className="text-sm font-medium text-charcoal font-primary">
                         {standing.team_name}
                       </span>
                     </div>
@@ -392,7 +381,7 @@ function FeaturedSeriesCard({ series }: { series: EnhancedSeries }) {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-4 text-charcoal opacity-70 font-primary">
+              <div className="text-center py-4 text-charcoal/70 font-primary">
                 No standings available yet
               </div>
             )}
@@ -400,24 +389,24 @@ function FeaturedSeriesCard({ series }: { series: EnhancedSeries }) {
 
           {/* Series Info */}
           <div>
-            <h4 className="font-semibold text-charcoal mb-3 font-display">
+            <h4 className="text-sm font-bold text-charcoal mb-3 uppercase tracking-wide">
               Series Information
             </h4>
-            <div className="space-y-3 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-charcoal opacity-70 font-primary">
-                  Total Competitions:
+            <div className="bg-white rounded border border-soft-grey/50 overflow-hidden divide-y divide-soft-grey">
+              <div className="flex justify-between px-4 py-3">
+                <span className="text-sm text-charcoal/70 font-primary">
+                  Total Competitions
                 </span>
-                <span className="font-medium font-primary">
+                <span className="text-sm font-bold text-charcoal font-primary">
                   {standings?.total_competitions || 0}
                 </span>
               </div>
               {nextCompetition && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-charcoal opacity-70 font-primary">
-                    Next Event:
+                <div className="flex justify-between px-4 py-3">
+                  <span className="text-sm text-charcoal/70 font-primary">
+                    Next Event
                   </span>
-                  <span className="font-medium font-primary">
+                  <span className="text-sm font-bold text-charcoal font-primary">
                     {new Date(nextCompetition.date).toLocaleDateString(
                       "en-US",
                       { month: "short", day: "numeric" }
@@ -425,18 +414,18 @@ function FeaturedSeriesCard({ series }: { series: EnhancedSeries }) {
                   </span>
                 </div>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="text-charcoal opacity-70 font-primary">
-                  Teams:
+              <div className="flex justify-between px-4 py-3">
+                <span className="text-sm text-charcoal/70 font-primary">
+                  Teams
                 </span>
-                <span className="font-medium font-primary">{teamCount}</span>
+                <span className="text-sm font-bold text-charcoal font-primary">{teamCount}</span>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="mt-4">
               <Link
                 to={`/player/series/${series.id}`}
-                className="w-full bg-turf text-scorecard py-2 rounded-lg font-medium hover:bg-fairway transition-colors text-center block font-primary"
+                className="w-full bg-turf text-scorecard py-2 rounded font-medium hover:bg-turf/90 transition-colors text-center block font-primary"
               >
                 View Series Details
               </Link>
@@ -458,7 +447,7 @@ function SeriesCard({ series }: { series: EnhancedSeries }) {
   const hasCompetitions = competitions && competitions.length > 0;
 
   return (
-    <div className="bg-scorecard rounded-xl border border-soft-grey overflow-hidden hover:shadow-lg hover:-translate-y-1 hover:border-turf transition-all duration-300">
+    <div className="bg-soft-grey/30 rounded-2xl shadow-lg overflow-hidden hover:bg-soft-grey/40 transition-colors">
       <div className="relative">
         {series.banner_image_url ? (
           <div className="h-32 relative overflow-hidden">
@@ -494,39 +483,39 @@ function SeriesCard({ series }: { series: EnhancedSeries }) {
             {hasCompetitions && champion && (
               <div className="absolute top-3 left-3">
                 <span
-                  className="text-xs font-semibold px-2 py-1 rounded-full font-primary"
+                  className="text-xs font-bold px-2 py-1 rounded-full font-primary uppercase tracking-wide"
                   style={{
-                    backgroundColor: "rgba(248, 249, 250, 0.9)",
+                    backgroundColor: "var(--scorecard-white)",
                     color: "var(--charcoal-text)",
                   }}
                 >
-                  COMPLETED
+                  Completed
                 </span>
               </div>
             )}
             {hasCompetitions && !champion && (
               <div className="absolute top-3 left-3">
                 <span
-                  className="text-xs font-semibold px-2 py-1 rounded-full font-primary"
+                  className="text-xs font-bold px-2 py-1 rounded-full font-primary uppercase tracking-wide"
                   style={{
-                    backgroundColor: "rgba(248, 249, 250, 0.9)",
+                    backgroundColor: "var(--scorecard-white)",
                     color: "var(--turf-green)",
                   }}
                 >
-                  ACTIVE
+                  Active
                 </span>
               </div>
             )}
             {!hasCompetitions && (
               <div className="absolute top-3 left-3">
                 <span
-                  className="text-xs font-semibold px-2 py-1 rounded-full font-primary"
+                  className="text-xs font-bold px-2 py-1 rounded-full font-primary uppercase tracking-wide"
                   style={{
-                    backgroundColor: "rgba(248, 249, 250, 0.9)",
+                    backgroundColor: "var(--scorecard-white)",
                     color: "var(--sky-blue)",
                   }}
                 >
-                  UPCOMING
+                  Upcoming
                 </span>
               </div>
             )}
@@ -541,20 +530,17 @@ function SeriesCard({ series }: { series: EnhancedSeries }) {
         )}
       </div>
 
-      <div className="p-4">
-        <p className="text-sm text-charcoal opacity-70 mb-4 font-primary line-clamp-2">
+      <div className="bg-white rounded p-4">
+        <p className="text-sm text-charcoal/70 mb-4 font-primary line-clamp-2">
           {series.description || "Golf competition series for teams."}
         </p>
 
         {hasCompetitions && champion && (
-          <div className="bg-gray-50 rounded-lg p-3 mb-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-charcoal opacity-70 font-primary">
-                CHAMPION
+          <div className="border-l-4 border-yellow-500 bg-yellow-50/50 rounded p-3 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-charcoal/70 font-primary uppercase tracking-wide">
+                Champion
               </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Crown className="w-4 h-4 text-yellow-500" />
               <span className="text-sm font-bold text-charcoal font-primary">
                 {champion.team_name}
               </span>
@@ -562,27 +548,19 @@ function SeriesCard({ series }: { series: EnhancedSeries }) {
           </div>
         )}
 
-        <div className="space-y-2">
+        <div>
           <Link
             to={`/player/series/${series.id}`}
-            className="w-full bg-turf text-scorecard py-2 px-3 rounded-lg text-sm font-medium hover:bg-fairway transition-colors text-center block font-primary"
+            className="w-full bg-turf text-scorecard py-2 px-3 rounded text-sm font-medium hover:bg-turf/90 transition-colors text-center flex items-center justify-center gap-1 font-primary"
           >
-            {hasCompetitions && champion ? (
-              <>
-                <Trophy className="inline w-4 h-4 mr-1" />
-                View Results
-              </>
-            ) : hasCompetitions ? (
-              <>
-                <ChevronRight className="inline w-4 h-4 mr-1" />
-                View Details
-              </>
-            ) : (
-              <>
-                <Eye className="inline w-4 h-4 mr-1" />
-                Learn More
-              </>
-            )}
+            <span>
+              {hasCompetitions && champion
+                ? "View Results"
+                : hasCompetitions
+                ? "View Details"
+                : "Learn More"}
+            </span>
+            <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
       </div>
@@ -595,13 +573,10 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
   if (searchQuery.trim()) {
     return (
       <div className="text-center py-12">
-        <div className="text-turf mb-4">
-          <Users className="h-12 w-12 mx-auto" />
-        </div>
         <h3 className="text-lg font-medium text-charcoal mb-2 font-display">
           No series found
         </h3>
-        <p className="text-charcoal opacity-70 font-primary">
+        <p className="text-charcoal/70 font-primary">
           Try adjusting your search criteria.
         </p>
       </div>
@@ -610,13 +585,10 @@ function EmptyState({ searchQuery }: { searchQuery: string }) {
 
   return (
     <div className="text-center py-12">
-      <div className="text-turf mb-4">
-        <Trophy className="h-12 w-12 mx-auto" />
-      </div>
       <h3 className="text-lg font-medium text-charcoal mb-2 font-display">
         No series available
       </h3>
-      <p className="text-charcoal opacity-70 font-primary">
+      <p className="text-charcoal/70 font-primary">
         Check back later for upcoming golf series.
       </p>
     </div>

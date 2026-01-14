@@ -837,6 +837,7 @@ export interface Game {
   id: number;
   owner_id: number;
   course_id: number;
+  name?: string;
   game_type: string;
   scoring_mode: GameScoringMode;
   status: GameStatus;
@@ -895,12 +896,27 @@ export interface GameScore {
   updated_at: string;
 }
 
+export interface GameScoreWithDetails extends GameScore {
+  member_name: string;
+  game_player_id: number;
+  player_id: number | null;
+  guest_name: string | null;
+  // Handicap fields for net score display
+  course_handicap: number | null;
+  stroke_index: number[] | null;
+  handicap_strokes_per_hole: number[] | null;
+  tee_id: number | null;
+  course_rating: number | null;
+  slope_rating: number | null;
+}
+
 // ============================================================================
 // Game DTOs
 // ============================================================================
 
 export interface CreateGameDto {
   course_id: number;
+  name?: string;
   game_type?: string;
   scoring_mode?: GameScoringMode;
   scheduled_date?: string;
@@ -909,6 +925,7 @@ export interface CreateGameDto {
 
 export interface UpdateGameDto {
   course_id?: number;
+  name?: string;
   game_type?: string;
   scoring_mode?: GameScoringMode;
   custom_settings?: Record<string, any>;
@@ -942,6 +959,7 @@ export interface GameLeaderboardEntry {
   holesPlayed: number;
   position: number;
   isLocked: boolean;
+  startHole: number;
   customData?: Record<string, any>;
 }
 

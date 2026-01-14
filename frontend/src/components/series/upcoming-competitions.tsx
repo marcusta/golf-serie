@@ -3,7 +3,6 @@ import {
   Calendar,
   MapPin,
   ChevronRight,
-  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,11 +49,10 @@ export function UpcomingCompetitions({
   if (!upcomingCompetitions.length) {
     return (
       <section className={cn("space-y-4", className)}>
-        <h3 className="text-display-sm font-display font-semibold text-charcoal">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-charcoal">
           Upcoming Competitions
         </h3>
         <div className="text-center py-8 text-charcoal/70">
-          <CalendarDays className="h-8 w-8 text-turf mx-auto mb-3" />
           <p className="text-sm">
             No upcoming competitions scheduled.
           </p>
@@ -66,7 +64,7 @@ export function UpcomingCompetitions({
   return (
     <section className={cn("space-y-4", className)}>
       <div className="flex items-center justify-between">
-        <h3 className="text-display-sm font-display font-semibold text-charcoal">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-charcoal">
           Upcoming Competitions
         </h3>
         {totalUpcoming > maxItems && (
@@ -86,7 +84,7 @@ export function UpcomingCompetitions({
               key={competition.id}
               to={`/player/competitions/${competition.id}`}
               className={cn(
-                "block py-4 hover:bg-gray-50/50 transition-colors",
+                "block py-4 hover:bg-turf/5 transition-colors",
                 isNext && "border-l-4 border-l-turf pl-4 bg-turf/5"
               )}
             >

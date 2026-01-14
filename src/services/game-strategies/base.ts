@@ -13,7 +13,26 @@ export interface GameScoreResult {
   netRelativeToPar?: number;
   holesPlayed: number;
   position: number;
-  customDisplayData?: Record<string, any>; // E.g., stableford points, skins won
+  /**
+   * Game-specific display data for frontend rendering
+   *
+   * Examples:
+   * - Stableford: { points: 36, pointsPerHole: [2,3,1,...] }
+   * - Skins: { skinsWon: 3, holeNumbers: [2,7,14] }
+   * - Scramble: { teamId: 5, teamName: "Team Alpha" }
+   *
+   * See docs/backend/game-types.md for complete examples.
+   */
+  customDisplayData?: Record<string, any>;
+}
+
+/**
+ * Tee-specific rating information for a player
+ */
+export interface PlayerTeeRating {
+  courseRating: number;
+  slopeRating: number;
+  par: number;
 }
 
 /**
@@ -25,13 +44,31 @@ export interface GameLeaderboardContext {
   strokeIndex: number[];
   scoringMode: GameScoringMode;
   customSettings?: Record<string, any>;
+  /**
+   * Map of member_id to tee-specific rating data
+   * Used for accurate course handicap calculations
+   */
+  playerTeeRatings?: Map<number, PlayerTeeRating>;
 }
 
 /**
  * Base class for game type strategies
  *
- * Each game type (stroke play, stableford, scramble, etc.) extends this class
- * and implements game-specific scoring logic.
+ * Enables support for multiple golf scoring formats with different rules:
+ * - Stroke Play: Total shots determine winner (currently implemented)
+ * - Stableford: Points awarded per hole based on score (planned)
+ * - Scramble: Team format, best shot selected (planned)
+ * - Skins: Winner-take-all per hole (planned)
+ * - Match Play: Hole-by-hole competition vs opponent (planned)
+ *
+ * Each game type extends this class and implements:
+ * - validateSettings(): Check game-specific configuration during game creation
+ * - calculateResults(): Apply scoring rules for leaderboard calculation
+ * - validateScore(): Enforce game-specific constraints on score entry
+ * - getDefaultSettings(): Provide default configuration for the game type
+ *
+ * See docs/backend/game-types.md for complete architecture documentation,
+ * frontend extension points, and implementation examples.
  */
 export abstract class GameTypeStrategy {
   abstract readonly typeName: string;

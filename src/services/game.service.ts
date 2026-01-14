@@ -20,6 +20,7 @@ interface GameRow {
   id: number;
   owner_id: number;
   course_id: number;
+  name: string | null;
   game_type: string;
   scoring_mode: string;
   status: string;
@@ -158,19 +159,21 @@ export class GameService {
   private insertGameRow(
     ownerId: number,
     courseId: number,
+    name: string | null,
     gameType: string,
     scoringMode: string,
     customSettings: string | null,
     scheduledDate: string | null
   ): GameRow {
     const stmt = this.db.prepare(`
-      INSERT INTO games (owner_id, course_id, game_type, scoring_mode, custom_settings, scheduled_date)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO games (owner_id, course_id, name, game_type, scoring_mode, custom_settings, scheduled_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
     return stmt.get(
       ownerId,
       courseId,
+      name,
       gameType,
       scoringMode,
       customSettings,
@@ -247,6 +250,15 @@ export class GameService {
       WHERE id = ?
     `);
     stmt.run(scheduledDate, gameId);
+  }
+
+  private updateGameNameRow(gameId: number, name: string | null): void {
+    const stmt = this.db.prepare(`
+      UPDATE games
+      SET name = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(name, gameId);
   }
 
   private insertGamePlayerRow(
@@ -391,6 +403,7 @@ export class GameService {
   private transformGameRow(row: GameRow): Game {
     return {
       ...row,
+      name: row.name ?? undefined,
       custom_settings: row.custom_settings ? JSON.parse(row.custom_settings) : undefined,
       scheduled_date: row.scheduled_date ?? undefined,
       started_at: row.started_at ?? undefined,
@@ -437,7 +450,7 @@ export class GameService {
       player_display_name: row.player_display_name ?? undefined,
       guest_name: row.guest_name ?? undefined,
       guest_handicap: row.guest_handicap ?? undefined,
-      guest_gender: row.guest_gender ?? undefined,
+      guest_gender: (row.guest_gender as "male" | "female" | null) ?? undefined,
       tee_id: row.tee_id ?? undefined,
       play_handicap,
       is_owner: Boolean(row.is_owner),
@@ -487,6 +500,7 @@ export class GameService {
       const row = this.insertGameRow(
         ownerId,
         data.course_id,
+        data.name ?? null,
         gameType,
         scoringMode,
         customSettingsJson,
@@ -576,6 +590,10 @@ export class GameService {
 
     if (data.scheduled_date !== undefined) {
       this.updateGameScheduledDateRow(gameId, data.scheduled_date);
+    }
+
+    if (data.name !== undefined) {
+      this.updateGameNameRow(gameId, data.name);
     }
 
     const updated = this.findGameRow(gameId);

@@ -10,6 +10,7 @@ import {
 } from "@/api/player-profile";
 import { useUpdateEmail, useUpdatePassword } from "@/api/auth";
 import { useCourses } from "@/api/courses";
+import { useMyGames } from "@/api/games";
 import { useAuth } from "@/hooks/useAuth";
 import {
   AlertCircle,
@@ -37,7 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
-import { ProfileRecentRounds, ProfileTours, ProfileSeries } from "@/components/profile";
+import { ProfileRecentRounds, ProfileTours, ProfileSeries, ProfileCasualGames } from "@/components/profile";
 
 // Loading skeleton
 function LoadingSkeleton() {
@@ -166,6 +167,7 @@ export default function MyProfile() {
   const { data: courses } = useCourses();
   const { data: rounds } = useMyRounds(5);
   const { data: toursAndSeries } = useMyToursAndSeries();
+  const { data: myGames, isLoading: gamesLoading } = useMyGames();
   const updateProfile = useUpdateMyProfile();
   const recordHandicap = useRecordHandicap();
   const updateEmail = useUpdateEmail();
@@ -662,6 +664,9 @@ export default function MyProfile() {
 
         {/* Recent Rounds */}
         <ProfileRecentRounds rounds={rounds} />
+
+        {/* Casual Games */}
+        <ProfileCasualGames games={myGames} isLoading={gamesLoading} />
 
         {/* My Tours */}
         <ProfileTours tours={toursAndSeries?.tours} />

@@ -58,6 +58,7 @@ bun run lint           # ESLint checking
 
 - Factory functions for API creation (e.g., `createCoursesApi()`)
 - Service classes for business logic (e.g., `CourseService`)
+- Strategy pattern for game types (e.g., `StrokePlayStrategy`, `StablefordStrategy`) - see `docs/backend/game-types.md`
 - Custom migration system extending base `Migration` class
 - Prepared statements for all database queries
 - Comprehensive error handling with proper HTTP status codes
@@ -484,3 +485,4 @@ When working with specific backend features, consult these detailed guides:
 
 - **Database Schema** → `docs/backend/database-schema.md` - Comprehensive table reference, relationships, and schema details
 - **Authorization & Roles** → `docs/backend/authorization.md` - Role-based access control, admin tables, permission system
+- **Game Type System** → `docs/backend/game-types.md` - Strategy pattern for multiple golf formats (Stroke Play, Stableford, Scramble, etc.), backend architecture, and frontend extension points

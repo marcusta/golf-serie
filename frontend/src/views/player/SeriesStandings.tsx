@@ -340,70 +340,61 @@ export default function SeriesStandings() {
         {/* Top 3 Summary Cards */}
         {topThree.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-display-sm font-display font-semibold text-charcoal mb-6">
+            <h2 className="text-sm font-bold text-charcoal mb-4 uppercase tracking-wide">
               Top Performers
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {topThree.map((standing, index) => (
-                <div
-                  key={standing.team_id}
-                  className={`p-6 rounded-xl border-2 transition-all duration-300 hover:transform hover:-translate-y-1 ${
-                    index === 0
-                      ? "bg-gradient-to-br from-coral/10 to-coral/5 border-coral shadow-lg shadow-coral/20 hover:shadow-xl hover:shadow-coral/30"
-                      : index === 1
-                      ? "bg-gradient-to-br from-slate-100/50 to-slate-50/30 border-slate-300 hover:shadow-lg"
-                      : "bg-gradient-to-br from-turf/10 to-turf/5 border-turf hover:shadow-lg"
-                  }`}
-                  style={{
-                    animationDelay: `${index * 0.1}s`,
-                  }}
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-200 ${
-                        index === 0
-                          ? "bg-coral text-scorecard"
-                          : index === 1
-                          ? "bg-slate-400 text-scorecard"
-                          : "bg-turf text-scorecard"
-                      }`}
-                    >
+            <div className="bg-soft-grey/30 rounded-2xl shadow-lg p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {topThree.map((standing, index) => (
+                  <div
+                    key={standing.team_id}
+                    className={`p-6 bg-white rounded transition-colors hover:bg-turf/5 ${
+                      index === 0
+                        ? "border-l-4 border-coral"
+                        : index === 1
+                        ? "border-l-4 border-slate-400"
+                        : "border-l-4 border-turf"
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 mb-4">
                       {index === 0 ? (
-                        <Medal className="h-6 w-6" />
+                        <Medal className="h-8 w-8 text-coral flex-shrink-0" />
                       ) : (
-                        <span className="text-lg font-bold">
+                        <div className={`text-2xl font-bold flex-shrink-0 ${
+                          index === 1 ? "text-slate-400" : "text-turf"
+                        }`}>
                           {standing.position}
-                        </span>
+                        </div>
                       )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-label-lg font-semibold text-charcoal truncate">
+                          {standing.team_name}
+                        </h3>
+                        <p className="text-body-sm text-charcoal/70">
+                          {standing.competitions_played} competition
+                          {standing.competitions_played !== 1 ? "s" : ""} played
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-label-lg font-semibold text-charcoal truncate">
-                        {standing.team_name}
-                      </h3>
-                      <p className="text-body-sm text-charcoal/70">
-                        {standing.competitions_played} competition
-                        {standing.competitions_played !== 1 ? "s" : ""} played
-                      </p>
+                    <div className="text-center">
+                      <div className="text-display-lg font-display font-bold text-charcoal">
+                        {standing.total_points}
+                      </div>
+                      <div className="text-body-sm text-charcoal/70 font-medium">
+                        points
+                      </div>
                     </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-display-lg font-display font-bold text-charcoal">
-                      {standing.total_points}
-                    </div>
-                    <div className="text-body-sm text-charcoal/70 font-medium">
-                      points
-                    </div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
         )}
 
         {/* Enhanced Standings with Expandable Details */}
         <section>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-display-sm font-display font-semibold text-charcoal">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-charcoal uppercase tracking-wide">
               Complete Standings
             </h2>
             <span className="text-body-sm text-charcoal/70">
@@ -413,27 +404,25 @@ export default function SeriesStandings() {
           </div>
 
           {/* Clean Hierarchical List */}
-          <div className="bg-scorecard rounded-xl shadow-sm border border-soft-grey/30 overflow-hidden">
+          <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
             {enhancedTeamStandings.map((standing, index) => (
               <div key={standing.team_id}>
                 {/* Team Row */}
                 <div
-                  className={`relative cursor-pointer transition-colors duration-150 hover:bg-rough/30 ${
-                    index > 0 ? "border-t border-slate-100" : ""
-                  }`}
+                  className="relative cursor-pointer transition-colors hover:bg-turf/5"
                   onClick={() => toggleTeamDetails(standing.team_id)}
                 >
                   <div className="flex items-center gap-4 p-5">
                     {/* Position Badge */}
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      className={`text-lg font-bold flex-shrink-0 ${
                         standing.position === 1
-                          ? "bg-amber-100 text-amber-700"
+                          ? "text-amber-600"
                           : standing.position === 2
-                          ? "bg-slate-200 text-slate-600"
+                          ? "text-slate-500"
                           : standing.position === 3
-                          ? "bg-orange-100 text-orange-700"
-                          : "bg-slate-100 text-slate-600"
+                          ? "text-orange-600"
+                          : "text-charcoal"
                       }`}
                     >
                       {standing.position}

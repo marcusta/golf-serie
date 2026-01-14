@@ -242,6 +242,94 @@ export function calculatePlayedPar(
   }, 0);
 }
 
+/**
+ * Net score statistics for a player
+ */
+export interface NetScoreStatistics {
+  netTotal: number;
+  netRelativeToPar: number;
+  netFrontTotal: number;
+  netBackTotal: number;
+}
+
+/**
+ * Calculate net scores for a player, only counting played holes
+ * This correctly distributes handicap strokes per-hole rather than subtracting
+ * the full handicap from total strokes.
+ *
+ * @param scores Array of scores for each hole (0 = not reported, -1 = gave up, positive = actual score)
+ * @param coursePars Array of par values for each hole
+ * @param handicapStrokesPerHole Array of handicap strokes distributed per hole
+ * @returns Net score statistics or null if invalid round
+ */
+export function calculateNetScores(
+  scores: number[],
+  coursePars: number[],
+  handicapStrokesPerHole: number[]
+): NetScoreStatistics | null {
+  // Check if player gave up on any hole - if so, invalidate entire round
+  const hasGaveUp = scores.some((score) => score === -1);
+  if (hasGaveUp) {
+    return null;
+  }
+
+  let netTotal = 0;
+  let parForHolesPlayed = 0;
+  let netFrontTotal = 0;
+  let netBackTotal = 0;
+
+  for (let i = 0; i < Math.min(scores.length, 18); i++) {
+    const score = scores[i];
+    const par = coursePars[i] || 0;
+    const handicapStrokes = handicapStrokesPerHole[i] || 0;
+
+    // Only count holes that have been played (score > 0)
+    if (score && score > 0) {
+      const netScore = score - handicapStrokes;
+      netTotal += netScore;
+      parForHolesPlayed += par;
+
+      // Track front/back nine separately
+      if (i < 9) {
+        netFrontTotal += netScore;
+      } else {
+        netBackTotal += netScore;
+      }
+    }
+  }
+
+  return {
+    netTotal,
+    netRelativeToPar: netTotal - parForHolesPlayed,
+    netFrontTotal,
+    netBackTotal,
+  };
+}
+
+/**
+ * Calculate net score for a subset of holes
+ * @param scores Array of all player scores
+ * @param holes Array of hole objects with number property
+ * @param handicapStrokesPerHole Array of handicap strokes per hole
+ * @returns Net total for the specified holes (only counting played holes)
+ */
+export function calculateNetHoleTotal(
+  scores: number[],
+  holes: Array<{ number: number }>,
+  handicapStrokesPerHole: number[]
+): number {
+  return holes.reduce((total, hole) => {
+    const holeIndex = hole.number - 1;
+    const score = scores[holeIndex];
+    const handicapStrokes = handicapStrokesPerHole[holeIndex] || 0;
+    // Only count actual scores (positive numbers)
+    if (score && score > 0) {
+      return total + (score - handicapStrokes);
+    }
+    return total;
+  }, 0);
+}
+
 export function isRoundComplete(players: PlayerForRoundCheck[]): boolean {
   if (!players || players.length === 0) {
     return false;
