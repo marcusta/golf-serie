@@ -131,7 +131,7 @@ export function Dashboard() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `url('/splash-images/Golf-Lake.jpg')`,
+            backgroundImage: `url('${import.meta.env.BASE_URL}splash-images/Golf-Lake.jpg')`,
           }}
         />
 

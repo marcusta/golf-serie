@@ -313,7 +313,7 @@ export default function MyProfile() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `url('/splash-images/golf-from-sky.jpg')`,
+            backgroundImage: `url('${import.meta.env.BASE_URL}splash-images/golf-from-sky.jpg')`,
           }}
         />
         {/* Dark Overlay */}
