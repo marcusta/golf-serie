@@ -752,8 +752,8 @@ export interface PlayerProfile {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
-  home_course_id?: number;
-  home_course_name?: string;
+  home_club_id?: number;
+  home_club_name?: string;
   visibility: ProfileVisibility;
   created_at: string;
   updated_at: string;
@@ -771,8 +771,8 @@ export interface PlayerProfileFull {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
-  home_course_id?: number;
-  home_course_name?: string;
+  home_club_id?: number;
+  home_club_name?: string;
   visibility: ProfileVisibility;
 
   // Stats (MVP)
@@ -802,7 +802,7 @@ export interface CreatePlayerProfileDto {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
-  home_course_id?: number;
+  home_club_id?: number;
   visibility?: ProfileVisibility;
 }
 
@@ -810,7 +810,7 @@ export interface UpdatePlayerProfileDto {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
-  home_course_id?: number;
+  home_club_id?: number;
   visibility?: ProfileVisibility;
   gender?: "male" | "female";
 }

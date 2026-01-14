@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import type { TourEnrollmentService } from "./tour-enrollment.service";
 import type { PlayerService } from "./player.service";
+import type { PlayerProfileService } from "./player-profile.service";
 
 // ============================================================================
 // Constants
@@ -43,18 +44,28 @@ export interface RegisterResultWithEnrollments extends RegisterResult {
   }>;
 }
 
+export interface RegisterProfileData {
+  display_name?: string;
+  handicap?: number;
+  gender?: "male" | "female";
+  home_club_id?: number;
+}
+
 export interface AuthServiceDependencies {
   tourEnrollmentService?: TourEnrollmentService;
   playerService?: PlayerService;
+  playerProfileService?: PlayerProfileService;
 }
 
 export class AuthService {
   private tourEnrollmentService?: TourEnrollmentService;
   private playerService?: PlayerService;
+  private playerProfileService?: PlayerProfileService;
 
   constructor(private db: Database, deps?: AuthServiceDependencies) {
     this.tourEnrollmentService = deps?.tourEnrollmentService;
     this.playerService = deps?.playerService;
+    this.playerProfileService = deps?.playerProfileService;
   }
 
   // ============================================================================
@@ -151,7 +162,8 @@ export class AuthService {
   async register(
     email: string,
     password: string,
-    role: string = "PLAYER"
+    role: string = "PLAYER",
+    profileData?: RegisterProfileData
   ): Promise<RegisterResultWithEnrollments> {
     if (this.findUserExistsByEmail(email)) {
       throw new Error("User already exists");
@@ -160,18 +172,23 @@ export class AuthService {
     const passwordHash = await Bun.password.hash(password);
     const result = this.insertUserRow(email, passwordHash, role);
 
-    const autoEnrollments = await this.processAutoEnrollments(result.id, email);
+    const playerAndEnrollments = await this.createPlayerAndProcessEnrollments(
+      result.id,
+      email,
+      profileData
+    );
 
     return {
       ...result,
-      player_id: autoEnrollments.playerId,
-      auto_enrollments: autoEnrollments.enrollments,
+      player_id: playerAndEnrollments.playerId,
+      auto_enrollments: playerAndEnrollments.enrollments,
     };
   }
 
-  private async processAutoEnrollments(
+  private async createPlayerAndProcessEnrollments(
     userId: number,
-    email: string
+    email: string,
+    profileData?: RegisterProfileData
   ): Promise<{
     playerId?: number;
     enrollments?: Array<{
@@ -180,22 +197,56 @@ export class AuthService {
       enrollment_id: number;
     }>;
   }> {
-    if (!this.tourEnrollmentService || !this.playerService) {
+    if (!this.playerService) {
       return {};
+    }
+
+    // Determine player name: use display_name if provided, otherwise extract from email
+    const playerName = profileData?.display_name || this.extractEmailName(email);
+
+    // Create player with name and handicap
+    const player = this.playerService.create(
+      {
+        name: playerName,
+        user_id: userId,
+        handicap: profileData?.handicap,
+      },
+      userId
+    );
+
+    // Create player profile with display_name, home_club_id, and gender
+    if (this.playerProfileService && profileData) {
+      const profileUpdates: {
+        display_name?: string;
+        home_club_id?: number;
+        gender?: "male" | "female";
+      } = {};
+      if (profileData.display_name) {
+        profileUpdates.display_name = profileData.display_name;
+      }
+      if (profileData.home_club_id) {
+        profileUpdates.home_club_id = profileData.home_club_id;
+      }
+      if (profileData.gender) {
+        profileUpdates.gender = profileData.gender;
+      }
+      if (Object.keys(profileUpdates).length > 0) {
+        this.playerProfileService.getOrCreateProfile(player.id);
+        this.playerProfileService.updateProfile(player.id, profileUpdates);
+      }
+    }
+
+    // Process any pending tour enrollments
+    if (!this.tourEnrollmentService) {
+      return { playerId: player.id };
     }
 
     const pendingEnrollments =
       this.tourEnrollmentService.getPendingEnrollmentsForEmail(email);
 
     if (pendingEnrollments.length === 0) {
-      return {};
+      return { playerId: player.id };
     }
-
-    const emailName = this.extractEmailName(email);
-    const player = this.playerService.create(
-      { name: emailName, user_id: userId },
-      userId
-    );
 
     const activatedEnrollments: Array<{
       tour_id: number;

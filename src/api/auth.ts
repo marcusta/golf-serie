@@ -2,13 +2,26 @@ import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { AuthService } from "../services/auth.service";
 
+// Rate limiting: track ongoing login attempts by email
+const ongoingLoginAttempts = new Set<string>();
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export function createAuthApi(authService: AuthService) {
   const app = new Hono();
 
   // POST /api/auth/register
   app.post("/register", async (c) => {
     try {
-      const { email, password, role } = await c.req.json();
+      const {
+        email,
+        password,
+        role,
+        display_name,
+        handicap,
+        gender,
+        home_club_id,
+      } = await c.req.json();
 
       if (!email || !password) {
         return c.json({ error: "Email and password are required" }, 400);
@@ -18,7 +31,29 @@ export function createAuthApi(authService: AuthService) {
       // Admin creation should be handled by Super Admin
       const userRole = role === "ADMIN" || role === "SUPER_ADMIN" ? "PLAYER" : "PLAYER";
 
-      const user = await authService.register(email, password, userRole);
+      // Build profile data if any profile fields are provided
+      const profileData = (display_name || handicap !== undefined || gender || home_club_id)
+        ? {
+            display_name,
+            handicap: handicap !== undefined ? parseFloat(handicap) : undefined,
+            gender,
+            home_club_id: home_club_id !== undefined ? parseInt(home_club_id) : undefined,
+          }
+        : undefined;
+
+      const user = await authService.register(email, password, userRole, profileData);
+
+      // Auto-login after registration by creating a session
+      const { sessionId } = await authService.login(email, password);
+
+      setCookie(c, "session_id", sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: "/",
+      });
+
       return c.json({ user }, 201);
     } catch (error: any) {
       return c.json({ error: error.message }, 400);
@@ -27,13 +62,24 @@ export function createAuthApi(authService: AuthService) {
 
   // POST /api/auth/login
   app.post("/login", async (c) => {
+    const { email, password } = await c.req.json();
+
+    if (!email || !password) {
+      return c.json({ error: "Email and password are required" }, 400);
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Rate limiting: if login already in progress for this email, delay and reject
+    if (ongoingLoginAttempts.has(normalizedEmail)) {
+      await sleep(1000);
+      return c.json({ error: "Too many login attempts, please wait" }, 429);
+    }
+
+    // Mark login attempt as in progress
+    ongoingLoginAttempts.add(normalizedEmail);
+
     try {
-      const { email, password } = await c.req.json();
-
-      if (!email || !password) {
-        return c.json({ error: "Email and password are required" }, 400);
-      }
-
       const { sessionId, user } = await authService.login(email, password);
 
       setCookie(c, "session_id", sessionId, {
@@ -46,7 +92,11 @@ export function createAuthApi(authService: AuthService) {
 
       return c.json({ user });
     } catch (error: any) {
-      return c.json({ error: error.message }, 401);
+      // On failed login, delay 3 seconds to slow down brute force attacks
+      await sleep(3000);
+      return c.json({ error: "Invalid credentials" }, 401);
+    } finally {
+      ongoingLoginAttempts.delete(normalizedEmail);
     }
   });
 

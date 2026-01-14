@@ -1,10 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useAuth } from "../../hooks/useAuth";
+import { useClubs } from "../../api/clubs";
 import TapScoreLogo from "../../components/ui/TapScoreLogo";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { AlertCircle, CheckCircle2, Lock } from "lucide-react";
 import type { AutoEnrollment } from "../../api/auth";
 
@@ -12,14 +20,23 @@ export default function Register() {
   const navigate = useNavigate();
   const searchParams = useSearch({ from: "/register" });
   const { register } = useAuth();
+  const { data: clubs } = useClubs();
 
   // Get email from URL params if present
   const emailFromUrl = searchParams.email || "";
   const isEmailFromUrl = !!searchParams.email;
 
+  // Account fields
   const [email, setEmail] = useState(emailFromUrl);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Profile fields
+  const [displayName, setDisplayName] = useState("");
+  const [handicap, setHandicap] = useState("");
+  const [gender, setGender] = useState<"male" | "female" | "">("");
+  const [homeClubId, setHomeClubId] = useState<string>("");
+
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [autoEnrollments, setAutoEnrollments] = useState<
@@ -37,6 +54,28 @@ export default function Register() {
     e.preventDefault();
     setError(null);
 
+    // Validation
+    if (!displayName.trim()) {
+      setError("Display name is required");
+      return;
+    }
+
+    if (!handicap) {
+      setError("Handicap is required");
+      return;
+    }
+
+    const handicapValue = parseFloat(handicap);
+    if (isNaN(handicapValue) || handicapValue < -10 || handicapValue > 54) {
+      setError("Handicap must be between -10 and 54");
+      return;
+    }
+
+    if (!gender) {
+      setError("Gender is required for accurate handicap calculations");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -50,7 +89,14 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const user = await register({ email, password });
+      const user = await register({
+        email,
+        password,
+        display_name: displayName.trim(),
+        handicap: handicapValue,
+        gender: gender as "male" | "female",
+        home_club_id: homeClubId ? parseInt(homeClubId) : undefined,
+      });
 
       // Check for auto-enrollments
       if (user.auto_enrollments && user.auto_enrollments.length > 0) {
@@ -178,6 +224,94 @@ export default function Register() {
               )}
             </div>
 
+            {/* Profile Fields */}
+            <div className="space-y-2">
+              <label
+                htmlFor="displayName"
+                className="block text-sm font-medium text-charcoal"
+              >
+                Display Name *
+              </label>
+              <Input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                required
+                className="border-soft-grey focus-visible:ring-turf"
+                placeholder="Your name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label
+                  htmlFor="handicap"
+                  className="block text-sm font-medium text-charcoal"
+                >
+                  Exact Handicap *
+                </label>
+                <Input
+                  id="handicap"
+                  type="number"
+                  step="0.1"
+                  min="-10"
+                  max="54"
+                  value={handicap}
+                  onChange={(e) => setHandicap(e.target.value)}
+                  required
+                  className="border-soft-grey focus-visible:ring-turf"
+                  placeholder="18.5"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label
+                  htmlFor="gender"
+                  className="block text-sm font-medium text-charcoal"
+                >
+                  Gender *
+                </label>
+                <Select
+                  value={gender}
+                  onValueChange={(value) => setGender(value as "male" | "female")}
+                >
+                  <SelectTrigger className="border-soft-grey focus:ring-turf">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="homeClub"
+                className="block text-sm font-medium text-charcoal"
+              >
+                Home Club (optional)
+              </label>
+              <Select
+                value={homeClubId}
+                onValueChange={setHomeClubId}
+              >
+                <SelectTrigger className="border-soft-grey focus:ring-turf">
+                  <SelectValue placeholder="Select your home club" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clubs?.map((club) => (
+                    <SelectItem key={club.id} value={club.id.toString()}>
+                      {club.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Password Fields */}
             <div className="space-y-2">
               <label
                 htmlFor="password"

@@ -77,6 +77,7 @@ export function createApp(db: Database): Hono {
   const authService = createAuthService(db, {
     tourEnrollmentService,
     playerService,
+    playerProfileService,
   });
 
   // Initialize APIs

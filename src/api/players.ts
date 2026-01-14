@@ -90,7 +90,7 @@ export function createPlayersApi(
         display_name: body.display_name,
         bio: body.bio,
         avatar_url: body.avatar_url,
-        home_course_id: body.home_course_id,
+        home_club_id: body.home_club_id,
         visibility: body.visibility,
         gender: body.gender,
       });

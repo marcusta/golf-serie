@@ -27,8 +27,8 @@ export interface PlayerProfileFull {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
-  home_course_id?: number;
-  home_course_name?: string;
+  home_club_id?: number;
+  home_club_name?: string;
   visibility: ProfileVisibility;
 
   // Stats
@@ -58,7 +58,7 @@ export interface UpdateProfileDto {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
-  home_course_id?: number | null;
+  home_club_id?: number | null;
   visibility?: ProfileVisibility;
   gender?: "male" | "female";
 }

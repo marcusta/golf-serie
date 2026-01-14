@@ -9,7 +9,7 @@ import {
   type UpdateProfileDto,
 } from "@/api/player-profile";
 import { useUpdateEmail, useUpdatePassword } from "@/api/auth";
-import { useCourses } from "@/api/courses";
+import { useClubs } from "@/api/clubs";
 import { useMyGames } from "@/api/games";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -164,7 +164,7 @@ function VisibilityIcon({ visibility }: { visibility: string }) {
 export default function MyProfile() {
   const { user, isLoading: authLoading } = useAuth();
   const { data: profile, isLoading, error, refetch } = useMyProfile();
-  const { data: courses } = useCourses();
+  const { data: clubs } = useClubs();
   const { data: rounds } = useMyRounds(5);
   const { data: toursAndSeries } = useMyToursAndSeries();
   const { data: myGames, isLoading: gamesLoading } = useMyGames();
@@ -196,7 +196,7 @@ export default function MyProfile() {
       setEditForm({
         display_name: profile.display_name || "",
         bio: profile.bio || "",
-        home_course_id: profile.home_course_id || null,
+        home_club_id: profile.home_club_id || null,
         visibility: profile.visibility,
         gender: profile.gender,
       });
@@ -355,10 +355,10 @@ export default function MyProfile() {
                   {profile.visibility}
                 </span>
               </div>
-              {profile.home_course_name && (
+              {profile.home_club_name && (
                 <p className="flex items-center gap-1 text-charcoal/70 text-sm mt-2">
                   <MapPin className="h-4 w-4 text-turf" />
-                  {profile.home_course_name}
+                  {profile.home_club_name}
                 </p>
               )}
             </div>
@@ -413,24 +413,24 @@ export default function MyProfile() {
 
               <div>
                 <label className="block text-sm font-medium text-charcoal mb-1">
-                  Home Course
+                  Home Club
                 </label>
                 <Select
-                  value={editForm.home_course_id?.toString()}
+                  value={editForm.home_club_id?.toString()}
                   onValueChange={(value) =>
                     setEditForm({
                       ...editForm,
-                      home_course_id: value ? parseInt(value) : null,
+                      home_club_id: value ? parseInt(value) : null,
                     })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="No home course" />
+                    <SelectValue placeholder="No home club" />
                   </SelectTrigger>
                   <SelectContent>
-                    {courses?.map((course) => (
-                      <SelectItem key={course.id} value={course.id.toString()}>
-                        {course.name}
+                    {clubs?.map((club) => (
+                      <SelectItem key={club.id} value={club.id.toString()}>
+                        {club.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

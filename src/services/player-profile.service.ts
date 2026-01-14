@@ -42,7 +42,7 @@ interface PlayerProfileRow {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
-  home_course_id: number | null;
+  home_club_id: number | null;
   visibility: string;
   created_at: string;
   updated_at: string;
@@ -121,19 +121,19 @@ export class PlayerProfileService {
   // Query Methods (private, single SQL statement)
   // ============================================================
 
-  private findProfileRowWithCourse(
+  private findProfileRowWithClub(
     playerId: number
-  ): (PlayerProfileRow & { home_course_name: string | null }) | null {
+  ): (PlayerProfileRow & { home_club_name: string | null }) | null {
     return this.db
       .prepare(
         `
-        SELECT pp.*, c.name as home_course_name
+        SELECT pp.*, c.name as home_club_name
         FROM player_profiles pp
-        LEFT JOIN courses c ON pp.home_course_id = c.id
+        LEFT JOIN clubs c ON pp.home_club_id = c.id
         WHERE pp.player_id = ?
       `
       )
-      .get(playerId) as (PlayerProfileRow & { home_course_name: string | null }) | null;
+      .get(playerId) as (PlayerProfileRow & { home_club_name: string | null }) | null;
   }
 
   private findPlayerExists(playerId: number): boolean {
@@ -143,10 +143,10 @@ export class PlayerProfileService {
     return !!row;
   }
 
-  private findCourseExists(courseId: number): boolean {
+  private findClubExists(clubId: number): boolean {
     const row = this.db
-      .prepare("SELECT id FROM courses WHERE id = ?")
-      .get(courseId);
+      .prepare("SELECT id FROM clubs WHERE id = ?")
+      .get(clubId);
     return !!row;
   }
 
@@ -457,15 +457,15 @@ export class PlayerProfileService {
   // ============================================================
 
   private transformProfileRow(
-    row: PlayerProfileRow & { home_course_name: string | null }
+    row: PlayerProfileRow & { home_club_name: string | null }
   ): PlayerProfile {
     return {
       player_id: row.player_id,
       display_name: row.display_name ?? undefined,
       bio: row.bio ?? undefined,
       avatar_url: row.avatar_url ?? undefined,
-      home_course_id: row.home_course_id ?? undefined,
-      home_course_name: row.home_course_name ?? undefined,
+      home_club_id: row.home_club_id ?? undefined,
+      home_club_name: row.home_club_name ?? undefined,
       visibility: row.visibility as ProfileVisibility,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -523,8 +523,8 @@ export class PlayerProfileService {
       display_name: profile.display_name,
       bio: profile.bio,
       avatar_url: profile.avatar_url,
-      home_course_id: profile.home_course_id,
-      home_course_name: profile.home_course_name,
+      home_club_id: profile.home_club_id,
+      home_club_name: profile.home_club_name,
       visibility: profile.visibility,
       competitions_played: stats.competitions_played,
       total_rounds: stats.total_rounds,
@@ -606,9 +606,9 @@ export class PlayerProfileService {
       values.push(data.avatar_url || null);
     }
 
-    if (data.home_course_id !== undefined) {
-      updates.push("home_course_id = ?");
-      values.push(data.home_course_id);
+    if (data.home_club_id !== undefined) {
+      updates.push("home_club_id = ?");
+      values.push(data.home_club_id);
     }
 
     if (data.visibility !== undefined) {
@@ -670,7 +670,7 @@ export class PlayerProfileService {
   // ============================================================
 
   getProfile(playerId: number): PlayerProfile | null {
-    const row = this.findProfileRowWithCourse(playerId);
+    const row = this.findProfileRowWithClub(playerId);
     if (!row) {
       return null;
     }
@@ -694,9 +694,9 @@ export class PlayerProfileService {
   updateProfile(playerId: number, data: UpdatePlayerProfileDto): PlayerProfile {
     this.getOrCreateProfile(playerId);
 
-    if (data.home_course_id !== undefined && data.home_course_id !== null) {
-      if (!this.findCourseExists(data.home_course_id)) {
-        throw new Error("Course not found");
+    if (data.home_club_id !== undefined && data.home_club_id !== null) {
+      if (!this.findClubExists(data.home_club_id)) {
+        throw new Error("Club not found");
       }
     }
 

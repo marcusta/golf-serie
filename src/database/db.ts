@@ -46,6 +46,7 @@ import { AddClubsMigration } from "./migrations/044_add_clubs";
 import { AddCasualGamesMigration } from "./migrations/045_add_casual_games";
 import { AddPlayerGenderFieldsMigration } from "./migrations/046_add_player_gender_fields";
 import { AddGameNameMigration } from "./migrations/047_add_game_name";
+import { ReplaceHomeCourseWithClubMigration } from "./migrations/048_replace_home_course_with_club";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -124,6 +125,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddCasualGamesMigration(db),
     new AddPlayerGenderFieldsMigration(db),
     new AddGameNameMigration(db),
+    new ReplaceHomeCourseWithClubMigration(db),
   ];
 
   // Apply pending migrations

@@ -23,6 +23,10 @@ export interface LoginCredentials {
 export interface RegisterCredentials {
   email: string;
   password: string;
+  display_name?: string;
+  handicap?: number;
+  gender?: "male" | "female";
+  home_club_id?: number;
 }
 
 async function fetchWithCredentials(
