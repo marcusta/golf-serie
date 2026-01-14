@@ -29,6 +29,34 @@ interface SessionRow {
   role: string;
 }
 
+interface UserWithPlayerRow {
+  id: number;
+  email: string;
+  role: string;
+  player_id: number | null;
+  player_name: string | null;
+  player_handicap: number | null;
+  player_gender: string | null;
+  player_display_name: string | null;
+  player_home_club_id: number | null;
+  player_home_club_name: string | null;
+}
+
+export interface UserWithPlayerInfo {
+  id: number;
+  email: string;
+  role: string;
+  player?: {
+    id: number;
+    name: string;
+    handicap: number;
+    gender?: "male" | "female";
+    display_name?: string;
+    home_club_id?: number;
+    home_club_name?: string;
+  };
+}
+
 export interface RegisterResult {
   id: number;
   email: string;
@@ -153,6 +181,27 @@ export class AuthService {
 
   private updateUserRoleRow(userId: number, role: string): void {
     this.db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, userId);
+  }
+
+  private findUserWithPlayerRow(userId: number): UserWithPlayerRow | null {
+    return this.db.prepare(`
+      SELECT
+        u.id,
+        u.email,
+        u.role,
+        p.id as player_id,
+        p.name as player_name,
+        p.handicap as player_handicap,
+        p.gender as player_gender,
+        pp.display_name as player_display_name,
+        pp.home_club_id as player_home_club_id,
+        c.name as player_home_club_name
+      FROM users u
+      LEFT JOIN players p ON u.id = p.user_id
+      LEFT JOIN player_profiles pp ON p.id = pp.player_id
+      LEFT JOIN clubs c ON pp.home_club_id = c.id
+      WHERE u.id = ?
+    `).get(userId) as UserWithPlayerRow | null;
   }
 
   // ============================================================================
@@ -380,6 +429,46 @@ export class AuthService {
     this.updateUserRoleRow(userId, newRole);
 
     return { id: userId, email: user.email, role: newRole };
+  }
+
+  getUserWithPlayer(userId: number): UserWithPlayerInfo | null {
+    const row = this.findUserWithPlayerRow(userId);
+    if (!row) {
+      return null;
+    }
+
+    return this.transformUserWithPlayerRow(row);
+  }
+
+  private transformUserWithPlayerRow(row: UserWithPlayerRow): UserWithPlayerInfo {
+    const result: UserWithPlayerInfo = {
+      id: row.id,
+      email: row.email,
+      role: row.role,
+    };
+
+    if (row.player_id !== null) {
+      result.player = {
+        id: row.player_id,
+        name: row.player_name!,
+        handicap: row.player_handicap ?? 0,
+      };
+
+      if (row.player_gender) {
+        result.player.gender = row.player_gender as "male" | "female";
+      }
+      if (row.player_display_name) {
+        result.player.display_name = row.player_display_name;
+      }
+      if (row.player_home_club_id !== null) {
+        result.player.home_club_id = row.player_home_club_id;
+      }
+      if (row.player_home_club_name) {
+        result.player.home_club_name = row.player_home_club_name;
+      }
+    }
+
+    return result;
   }
 }
 

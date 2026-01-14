@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { UserCog, Mail, Calendar, Shield, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { UserCog, Mail, Calendar, Shield, Search, Pencil } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { EditPlayerProfileDialog } from "./EditPlayerProfileDialog";
 
 const ROLES: { value: UserRole; label: string; description: string }[] = [
   { value: "SUPER_ADMIN", label: "Super Admin", description: "Full system access" },
@@ -43,6 +45,20 @@ export default function Users() {
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "ALL">("ALL");
+
+  // State for edit player profile dialog
+  const [editProfileDialogOpen, setEditProfileDialogOpen] = useState(false);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<{
+    id: number;
+    email: string;
+  } | null>(null);
+
+  const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+
+  const handleEditPlayerProfile = (userId: number, userEmail: string) => {
+    setSelectedUserForEdit({ id: userId, email: userEmail });
+    setEditProfileDialogOpen(true);
+  };
 
   const handleRoleChange = async (userId: number, newRole: UserRole) => {
     setUpdatingUserId(userId);
@@ -199,8 +215,21 @@ export default function Users() {
                       </div>
                     </div>
 
-                    {/* Role Selector */}
-                    <div className="flex-shrink-0">
+                    {/* Role Selector and Edit Button */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Edit Player Profile Button - SUPER_ADMIN only */}
+                      {isSuperAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEditPlayerProfile(user.id, user.email)}
+                          title="Edit player profile"
+                        >
+                          <Pencil className="h-4 w-4 text-charcoal/70" />
+                        </Button>
+                      )}
+
                       {isCurrentUser ? (
                         <Badge className={`${getRoleBadgeColor(user.role)} border`}>
                           <Shield className="h-3 w-3 mr-1" />
@@ -249,6 +278,14 @@ export default function Users() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Player Profile Dialog */}
+      <EditPlayerProfileDialog
+        userId={selectedUserForEdit?.id ?? null}
+        userEmail={selectedUserForEdit?.email ?? ""}
+        open={editProfileDialogOpen}
+        onOpenChange={setEditProfileDialogOpen}
+      />
     </div>
   );
 }

@@ -170,6 +170,84 @@ export function createApp(db: Database): Hono {
     }
   });
 
+  // Get user player profile (SUPER_ADMIN only)
+  app.get("/api/admin/users/:userId/player-profile", requireRole("SUPER_ADMIN"), async (c) => {
+    const userId = parseInt(c.req.param("userId"));
+
+    const userWithPlayer = authService.getUserWithPlayer(userId);
+    if (!userWithPlayer) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    return c.json(userWithPlayer);
+  });
+
+  // Update user player profile (SUPER_ADMIN only)
+  // Creates a player profile if the user doesn't have one
+  app.put("/api/admin/users/:userId/player-profile", requireRole("SUPER_ADMIN"), async (c) => {
+    const userId = parseInt(c.req.param("userId"));
+
+    let userWithPlayer = authService.getUserWithPlayer(userId);
+    if (!userWithPlayer) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    try {
+      const body = await c.req.json();
+      const { handicap, gender, home_club_id } = body;
+
+      let playerId: number;
+
+      // Create player if user doesn't have one
+      if (!userWithPlayer.player) {
+        // Extract name from email (part before @)
+        const emailName = userWithPlayer.email.split("@")[0];
+        // Convert to readable name (replace dots/underscores with spaces, capitalize)
+        const playerName = emailName
+          .replace(/[._]/g, " ")
+          .split(" ")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(" ");
+
+        const newPlayer = playerService.create(
+          { name: playerName, handicap: handicap ?? null, user_id: userId },
+          userId
+        );
+        playerId = newPlayer.id;
+
+        // Create the profile as well
+        playerProfileService.getOrCreateProfile(playerId);
+      } else {
+        playerId = userWithPlayer.player.id;
+
+        // Update handicap in players table
+        if (handicap !== undefined) {
+          playerService.update(playerId, { handicap });
+        }
+      }
+
+      // Update gender in players table and home_club_id in player_profiles table
+      if (gender !== undefined || home_club_id !== undefined) {
+        const profileUpdates: { gender?: "male" | "female"; home_club_id?: number | null } = {};
+        if (gender !== undefined) {
+          profileUpdates.gender = gender;
+        }
+        if (home_club_id !== undefined) {
+          profileUpdates.home_club_id = home_club_id;
+        }
+        playerProfileService.getOrCreateProfile(playerId);
+        playerProfileService.updateProfile(playerId, profileUpdates);
+      }
+
+      // Return updated data
+      const updatedUserWithPlayer = authService.getUserWithPlayer(userId);
+      return c.json(updatedUserWithPlayer);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      return c.json({ error: message }, 400);
+    }
+  });
+
   // Mount players API routes
   app.route("/api/players", playersApi);
 

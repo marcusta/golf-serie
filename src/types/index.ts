@@ -810,7 +810,7 @@ export interface UpdatePlayerProfileDto {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
-  home_club_id?: number;
+  home_club_id?: number | null;
   visibility?: ProfileVisibility;
   gender?: "male" | "female";
 }
