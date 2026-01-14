@@ -39,7 +39,7 @@ export default function Login() {
           </div>
 
           <h1 className="text-display-md text-charcoal text-center mb-8">
-            Admin Login
+            Login
           </h1>
 
           {error && (
