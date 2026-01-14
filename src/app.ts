@@ -1012,16 +1012,11 @@ export function createApp(db: Database): Hono {
       const acceptEncoding = c.req.header("Accept-Encoding") || "";
       const supportsGzip = acceptEncoding.includes("gzip");
 
-      // Heuristic for mime type
-      if (filePath.endsWith(".js"))
-        headers.set("Content-Type", "application/javascript");
-      if (filePath.endsWith(".css")) headers.set("Content-Type", "text/css");
-      if (filePath.endsWith(".html")) headers.set("Content-Type", "text/html");
-      if (filePath.endsWith(".png")) headers.set("Content-Type", "image/png");
-      if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg"))
-        headers.set("Content-Type", "image/jpeg");
-      if (filePath.endsWith(".svg"))
-        headers.set("Content-Type", "image/svg+xml");
+      // Set Content-Type from Bun's auto-detection (handles all file types correctly)
+      // This is more reliable than manual extension checking
+      if (file.type) {
+        headers.set("Content-Type", file.type);
+      }
 
       // Smart Caching Logic - Updated regex to match Vite's hash patterns
       if (

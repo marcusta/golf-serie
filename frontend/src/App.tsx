@@ -12,11 +12,12 @@ export default function App() {
       location.pathname.match(/\/competitions\/\d+$/));
 
   // Check if we're in a layout that already has its own header
+  // Use endsWith for /login and /register to handle base path (/golf-serie in production)
   const hasOwnHeader =
     location.pathname.includes("/admin") ||
     location.pathname.includes("/player") ||
-    location.pathname === "/login" ||
-    location.pathname === "/register";
+    location.pathname.endsWith("/login") ||
+    location.pathname.endsWith("/register");
 
   if (isCompetitionRound || hasOwnHeader) {
     // Full-screen layout for competition rounds or layouts with their own headers
