@@ -13,6 +13,12 @@ import {
 import { GOLF } from "../constants/golf";
 import { parseParsArray, safeParseJsonWithDefault } from "../utils/parsing";
 import { calculateDefaultPoints } from "../utils/points";
+import {
+  calculateHolesPlayed,
+  calculateGrossScore,
+  calculateRelativeToPar,
+  hasInvalidHole,
+} from "../utils/golf-scoring";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -385,9 +391,9 @@ export class LeaderboardService {
     handicapInfo: { courseHandicap?: number; handicapStrokesPerHole?: number[] },
     context: LeaderboardContext
   ): LeaderboardEntry {
-    const holesPlayed = this.calculateHolesPlayed(score);
-    const totalShots = this.calculateTotalShots(score);
-    const relativeToPar = this.calculateRelativeToPar(score, context.pars);
+    const holesPlayed = calculateHolesPlayed(score);
+    const totalShots = calculateGrossScore(score);
+    const relativeToPar = calculateRelativeToPar(score, context.pars);
 
     let netTotalShots: number | undefined;
     let netRelativeToPar: number | undefined;
@@ -396,7 +402,7 @@ export class LeaderboardService {
       handicapInfo.courseHandicap !== undefined &&
       handicapInfo.handicapStrokesPerHole &&
       holesPlayed > 0 &&
-      !score.includes(GOLF.UNREPORTED_HOLE)
+      !hasInvalidHole(score)
     ) {
       const netScores = this.calculateNetScores(
         score,
@@ -443,24 +449,6 @@ export class LeaderboardService {
     return Array.isArray(score) ? score : [];
   }
 
-  private calculateHolesPlayed(score: number[]): number {
-    return score.filter((s) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
-  }
-
-  private calculateTotalShots(score: number[]): number {
-    return score.reduce((sum, shots) => sum + (shots > 0 ? shots : 0), 0);
-  }
-
-  private calculateRelativeToPar(score: number[], pars: number[]): number {
-    let relativeToPar = 0;
-    for (let i = 0; i < score.length; i++) {
-      if (score[i] > 0 && pars[i] !== undefined) {
-        relativeToPar += score[i] - pars[i];
-      }
-    }
-    return relativeToPar;
-  }
-
   private calculateNetScores(
     score: number[],
     pars: number[],
@@ -469,7 +457,7 @@ export class LeaderboardService {
     courseHandicap: number,
     handicapStrokesPerHole: number[]
   ): { netTotalShots: number | undefined; netRelativeToPar: number | undefined } {
-    if (holesPlayed === 0 || score.includes(GOLF.UNREPORTED_HOLE)) {
+    if (holesPlayed === 0 || hasInvalidHole(score)) {
       return { netTotalShots: undefined, netRelativeToPar: undefined };
     }
 

@@ -5,6 +5,7 @@ import type { GameLeaderboardContext } from "./game-strategies/base";
 import { safeParseJsonWithDefault } from "../utils/parsing";
 import { GOLF } from "../constants/golf";
 import { calculateCourseHandicap, distributeHandicapStrokes } from "../utils/handicap";
+import { calculateHolesPlayed } from "../utils/golf-scoring";
 
 // ============================================================================
 // Internal Row Types (database representation)
@@ -338,10 +339,6 @@ export class GameScoreService {
       return Array.from({ length: GOLF.HOLES_PER_ROUND }, (_, i) => i + 1);
     }
     return safeParseJsonWithDefault<number[]>(json, Array.from({ length: GOLF.HOLES_PER_ROUND }, (_, i) => i + 1));
-  }
-
-  private calculateHolesPlayed(scores: number[]): number {
-    return scores.filter((s) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
   }
 
   private buildPlayerTeeRatingsMap(

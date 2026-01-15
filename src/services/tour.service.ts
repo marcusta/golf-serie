@@ -3,6 +3,12 @@ import type { TourCategory, TourPlayerStanding, TourStandings, Tour as TourType 
 import { calculateCourseHandicap } from "../utils/handicap";
 import { GOLF } from "../constants/golf";
 import { safeParseJson, parseScoreArray, parseParsArray } from "../utils/parsing";
+import {
+  calculateHolesPlayed,
+  calculateGrossScore,
+  calculateRelativeToPar,
+  hasInvalidHole,
+} from "../utils/golf-scoring";
 
 export type ScoringType = "gross" | "net";
 
@@ -409,8 +415,8 @@ export class TourService {
 
     // Parse hole-by-hole scores
     const score = parseScoreArray(participant.score || "");
-    const hasInvalidRound = score.includes(GOLF.UNREPORTED_HOLE);
-    const holesPlayed = score.filter((s: number) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
+    const hasInvalidRound = hasInvalidHole(score);
+    const holesPlayed = calculateHolesPlayed(score);
 
     // Determine if finished based on competition type
     let isFinished: boolean;
@@ -424,18 +430,8 @@ export class TourService {
       return { isFinished: false, totalShots: 0, relativeToPar: 0 };
     }
 
-    const totalShots = score.reduce((sum, s) => sum + (s > 0 ? s : 0), 0);
+    const totalShots = calculateGrossScore(score);
     return { isFinished: true, totalShots, relativeToPar: 0 };
-  }
-
-  private calculateRelativeToPar(score: number[], pars: number[]): number {
-    let relativeToPar = 0;
-    for (let i = 0; i < score.length && i < pars.length; i++) {
-      if (score[i] > 0) {
-        relativeToPar += score[i] - pars[i];
-      }
-    }
-    return relativeToPar;
   }
 
   private buildUpdateFields(data: UpdateTourInput): { updates: string[]; values: (string | number | null)[] } {
@@ -849,7 +845,7 @@ export class TourService {
           relativeToPar = totalShots - totalPar;
         } else {
           const score = parseScoreArray(participant.score || "");
-          relativeToPar = this.calculateRelativeToPar(score, pars);
+          relativeToPar = calculateRelativeToPar(score, pars);
         }
       }
 

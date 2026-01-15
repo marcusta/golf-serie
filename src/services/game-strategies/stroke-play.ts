@@ -5,6 +5,11 @@ import {
 } from "./base";
 import { calculateCourseHandicap, distributeHandicapStrokes } from "../../utils/handicap";
 import { GOLF } from "../../constants/golf";
+import {
+  calculateHolesPlayed,
+  calculateGrossScore,
+  calculateRelativeToPar,
+} from "../../utils/golf-scoring";
 
 /**
  * Stroke Play Strategy
@@ -30,14 +35,12 @@ export class StrokePlayStrategy extends GameTypeStrategy {
     const totalPar = context.pars.reduce((sum, par) => sum + par, 0);
 
     for (const [memberId, scoreArray] of scores.entries()) {
-      // Count holes played (any score > 0 or UNREPORTED_HOLE (-1))
-      const holesPlayed = scoreArray.filter(
-        (s) => s > 0 || s === GOLF.UNREPORTED_HOLE
-      ).length;
+      // Count holes played
+      const holesPlayed = calculateHolesPlayed(scoreArray);
 
       // Calculate gross total and relative to par
-      const grossTotal = this.calculateGrossTotal(scoreArray);
-      const relativeToPar = this.calculateRelativeToPar(scoreArray, context.pars);
+      const grossTotal = calculateGrossScore(scoreArray);
+      const relativeToPar = calculateRelativeToPar(scoreArray, context.pars);
 
       // Initialize result with gross scores
       const result: GameScoreResult = {
@@ -94,29 +97,6 @@ export class StrokePlayStrategy extends GameTypeStrategy {
   // ============================================================================
   // Private Helper Methods (Logic - No SQL)
   // ============================================================================
-
-  /**
-   * Calculate gross total from score array
-   */
-  private calculateGrossTotal(scores: number[]): number {
-    return scores.reduce((sum, s) => {
-      // Only count valid scores (> 0)
-      return s > 0 ? sum + s : sum;
-    }, 0);
-  }
-
-  /**
-   * Calculate relative to par (gross)
-   */
-  private calculateRelativeToPar(scores: number[], pars: number[]): number {
-    let relativeToPar = 0;
-    for (let i = 0; i < scores.length; i++) {
-      if (scores[i] > 0) {
-        relativeToPar += scores[i] - pars[i];
-      }
-    }
-    return relativeToPar;
-  }
 
   /**
    * Calculate net score and relative to par

@@ -2,6 +2,12 @@ import { Database } from "bun:sqlite";
 import { GOLF } from "../constants/golf";
 import { parseParsArray, safeParseJson } from "../utils/parsing";
 import { calculateDefaultPoints } from "../utils/points";
+import {
+  calculateHolesPlayed,
+  calculateGrossScore,
+  calculateRelativeToPar,
+  hasInvalidHole,
+} from "../utils/golf-scoring";
 
 interface PointsStructure {
   [key: string]: number;
@@ -318,28 +324,6 @@ export class CompetitionResultsService {
     }
   }
 
-  private hasInvalidHole(score: number[]): boolean {
-    return score.includes(GOLF.UNREPORTED_HOLE);
-  }
-
-  private calculateHolesPlayed(score: number[]): number {
-    return score.filter((s) => s > 0 || s === GOLF.UNREPORTED_HOLE).length;
-  }
-
-  private calculateGrossScore(score: number[]): number {
-    return score.reduce((sum, s) => sum + (s > 0 ? s : 0), 0);
-  }
-
-  private calculateRelativeToParFromScore(score: number[], pars: number[]): number {
-    let relativeToPar = 0;
-    for (let i = 0; i < score.length && i < pars.length; i++) {
-      if (score[i] > 0) {
-        relativeToPar += score[i] - pars[i];
-      }
-    }
-    return relativeToPar;
-  }
-
   private calculateNetScore(grossScore: number, handicapIndex: number | null): number | null {
     if (handicapIndex === null) {
       return null;
@@ -362,8 +346,8 @@ export class CompetitionResultsService {
       return true;
     }
 
-    const hasInvalidRound = this.hasInvalidHole(score);
-    const holesPlayed = this.calculateHolesPlayed(score);
+    const hasInvalidRound = hasInvalidHole(score);
+    const holesPlayed = calculateHolesPlayed(score);
 
     if (isOpenCompetitionClosed) {
       // Competition window closed: finished if 18 holes played
@@ -396,8 +380,8 @@ export class CompetitionResultsService {
         grossScore = participant.manual_score_total;
         relativeToPar = grossScore - totalPar;
       } else {
-        grossScore = this.calculateGrossScore(score);
-        relativeToPar = this.calculateRelativeToParFromScore(score, pars);
+        grossScore = calculateGrossScore(score);
+        relativeToPar = calculateRelativeToPar(score, pars);
       }
       netScore = this.calculateNetScore(grossScore, participant.handicap_index);
     }

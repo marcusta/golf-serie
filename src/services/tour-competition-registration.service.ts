@@ -14,6 +14,10 @@ import type {
 } from "../types";
 import { GOLF } from "../constants/golf";
 import { safeParseJsonWithDefault } from "../utils/parsing";
+import {
+  calculateHolesPlayed,
+  calculateRelativeToPar,
+} from "../utils/golf-scoring";
 
 // ============================================================================
 // Constants
@@ -537,7 +541,7 @@ export class TourCompetitionRegistrationService {
     if (!participant) return false;
 
     const scores = this.parseScoreArray(participant.score);
-    const holesPlayed = this.calculateHolesPlayed(scores);
+    const holesPlayed = calculateHolesPlayed(scores);
     return holesPlayed > 0;
   }
 
@@ -577,20 +581,6 @@ export class TourCompetitionRegistrationService {
   private parseScoreArray(scoreJson: string | null): number[] {
     if (!scoreJson) return [];
     return safeParseJsonWithDefault<number[]>(scoreJson, []);
-  }
-
-  private calculateHolesPlayed(scores: number[]): number {
-    return scores.filter((s) => s > 0).length;
-  }
-
-  private calculateRelativeToPar(scores: number[], pars: number[]): number {
-    let relativeToPar = 0;
-    for (let i = 0; i < scores.length; i++) {
-      if (scores[i] > 0 && pars[i]) {
-        relativeToPar += scores[i] - pars[i];
-      }
-    }
-    return relativeToPar;
   }
 
   private formatScoreDisplay(relativeToPar: number): string {
@@ -1068,7 +1058,7 @@ export class TourCompetitionRegistrationService {
 
     for (const round of rounds) {
       const scores = this.parseScoreArray(round.score);
-      const holesPlayed = this.calculateHolesPlayed(scores);
+      const holesPlayed = calculateHolesPlayed(scores);
 
       const isExpired = this.isRoundExpired(round.open_until);
       const isFinished = this.isRoundFinished(round.registration_status, holesPlayed);
@@ -1086,7 +1076,7 @@ export class TourCompetitionRegistrationService {
       const parsJson = this.findCoursePars(round.competition_id);
       const pars = this.parseScoreArray(parsJson);
 
-      const relativeToPar = this.calculateRelativeToPar(scores, pars);
+      const relativeToPar = calculateRelativeToPar(scores, pars);
       const currentScore = this.formatScoreDisplay(relativeToPar);
 
       // Determine status for the card
@@ -1138,8 +1128,8 @@ export class TourCompetitionRegistrationService {
 
       const groupMembers: CompetitionGroupMember[] = members.map((m) => {
         const scores = this.parseScoreArray(m.score);
-        const holesPlayed = this.calculateHolesPlayed(scores);
-        const relativeToPar = this.calculateRelativeToPar(scores, pars);
+        const holesPlayed = calculateHolesPlayed(scores);
+        const relativeToPar = calculateRelativeToPar(scores, pars);
         const currentScore = this.formatScoreDisplayWithDash(relativeToPar, holesPlayed);
 
         const memberInfo = this.determineMemberStatus(m, holesPlayed);
