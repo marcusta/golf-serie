@@ -20,6 +20,7 @@ export default function PlayerLayout() {
     location.pathname.endsWith("/player/tours") || // Full-screen tours page
     location.pathname.endsWith("/player/rounds") || // All rounds page
     location.pathname.endsWith("/player/profile") || // User's own profile
+    location.pathname.endsWith("/player/games") || // My games list
     location.pathname.match(/\/player\/players\/\d+/) || // Public player profiles
     location.pathname.match(/\/player\/games\/new/) || // Game setup wizard
     location.pathname.match(/\/player\/games\/\d+\/play/) || // Game play view

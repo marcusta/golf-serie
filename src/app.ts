@@ -605,6 +605,12 @@ export function createApp(db: Database): Hono {
     return await gamesApi.deleteGame(gameId, user!.id);
   });
 
+  app.post("/api/games/:id/leave", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    return await gamesApi.leaveGame(gameId, user!.id);
+  });
+
   // Game Players
   app.post("/api/games/:id/players", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));

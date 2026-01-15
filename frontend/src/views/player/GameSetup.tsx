@@ -23,11 +23,6 @@ import {
   Search,
   X,
   Plus,
-  GripVertical,
-  MoreVertical,
-  ChevronDown,
-  Trash2,
-  UserPlus,
   Check,
 } from "lucide-react";
 import {
@@ -40,12 +35,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   ItemGroup,
   Item,
   ItemContent,
@@ -53,37 +42,16 @@ import {
   ItemDescription,
   ItemSeparator,
 } from "@/components/ui/item";
-import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import {
-  DndContext,
-  pointerWithin,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-  useDroppable,
-  useDraggable,
-  DragOverlay,
-} from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { getGamePlayerDisplayName } from "@/utils/player-display";
+import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
+import { GroupManagement, type LocalGroup } from "@/components/games/GroupManagement";
 
 // ============================================================================
 // Types
@@ -94,175 +62,9 @@ interface GameSetupState {
   courseId: number | null;
   courseName: string | null;
   gameName: string;
-  groups: Array<{ name: string; playerIds: number[] }>;
+  groups: LocalGroup[];
   gameType: string;
   scoringMode: GameScoringMode;
-}
-
-// ============================================================================
-// Droppable Group Component
-// ============================================================================
-
-interface DroppableGroupProps {
-  id: string;
-  children: React.ReactNode;
-}
-
-function DroppableGroup({ id, children }: DroppableGroupProps) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`transition-colors ${isOver ? "bg-turf/10 rounded-lg" : ""}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ============================================================================
-// Draggable Player Component
-// ============================================================================
-
-interface DraggablePlayerProps {
-  id: number;
-  displayName: string;
-  isGuest: boolean;
-  playHandicap: number | null | undefined;
-  onRemove?: () => void;
-  showRemove?: boolean;
-  showDragHandle?: boolean;
-}
-
-function DraggablePlayer({
-  id,
-  displayName,
-  isGuest,
-  playHandicap,
-  onRemove,
-  showRemove = false,
-  showDragHandle = true,
-}: DraggablePlayerProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex items-center py-3 hover:bg-turf/5 transition-colors min-h-[44px] ${
-        isDragging ? "opacity-50" : ""
-      }`}
-      style={{ touchAction: "none" }}
-    >
-      {showDragHandle && (
-        <button
-          type="button"
-          {...listeners}
-          {...attributes}
-          className="cursor-grab active:cursor-grabbing text-charcoal/40 hover:text-turf mr-3 touch-none"
-          style={{ WebkitUserSelect: "none", userSelect: "none" }}
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-      )}
-      <div className="flex-1">
-        <div className="text-sm font-medium text-charcoal">{displayName}</div>
-        <div className="text-xs text-charcoal/70 mt-0.5">
-          {isGuest && "Guest • "}PHCP: {playHandicap?.toFixed(1) || "0.0"}
-        </div>
-      </div>
-      {showRemove && onRemove && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-charcoal/60 hover:text-turf"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="z-50 bg-scorecard shadow-lg"
-          >
-            <DropdownMenuItem onClick={onRemove}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Remove from game
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// Draggable Player In Group Component (with slot number)
-// ============================================================================
-
-interface DraggablePlayerInGroupProps {
-  id: number;
-  slotNumber: number;
-  displayName: string;
-  isGuest: boolean;
-  playHandicap: number | null | undefined;
-  onRemove: () => void;
-}
-
-function DraggablePlayerInGroup({
-  id,
-  slotNumber,
-  displayName,
-  isGuest,
-  playHandicap,
-  onRemove,
-}: DraggablePlayerInGroupProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex items-center py-3 hover:bg-turf/5 transition-colors min-h-[44px] ${
-        isDragging ? "opacity-50" : ""
-      }`}
-      style={{ touchAction: "none" }}
-    >
-      <button
-        type="button"
-        {...listeners}
-        {...attributes}
-        className="cursor-grab active:cursor-grabbing text-charcoal/40 hover:text-turf mr-3 touch-none"
-        style={{ WebkitUserSelect: "none", userSelect: "none" }}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      <span className="text-sm font-medium text-charcoal/40 mr-3 w-4">
-        {slotNumber}.
-      </span>
-      <div className="flex-1">
-        <div className="text-sm font-medium text-charcoal">{displayName}</div>
-        <div className="text-xs text-charcoal/70 mt-0.5">
-          {isGuest && "Guest • "}PHCP: {playHandicap?.toFixed(1) || "0.0"}
-        </div>
-      </div>
-      <Button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        variant="ghost"
-        size="icon"
-        className="text-coral hover:text-flag h-7 w-7"
-      >
-        <X className="h-4 w-4" />
-      </Button>
-    </div>
-  );
 }
 
 // ============================================================================
@@ -280,7 +82,7 @@ export default function GameSetup() {
     courseId: null,
     courseName: null,
     gameName: "",
-    groups: [{ name: "Group 1", playerIds: [] }],
+    groups: [{ id: null, name: "Group 1", playerIds: [] }],
     gameType: "stroke_play",
     scoringMode: "gross",
   });
@@ -297,22 +99,6 @@ export default function GameSetup() {
   const [guestName, setGuestName] = useState("");
   const [guestHandicap, setGuestHandicap] = useState("0");
   const [guestGender, setGuestGender] = useState<"male" | "female">("male");
-
-  // Step 4 state (Groups - drag and drop)
-  const [activePlayerId, setActivePlayerId] = useState<number | null>(null);
-
-  // Step 4 collapse states
-  const [unassignedCollapsed, setUnassignedCollapsed] = useState(false);
-  const [groupsCollapsed, setGroupsCollapsed] = useState<
-    Record<number, boolean>
-  >({});
-
-  // Step 4 tap-to-assign modal
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [assignTarget, setAssignTarget] = useState<{
-    groupIndex: number;
-    slotIndex: number;
-  } | null>(null);
 
   // Step 4 manual assignment flag (disable auto-assignment after user interaction)
   const [hasManuallyAssigned, setHasManuallyAssigned] = useState(false);
@@ -368,24 +154,6 @@ export default function GameSetup() {
         !alreadyAddedPlayerIds.includes(p.id)
     );
   }, [allPlayers, playerSearchQuery, gamePlayers]);
-
-  // Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts (allows scrolling)
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 150, // 150ms press and hold before drag starts (balance between responsiveness and scroll)
-        tolerance: 8, // Allow 8px of movement during delay (prevents accidental activation)
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   // Refetch players when returning to step 3 (players)
   useEffect(() => {
@@ -578,253 +346,21 @@ export default function GameSetup() {
   // Step 4: Group Assignment
   // ============================================================================
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActivePlayerId(event.active.id as number);
-  };
-
-  const handleAddGroup = () => {
-    setState((prev) => ({
-      ...prev,
-      groups: [
-        ...prev.groups,
-        { name: `Group ${prev.groups.length + 1}`, playerIds: [] },
-      ],
-    }));
-  };
-
-  const handleRemoveGroup = (groupIndex: number) => {
+  const handleGroupsChange = (newGroups: LocalGroup[]) => {
     setHasManuallyAssigned(true);
-    setState((prev) => ({
-      ...prev,
-      groups: prev.groups.filter((_, i) => i !== groupIndex),
-    }));
+    setState((prev) => ({ ...prev, groups: newGroups }));
   };
 
-  const handleAssignPlayerToGroup = (
-    gamePlayerId: number,
-    groupIndex: number
-  ) => {
-    setHasManuallyAssigned(true);
-    setState((prev) => {
-      // Check if player is already in the target group (prevent duplicates)
-      if (prev.groups[groupIndex].playerIds.includes(gamePlayerId)) {
-        return prev;
-      }
-
-      // Count players in target group after removal from other groups
-      const playersInTargetAfterRemoval = prev.groups[
-        groupIndex
-      ].playerIds.filter((id) => id !== gamePlayerId).length;
-
-      // Check if adding this player would exceed the limit
-      if (playersInTargetAfterRemoval + 1 > 4) {
-        toast.error("Group limit: maximum 4 players per group");
-        return prev;
-      }
-
-      // Create new groups with player removed from all groups, then added to target
-      const newGroups = prev.groups.map((group, idx) => {
-        // Remove from all groups first
-        const filteredIds = group.playerIds.filter((id) => id !== gamePlayerId);
-
-        // Add to target group
-        if (idx === groupIndex) {
-          return { ...group, playerIds: [...filteredIds, gamePlayerId] };
-        }
-
-        return { ...group, playerIds: filteredIds };
-      });
-
-      return { ...prev, groups: newGroups };
-    });
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActivePlayerId(null);
-
-    if (!over) return;
-
-    const activeId = active.id as number;
-    const overId = over.id;
-
-    // Mark as manually assigned to prevent auto-assignment
-    setHasManuallyAssigned(true);
-
-    // Find which group the active item is currently in
-    const activeGroupIndex = state.groups.findIndex((g) =>
-      g.playerIds.includes(activeId)
-    );
-    const isActiveUnassigned = activeGroupIndex === -1;
-
-    // Determine the target location
-    let targetGroupIndex = -1;
-    let targetIsUnassigned = false;
-
-    // Check if dropping onto a droppable zone (group-0, group-1, or unassigned)
-    if (typeof overId === "string") {
-      if (overId === "unassigned") {
-        targetIsUnassigned = true;
-      } else if (overId.startsWith("group-")) {
-        targetGroupIndex = parseInt(overId.replace("group-", ""));
-      }
+  const handleRemovePlayerFromGame = async (playerId: number) => {
+    if (!state.gameId) return;
+    try {
+      await removeGamePlayer.mutateAsync({ gameId: state.gameId, playerId });
+      refetchGamePlayers();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove player"
+      );
     }
-
-    // If same location, do nothing
-    if (
-      (isActiveUnassigned && targetIsUnassigned) ||
-      (!isActiveUnassigned &&
-        !targetIsUnassigned &&
-        activeGroupIndex === targetGroupIndex)
-    ) {
-      return;
-    }
-
-    setState((prev) => {
-      // Moving from unassigned to a group
-      if (
-        isActiveUnassigned &&
-        !targetIsUnassigned &&
-        targetGroupIndex !== -1
-      ) {
-        const newGroups = prev.groups.map((group, idx) => {
-          if (idx !== targetGroupIndex) return group;
-
-          // Find first empty slot
-          const firstEmptySlot = group.playerIds.findIndex((id) => !id);
-
-          if (firstEmptySlot !== -1) {
-            // Assign to first empty slot - create new array
-            const newPlayerIds = [...group.playerIds];
-            newPlayerIds[firstEmptySlot] = activeId;
-            return { ...group, playerIds: newPlayerIds };
-          } else if (group.playerIds.length < 4) {
-            // No empty slots, but group isn't full - add to end
-            return { ...group, playerIds: [...group.playerIds, activeId] };
-          } else {
-            // Group is full
-            toast.error("Group limit: maximum 4 players per group");
-            return group;
-          }
-        });
-
-        if (newGroups === prev.groups) {
-          return prev; // Group was full, no change
-        }
-        return { ...prev, groups: newGroups };
-      }
-
-      // Moving from a group to unassigned
-      if (!isActiveUnassigned && targetIsUnassigned) {
-        const newGroups = prev.groups.map((group, idx) => {
-          if (idx !== activeGroupIndex) return group;
-          return {
-            ...group,
-            playerIds: group.playerIds.filter((id) => id !== activeId),
-          };
-        });
-        return { ...prev, groups: newGroups };
-      }
-
-      // Moving between different groups
-      if (
-        !isActiveUnassigned &&
-        !targetIsUnassigned &&
-        activeGroupIndex !== targetGroupIndex &&
-        targetGroupIndex !== -1
-      ) {
-        const newGroups = prev.groups.map((group, idx) => {
-          // Remove from source group
-          if (idx === activeGroupIndex) {
-            return {
-              ...group,
-              playerIds: group.playerIds.filter((id) => id !== activeId),
-            };
-          }
-
-          // Add to target group
-          if (idx === targetGroupIndex) {
-            const firstEmptySlot = group.playerIds.findIndex((id) => !id);
-
-            if (firstEmptySlot !== -1) {
-              const newPlayerIds = [...group.playerIds];
-              newPlayerIds[firstEmptySlot] = activeId;
-              return { ...group, playerIds: newPlayerIds };
-            } else if (group.playerIds.length < 4) {
-              return { ...group, playerIds: [...group.playerIds, activeId] };
-            } else {
-              toast.error("Group limit: maximum 4 players per group");
-              return group;
-            }
-          }
-
-          return group;
-        });
-
-        return { ...prev, groups: newGroups };
-      }
-
-      return prev;
-    });
-  };
-
-  const handleRemovePlayerFromGroup = (
-    gamePlayerId: number,
-    groupIndex: number
-  ) => {
-    setHasManuallyAssigned(true);
-    setState((prev) => {
-      const newGroups = prev.groups.map((group, idx) => {
-        if (idx !== groupIndex) return group;
-        return {
-          ...group,
-          playerIds: group.playerIds.filter((id) => id !== gamePlayerId),
-        };
-      });
-      return { ...prev, groups: newGroups };
-    });
-  };
-
-  const handleOpenAssignModal = (groupIndex: number, slotIndex: number) => {
-    setAssignTarget({ groupIndex, slotIndex });
-    setAssignModalOpen(true);
-  };
-
-  const handleAssignPlayerToSlot = (gamePlayerId: number) => {
-    if (!assignTarget) return;
-
-    setHasManuallyAssigned(true);
-    setState((prev) => {
-      const newGroups = prev.groups.map((group, idx) => {
-        // Remove player from all groups first
-        const filteredIds = group.playerIds.filter((id) => id !== gamePlayerId);
-
-        // Assign to target slot in target group
-        if (idx === assignTarget.groupIndex) {
-          const newPlayerIds = [...filteredIds];
-          // Ensure array is long enough for the slot
-          while (newPlayerIds.length <= assignTarget.slotIndex) {
-            newPlayerIds.push(0);
-          }
-          newPlayerIds[assignTarget.slotIndex] = gamePlayerId;
-          return { ...group, playerIds: newPlayerIds };
-        }
-
-        return { ...group, playerIds: filteredIds };
-      });
-
-      return { ...prev, groups: newGroups };
-    });
-
-    setAssignModalOpen(false);
-    setAssignTarget(null);
-  };
-
-  const handleToggleGroupCollapse = (groupIndex: number) => {
-    setGroupsCollapsed((prev) => ({
-      ...prev,
-      [groupIndex]: !prev[groupIndex],
-    }));
   };
 
   // ============================================================================
@@ -1422,367 +958,16 @@ export default function GameSetup() {
           </div>
         )}
 
-        {/* Step 4: Group Assignment - Split layout with Unassigned in container, Groups outside */}
-        {step === 4 && (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={pointerWithin}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            {/* Unassigned Area inside gray container */}
-            <div className="bg-soft-grey/30 rounded-b-2xl shadow-lg p-6 mb-4">
-              {gamePlayers &&
-                gamePlayers.filter(
-                  (gp) => !state.groups.some((g) => g.playerIds.includes(gp.id))
-                ).length > 0 && (
-                  <div className="sticky top-0 z-10 border-l-4 border-coral bg-white rounded overflow-hidden">
-                    <Collapsible
-                      open={!unassignedCollapsed}
-                      onOpenChange={() =>
-                        setUnassignedCollapsed(!unassignedCollapsed)
-                      }
-                    >
-                      <div className="bg-coral/10">
-                        <CollapsibleTrigger asChild>
-                          <button className="w-full flex items-center gap-2 px-4 py-3 hover:bg-coral/20 transition-colors text-left">
-                            {unassignedCollapsed ? (
-                              <ChevronRight className="h-4 w-4 text-charcoal" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-charcoal" />
-                            )}
-                            <span className="text-sm font-bold uppercase tracking-wide text-charcoal">
-                              Unassigned
-                            </span>
-                            <Badge
-                              variant="secondary"
-                              className="bg-coral text-white border-0 font-semibold"
-                            >
-                              {
-                                gamePlayers.filter(
-                                  (gp) =>
-                                    !state.groups.some((g) =>
-                                      g.playerIds.includes(gp.id)
-                                    )
-                                ).length
-                              }
-                            </Badge>
-                          </button>
-                        </CollapsibleTrigger>
-                      </div>
-                      <CollapsibleContent>
-                        <DroppableGroup id="unassigned">
-                          <div className="divide-y divide-soft-grey max-h-[400px] overflow-y-auto px-3">
-                            {gamePlayers
-                              .filter(
-                                (gp) =>
-                                  !state.groups.some((g) =>
-                                    g.playerIds.includes(gp.id)
-                                  )
-                              )
-                              .map((gp) => {
-                                const displayName = getGamePlayerDisplayName(gp);
-                                const isGuest = Boolean(gp.guest_name);
-                                return (
-                                  <div key={gp.id} className="relative">
-                                    <DraggablePlayer
-                                      id={gp.id}
-                                      displayName={displayName}
-                                      isGuest={isGuest}
-                                      playHandicap={gp.play_handicap}
-                                      showDragHandle={true}
-                                      showRemove={false}
-                                    />
-                                    <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-charcoal/60 hover:text-turf"
-                                          >
-                                            <MoreVertical className="h-4 w-4" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent
-                                          align="end"
-                                          className="z-50 bg-scorecard shadow-lg"
-                                        >
-                                          {state.groups.map((group, idx) => (
-                                            <DropdownMenuItem
-                                              key={idx}
-                                              onClick={() =>
-                                                handleAssignPlayerToGroup(
-                                                  gp.id,
-                                                  idx
-                                                )
-                                              }
-                                            >
-                                              <UserPlus className="h-4 w-4 mr-2" />
-                                              Assign to {group.name}
-                                            </DropdownMenuItem>
-                                          ))}
-                                          <DropdownMenuItem
-                                            onClick={() =>
-                                              handleRemovePlayer(gp.id)
-                                            }
-                                          >
-                                            <Trash2 className="h-4 w-4 mr-2" />
-                                            Remove from game
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        </DroppableGroup>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </div>
-                )}
-            </div>
-
-            {/* Groups Section - OUTSIDE gray container */}
-            <div className="max-w-4xl mx-auto px-2 mb-6">
-              <div className="space-y-3">
-                {state.groups.map((group, groupIndex) => (
-                  <Collapsible
-                    key={groupIndex}
-                    open={!groupsCollapsed[groupIndex]}
-                    onOpenChange={() => handleToggleGroupCollapse(groupIndex)}
-                  >
-                    <div className="border-l-4 border-turf bg-white rounded overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 bg-turf/10">
-                        <CollapsibleTrigger asChild>
-                          <button className="flex items-center gap-2 hover:bg-turf/20 -mx-2 -my-1 px-2 py-1 rounded transition-colors">
-                            {groupsCollapsed[groupIndex] ? (
-                              <ChevronRight className="h-4 w-4 text-charcoal" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-charcoal" />
-                            )}
-                            <span className="text-sm font-bold uppercase tracking-wide text-charcoal">
-                              {group.name}
-                            </span>
-                            <Badge
-                              variant="secondary"
-                              className="bg-turf text-white border-0 font-semibold"
-                            >
-                              {group.playerIds.filter(Boolean).length}/4
-                            </Badge>
-                          </button>
-                        </CollapsibleTrigger>
-                        {state.groups.length > 1 && (
-                          <Button
-                            onClick={() => handleRemoveGroup(groupIndex)}
-                            variant="ghost"
-                            size="icon"
-                            className="text-coral hover:text-flag hover:bg-coral/10 h-7 w-7"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-
-                      <CollapsibleContent>
-                        <DroppableGroup id={`group-${groupIndex}`}>
-                          <div className="divide-y divide-soft-grey px-4">
-                            {[0, 1, 2, 3].map((slotIndex) => {
-                              const playerId = group.playerIds[slotIndex];
-                              const player = playerId
-                                ? gamePlayers?.find((gp) => gp.id === playerId)
-                                : null;
-
-                              if (player) {
-                                return (
-                                  <DraggablePlayerInGroup
-                                    key={slotIndex}
-                                    id={playerId}
-                                    slotNumber={slotIndex + 1}
-                                    displayName={getGamePlayerDisplayName(
-                                      player
-                                    )}
-                                    isGuest={Boolean(player.guest_name)}
-                                    playHandicap={player.play_handicap}
-                                    onRemove={() =>
-                                      handleRemovePlayerFromGroup(
-                                        playerId,
-                                        groupIndex
-                                      )
-                                    }
-                                  />
-                                );
-                              } else {
-                                return (
-                                  <div
-                                    key={slotIndex}
-                                    onClick={() =>
-                                      handleOpenAssignModal(
-                                        groupIndex,
-                                        slotIndex
-                                      )
-                                    }
-                                    className="w-full flex items-center px-4 py-3 hover:bg-turf/10 transition-colors min-h-[44px] cursor-pointer"
-                                  >
-                                    <GripVertical className="h-4 w-4 text-charcoal/20 mr-3" />
-                                    <span className="text-sm font-medium text-charcoal/40 mr-3 w-4">
-                                      {slotIndex + 1}.
-                                    </span>
-                                    <span className="flex-1 text-sm italic text-charcoal/50">
-                                      Tap to assign player
-                                    </span>
-                                  </div>
-                                );
-                              }
-                            })}
-                          </div>
-                        </DroppableGroup>
-                      </CollapsibleContent>
-                    </div>
-                  </Collapsible>
-                ))}
-
-                <Button
-                  onClick={handleAddGroup}
-                  variant="outline"
-                  className="w-full border-2 border-dashed border-turf/40 bg-white text-turf hover:bg-turf/10 hover:border-turf/60 h-11 font-semibold rounded"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Add Group
-                </Button>
-              </div>
-            </div>
-
-            <DragOverlay>
-              {activePlayerId ? (
-                <div className="bg-scorecard rounded-lg border-2 border-turf shadow-xl px-4 py-3 min-h-[56px] flex items-center">
-                  <GripVertical className="h-5 w-5 text-turf mr-3" />
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-charcoal">
-                      {getGamePlayerDisplayName(
-                        gamePlayers?.find((gp) => gp.id === activePlayerId)!
-                      )}
-                    </div>
-                    <div className="text-xs text-charcoal/70 mt-0.5">
-                      Drag to assign
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        )}
-
-        {/* Tap-to-Assign Sheet Modal */}
-        {step === 4 && (
-          <Sheet open={assignModalOpen} onOpenChange={setAssignModalOpen}>
-            <SheetContent
-              side="bottom"
-              className="max-h-[80vh] overflow-y-auto"
-            >
-              <SheetHeader>
-                <SheetTitle>
-                  Assign to{" "}
-                  {assignTarget
-                    ? state.groups[assignTarget.groupIndex].name
-                    : ""}{" "}
-                  - Slot {assignTarget ? assignTarget.slotIndex + 1 : ""}
-                </SheetTitle>
-                <SheetDescription>
-                  Select a player to assign to this slot
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="mt-6 space-y-4">
-                {/* Unassigned Players Section */}
-                {gamePlayers &&
-                  gamePlayers.filter(
-                    (gp) =>
-                      !state.groups.some((g) => g.playerIds.includes(gp.id))
-                  ).length > 0 && (
-                    <div>
-                      <div className="border-l-4 border-coral pl-3 mb-2">
-                        <h3 className="text-sm font-medium text-charcoal">
-                          Unassigned
-                        </h3>
-                      </div>
-                      <div className="divide-y divide-soft-grey border border-soft-grey rounded-lg overflow-hidden">
-                        {gamePlayers
-                          .filter(
-                            (gp) =>
-                              !state.groups.some((g) =>
-                                g.playerIds.includes(gp.id)
-                              )
-                          )
-                          .map((gp) => {
-                            const displayName = getGamePlayerDisplayName(gp);
-                            const isGuest = Boolean(gp.guest_name);
-                            return (
-                              <button
-                                key={gp.id}
-                                onClick={() => handleAssignPlayerToSlot(gp.id)}
-                                className="w-full px-4 py-3 text-left hover:bg-sky/5 transition-colors"
-                              >
-                                <div className="text-sm font-medium text-charcoal">
-                                  {displayName}
-                                </div>
-                                <div className="text-xs text-charcoal/70 mt-0.5">
-                                  {isGuest && "Guest • "}PHCP:{" "}
-                                  {gp.play_handicap?.toFixed(1) || "0.0"}
-                                </div>
-                              </button>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Other Groups Section */}
-                {state.groups.map((group, idx) => {
-                  const playersInGroup = group.playerIds
-                    .filter(Boolean)
-                    .map((id) => gamePlayers?.find((gp) => gp.id === id))
-                    .filter(Boolean);
-                  if (playersInGroup.length === 0) return null;
-
-                  return (
-                    <div key={idx}>
-                      <div className="border-l-4 border-soft-grey pl-3 mb-2">
-                        <h3 className="text-sm font-medium text-charcoal">
-                          {group.name}
-                        </h3>
-                      </div>
-                      <div className="divide-y divide-soft-grey border border-soft-grey rounded-lg overflow-hidden">
-                        {playersInGroup.map((player) => {
-                          if (!player) return null;
-                          const displayName = getGamePlayerDisplayName(player);
-                          const isGuest = Boolean(player.guest_name);
-                          return (
-                            <button
-                              key={player.id}
-                              onClick={() =>
-                                handleAssignPlayerToSlot(player.id)
-                              }
-                              className="w-full px-4 py-3 text-left hover:bg-sky/5 transition-colors"
-                            >
-                              <div className="text-sm font-medium text-charcoal">
-                                {displayName}
-                              </div>
-                              <div className="text-xs text-charcoal/70 mt-0.5">
-                                {isGuest && "Guest • "}PHCP:{" "}
-                                {player.play_handicap?.toFixed(1) || "0.0"}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </SheetContent>
-          </Sheet>
+        {/* Step 4: Group Assignment */}
+        {step === 4 && gamePlayers && (
+          <GroupManagement
+            players={gamePlayers}
+            groups={state.groups}
+            onGroupsChange={handleGroupsChange}
+            onRemovePlayer={handleRemovePlayerFromGame}
+            variant="setup"
+            showTapToAssign={true}
+          />
         )}
 
         {/* Navigation Buttons */}

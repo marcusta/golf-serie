@@ -478,5 +478,27 @@ export function createGamesApi(
         });
       }
     },
+
+    async leaveGame(gameId: number, userId: number): Promise<Response> {
+      try {
+        const result = gameService.leaveGame(gameId, userId);
+        const message = result.deleted ? "Game deleted" : "Left game";
+        return new Response(JSON.stringify({ deleted: result.deleted, message }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: "Internal server error" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    },
   };
 }

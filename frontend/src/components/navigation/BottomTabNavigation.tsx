@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Edit3, Trophy, Medal, Users } from "lucide-react";
+import { Edit3, Trophy, Medal, Users, Settings } from "lucide-react";
 
 type TabId = "score" | "leaderboard" | "teams" | "participants";
 
@@ -11,6 +11,8 @@ interface BottomTabNavigationProps {
   hiddenTabs?: TabId[];
   /** Custom label for participants tab */
   participantsLabel?: string;
+  /** Optional settings button callback */
+  onSettingsClick?: () => void;
 }
 
 export function BottomTabNavigation({
@@ -19,6 +21,7 @@ export function BottomTabNavigation({
   className,
   hiddenTabs = [],
   participantsLabel,
+  onSettingsClick,
 }: BottomTabNavigationProps) {
   const allTabs = [
     {
@@ -54,8 +57,12 @@ export function BottomTabNavigation({
   // Filter out hidden tabs
   const tabs = allTabs.filter((tab) => !hiddenTabs.includes(tab.id));
 
-  // Calculate grid columns based on visible tabs
-  const gridCols = tabs.length === 3 ? "grid-cols-3" : "grid-cols-4";
+  // Calculate grid columns based on visible tabs + settings button
+  const totalItems = tabs.length + (onSettingsClick ? 1 : 0);
+  const gridCols = {
+    3: "grid-cols-3",
+    4: "grid-cols-4",
+  }[totalItems] || "grid-cols-4";
 
   return (
     <div
@@ -103,6 +110,21 @@ export function BottomTabNavigation({
             </button>
           );
         })}
+
+        {/* Settings Button */}
+        {onSettingsClick && (
+          <button
+            onClick={onSettingsClick}
+            className={cn(
+              "flex flex-col items-center justify-center py-3 px-2 transition-all duration-200 touch-manipulation",
+              "min-h-[60px] md:min-h-[64px] font-['Inter']",
+              "text-charcoal hover:text-turf hover:bg-rough/30"
+            )}
+          >
+            <Settings className="w-5 h-5 mb-1 md:w-6 md:h-6" />
+            <span className="text-xs font-medium md:text-sm">Settings</span>
+          </button>
+        )}
       </div>
     </div>
   );

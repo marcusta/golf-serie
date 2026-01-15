@@ -32,6 +32,7 @@ import { isRoundComplete } from "../../utils/scoreCalculations";
 import { useAuth } from "../../hooks/useAuth";
 import { Calendar, MapPin, Users } from "lucide-react";
 import { FullScorecardModal } from "../../components/score-entry/FullScorecardModal";
+import { GameSettingsModal } from "../../components/games/GameSettingsModal";
 
 type TabType = "score" | "leaderboard" | "participants";
 
@@ -57,6 +58,9 @@ export default function GamePlay() {
   // Full scorecard modal state
   const [isFullScorecardModalOpen, setIsFullScorecardModalOpen] =
     useState(false);
+
+  // Settings modal state
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   // Smart hole navigation - initialize with lazy initializer
   const [currentHole, setCurrentHole] = useState(() => {
@@ -394,6 +398,9 @@ export default function GamePlay() {
   // Calculate total players
   const totalPlayers = players?.length || 0;
 
+  // Check if current user is game owner
+  const isOwner = game?.owner_id === user?.id;
+
   if (gameLoading || courseLoading || groupsLoading || playersLoading) {
     return <div className="p-4">Loading game...</div>;
   }
@@ -581,6 +588,7 @@ export default function GamePlay() {
         className="flex-shrink-0"
         hiddenTabs={["teams"]}
         participantsLabel="Groups"
+        onSettingsClick={() => setSettingsModalOpen(true)}
       />
 
       {/* Game Info Footer */}
@@ -607,6 +615,15 @@ export default function GamePlay() {
         onClose={() => setIsFullScorecardModalOpen(false)}
         onLockRound={handleLockRound}
         netScoringData={netScoringData}
+      />
+
+      {/* Game Settings Modal */}
+      <GameSettingsModal
+        gameId={game.id}
+        game={game}
+        open={settingsModalOpen}
+        onOpenChange={setSettingsModalOpen}
+        isOwner={isOwner}
       />
     </PlayerPageLayout>
   );

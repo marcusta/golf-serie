@@ -576,6 +576,32 @@ export function useDeleteGame() {
 // ============================================================================
 
 /**
+ * Leave a game (or delete if owner with no scores)
+ */
+export function useLeaveGame() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      gameId: number
+    ): Promise<{ deleted: boolean; message: string }> => {
+      const response = await fetch(`${API_BASE_URL}/games/${gameId}/leave`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to leave game");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["games", "my"] });
+    },
+  });
+}
+
+/**
  * Polling hook for active games (30s interval)
  * Only polls when game status is 'active'
  */

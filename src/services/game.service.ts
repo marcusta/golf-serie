@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { gameTypeRegistry } from "./game-strategies/registry";
 import { getPlayerDisplayName } from "../utils/player-display";
+import { GameScoreService } from "./game-score.service";
 
 // ============================================================================
 // Internal Row Types (database representation)
@@ -54,7 +55,11 @@ interface GameWithDetailsRow extends GameRow {
 }
 
 export class GameService {
-  constructor(private db: Database) {}
+  private gameScoreService: GameScoreService;
+
+  constructor(private db: Database) {
+    this.gameScoreService = new GameScoreService(db);
+  }
 
   // ============================================================================
   // Validation Methods (private, no SQL)
@@ -396,6 +401,26 @@ export class GameService {
     return stmt.get(teeId) !== null;
   }
 
+  private findGamePlayerByPlayerId(gameId: number, playerId: number): GamePlayerRow | null {
+    const stmt = this.db.prepare(
+      "SELECT * FROM game_players WHERE game_id = ? AND player_id = ?"
+    );
+    return stmt.get(gameId, playerId) as GamePlayerRow | null;
+  }
+
+  private findOwnerGamePlayer(gameId: number): GamePlayerRow | null {
+    const stmt = this.db.prepare(
+      "SELECT * FROM game_players WHERE game_id = ? AND is_owner = 1"
+    );
+    return stmt.get(gameId) as GamePlayerRow | null;
+  }
+
+  private findPlayerIdByUserId(userId: number): number | null {
+    const stmt = this.db.prepare("SELECT id FROM players WHERE user_id = ?");
+    const result = stmt.get(userId) as { id: number } | null;
+    return result?.id ?? null;
+  }
+
   // ============================================================================
   // Logic Methods (private, no SQL)
   // ============================================================================
@@ -548,7 +573,10 @@ export class GameService {
   }
 
   /**
-   * Update game details (course, type, scoring, settings)
+   * Update game details with field-specific restrictions:
+   * - name: can change at ANY status
+   * - game_type: can change only if no scores entered
+   * - course_id, scoring_mode, custom_settings, scheduled_date: setup status only
    */
   updateGame(gameId: number, data: UpdateGameDto, userId: number): Game {
     const game = this.findGameRow(gameId);
@@ -560,27 +588,48 @@ export class GameService {
       throw new Error("Only the game owner can update the game");
     }
 
-    this.validateGameStatusForModification(game.status as GameStatus);
+    const isSetupStatus = game.status === "setup";
+    const hasScores = this.gameScoreService.gameHasAnyScores(gameId);
 
-    // Validate and update each field if provided
+    // name: can always change
+    if (data.name !== undefined) {
+      this.updateGameNameRow(gameId, data.name);
+    }
+
+    // game_type: can change only if no scores entered
+    if (data.game_type !== undefined) {
+      if (hasScores) {
+        throw new Error("Cannot change game type after scores entered");
+      }
+      this.validateGameType(data.game_type);
+      this.updateGameTypeRow(gameId, data.game_type);
+    }
+
+    // course_id: setup status only
     if (data.course_id !== undefined) {
+      if (!isSetupStatus) {
+        throw new Error("Cannot change course after game has started");
+      }
       if (!this.findCourseExists(data.course_id)) {
         throw new Error(`Course ${data.course_id} not found`);
       }
       this.updateGameCourseRow(gameId, data.course_id);
     }
 
-    if (data.game_type !== undefined) {
-      this.validateGameType(data.game_type);
-      this.updateGameTypeRow(gameId, data.game_type);
-    }
-
+    // scoring_mode: setup status only
     if (data.scoring_mode !== undefined) {
+      if (!isSetupStatus) {
+        throw new Error("Cannot change scoring mode after game has started");
+      }
       this.validateScoringMode(data.scoring_mode);
       this.updateGameScoringModeRow(gameId, data.scoring_mode);
     }
 
+    // custom_settings: setup status only
     if (data.custom_settings !== undefined) {
+      if (!isSetupStatus) {
+        throw new Error("Cannot change custom settings after game has started");
+      }
       const gameType = data.game_type || game.game_type;
       const strategy = gameTypeRegistry.get(gameType, this.db);
       strategy.validateSettings(data.custom_settings);
@@ -588,12 +637,12 @@ export class GameService {
       this.updateGameCustomSettingsRow(gameId, customSettingsJson);
     }
 
+    // scheduled_date: setup status only
     if (data.scheduled_date !== undefined) {
+      if (!isSetupStatus) {
+        throw new Error("Cannot change scheduled date after game has started");
+      }
       this.updateGameScheduledDateRow(gameId, data.scheduled_date);
-    }
-
-    if (data.name !== undefined) {
-      this.updateGameNameRow(gameId, data.name);
     }
 
     const updated = this.findGameRow(gameId);
@@ -622,7 +671,7 @@ export class GameService {
   }
 
   /**
-   * Delete a game (only if in setup status)
+   * Delete a game (only if no scores have been entered)
    */
   deleteGame(gameId: number, userId: number): void {
     const game = this.findGameRow(gameId);
@@ -634,15 +683,52 @@ export class GameService {
       throw new Error("Only the game owner can delete the game");
     }
 
-    if (game.status !== "setup") {
-      throw new Error("Can only delete games that haven't started");
+    if (this.gameScoreService.gameHasAnyScores(gameId)) {
+      throw new Error("Cannot delete game with scores. Use leave instead.");
     }
 
     this.deleteGameRow(gameId);
   }
 
   /**
+   * Leave a game - removes the player, or deletes the game if owner and no scores
+   * Returns { deleted: true } if the entire game was deleted, { deleted: false } if only the player was removed
+   */
+  leaveGame(gameId: number, userId: number): { deleted: boolean } {
+    const game = this.findGameRow(gameId);
+    if (!game) {
+      throw new Error(`Game ${gameId} not found`);
+    }
+
+    // Find the player record for this user
+    const playerId = this.findPlayerIdByUserId(userId);
+    if (!playerId) {
+      throw new Error("User has no player profile");
+    }
+
+    const gamePlayer = this.findGamePlayerByPlayerId(gameId, playerId);
+    if (!gamePlayer) {
+      throw new Error("You are not a participant in this game");
+    }
+
+    // Check if user is the owner
+    const isOwner = game.owner_id === userId;
+
+    // If owner and game has no scores, delete the entire game
+    if (isOwner && !this.gameScoreService.gameHasAnyScores(gameId)) {
+      this.deleteGameRow(gameId);
+      return { deleted: true };
+    }
+
+    // Otherwise, just remove this player (even if they have scores - they're leaving)
+    // Note: we don't check for scores here because a player should be able to leave
+    this.deleteGamePlayerRow(gamePlayer.id);
+    return { deleted: false };
+  }
+
+  /**
    * Add a player to the game (registered or guest)
+   * Can be done at any game status
    */
   addPlayer(gameId: number, data: AddGamePlayerDto, userId: number): GamePlayer {
     // Validate
@@ -657,7 +743,7 @@ export class GameService {
       throw new Error("Only the game owner can add players");
     }
 
-    this.validateGameStatusForModification(game.status as GameStatus);
+    // Note: No status restriction - players can be added at any time
 
     // Validate player exists if player_id provided
     if (data.player_id && !this.findPlayerExists(data.player_id)) {
@@ -687,6 +773,7 @@ export class GameService {
 
   /**
    * Remove a player from the game
+   * Can be done at any status, but not if the player has entered scores
    */
   removePlayer(gameId: number, gamePlayerId: number, userId: number): void {
     const game = this.findGameRow(gameId);
@@ -698,7 +785,7 @@ export class GameService {
       throw new Error("Only the game owner can remove players");
     }
 
-    this.validateGameStatusForModification(game.status as GameStatus);
+    // Note: No status restriction - players can be removed at any time
 
     const gamePlayer = this.findGamePlayerRow(gamePlayerId);
     if (!gamePlayer) {
@@ -707,6 +794,11 @@ export class GameService {
 
     if (gamePlayer.game_id !== gameId) {
       throw new Error("Player does not belong to this game");
+    }
+
+    // Check if player has entered any scores
+    if (this.gameScoreService.playerHasScores(gamePlayerId)) {
+      throw new Error("Cannot remove player with scores");
     }
 
     this.deleteGamePlayerRow(gamePlayerId);

@@ -1,19 +1,30 @@
 import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { useMyGames } from "@/api/games";
+import { useMyGames, useLeaveGame } from "@/api/games";
 import { useAuth } from "@/hooks/useAuth";
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import {
   Loader2,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
   Users,
-  Calendar,
   Gamepad2,
   Plus,
+  LogOut,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import type { GameWithDetails } from "@/types/games";
+import { EditGameSheet } from "@/components/games/EditGameSheet";
 
 function getStatusBadge(status: string) {
   switch (status) {
@@ -57,9 +68,50 @@ function formatGameDate(date: string | undefined): string {
 }
 
 export default function MyGames() {
-  useAuth();
+  const { user } = useAuth();
   const { data: games, isLoading } = useMyGames();
+  const leaveGame = useLeaveGame();
   const [showCompleted, setShowCompleted] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [gameToLeave, setGameToLeave] = useState<GameWithDetails | null>(null);
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [gameToEdit, setGameToEdit] = useState<GameWithDetails | null>(null);
+
+  const handleEditClick = (e: React.MouseEvent, game: GameWithDetails) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setGameToEdit(game);
+    setEditSheetOpen(true);
+  };
+
+  const isGameOwner = (game: GameWithDetails) => {
+    return user?.id === game.owner_id;
+  };
+
+  const handleLeaveClick = (
+    e: React.MouseEvent,
+    game: GameWithDetails
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setGameToLeave(game);
+    setLeaveDialogOpen(true);
+  };
+
+  const handleConfirmLeave = async () => {
+    if (!gameToLeave) return;
+
+    try {
+      const result = await leaveGame.mutateAsync(gameToLeave.id);
+      toast.success(result.message);
+      setLeaveDialogOpen(false);
+      setGameToLeave(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to leave game"
+      );
+    }
+  };
 
   // Separate active/ready games from completed
   const { activeGames, completedGames } = useMemo(() => {
@@ -88,18 +140,17 @@ export default function MyGames() {
   return (
     <PlayerPageLayout title="My Games">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Header with New Game Button */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-display-md font-display font-bold text-charcoal">
-            My Casual Games
-          </h1>
-          <Link to="/player/games/new">
-            <Button className="bg-turf hover:bg-turf/90 text-white">
-              <Plus className="h-4 w-4 mr-2" />
-              New Game
-            </Button>
-          </Link>
-        </div>
+        {/* Header with New Game button */}
+        {!hasNoGames && (
+          <div className="flex items-center justify-end mb-4">
+            <Link to="/player/games/new">
+              <Button size="sm" className="bg-turf hover:bg-turf/90 text-white">
+                <Plus className="h-4 w-4 mr-1" />
+                New Game
+              </Button>
+            </Link>
+          </div>
+        )}
 
         {/* Empty State */}
         {hasNoGames && (
@@ -130,47 +181,66 @@ export default function MyGames() {
             </h2>
             <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
               {activeGames.map((game) => (
-                <Link
+                <div
                   key={game.id}
-                  to="/player/games/$gameId/play"
-                  params={{ gameId: game.id.toString() }}
-                  className="block px-5 py-4 hover:bg-turf/5 transition-colors border-l-4 border-turf hover:border-turf/80"
+                  className="relative border-l-4 border-turf hover:border-turf/80"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-charcoal truncate">
-                          {game.course_name}
-                        </span>
-                        {getStatusBadge(game.status)}
+                  <Link
+                    to="/player/games/$gameId/play"
+                    params={{ gameId: game.id.toString() }}
+                    className="block px-4 py-3 pr-20 hover:bg-turf/5 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-charcoal truncate">
+                        {game.course_name}
+                      </span>
+                      {getStatusBadge(game.status)}
+                    </div>
+                    <div className="flex items-center gap-2 text-body-sm text-charcoal/70">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>{game.player_count}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-body-sm text-charcoal/70 mb-1">
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3.5 w-3.5" />
-                          <span>{game.player_count} players</span>
-                        </div>
-                        {(game.scheduled_date || game.started_at) && (
-                          <>
-                            <span className="text-charcoal/40">|</span>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              <span>
-                                {formatGameDate(game.scheduled_date || game.started_at)}
-                              </span>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                      {(game.scheduled_date || game.started_at) && (
+                        <>
+                          <span className="text-charcoal/30">·</span>
+                          <span>{formatGameDate(game.scheduled_date || game.started_at)}</span>
+                        </>
+                      )}
                       {game.status !== "setup" && game.my_holes_played !== undefined && (
-                        <div className="text-body-sm text-turf font-medium">
-                          {game.my_holes_played} holes played
-                          {game.my_current_score && ` • ${game.my_current_score}`}
-                        </div>
+                        <>
+                          <span className="text-charcoal/30">·</span>
+                          <span className="text-turf font-medium">
+                            {game.my_holes_played}H {game.my_current_score && `(${game.my_current_score})`}
+                          </span>
+                        </>
                       )}
                     </div>
-                    <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0 mt-1" />
+                  </Link>
+                  {/* Action buttons - absolute positioned */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    {isGameOwner(game) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-charcoal/40 hover:text-turf hover:bg-turf/10"
+                        onClick={(e) => handleEditClick(e, game)}
+                        title="Edit game settings"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-charcoal/40 hover:text-coral hover:bg-coral/10"
+                      onClick={(e) => handleLeaveClick(e, game)}
+                      title="Leave game"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           </div>
@@ -197,55 +267,126 @@ export default function MyGames() {
               <div className="px-6 pb-6">
                 <div className="bg-white rounded overflow-hidden divide-y divide-soft-grey">
                   {completedGames.map((game) => (
-                    <Link
+                    <div
                       key={game.id}
-                      to="/player/games/$gameId/play"
-                      params={{ gameId: game.id.toString() }}
-                      className="block px-5 py-4 hover:bg-charcoal/5 transition-colors border-l-4 border-charcoal/20 hover:border-charcoal/40"
+                      className="relative border-l-4 border-charcoal/20 hover:border-charcoal/40"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-charcoal truncate">
-                              {game.course_name}
-                            </span>
-                            {getStatusBadge(game.status)}
-                          </div>
-                          <div className="flex items-center gap-3 text-body-sm text-charcoal/70">
-                            <div className="flex items-center gap-1">
-                              <Users className="h-3.5 w-3.5" />
-                              <span>{game.player_count} players</span>
-                            </div>
-                            {(game.scheduled_date || game.started_at) && (
-                              <>
-                                <span className="text-charcoal/40">|</span>
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-3.5 w-3.5" />
-                                  <span>
-                                    {formatGameDate(game.scheduled_date || game.started_at)}
-                                  </span>
-                                </div>
-                              </>
-                            )}
-                            {game.my_current_score && (
-                              <>
-                                <span className="text-charcoal/40">|</span>
-                                <span className="font-medium">
-                                  Final: {game.my_current_score}
-                                </span>
-                              </>
-                            )}
-                          </div>
+                      <Link
+                        to="/player/games/$gameId/play"
+                        params={{ gameId: game.id.toString() }}
+                        className="block px-4 py-3 pr-20 hover:bg-charcoal/5 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-charcoal truncate">
+                            {game.course_name}
+                          </span>
+                          {getStatusBadge(game.status)}
                         </div>
-                        <ChevronRight className="h-5 w-5 text-charcoal/40 flex-shrink-0 mt-1" />
+                        <div className="flex items-center gap-2 text-body-sm text-charcoal/70">
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5" />
+                            <span>{game.player_count}</span>
+                          </div>
+                          {(game.scheduled_date || game.started_at) && (
+                            <>
+                              <span className="text-charcoal/30">·</span>
+                              <span>{formatGameDate(game.scheduled_date || game.started_at)}</span>
+                            </>
+                          )}
+                          {game.my_current_score && (
+                            <>
+                              <span className="text-charcoal/30">·</span>
+                              <span className="font-medium">
+                                {game.my_current_score}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </Link>
+                      {/* Action buttons - absolute positioned */}
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {isGameOwner(game) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-charcoal/40 hover:text-turf hover:bg-turf/10"
+                            onClick={(e) => handleEditClick(e, game)}
+                            title="Edit game settings"
+                          >
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-charcoal/40 hover:text-coral hover:bg-coral/10"
+                          onClick={(e) => handleLeaveClick(e, game)}
+                          title="Leave game"
+                        >
+                          <LogOut className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
         )}
+
+      {/* Leave Game Confirmation Dialog */}
+      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Leave Game?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to leave this game? If you're the owner and
+              no scores have been entered, the game will be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLeaveDialogOpen(false);
+                setGameToLeave(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmLeave}
+              disabled={leaveGame.isPending}
+              className="bg-coral hover:bg-coral/90"
+            >
+              {leaveGame.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Leaving...
+                </>
+              ) : (
+                "Leave Game"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Game Sheet */}
+      {gameToEdit && (
+        <EditGameSheet
+          gameId={gameToEdit.id}
+          game={gameToEdit}
+          open={editSheetOpen}
+          onOpenChange={(open) => {
+            setEditSheetOpen(open);
+            if (!open) {
+              setGameToEdit(null);
+            }
+          }}
+        />
+      )}
       </div>
     </PlayerPageLayout>
   );

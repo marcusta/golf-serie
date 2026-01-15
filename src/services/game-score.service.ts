@@ -565,4 +565,53 @@ export class GameScoreService {
       this.updateHandicapSnapshotRow(memberId, handicap);
     }
   }
+
+  // ============================================================================
+  // Score Check Methods (public, for delete/leave operations)
+  // ============================================================================
+
+  /**
+   * Check if any player in a game has entered any scores (non-zero values)
+   * Returns true if ANY game_score for this game has at least one non-zero score
+   */
+  gameHasAnyScores(gameId: number): boolean {
+    const stmt = this.db.prepare(`
+      SELECT gs.score
+      FROM game_scores gs
+      JOIN game_group_members ggm ON ggm.id = gs.game_group_member_id
+      JOIN game_groups gg ON gg.id = ggm.game_group_id
+      WHERE gg.game_id = ?
+    `);
+    const rows = stmt.all(gameId) as Array<{ score: string }>;
+
+    for (const row of rows) {
+      const scores = this.parseScoreJson(row.score);
+      if (scores.some((s) => s > 0 || s === GOLF.UNREPORTED_HOLE)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if a specific game_player has any non-zero scores
+   * Checks game_scores for any game_group_member linked to this game_player
+   */
+  playerHasScores(gamePlayerId: number): boolean {
+    const stmt = this.db.prepare(`
+      SELECT gs.score
+      FROM game_scores gs
+      JOIN game_group_members ggm ON ggm.id = gs.game_group_member_id
+      WHERE ggm.game_player_id = ?
+    `);
+    const rows = stmt.all(gamePlayerId) as Array<{ score: string }>;
+
+    for (const row of rows) {
+      const scores = this.parseScoreJson(row.score);
+      if (scores.some((s) => s > 0 || s === GOLF.UNREPORTED_HOLE)) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
