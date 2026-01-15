@@ -356,6 +356,92 @@ describe("TourService.getFullStandings", () => {
       // Same points
       expect(standings.player_standings[0].total_points).toBe(standings.player_standings[1].total_points);
     });
+
+    test("should skip position numbers after ties (e.g., 1, 1, 3 not 1, 1, 2)", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const tour = createTestTour("Tour", user.id);
+      const course = createTestCourse("Course", Array(18).fill(4)); // Par 72
+      const team = createTestTeam("Team");
+
+      // Create 3 players
+      const player1 = createTestPlayer("Alice");
+      const player2 = createTestPlayer("Bob");
+      const player3 = createTestPlayer("Charlie");
+      createEnrollment(tour.id, player1.id, "alice@test.com");
+      createEnrollment(tour.id, player2.id, "bob@test.com");
+      createEnrollment(tour.id, player3.id, "charlie@test.com");
+
+      const comp = createTestCompetition("Comp", "2024-01-01", course.id, tour.id);
+      const tt = createTestTeeTime(comp.id, "09:00");
+
+      // Alice and Bob tie at -1 (71), Charlie finishes at even par (72)
+      createTestParticipant(tt.id, team.id, player1.id, [3, ...Array(17).fill(4)], true); // 71 (-1)
+      createTestParticipant(tt.id, team.id, player2.id, [3, ...Array(17).fill(4)], true); // 71 (-1)
+      createTestParticipant(tt.id, team.id, player3.id, Array(18).fill(4), true); // 72 (even)
+
+      const standings = tourService.getFullStandings(tour.id);
+
+      expect(standings.player_standings.length).toBe(3);
+
+      // Find standings by player name
+      const aliceStanding = standings.player_standings.find((s) => s.player_name === "Alice");
+      const bobStanding = standings.player_standings.find((s) => s.player_name === "Bob");
+      const charlieStanding = standings.player_standings.find((s) => s.player_name === "Charlie");
+
+      // Alice and Bob should both be position 1 (tied)
+      expect(aliceStanding?.position).toBe(1);
+      expect(bobStanding?.position).toBe(1);
+
+      // Charlie should be position 3 (not 2) because two players tied at 1st
+      expect(charlieStanding?.position).toBe(3);
+    });
+
+    test("should handle multiple tie groups with correct position gaps", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const tour = createTestTour("Tour", user.id);
+      const course = createTestCourse("Course", Array(18).fill(4)); // Par 72
+      const team = createTestTeam("Team");
+
+      // Create 5 players: 2 tied for 1st, 2 tied for 3rd, 1 in 5th
+      const players = [
+        createTestPlayer("Alice"),
+        createTestPlayer("Bob"),
+        createTestPlayer("Charlie"),
+        createTestPlayer("Diana"),
+        createTestPlayer("Eve"),
+      ];
+      players.forEach((p, i) => createEnrollment(tour.id, p.id, `p${i}@test.com`));
+
+      const comp = createTestCompetition("Comp", "2024-01-01", course.id, tour.id);
+      const tt = createTestTeeTime(comp.id, "09:00");
+
+      // Alice and Bob: -1 (71) - tied for 1st
+      createTestParticipant(tt.id, team.id, players[0].id, [3, ...Array(17).fill(4)], true);
+      createTestParticipant(tt.id, team.id, players[1].id, [3, ...Array(17).fill(4)], true);
+      // Charlie and Diana: even par (72) - tied for 3rd
+      createTestParticipant(tt.id, team.id, players[2].id, Array(18).fill(4), true);
+      createTestParticipant(tt.id, team.id, players[3].id, Array(18).fill(4), true);
+      // Eve: +1 (73) - 5th place
+      createTestParticipant(tt.id, team.id, players[4].id, [5, ...Array(17).fill(4)], true);
+
+      const standings = tourService.getFullStandings(tour.id);
+
+      expect(standings.player_standings.length).toBe(5);
+
+      // Find standings by player name
+      const aliceStanding = standings.player_standings.find((s) => s.player_name === "Alice");
+      const bobStanding = standings.player_standings.find((s) => s.player_name === "Bob");
+      const charlieStanding = standings.player_standings.find((s) => s.player_name === "Charlie");
+      const dianaStanding = standings.player_standings.find((s) => s.player_name === "Diana");
+      const eveStanding = standings.player_standings.find((s) => s.player_name === "Eve");
+
+      // Positions should be: 1, 1, 3, 3, 5
+      expect(aliceStanding?.position).toBe(1);
+      expect(bobStanding?.position).toBe(1);
+      expect(charlieStanding?.position).toBe(3);
+      expect(dianaStanding?.position).toBe(3);
+      expect(eveStanding?.position).toBe(5);
+    });
   });
 
   describe("Point template usage", () => {

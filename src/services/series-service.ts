@@ -255,12 +255,35 @@ export class SeriesService {
   }
 
   private sortAndRankTeamStandings(standings: SeriesTeamStanding[]): SeriesTeamStanding[] {
-    return standings
-      .sort((a, b) => b.total_points - a.total_points)
-      .map((team, index) => ({
-        ...team,
-        position: index + 1,
-      }));
+    // Sort teams by total points (descending)
+    const sortedStandings = standings.sort((a, b) => {
+      // Primary: total points descending
+      if (b.total_points !== a.total_points) {
+        return b.total_points - a.total_points;
+      }
+      // Secondary: more competitions played is better
+      if (b.competitions_played !== a.competitions_played) {
+        return b.competitions_played - a.competitions_played;
+      }
+      // Tertiary: alphabetical by team name
+      return a.team_name.localeCompare(b.team_name);
+    });
+
+    // Assign positions with tie handling
+    let currentPosition = 1;
+    let previousPoints = -1;
+    let previousCompetitions = -1;
+
+    sortedStandings.forEach((standing, index) => {
+      if (standing.total_points !== previousPoints || standing.competitions_played !== previousCompetitions) {
+        currentPosition = index + 1;
+      }
+      standing.position = currentPosition;
+      previousPoints = standing.total_points;
+      previousCompetitions = standing.competitions_played;
+    });
+
+    return sortedStandings;
   }
 
   // ============================================================================

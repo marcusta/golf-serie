@@ -588,6 +588,274 @@ describe("LeaderboardService", () => {
       expect(leaderboard[1].relativeToPar).toBe(0);
       expect(leaderboard[2].relativeToPar).toBe(0);
     });
+
+    test("should assign same position to tied players", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const player1 = createTestPlayer("Alice");
+      const player2 = createTestPlayer("Bob");
+      const player3 = createTestPlayer("Charlie");
+
+      createEnrollment(tour.id, player1.id, "alice@test.com");
+      createEnrollment(tour.id, player2.id, "bob@test.com");
+      createEnrollment(tour.id, player3.id, "charlie@test.com");
+
+      // All three tied at even par
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player3.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      // All tied players should have position 1
+      expect(leaderboard[0].position).toBe(1);
+      expect(leaderboard[1].position).toBe(1);
+      expect(leaderboard[2].position).toBe(1);
+    });
+
+    test("should gap positions correctly after ties (1,1,3 not 1,1,2)", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const player1 = createTestPlayer("Alice");
+      const player2 = createTestPlayer("Bob");
+      const player3 = createTestPlayer("Charlie");
+
+      createEnrollment(tour.id, player1.id, "alice@test.com");
+      createEnrollment(tour.id, player2.id, "bob@test.com");
+      createEnrollment(tour.id, player3.id, "charlie@test.com");
+
+      // Two players tied at -2, one player at +3
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createScoreWithRelative(-2), // 70
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: createScoreWithRelative(-2), // 70
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player3.id, {
+        score: createScoreWithRelative(3), // 75
+        isLocked: true,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      // First two should be position 1 (tied)
+      expect(leaderboard[0].position).toBe(1);
+      expect(leaderboard[1].position).toBe(1);
+      // Third should be position 3, not 2 (gap after tie)
+      expect(leaderboard[2].position).toBe(3);
+    });
+
+    test("should handle multiple tie groups correctly", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const player1 = createTestPlayer("Alice");
+      const player2 = createTestPlayer("Bob");
+      const player3 = createTestPlayer("Charlie");
+      const player4 = createTestPlayer("David");
+      const player5 = createTestPlayer("Eve");
+
+      createEnrollment(tour.id, player1.id, "alice@test.com");
+      createEnrollment(tour.id, player2.id, "bob@test.com");
+      createEnrollment(tour.id, player3.id, "charlie@test.com");
+      createEnrollment(tour.id, player4.id, "david@test.com");
+      createEnrollment(tour.id, player5.id, "eve@test.com");
+
+      // Two players at -2, two players at +1, one player at +5
+      // Expected positions: 1, 1, 3, 3, 5
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createScoreWithRelative(-2),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: createScoreWithRelative(-2),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player3.id, {
+        score: createScoreWithRelative(1),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player4.id, {
+        score: createScoreWithRelative(1),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player5.id, {
+        score: createScoreWithRelative(5),
+        isLocked: true,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      // First two tied at position 1
+      expect(leaderboard[0].relativeToPar).toBe(-2);
+      expect(leaderboard[0].position).toBe(1);
+      expect(leaderboard[1].relativeToPar).toBe(-2);
+      expect(leaderboard[1].position).toBe(1);
+      // Next two tied at position 3 (after the two T1s)
+      expect(leaderboard[2].relativeToPar).toBe(1);
+      expect(leaderboard[2].position).toBe(3);
+      expect(leaderboard[3].relativeToPar).toBe(1);
+      expect(leaderboard[3].position).toBe(3);
+      // Last player at position 5
+      expect(leaderboard[4].relativeToPar).toBe(5);
+      expect(leaderboard[4].position).toBe(5);
+    });
+
+    test("should handle single player with no ties", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const player1 = createTestPlayer("Alice");
+      const player2 = createTestPlayer("Bob");
+      const player3 = createTestPlayer("Charlie");
+
+      createEnrollment(tour.id, player1.id, "alice@test.com");
+      createEnrollment(tour.id, player2.id, "bob@test.com");
+      createEnrollment(tour.id, player3.id, "charlie@test.com");
+
+      // All different scores - no ties
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createScoreWithRelative(-3),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player3.id, {
+        score: createScoreWithRelative(2),
+        isLocked: true,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      // Sequential positions with no ties
+      expect(leaderboard[0].position).toBe(1);
+      expect(leaderboard[1].position).toBe(2);
+      expect(leaderboard[2].position).toBe(3);
+    });
+
+    test("should not assign positions to DQ players in tie calculations", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const player1 = createTestPlayer("Alice");
+      const player2 = createTestPlayer("Bob");
+      const player3 = createTestPlayer("DQPlayer");
+
+      createEnrollment(tour.id, player1.id, "alice@test.com");
+      createEnrollment(tour.id, player2.id, "bob@test.com");
+      createEnrollment(tour.id, player3.id, "dq@test.com");
+
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: createScoreWithRelative(3),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player3.id, {
+        score: createScoreWithRelative(-5), // Best score but DQ
+        isLocked: true,
+        isDQ: true,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      // Non-DQ players get positions
+      expect(leaderboard[0].position).toBe(1);
+      expect(leaderboard[1].position).toBe(2);
+      // DQ player at bottom with position 0 (excluded from ranking)
+      expect(leaderboard[2].participant.is_dq).toBe(true);
+      expect(leaderboard[2].position).toBe(0);
+    });
+
+    test("should not assign positions to DNF players in tie calculations", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+        startMode: "open",
+        openEnd: pastDate,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const player1 = createTestPlayer("Finished1");
+      const player2 = createTestPlayer("Finished2");
+      const player3 = createTestPlayer("DNFPlayer");
+
+      createEnrollment(tour.id, player1.id, "f1@test.com");
+      createEnrollment(tour.id, player2.id, "f2@test.com");
+      createEnrollment(tour.id, player3.id, "dnf@test.com");
+
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: createScoreWithRelative(2),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, player3.id, {
+        score: createPartialScore(12), // Did not finish
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      // Finished players get sequential positions
+      expect(leaderboard[0].position).toBe(1);
+      expect(leaderboard[1].position).toBe(2);
+      // DNF player gets position 0 (excluded from ranking)
+      expect(leaderboard[2].isDNF).toBe(true);
+      expect(leaderboard[2].position).toBe(0);
+    });
   });
 
   describe("DNF (Did Not Finish) handling", () => {
