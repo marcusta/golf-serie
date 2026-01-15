@@ -583,7 +583,7 @@ export class GameScoreService {
 
     for (const row of rows) {
       const scores = this.parseScoreJson(row.score);
-      if (scores.some((s) => s > 0 || s === GOLF.UNREPORTED_HOLE)) {
+      if (calculateHolesPlayed(scores) > 0) {
         return true;
       }
     }
@@ -605,7 +605,7 @@ export class GameScoreService {
 
     for (const row of rows) {
       const scores = this.parseScoreJson(row.score);
-      if (scores.some((s) => s > 0 || s === GOLF.UNREPORTED_HOLE)) {
+      if (calculateHolesPlayed(scores) > 0) {
         return true;
       }
     }

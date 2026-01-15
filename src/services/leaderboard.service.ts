@@ -19,6 +19,7 @@ import {
   calculateRelativeToPar,
   hasInvalidHole,
 } from "../utils/golf-scoring";
+import { PARTICIPANT_NAME_COALESCE } from "../utils/player-display";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -999,7 +1000,7 @@ export class LeaderboardService {
       }
 
       const hasStarted = entry.holesPlayed > 0;
-      const hasInvalidRound = entry.participant.score.includes(-1);
+      const hasInvalidRound = hasInvalidHole(entry.participant.score);
 
       acc[teamId].participants.push(entry);
 
@@ -1060,7 +1061,7 @@ export class LeaderboardService {
     const anyStarted = team.participants.some((p) => p.holesPlayed > 0);
     if (!anyStarted) return "NOT_STARTED";
     const allFinished = team.participants.every(
-      (p) => p.participant.is_locked && !p.participant.score.includes(-1)
+      (p) => p.participant.is_locked && !hasInvalidHole(p.participant.score)
     );
     if (allFinished) return "FINISHED";
     return "IN_PROGRESS";
@@ -1068,12 +1069,12 @@ export class LeaderboardService {
 
   private compareTeamIndividualScores(a: TeamGroup, b: TeamGroup): number {
     const sortedScoresA = a.participants
-      .filter((p) => p.holesPlayed > 0 && !p.participant.score.includes(-1))
+      .filter((p) => p.holesPlayed > 0 && !hasInvalidHole(p.participant.score))
       .map((p) => p.relativeToPar)
       .sort((x, y) => x - y);
 
     const sortedScoresB = b.participants
-      .filter((p) => p.holesPlayed > 0 && !p.participant.score.includes(-1))
+      .filter((p) => p.holesPlayed > 0 && !hasInvalidHole(p.participant.score))
       .map((p) => p.relativeToPar)
       .sort((x, y) => x - y);
 
@@ -1188,7 +1189,7 @@ export class LeaderboardService {
     const stmt = this.db.prepare(`
       SELECT p.*, tm.name as team_name, tm.id as team_id, t.teetime, p.player_id,
              te.category_id, tc.name as category_name,
-             COALESCE(pp.display_name, pl.name, p.player_names) as player_name
+             ${PARTICIPANT_NAME_COALESCE}
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN teams tm ON p.team_id = tm.id

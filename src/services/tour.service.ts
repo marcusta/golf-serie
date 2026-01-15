@@ -9,6 +9,10 @@ import {
   calculateRelativeToPar,
   hasInvalidHole,
 } from "../utils/golf-scoring";
+import {
+  PLAYER_NAME_COALESCE,
+  PARTICIPANT_NAME_COALESCE,
+} from "../utils/player-display";
 
 export type ScoringType = "gross" | "net";
 
@@ -201,12 +205,12 @@ export class TourService {
     return this.db
       .prepare(`
         SELECT te.player_id, te.category_id, tc.name as category_name,
-               COALESCE(te.playing_handicap, p.handicap) as handicap,
-               COALESCE(pp.display_name, p.name) as player_name
+               COALESCE(te.playing_handicap, pl.handicap) as handicap,
+               ${PLAYER_NAME_COALESCE}
         FROM tour_enrollments te
         LEFT JOIN tour_categories tc ON te.category_id = tc.id
-        LEFT JOIN players p ON te.player_id = p.id
-        LEFT JOIN player_profiles pp ON p.id = pp.player_id
+        LEFT JOIN players pl ON te.player_id = pl.id
+        LEFT JOIN player_profiles pp ON pl.id = pp.player_id
         WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
       `)
       .all(tourId) as EnrollmentRow[];
@@ -230,7 +234,7 @@ export class TourService {
           cr.relative_to_par,
           c.name as competition_name,
           c.date as competition_date,
-          COALESCE(pp.display_name, pl.name) as player_name
+          ${PLAYER_NAME_COALESCE}
         FROM competition_results cr
         JOIN competitions c ON cr.competition_id = c.id
         JOIN players pl ON cr.player_id = pl.id
@@ -250,6 +254,9 @@ export class TourService {
   }
 
   private findParticipantRowsForCompetition(competitionId: number): ParticipantRow[] {
+    // Note: Uses 3-level fallback for participant name resolution
+    // Even though WHERE requires player_id IS NOT NULL, we include p.player_names
+    // for consistency with the participant pattern
     return this.db
       .prepare(`
         SELECT
@@ -259,7 +266,7 @@ export class TourService {
           p.is_locked,
           p.is_dq,
           p.manual_score_total,
-          COALESCE(pp.display_name, pl.name) as player_name,
+          ${PARTICIPANT_NAME_COALESCE},
           c.id as competition_id,
           c.name as competition_name,
           c.date as competition_date
