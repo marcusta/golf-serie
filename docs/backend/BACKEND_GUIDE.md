@@ -16,6 +16,7 @@ This guide contains all backend-specific rules, patterns, and conventions. When 
 - [Testing Strategy](#testing-strategy)
 - [Database Patterns](#database-patterns)
 - [Player Display Names Pattern](#player-display-names-pattern)
+- [Shared Utilities](#shared-utilities-check-before-writing)
 
 ---
 
@@ -479,6 +480,54 @@ LEFT JOIN player_profiles pp ON p.id = pp.player_id
 
 ---
 
+## Shared Utilities (Check Before Writing)
+
+**CRITICAL:** Before writing any SQL query or calculation logic, check if a shared utility already exists.
+
+### Utility Locations
+
+| Pattern Type | Location | When to Use |
+|--------------|----------|-------------|
+| Score calculations | `src/utils/golf-scoring.ts` | Holes played, gross score, relative to par |
+| Handicap calculations | `src/utils/handicap.ts` | Course handicap, stroke distribution, net scores |
+| Player name resolution | `src/utils/player-display.ts` | Display name fallback, SQL fragments |
+| Ranking with ties | `src/utils/ranking.ts` | Standings, leaderboards, position assignment |
+| JSON parsing | `src/utils/parsing.ts` | Safe JSON parse with error handling |
+| Query fragments | `src/db/queries/` | Common SQL JOINs and SELECTs |
+
+### Player Name Fallback (REQUIRED Pattern)
+
+**Always use 3-level fallback** for participant contexts:
+
+```sql
+-- CORRECT: Full fallback chain
+COALESCE(pp.display_name, pl.name, p.player_names) as player_name
+
+-- WRONG: Missing fallback for unlinked participants
+COALESCE(pp.display_name, pl.name) as player_name
+```
+
+For non-participant contexts (player + profile only):
+
+```sql
+COALESCE(pp.display_name, pl.name) as player_name
+```
+
+### When to Extract New Utilities
+
+If you write similar code **twice**, extract it to a shared utility:
+
+- **TypeScript logic** → `src/utils/[domain].ts`
+- **SQL fragments** → `src/db/queries/[entity].queries.ts`
+- **Complete queries** → Service method that other services can call
+
+### Further Reading
+
+For comprehensive details on SQL duplication patterns and the refactoring roadmap, see:
+→ `docs/backend/SQL_REFACTORING_STRATEGY.md`
+
+---
+
 ## Feature Area Documentation
 
 When working with specific backend features, consult these detailed guides:
@@ -486,3 +535,4 @@ When working with specific backend features, consult these detailed guides:
 - **Database Schema** → `docs/backend/database-schema.md` - Comprehensive table reference, relationships, and schema details
 - **Authorization & Roles** → `docs/backend/authorization.md` - Role-based access control, admin tables, permission system
 - **Game Type System** → `docs/backend/game-types.md` - Strategy pattern for multiple golf formats (Stroke Play, Stableford, Scramble, etc.), backend architecture, and frontend extension points
+- **SQL Refactoring Strategy** → `docs/backend/SQL_REFACTORING_STRATEGY.md` - Query duplication patterns, shared utilities, and prevention guidelines
