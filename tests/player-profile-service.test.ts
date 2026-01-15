@@ -23,29 +23,33 @@ describe("Player Profile Service", () => {
   });
 
   // Helper to create an authenticated user with a player profile
+  // Note: Registration now automatically creates a player profile, so we:
+  // 1. Register with profile data (name, handicap)
+  // 2. Get the player ID from the "me" endpoint
   async function createAuthenticatedPlayer(
     email: string,
     playerName: string,
     handicap = 10
   ): Promise<{ playerId: number; userId: number }> {
+    // Register with profile data - this automatically creates the player
     await makeRequest("/api/auth/register", "POST", {
       email,
       password: "password123",
+      display_name: playerName,
+      handicap,
     });
     await makeRequest("/api/auth/login", "POST", {
       email,
       password: "password123",
     });
 
-    const playerRes = await makeRequest("/api/players/register", "POST", {
-      name: playerName,
-      handicap,
-    });
-    const player = await playerRes.json();
-
-    // Get user ID from session
+    // Get user and player info from session
     const meRes = await makeRequest("/api/auth/me");
     const me = await meRes.json();
+
+    // Get the automatically created player
+    const playerRes = await makeRequest("/api/players/me");
+    const player = await playerRes.json();
 
     return { playerId: player.id, userId: me.id };
   }
@@ -55,6 +59,13 @@ describe("Player Profile Service", () => {
     const res = await makeRequest("/api/courses", "POST", { name });
     const course = await res.json();
     return course.id;
+  }
+
+  // Helper to create a club
+  async function createClub(name: string): Promise<number> {
+    const res = await makeRequest("/api/clubs", "POST", { name });
+    const club = await res.json();
+    return club.id;
   }
 
   // Helper to create a tour
@@ -90,7 +101,8 @@ describe("Player Profile Service", () => {
       expect(profile.handicap_history).toBeArray();
     });
 
-    test("should return 404 if user has no linked player", async () => {
+    test("should return profile for user registered without explicit player data", async () => {
+      // Registration now automatically creates a player profile
       await makeRequest("/api/auth/register", "POST", {
         email: "noPlayer@test.com",
         password: "password123",
@@ -101,7 +113,13 @@ describe("Player Profile Service", () => {
       });
 
       const response = await makeRequest("/api/players/me/profile");
-      expectErrorResponse(response, 404);
+      expect(response.status).toBe(200);
+
+      const profile = await response.json();
+      // User should have an auto-created player with name derived from email
+      // The name is extracted from the email (part before @) and preserves original casing
+      expect(profile.name).toBe("noPlayer");
+      expect(profile.visibility).toBe("public");
     });
 
     test("should require authentication", async () => {
@@ -137,17 +155,17 @@ describe("Player Profile Service", () => {
       expect(profile.visibility).toBe("private");
     });
 
-    test("should update home course", async () => {
+    test("should update home club", async () => {
       await createAuthenticatedPlayer("player@test.com", "Tiger Woods");
-      const courseId = await createCourse("Augusta National");
+      const clubId = await createClub("Augusta National Golf Club");
 
       const response = await makeRequest("/api/players/me/profile", "PUT", {
-        home_course_id: courseId,
+        home_club_id: clubId,
       });
 
       expect(response.status).toBe(200);
       const profile = await response.json();
-      expect(profile.home_course_id).toBe(courseId);
+      expect(profile.home_club_id).toBe(clubId);
     });
 
     test("should reject invalid visibility setting", async () => {
@@ -160,11 +178,11 @@ describe("Player Profile Service", () => {
       expectErrorResponse(response, 400);
     });
 
-    test("should reject non-existent home course", async () => {
+    test("should reject non-existent home club", async () => {
       await createAuthenticatedPlayer("player@test.com", "Tiger Woods");
 
       const response = await makeRequest("/api/players/me/profile", "PUT", {
-        home_course_id: 99999,
+        home_club_id: 99999,
       });
 
       expectErrorResponse(response, 400);
@@ -190,7 +208,8 @@ describe("Player Profile Service", () => {
       expect(data.history).toBeArray();
     });
 
-    test("should return 404 if user has no linked player", async () => {
+    test("should return handicap for user registered without explicit handicap", async () => {
+      // Registration now automatically creates a player with default handicap 0
       await makeRequest("/api/auth/register", "POST", {
         email: "noPlayer@test.com",
         password: "password123",
@@ -201,7 +220,12 @@ describe("Player Profile Service", () => {
       });
 
       const response = await makeRequest("/api/players/me/handicap");
-      expectErrorResponse(response, 404);
+      expect(response.status).toBe(200);
+
+      const data = await response.json();
+      // Default handicap for auto-created players is undefined (null)
+      expect(data.current).toBe(0);
+      expect(data.history).toBeArray();
     });
 
     test("should require authentication", async () => {
@@ -296,7 +320,8 @@ describe("Player Profile Service", () => {
       expect(rounds.length).toBe(0);
     });
 
-    test("should return 404 if user has no linked player", async () => {
+    test("should return empty rounds for user registered without explicit player data", async () => {
+      // Registration now automatically creates a player
       await makeRequest("/api/auth/register", "POST", {
         email: "noPlayer@test.com",
         password: "password123",
@@ -307,7 +332,11 @@ describe("Player Profile Service", () => {
       });
 
       const response = await makeRequest("/api/players/me/rounds");
-      expectErrorResponse(response, 404);
+      expect(response.status).toBe(200);
+
+      const rounds = await response.json();
+      expect(rounds).toBeArray();
+      expect(rounds.length).toBe(0);
     });
 
     test("should require authentication", async () => {

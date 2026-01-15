@@ -227,10 +227,11 @@ export class LeaderboardService {
       : undefined;
 
     // Stroke index comes from the course (not the tee)
-    // Only parse if we need it for net scoring calculations
-    const needsStrokeIndex = scoringMode && scoringMode !== "gross";
+    // Load stroke index for net scoring calculations OR when a tee is assigned
+    // (so the frontend can display tee info with stroke index)
+    const needsStrokeIndex = (scoringMode && scoringMode !== "gross") || competition.tee_id;
     const strokeIndex = needsStrokeIndex
-      ? this.parseStrokeIndex(competition.course_stroke_index)
+      ? this.parseStrokeIndexSafe(competition.course_stroke_index)
       : [];
 
     const { teeInfo, courseRating, slopeRating } = this.getTeeInfoForCompetition(
@@ -595,6 +596,25 @@ export class LeaderboardService {
         throw e;
       }
       throw new Error(`Failed to parse stroke_index: ${e instanceof Error ? e.message : "unknown error"}`);
+    }
+  }
+
+  /**
+   * Parse stroke index safely - returns empty array if not set or invalid.
+   * Used when stroke index is optional (e.g., non-tour competitions with tee assigned).
+   */
+  private parseStrokeIndexSafe(json: string | null): number[] {
+    if (!json) {
+      return [];
+    }
+    try {
+      const parsed = typeof json === "string" ? JSON.parse(json) : json;
+      if (!Array.isArray(parsed) || parsed.length !== GOLF.HOLES_PER_ROUND) {
+        return [];
+      }
+      return parsed;
+    } catch {
+      return [];
     }
   }
 

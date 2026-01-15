@@ -159,6 +159,9 @@ describe("Tour Point Templates API", () => {
       const { tour } = await createOrganizerAndTour("owner@test.com", "Test Tour");
       const { userId: adminId } = await createUser("admin@test.com", "ADMIN");
 
+      // Re-login as owner (createUser auto-logs in the new user)
+      await loginAs("owner@test.com");
+
       // Add admin to tour
       await makeRequest(`/api/tours/${tour.id}/admins`, "POST", { userId: adminId });
 

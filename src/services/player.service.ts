@@ -66,12 +66,33 @@ export class PlayerService {
       .prepare(
         `
         SELECT
-          COUNT(DISTINCT p.competition_id) as competitions_played,
+          COUNT(DISTINCT tt.competition_id) as competitions_played,
           COUNT(p.id) as total_rounds,
-          MIN(p.total_score) as best_score,
-          AVG(p.total_score) as average_score
+          MIN(
+            CASE
+              WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
+              WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
+                SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
+              )
+              ELSE NULL
+            END
+          ) as best_score,
+          AVG(
+            CASE
+              WHEN p.manual_score_total IS NOT NULL THEN p.manual_score_total
+              WHEN p.score IS NOT NULL AND p.score != '[]' THEN (
+                SELECT SUM(value) FROM json_each(p.score) WHERE value > 0
+              )
+              ELSE NULL
+            END
+          ) as average_score
         FROM participants p
-        WHERE p.player_id = ? AND p.total_score IS NOT NULL
+        JOIN tee_times tt ON p.tee_time_id = tt.id
+        WHERE p.player_id = ?
+          AND (
+            p.manual_score_total IS NOT NULL
+            OR (p.score IS NOT NULL AND p.score != '[]' AND EXISTS (SELECT 1 FROM json_each(p.score) WHERE value > 0))
+          )
       `
       )
       .get(playerId) as PlayerStatsRow | null;

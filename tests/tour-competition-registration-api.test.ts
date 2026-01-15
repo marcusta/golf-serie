@@ -162,18 +162,25 @@ describe("Tour Competition Registration API", () => {
     });
 
     test("should reject user without player profile", async () => {
-      // Setup with admin only - no player profile
-      await makeRequest("/api/auth/register", "POST", {
-        email: "noplayer@test.com",
-        password: "password123",
-      });
+      // First setup a tour with competition (need a valid competition to test against)
+      const { competition } = await setupTourWithEnrolledPlayer();
+      await makeRequest("/api/auth/logout", "POST");
+
+      // Create user directly in DB without player profile (bypassing register endpoint
+      // which auto-creates a player)
+      const passwordHash = await Bun.password.hash("password123");
+      db.prepare(
+        "INSERT INTO users (email, password_hash, role) VALUES (?, ?, 'PLAYER')"
+      ).run("noplayer@test.com", passwordHash);
+
+      // Login as this user (no player profile)
       await makeRequest("/api/auth/login", "POST", {
         email: "noplayer@test.com",
         password: "password123",
       });
 
       const response = await makeRequest(
-        "/api/competitions/1/register",
+        `/api/competitions/${competition.id}/register`,
         "POST",
         { mode: "solo" }
       );

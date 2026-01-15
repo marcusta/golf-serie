@@ -57,15 +57,19 @@ describe("AuthService - Auto-Enrollment", () => {
       expect(result.id).toBeDefined();
       expect(result.email).toBe("player@test.com");
       expect(result.role).toBe("PLAYER");
-      expect(result.player_id).toBeUndefined();
+      // Player profile is always created when playerService is available
+      expect(result.player_id).toBeDefined();
+      // No auto-enrollments since there are no pending enrollments
       expect(result.auto_enrollments).toBeUndefined();
     });
 
-    test("should not create player profile when no pending enrollments", async () => {
-      await authService.register("player@test.com", "password123");
+    test("should create player profile even without pending enrollments", async () => {
+      const result = await authService.register("player@test.com", "password123");
 
       const players = db.prepare("SELECT * FROM players").all();
-      expect(players.length).toBe(0);
+      // Player profile is always created when playerService is available
+      expect(players.length).toBe(1);
+      expect(result.player_id).toBeDefined();
     });
   });
 
@@ -220,8 +224,9 @@ describe("AuthService - Auto-Enrollment", () => {
         "password123"
       );
 
+      // Player profile is created since playerService is provided
+      expect(result.player_id).toBeDefined();
       // Should not auto-enroll since tourEnrollmentService is not provided
-      expect(result.player_id).toBeUndefined();
       expect(result.auto_enrollments).toBeUndefined();
     });
   });

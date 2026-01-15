@@ -118,16 +118,27 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
     return competition;
   }
 
-  async function createPlayerWithHandicap(
+  /**
+   * Get the player that was auto-created during user registration and update their handicap.
+   * Auth registration auto-creates a player linked to the user, so we need to use that player
+   * instead of creating a new one.
+   */
+  function getPlayerAndSetHandicap(
     userId: number,
-    name: string,
     handicap: number
   ) {
-    const player = db.prepare(`
-      INSERT INTO players (name, handicap, user_id, created_by)
-      VALUES (?, ?, ?, ?)
-      RETURNING id
-    `).get(name, handicap, userId, userId) as { id: number };
+    // Get the auto-created player from registration
+    const player = db.prepare(
+      "SELECT id FROM players WHERE user_id = ?"
+    ).get(userId) as { id: number } | null;
+
+    if (!player) {
+      throw new Error(`No player found for user ${userId}. Auth registration should auto-create a player.`);
+    }
+
+    // Update the player's handicap
+    db.prepare("UPDATE players SET handicap = ? WHERE id = ?").run(handicap, player.id);
+
     return player;
   }
 
@@ -181,7 +192,7 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
     // 2. Create player user with handicap 15
     const playerUser = await createPlayerUser("player@test.com");
-    const player = await createPlayerWithHandicap(playerUser.userId, "Test Player", 15.0);
+    const player = getPlayerAndSetHandicap(playerUser.userId, 15.0);
     enrollPlayerInTour(tour.id, player.id, playerUser.email);
 
     // 3. Player logs in and registers for competition
@@ -292,7 +303,7 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
     // Create player with base handicap 15
     const playerUser = await createPlayerUser("player@test.com");
-    const player = await createPlayerWithHandicap(playerUser.userId, "Test Player", 15.0);
+    const player = getPlayerAndSetHandicap(playerUser.userId, 15.0);
 
     // Enroll with playing_handicap = 12 (tour-specific handicap)
     db.prepare(`
@@ -330,7 +341,7 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
     // Create and enroll player
     const playerUser = await createPlayerUser("player@test.com");
-    const player = await createPlayerWithHandicap(playerUser.userId, "Test Player", 15.0);
+    const player = getPlayerAndSetHandicap(playerUser.userId, 15.0);
     enrollPlayerInTour(tour.id, player.id, playerUser.email);
 
     // Register and complete round
@@ -373,12 +384,12 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
 
     // Player 1: Scratch golfer (handicap 0), will shoot 72 (even par)
     const player1User = await createPlayerUser("scratch@test.com");
-    const player1 = await createPlayerWithHandicap(player1User.userId, "Scratch Golfer", 0);
+    const player1 = getPlayerAndSetHandicap(player1User.userId, 0);
     enrollPlayerInTour(tour.id, player1.id, player1User.email);
 
     // Player 2: High handicapper (handicap 20), will shoot 85 (+13 gross, but -7 net)
     const player2User = await createPlayerUser("highhcp@test.com");
-    const player2 = await createPlayerWithHandicap(player2User.userId, "High Handicapper", 20);
+    const player2 = getPlayerAndSetHandicap(player2User.userId, 20);
     enrollPlayerInTour(tour.id, player2.id, player2User.email);
 
     // Player 1 registers and completes round with even par (all 4s on par 4s, etc)
