@@ -368,6 +368,52 @@ const row = stmt.get(id) as CompetitionRow | null;
 
 ---
 
+## SQL Query Protocol (MANDATORY)
+
+**Before writing ANY new SQL query, you MUST follow this protocol:**
+
+### Step 1: Search for Similar Patterns
+
+```bash
+# Search the patterns catalog first
+cat docs/backend/SQL_PATTERNS.md | grep -i "your_table_name"
+
+# Then search the codebase
+grep -r "JOIN your_table" src/services/
+grep -r "FROM your_table" src/services/
+```
+
+### Step 2: Evaluate Similarity
+
+| Similarity | Action |
+|------------|--------|
+| **90%+ identical** | Use the existing query directly (import or call existing method) |
+| **70-90% similar** | Extract to shared utility/fragment, then use in both places |
+| **< 70% similar** | Write new query, but document WHY it's different |
+
+### Step 3: Check Utilities First
+
+Before writing these patterns, check if a utility exists:
+
+| Pattern | Check First | Import From |
+|---------|-------------|-------------|
+| Player name COALESCE | `PARTICIPANT_NAME_COALESCE` | `src/utils/player-display.ts` |
+| Score calculations | `calculateHolesPlayed()`, etc. | `src/utils/golf-scoring.ts` |
+| Ranking/positions | `assignPositionsWithTies()` | `src/utils/ranking.ts` |
+| Handicap calculations | Various helpers | `src/utils/handicap.ts` |
+
+### Step 4: Document New Patterns
+
+If you create a genuinely new query pattern that might be reused:
+1. Add it to `docs/backend/SQL_PATTERNS.md`
+2. Consider extracting to a utility if used 2+ times
+
+### Reference
+
+See `docs/backend/SQL_PATTERNS.md` for the full catalog of existing SQL patterns.
+
+---
+
 ## Database Patterns
 
 ### Always Use Prepared Statements

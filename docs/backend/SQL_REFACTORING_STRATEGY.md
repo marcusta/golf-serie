@@ -509,44 +509,46 @@ bun test  # Run ALL tests to catch regressions
 - [ ] Create `tests/leaderboard.service.test.ts` with coverage for score calculations
 - [ ] Create `tests/stroke-play.test.ts` with coverage for results and ranking
 - [ ] Expand `tests/game-score-init.test.ts` with score calculation tests
-- [ ] Verify all 214+ existing tests pass before starting
+- [x] Verify all 214+ existing tests pass before starting
 
-### Phase 1: Golf Score Calculations (High Priority)
+### Phase 1: Golf Score Calculations (High Priority) ✅ COMPLETE
 
 - [x] Create `src/utils/golf-scoring.ts`
-- [ ] Migrate `leaderboard.service.ts` to use golf-scoring utility
-- [ ] Migrate `competition-results.service.ts` to use golf-scoring utility
-- [ ] Migrate `tour.service.ts` to use golf-scoring utility
-- [ ] Migrate `tour-competition-registration.service.ts` to use golf-scoring utility
-- [ ] Migrate `game-score.service.ts` to use golf-scoring utility
-- [ ] Migrate `stroke-play.ts` to use golf-scoring utility
-- [ ] **RUN TESTS:** `bun test` - all tests must pass
+- [x] Migrate `leaderboard.service.ts` to use golf-scoring utility
+- [x] Migrate `competition-results.service.ts` to use golf-scoring utility
+- [x] Migrate `tour.service.ts` to use golf-scoring utility
+- [x] Migrate `tour-competition-registration.service.ts` to use golf-scoring utility
+- [x] Migrate `game-score.service.ts` to use golf-scoring utility
+- [x] Migrate `stroke-play.ts` to use golf-scoring utility
+- [x] **RUN TESTS:** `bun test` - all tests pass
 
-### Phase 2: Player Name Resolution (High Priority)
+### Phase 2: Player Name Resolution (High Priority) ✅ COMPLETE
 
-- [ ] Standardize all COALESCE patterns to 3-level fallback
-- [ ] Update `src/utils/player-display.ts` with enhanced utilities
-- [ ] Migrate all 10+ locations to use standardized patterns
-- [ ] **RUN TESTS:** `bun test` - all tests must pass
+- [x] Standardize all COALESCE patterns to 3-level fallback
+- [x] Update `src/utils/player-display.ts` with enhanced utilities
+- [x] Migrate all 10+ locations to use standardized patterns
+- [x] **RUN TESTS:** `bun test` - all tests pass
 
-### Phase 3: Ranking Logic (Medium Priority)
+### Phase 3: Ranking Logic (Medium Priority) ✅ COMPLETE
 
-- [ ] Create `src/utils/ranking.ts`
-- [ ] Create `tests/ranking.test.ts` for new utility
-- [ ] Migrate `tour.service.ts` ranking logic
-- [ ] Migrate `series-service.ts` ranking logic
-- [ ] Migrate `competition-results.service.ts` ranking logic
-- [ ] Migrate `leaderboard.service.ts` ranking logic
-- [ ] Migrate `stroke-play.ts` ranking logic
-- [ ] **RUN TESTS:** `bun test` - all tests must pass
+- [x] Create `src/utils/ranking.ts`
+- [x] Create `tests/ranking.test.ts` for new utility
+- [x] Migrate `tour.service.ts` ranking logic
+- [x] Migrate `series-service.ts` ranking logic
+- [x] Migrate `competition-results.service.ts` ranking logic
+- [x] Migrate `leaderboard.service.ts` ranking logic
+- [x] Migrate `stroke-play.ts` ranking logic
+- [x] **RUN TESTS:** `bun test` - all tests pass
 
-### Phase 4: Query Fragments (Low Priority)
+### Phase 4: Query Fragments (Low Priority) - DEFERRED
 
 - [ ] Create `src/db/queries/` structure
 - [ ] Consolidate tour enrollment queries
 - [ ] Create competition query fragments
 - [ ] Create participant query fragments
 - [ ] **RUN TESTS:** `bun test` - all tests must pass
+
+> **Note:** Phase 4 is deferred as it provides organizational benefit only. The core refactoring goals (DRY, consistency, maintainability) have been achieved through phases 1-3.
 
 ---
 
@@ -556,35 +558,35 @@ Track these metrics to measure progress:
 
 ### Code Deduplication
 
-| Metric | Before | Target |
-|--------|--------|--------|
-| `calculateHolesPlayed` implementations | 4 | 1 |
-| `calculateRelativeToPar` implementations | 5 | 1 |
-| Ranking algorithm implementations | 5 | 1 |
-| Inconsistent COALESCE patterns | 4 | 0 |
-| Services importing golf-scoring.ts | 0 | 6 |
-| Services importing ranking.ts | 0 | 5 |
+| Metric | Before | Target | Current |
+|--------|--------|--------|---------|
+| `calculateHolesPlayed` implementations | 4 | 1 | ✅ 1 |
+| `calculateRelativeToPar` implementations | 5 | 1 | ✅ 1 |
+| Ranking algorithm implementations | 5 | 1 | ✅ 1 |
+| Inconsistent COALESCE patterns | 4 | 0 | ✅ 0 |
+| Services importing golf-scoring.ts | 0 | 6 | ✅ 6 |
+| Services importing ranking.ts | 0 | 5 | ✅ 5 |
 
 ### Test Coverage
 
-| Service | Before | Target |
-|---------|--------|--------|
-| `leaderboard.service.ts` | 0 tests | 15+ tests |
-| `stroke-play.ts` | 0 tests | 10+ tests |
-| `game-score.service.ts` | 6 tests | 15+ tests |
-| `golf-scoring.ts` utility | N/A | 10+ tests |
-| `ranking.ts` utility | N/A | 8+ tests |
+| Service | Before | Target | Current |
+|---------|--------|--------|---------|
+| `leaderboard.service.ts` | 0 tests | 15+ tests | ⚠️ Pending |
+| `stroke-play.ts` | 0 tests | 10+ tests | ⚠️ Pending |
+| `game-score.service.ts` | 6 tests | 15+ tests | ⚠️ Pending |
+| `golf-scoring.ts` utility | N/A | 10+ tests | ✅ Has tests |
+| `ranking.ts` utility | N/A | 8+ tests | ✅ Has tests |
 
 ### Test Suite Health
 
 | Phase | Tests Before | Tests After | Status |
 |-------|--------------|-------------|--------|
-| Phase 0 (Prerequisites) | 214 | 260+ | Pending |
-| Phase 1 (Golf Scoring) | 260+ | 260+ | Pending |
-| Phase 2 (Player Names) | 260+ | 265+ | Pending |
-| Phase 3 (Ranking) | 265+ | 275+ | Pending |
-| Phase 4 (Query Fragments) | 275+ | 275+ | Pending |
+| Phase 0 (Prerequisites) | 214 | 260+ | ⚠️ Partial |
+| Phase 1 (Golf Scoring) | 260+ | 260+ | ✅ Complete |
+| Phase 2 (Player Names) | 260+ | 265+ | ✅ Complete |
+| Phase 3 (Ranking) | 265+ | 275+ | ✅ Complete |
+| Phase 4 (Query Fragments) | 275+ | 275+ | Deferred |
 
 ---
 
-*Last updated: 2025-01-15*
+*Last updated: 2025-01-18*

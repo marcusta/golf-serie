@@ -61,12 +61,21 @@ Skills: Skills:    Skills: Skills:        Skills:
 
 **Reads:**
 - `docs/backend/BACKEND_GUIDE.md` - All backend-specific rules
+- `docs/backend/SQL_PATTERNS.md` - **MUST READ before writing SQL**
 - `CLAUDE.md` (this file) - General domain knowledge
+
+**SQL Query Protocol (MANDATORY):**
+Before writing ANY SQL query, you MUST:
+1. Read `docs/backend/SQL_PATTERNS.md` to check for existing patterns
+2. Search codebase: `grep -r "JOIN tablename" src/services/`
+3. If 70%+ similar pattern exists → reuse or extract to utility
+4. If genuinely new → add pattern to SQL_PATTERNS.md
 
 **Example task:**
 ```
 "Implement a new API endpoint for player handicap calculation.
-Read docs/backend/BACKEND_GUIDE.md for backend patterns."
+Read docs/backend/BACKEND_GUIDE.md for backend patterns.
+IMPORTANT: Check docs/backend/SQL_PATTERNS.md before writing any SQL queries."
 ```
 
 #### 🎨 Frontend Sub-Agent (`subagent_type: "general-purpose"`)
@@ -390,7 +399,8 @@ This project uses a **three-tier documentation structure**:
 1. ✅ Confirm task requires backend implementation
 2. ✅ Break down into specific, actionable steps
 3. ✅ Instruct to read `docs/backend/BACKEND_GUIDE.md`
-4. ✅ Mention relevant feature docs if applicable
+4. ✅ **If writing SQL:** Instruct to read `docs/backend/SQL_PATTERNS.md` and search for similar patterns first
+5. ✅ Mention relevant feature docs if applicable
 
 **Frontend Sub-Agent:**
 1. ✅ Confirm task requires frontend implementation
@@ -480,6 +490,7 @@ You: Report to user:
 
 ### For Backend Sub-Agents
 - **Backend Guide**: `docs/backend/BACKEND_GUIDE.md`
+- **SQL Patterns Catalog**: `docs/backend/SQL_PATTERNS.md` ⚠️ **READ BEFORE WRITING SQL**
 - **Database Schema**: `docs/backend/database-schema.md`
 - **Authorization**: `docs/backend/authorization.md`
 
