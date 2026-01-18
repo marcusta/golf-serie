@@ -8,6 +8,7 @@ import {
   calculateRelativeToPar,
   hasInvalidHole,
 } from "../utils/golf-scoring";
+import { assignPositionsMap } from "../utils/ranking";
 
 interface PointsStructure {
   [key: string]: number;
@@ -580,16 +581,7 @@ export class CompetitionResultsService {
   private assignStandingPositions(
     standings: TourStandingRow[]
   ): (TourStandingRow & { position: number })[] {
-    let currentPosition = 1;
-    let previousPoints = Number.MAX_SAFE_INTEGER;
-
-    return standings.map((standing, index) => {
-      if (standing.total_points !== previousPoints) {
-        currentPosition = index + 1;
-      }
-      previousPoints = standing.total_points;
-      return { ...standing, position: currentPosition };
-    });
+    return assignPositionsMap(standings, (s) => s.total_points);
   }
 
   // ============================================================================

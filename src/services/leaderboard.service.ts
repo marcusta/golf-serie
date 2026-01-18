@@ -20,6 +20,7 @@ import {
   hasInvalidHole,
 } from "../utils/golf-scoring";
 import { PARTICIPANT_NAME_COALESCE } from "../utils/player-display";
+import { assignPositionsWithTies } from "../utils/ranking";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -849,28 +850,30 @@ export class LeaderboardService {
       return scoreGetter(a) - scoreGetter(b);
     });
 
-    let currentPosition = 1;
-    let previousScore = Number.MIN_SAFE_INTEGER;
+    // Create temporary structure to hold positions
+    const entriesWithPosition = sortedByScore.map((entry) => ({
+      entry,
+      position: 0,
+    }));
 
+    // Assign positions using shared utility (handles ties correctly)
+    assignPositionsWithTies(
+      entriesWithPosition,
+      (item) => scoreGetter(item.entry),
+      (item, pos) => (item.position = pos)
+    );
+
+    // Build results map with positions and calculated points
     const results = new Map<number, { position: number; points: number }>();
-
-    sortedByScore.forEach((entry, index) => {
-      const score = scoreGetter(entry);
-
-      if (score !== previousScore) {
-        currentPosition = index + 1;
-      }
-      previousScore = score;
-
+    for (const item of entriesWithPosition) {
       const points = this.calculateProjectedPoints(
-        currentPosition,
+        item.position,
         numberOfPlayers,
         pointTemplate,
         pointsMultiplier
       );
-
-      results.set(entry.participant.id, { position: currentPosition, points });
-    });
+      results.set(item.entry.participant.id, { position: item.position, points });
+    }
 
     return results;
   }
@@ -1128,20 +1131,16 @@ export class LeaderboardService {
   ): void {
     if (numberOfTeams <= 0) return;
 
-    let currentPosition = 0;
-    let lastScoreSignature: string | null = null;
-
-    sortedTeams.forEach((team, index) => {
+    // Teams are already sorted by sortTeamGroups with tie-breaking logic applied.
+    // Position is determined by sort order (tie-breakers already resolved).
+    // Only teams that have started are eligible for points.
+    let position = 0;
+    for (const team of sortedTeams) {
       if (team.status !== "NOT_STARTED") {
-        const scoreSignature = `${team.totalRelativeScore}-${index}`;
-
-        if (scoreSignature !== lastScoreSignature) {
-          currentPosition = index + 1;
-        }
-        team.teamPoints = calculateDefaultPoints(currentPosition, numberOfTeams, pointsMultiplier);
-        lastScoreSignature = scoreSignature;
+        position++;
+        team.teamPoints = calculateDefaultPoints(position, numberOfTeams, pointsMultiplier);
       }
-    });
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

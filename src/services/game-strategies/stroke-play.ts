@@ -10,6 +10,7 @@ import {
   calculateGrossScore,
   calculateRelativeToPar,
 } from "../../utils/golf-scoring";
+import { assignPositionsWithTies } from "../../utils/ranking";
 
 /**
  * Stroke Play Strategy
@@ -146,29 +147,12 @@ export class StrokePlayStrategy extends GameTypeStrategy {
    * Mutates the results array in place
    */
   private assignPositions(results: GameScoreResult[], scoringMode: string): void {
-    let currentPosition = 1;
-
-    results.forEach((result, index) => {
-      if (index > 0) {
-        // Check if this player's score is the same as previous player
-        const prevResult = results[index - 1];
-
-        const prevScore = scoringMode === "net"
-          ? (prevResult.netRelativeToPar ?? prevResult.relativeToPar)
-          : prevResult.relativeToPar;
-
-        const currScore = scoringMode === "net"
-          ? (result.netRelativeToPar ?? result.relativeToPar)
-          : result.relativeToPar;
-
-        if (currScore !== prevScore) {
-          // Different score, advance position
-          currentPosition = index + 1;
-        }
-        // If same score, keep same position (tied)
-      }
-
-      result.position = currentPosition;
-    });
+    assignPositionsWithTies(
+      results,
+      (result) => scoringMode === "net"
+        ? (result.netRelativeToPar ?? result.relativeToPar)
+        : result.relativeToPar,
+      (result, position) => { result.position = position; }
+    );
   }
 }

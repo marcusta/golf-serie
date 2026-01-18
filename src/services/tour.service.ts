@@ -13,6 +13,7 @@ import {
   PLAYER_NAME_COALESCE,
   PARTICIPANT_NAME_COALESCE,
 } from "../utils/player-display";
+import { assignPositionsWithTies } from "../utils/ranking";
 
 export type ScoringType = "gross" | "net";
 
@@ -361,20 +362,12 @@ export class TourService {
     });
 
     // Assign positions with tie handling
-    let currentPosition = 1;
-    let previousPoints = -1;
-    let previousCompetitions = -1;
-
-    sortedStandings.forEach((standing, index) => {
-      if (standing.total_points !== previousPoints || standing.competitions_played !== previousCompetitions) {
-        currentPosition = index + 1;
-      }
-      standing.position = currentPosition;
-      previousPoints = standing.total_points;
-      previousCompetitions = standing.competitions_played;
-    });
-
-    return sortedStandings;
+    // Use multi-value comparison for ties: points + competitions_played
+    return assignPositionsWithTies(
+      sortedStandings,
+      (s) => `${s.total_points}|${s.competitions_played}`,
+      (s, pos) => { s.position = pos; }
+    );
   }
 
   private initializePlayerStanding(
@@ -884,17 +877,13 @@ export class TourService {
       return a.player_name.localeCompare(b.player_name);
     });
 
-    // Assign positions with tie handling
-    let currentPosition = 1;
-    let previousScore = Number.MIN_SAFE_INTEGER;
-
-    return sorted.map((result, index) => {
-      if (result.relative_to_par !== previousScore) {
-        currentPosition = index + 1;
-      }
-      previousScore = result.relative_to_par;
-      return { ...result, position: currentPosition };
-    });
+    // Add position property and assign positions with tie handling
+    const resultsWithPosition = sorted.map(r => ({ ...r, position: 0 }));
+    return assignPositionsWithTies(
+      resultsWithPosition,
+      (r) => r.relative_to_par,
+      (r, pos) => { r.position = pos; }
+    );
   }
 
   /**

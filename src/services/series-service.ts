@@ -8,6 +8,7 @@ import type {
   UpdateSeriesDto,
 } from "../types";
 import type { CompetitionService } from "./competition-service";
+import { assignPositionsWithTies } from "../utils/ranking";
 
 // ============================================================================
 // Internal Row Types (database representation)
@@ -269,21 +270,12 @@ export class SeriesService {
       return a.team_name.localeCompare(b.team_name);
     });
 
-    // Assign positions with tie handling
-    let currentPosition = 1;
-    let previousPoints = -1;
-    let previousCompetitions = -1;
-
-    sortedStandings.forEach((standing, index) => {
-      if (standing.total_points !== previousPoints || standing.competitions_played !== previousCompetitions) {
-        currentPosition = index + 1;
-      }
-      standing.position = currentPosition;
-      previousPoints = standing.total_points;
-      previousCompetitions = standing.competitions_played;
-    });
-
-    return sortedStandings;
+    // Assign positions with tie handling (teams with same points AND competitions get same position)
+    return assignPositionsWithTies(
+      sortedStandings,
+      (s) => `${s.total_points}|${s.competitions_played}`,
+      (s, pos) => (s.position = pos)
+    );
   }
 
   // ============================================================================
