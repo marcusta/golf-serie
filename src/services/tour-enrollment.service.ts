@@ -367,6 +367,11 @@ export class TourEnrollmentService {
     );
   }
 
+  getPlayerIdForUser(userId: number): number | null {
+    const player = this.findPlayerByUserId(userId);
+    return player?.id ?? null;
+  }
+
   /**
    * Approve an enrollment request (Admin approves)
    * Changes status from 'requested' to 'active'

@@ -107,11 +107,24 @@ export function createApp(db: Database): Hono {
   // Create Hono app
   const app = new Hono();
 
+  const corsOrigins = new Set(
+    (process.env.CORS_ORIGINS ?? "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0)
+  );
+  corsOrigins.add("http://localhost:5173");
+
   // Add CORS middleware
   app.use(
     "*",
     cors({
-      origin: (origin) => origin || "http://localhost:5173", // Allow dev and prod origins
+      origin: (origin) => {
+        if (!origin) {
+          return undefined;
+        }
+        return corsOrigins.has(origin) ? origin : undefined;
+      },
       allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true, // Required for cookies
@@ -317,7 +330,7 @@ export function createApp(db: Database): Hono {
   });
 
   // Club routes
-  app.post("/api/clubs", async (c) => {
+  app.post("/api/clubs", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     return await clubsApi.create(c.req.raw);
   });
 
@@ -330,18 +343,18 @@ export function createApp(db: Database): Hono {
     return await clubsApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/clubs/:id", async (c) => {
+  app.put("/api/clubs/:id", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const id = parseInt(c.req.param("id"));
     return await clubsApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/clubs/:id", async (c) => {
+  app.delete("/api/clubs/:id", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const id = parseInt(c.req.param("id"));
     return await clubsApi.delete(c.req.raw, id);
   });
 
   // Course routes
-  app.post("/api/courses", async (c) => {
+  app.post("/api/courses", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     return await coursesApi.create(c.req.raw);
   });
 
@@ -393,26 +406,26 @@ export function createApp(db: Database): Hono {
     return await coursesApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/courses/:id", async (c) => {
+  app.put("/api/courses/:id", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const id = parseInt(c.req.param("id"));
     return await coursesApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/courses/:id", async (c) => {
+  app.delete("/api/courses/:id", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const id = parseInt(c.req.param("id"));
     return await coursesApi.delete(id);
   });
 
-  app.put("/api/courses/:id/holes", async (c) => {
+  app.put("/api/courses/:id/holes", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const id = parseInt(c.req.param("id"));
     return await coursesApi.updateHoles(c.req.raw, id);
   });
 
-  app.post("/api/courses/import", async (c) => {
+  app.post("/api/courses/import", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     return await coursesApi.importCourses(c.req.raw);
   });
 
-  app.post("/api/courses/:id/import", async (c) => {
+  app.post("/api/courses/:id/import", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const id = parseInt(c.req.param("id"));
     return await coursesApi.importForCourse(c.req.raw, id);
   });
@@ -429,18 +442,18 @@ export function createApp(db: Database): Hono {
     return await coursesApi.getTee(courseId, teeId);
   });
 
-  app.post("/api/courses/:courseId/tees", async (c) => {
+  app.post("/api/courses/:courseId/tees", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const courseId = parseInt(c.req.param("courseId"));
     return await coursesApi.createTee(c.req.raw, courseId);
   });
 
-  app.put("/api/courses/:courseId/tees/:teeId", async (c) => {
+  app.put("/api/courses/:courseId/tees/:teeId", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const courseId = parseInt(c.req.param("courseId"));
     const teeId = parseInt(c.req.param("teeId"));
     return await coursesApi.updateTee(c.req.raw, courseId, teeId);
   });
 
-  app.delete("/api/courses/:courseId/tees/:teeId", async (c) => {
+  app.delete("/api/courses/:courseId/tees/:teeId", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const courseId = parseInt(c.req.param("courseId"));
     const teeId = parseInt(c.req.param("teeId"));
     return await coursesApi.deleteTee(courseId, teeId);
@@ -460,20 +473,20 @@ export function createApp(db: Database): Hono {
     return await coursesApi.getTeeRatingByGender(courseId, teeId, gender);
   });
 
-  app.post("/api/courses/:courseId/tees/:teeId/ratings", async (c) => {
+  app.post("/api/courses/:courseId/tees/:teeId/ratings", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const courseId = parseInt(c.req.param("courseId"));
     const teeId = parseInt(c.req.param("teeId"));
     return await coursesApi.upsertTeeRating(c.req.raw, courseId, teeId);
   });
 
-  app.put("/api/courses/:courseId/tees/:teeId/ratings/:ratingId", async (c) => {
+  app.put("/api/courses/:courseId/tees/:teeId/ratings/:ratingId", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const courseId = parseInt(c.req.param("courseId"));
     const teeId = parseInt(c.req.param("teeId"));
     const ratingId = parseInt(c.req.param("ratingId"));
     return await coursesApi.updateTeeRating(c.req.raw, courseId, teeId, ratingId);
   });
 
-  app.delete("/api/courses/:courseId/tees/:teeId/ratings/:gender", async (c) => {
+  app.delete("/api/courses/:courseId/tees/:teeId/ratings/:gender", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const courseId = parseInt(c.req.param("courseId"));
     const teeId = parseInt(c.req.param("teeId"));
     const gender = c.req.param("gender");
@@ -481,7 +494,7 @@ export function createApp(db: Database): Hono {
   });
 
   // Team routes
-  app.post("/api/teams", async (c) => {
+  app.post("/api/teams", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     return await teamsApi.create(c.req.raw);
   });
 
@@ -494,7 +507,7 @@ export function createApp(db: Database): Hono {
     return await teamsApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/teams/:id", async (c) => {
+  app.put("/api/teams/:id", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     const id = parseInt(c.req.param("id"));
     return await teamsApi.update(c.req.raw, id);
   });
@@ -536,13 +549,21 @@ export function createApp(db: Database): Hono {
     return await competitionsApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/competitions/:id", async (c) => {
+  app.put("/api/competitions/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    if (!competitionAdminService.canManageCompetition(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await competitionsApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/competitions/:id", async (c) => {
+  app.delete("/api/competitions/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    if (!competitionAdminService.canManageCompetition(id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await competitionsApi.delete(id);
   });
 
@@ -571,9 +592,14 @@ export function createApp(db: Database): Hono {
   app.post("/api/competitions/:competitionId/finalize", requireAuth(), async (c) => {
     try {
       const competitionId = parseInt(c.req.param("competitionId"));
+      const user = c.get("user");
+
+      if (!competitionAdminService.canManageCompetition(competitionId, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
 
       // Verify competition exists
-      const competition = competitionService.findById(competitionId);
+      const competition = await competitionService.findById(competitionId);
       if (!competition) {
         return c.json({ error: "Competition not found" }, 404);
       }
@@ -615,8 +641,12 @@ export function createApp(db: Database): Hono {
     return await competitionCategoryTeesApi.getByCompetition(competitionId);
   });
 
-  app.put("/api/competitions/:competitionId/category-tees", async (c) => {
+  app.put("/api/competitions/:competitionId/category-tees", requireAuth(), async (c) => {
+    const user = c.get("user");
     const competitionId = parseInt(c.req.param("competitionId"));
+    if (!competitionAdminService.canManageCompetition(competitionId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await competitionCategoryTeesApi.setForCompetition(
       c.req.raw,
       competitionId
@@ -640,30 +670,50 @@ export function createApp(db: Database): Hono {
 
   app.get("/api/games/:id", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    const game = gameService.findById(gameId);
+    if (!game) {
+      return c.json({ error: "Game not found" }, 404);
+    }
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.findById(gameId);
   });
 
   app.put("/api/games/:id", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.update(c.req.raw, gameId, user!.id);
   });
 
   app.put("/api/games/:id/status", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.updateStatus(c.req.raw, gameId, user!.id);
   });
 
   app.delete("/api/games/:id", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.deleteGame(gameId, user!.id);
   });
 
   app.post("/api/games/:id/leave", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.leaveGame(gameId, user!.id);
   });
 
@@ -671,6 +721,9 @@ export function createApp(db: Database): Hono {
   app.post("/api/games/:id/players", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.addPlayer(c.req.raw, gameId, user!.id);
   });
 
@@ -678,6 +731,9 @@ export function createApp(db: Database): Hono {
     const gameId = parseInt(c.req.param("id"));
     const playerId = parseInt(c.req.param("playerId"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.removePlayer(gameId, playerId, user!.id);
   });
 
@@ -685,11 +741,18 @@ export function createApp(db: Database): Hono {
     const gameId = parseInt(c.req.param("id"));
     const playerId = parseInt(c.req.param("playerId"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.assignTee(c.req.raw, gameId, playerId, user!.id);
   });
 
   app.get("/api/games/:id/players", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.getPlayers(gameId);
   });
 
@@ -697,34 +760,79 @@ export function createApp(db: Database): Hono {
   app.post("/api/games/:id/groups", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
     const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.createGroup(c.req.raw, gameId, user!.id);
   });
 
   app.put("/api/games/:id/groups/:groupId/members", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
     const groupId = parseInt(c.req.param("groupId"));
     const user = c.get("user");
+    const groupGameId = gameGroupService.getGameIdByGroupId(groupId);
+    if (!groupGameId) {
+      return c.json({ error: "Group not found" }, 404);
+    }
+    if (groupGameId !== gameId) {
+      return c.json({ error: "Group not found" }, 404);
+    }
+    if (!gameService.canUserModifyGame(groupGameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.setGroupMembers(c.req.raw, groupId, user!.id);
   });
 
   app.delete("/api/games/:id/groups/:groupId", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
     const groupId = parseInt(c.req.param("groupId"));
     const user = c.get("user");
+    const groupGameId = gameGroupService.getGameIdByGroupId(groupId);
+    if (!groupGameId) {
+      return c.json({ error: "Group not found" }, 404);
+    }
+    if (groupGameId !== gameId) {
+      return c.json({ error: "Group not found" }, 404);
+    }
+    if (!gameService.canUserModifyGame(groupGameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.deleteGroup(groupId, user!.id);
   });
 
   app.get("/api/games/:id/groups", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.getGroups(gameId);
   });
 
   app.get("/api/games/:id/groups/:groupId/scores", requireAuth(), async (c) => {
+    const gameId = parseInt(c.req.param("id"));
     const groupId = parseInt(c.req.param("groupId"));
+    const user = c.get("user");
+    const groupGameId = gameGroupService.getGameIdByGroupId(groupId);
+    if (!groupGameId) {
+      return c.json({ error: "Group not found" }, 404);
+    }
+    if (groupGameId !== gameId) {
+      return c.json({ error: "Group not found" }, 404);
+    }
+    if (!gameService.canUserModifyGame(groupGameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.getGroupScores(groupId);
   });
 
   // Game Leaderboard
   app.get("/api/games/:id/leaderboard", requireAuth(), async (c) => {
     const gameId = parseInt(c.req.param("id"));
+    const user = c.get("user");
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gamesApi.getLeaderboard(gameId);
   });
 
@@ -732,23 +840,50 @@ export function createApp(db: Database): Hono {
   app.put("/api/game-scores/:memberId/hole/:hole", requireAuth(), async (c) => {
     const memberId = parseInt(c.req.param("memberId"));
     const hole = parseInt(c.req.param("hole"));
+    const user = c.get("user");
+    const gameId = gameScoreService.getGameIdByMemberId(memberId);
+    if (!gameId) {
+      return c.json({ error: "Group member not found" }, 404);
+    }
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gameScoresApi.updateScore(c.req.raw, memberId, hole);
   });
 
   app.post("/api/game-scores/:memberId/lock", requireAuth(), async (c) => {
     const memberId = parseInt(c.req.param("memberId"));
+    const user = c.get("user");
+    const gameId = gameScoreService.getGameIdByMemberId(memberId);
+    if (!gameId) {
+      return c.json({ error: "Group member not found" }, 404);
+    }
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gameScoresApi.lockScore(memberId);
   });
 
   app.post("/api/game-scores/:memberId/unlock", requireAuth(), async (c) => {
     const memberId = parseInt(c.req.param("memberId"));
     const user = c.get("user");
+    const gameId = gameScoreService.getGameIdByMemberId(memberId);
+    if (!gameId) {
+      return c.json({ error: "Group member not found" }, 404);
+    }
+    if (!gameService.canUserModifyGame(gameId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await gameScoresApi.unlockScore(memberId, user!.id);
   });
 
   // TeeTime routes
-  app.post("/api/competitions/:competitionId/tee-times", async (c) => {
+  app.post("/api/competitions/:competitionId/tee-times", requireAuth(), async (c) => {
+    const user = c.get("user");
     const competitionId = parseInt(c.req.param("competitionId"));
+    if (!competitionAdminService.canManageCompetition(competitionId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await teeTimesApi.createForCompetition(c.req.raw, competitionId);
   });
 
@@ -829,23 +964,60 @@ export function createApp(db: Database): Hono {
     return await teeTimesApi.findByIdWithParticipants(c.req.raw, id);
   });
 
-  app.put("/api/tee-times/:id", async (c) => {
+  app.put("/api/tee-times/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    const teeTime = await teeTimeService.findById(id);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await teeTimesApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/tee-times/:id", async (c) => {
+  app.delete("/api/tee-times/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    const teeTime = await teeTimeService.findById(id);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await teeTimesApi.delete(id);
   });
 
-  app.put("/api/tee-times/:id/participants/order", async (c) => {
+  app.put("/api/tee-times/:id/participants/order", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    const teeTime = await teeTimeService.findById(id);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await teeTimesApi.updateParticipantsOrder(c.req.raw, id);
   });
 
   // Participant routes
-  app.post("/api/participants", async (c) => {
+  app.post("/api/participants", requireAuth(), async (c) => {
+    const user = c.get("user");
+    const body = await c.req.raw.clone().json();
+    const teeTimeId = body?.tee_time_id;
+    if (!teeTimeId) {
+      return c.json({ error: "Tee time is required" }, 400);
+    }
+    const teeTime = await teeTimeService.findById(teeTimeId);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await participantsApi.create(c.req.raw);
   });
 
@@ -858,13 +1030,37 @@ export function createApp(db: Database): Hono {
     return await participantsApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/participants/:id", async (c) => {
+  app.put("/api/participants/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    const participant = await participantService.findById(id);
+    if (!participant) {
+      return c.json({ error: "Participant not found" }, 404);
+    }
+    const teeTime = await teeTimeService.findById(participant.tee_time_id);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await participantsApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/participants/:id", async (c) => {
+  app.delete("/api/participants/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    const participant = await participantService.findById(id);
+    if (!participant) {
+      return c.json({ error: "Participant not found" }, 404);
+    }
+    const teeTime = await teeTimeService.findById(participant.tee_time_id);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await participantsApi.delete(id);
   });
 
@@ -895,6 +1091,17 @@ export function createApp(db: Database): Hono {
     if (!user) {
       return c.json({ error: "Unauthorized" }, 401);
     }
+    const participant = await participantService.findById(id);
+    if (!participant) {
+      return c.json({ error: "Participant not found" }, 404);
+    }
+    const teeTime = await teeTimeService.findById(participant.tee_time_id);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await participantsApi.adminSetDQ(c.req.raw, id, user.id);
   });
 
@@ -903,6 +1110,17 @@ export function createApp(db: Database): Hono {
     const user = c.get("user");
     if (!user) {
       return c.json({ error: "Unauthorized" }, 401);
+    }
+    const participant = await participantService.findById(id);
+    if (!participant) {
+      return c.json({ error: "Participant not found" }, 404);
+    }
+    const teeTime = await teeTimeService.findById(participant.tee_time_id);
+    if (!teeTime) {
+      return c.json({ error: "Tee time not found" }, 404);
+    }
+    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user.id)) {
+      return c.json({ error: "Forbidden" }, 403);
     }
     return await participantsApi.adminUpdateScore(c.req.raw, id, user.id);
   });
@@ -1075,7 +1293,16 @@ export function createApp(db: Database): Hono {
   });
 
   // Document routes
-  app.post("/api/documents", async (c) => {
+  app.post("/api/documents", requireAuth(), async (c) => {
+    const user = c.get("user");
+    const body = await c.req.raw.clone().json();
+    const seriesId = body?.series_id;
+    if (!seriesId) {
+      return c.json({ error: "Series ID is required" }, 400);
+    }
+    if (!seriesAdminService.canManageSeries(seriesId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await documentsApi.create(c.req.raw);
   });
 
@@ -1088,18 +1315,38 @@ export function createApp(db: Database): Hono {
     return await documentsApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/documents/:id", async (c) => {
+  app.put("/api/documents/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    const document = await documentService.findById(id);
+    if (!document) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+    if (!seriesAdminService.canManageSeries(document.series_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await documentsApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/documents/:id", async (c) => {
+  app.delete("/api/documents/:id", requireAuth(), async (c) => {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
+    const document = await documentService.findById(id);
+    if (!document) {
+      return c.json({ error: "Document not found" }, 404);
+    }
+    if (!seriesAdminService.canManageSeries(document.series_id, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await documentsApi.delete(id);
   });
 
-  app.post("/api/series/:seriesId/documents", async (c) => {
+  app.post("/api/series/:seriesId/documents", requireAuth(), async (c) => {
+    const user = c.get("user");
     const seriesId = parseInt(c.req.param("seriesId"));
+    if (!seriesAdminService.canManageSeries(seriesId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await documentsApi.createForSeries(c.req.raw, seriesId);
   });
 
@@ -1108,15 +1355,23 @@ export function createApp(db: Database): Hono {
     return await documentsApi.findBySeriesId(seriesId);
   });
 
-  app.put("/api/series/:seriesId/documents/:documentId", async (c) => {
+  app.put("/api/series/:seriesId/documents/:documentId", requireAuth(), async (c) => {
+    const user = c.get("user");
     const seriesId = parseInt(c.req.param("seriesId"));
     const documentId = parseInt(c.req.param("documentId"));
+    if (!seriesAdminService.canManageSeries(seriesId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await documentsApi.updateForSeries(c.req.raw, seriesId, documentId);
   });
 
-  app.delete("/api/series/:seriesId/documents/:documentId", async (c) => {
+  app.delete("/api/series/:seriesId/documents/:documentId", requireAuth(), async (c) => {
+    const user = c.get("user");
     const seriesId = parseInt(c.req.param("seriesId"));
     const documentId = parseInt(c.req.param("documentId"));
+    if (!seriesAdminService.canManageSeries(seriesId, user!.id)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     return await documentsApi.deleteForSeries(seriesId, documentId);
   });
 

@@ -266,7 +266,16 @@ export function createToursApi(
         return c.json({ error: "Player ID is required" }, 400);
       }
 
-      const enrollment = enrollmentService.requestEnrollment(id, body.playerId);
+      const userPlayerId = enrollmentService.getPlayerIdForUser(user!.id);
+      if (!userPlayerId) {
+        return c.json({ error: "No player profile found" }, 400);
+      }
+
+      if (body.playerId !== userPlayerId) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const enrollment = enrollmentService.requestEnrollment(id, userPlayerId);
       return c.json(enrollment, 201);
     } catch (error: any) {
       return c.json({ error: error.message }, 400);

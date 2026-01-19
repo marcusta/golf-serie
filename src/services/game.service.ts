@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { gameTypeRegistry } from "./game-strategies/registry";
 import { getPlayerDisplayName } from "../utils/player-display";
+import { safeParseJsonWithDefault } from "../utils/parsing";
 import { GameScoreService } from "./game-score.service";
 
 // ============================================================================
@@ -421,6 +422,14 @@ export class GameService {
     return result?.id ?? null;
   }
 
+  private isUserInGame(gameId: number, userId: number): boolean {
+    const playerId = this.findPlayerIdByUserId(userId);
+    if (!playerId) {
+      return false;
+    }
+    return this.findGamePlayerByPlayerId(gameId, playerId) !== null;
+  }
+
   // ============================================================================
   // Logic Methods (private, no SQL)
   // ============================================================================
@@ -429,7 +438,7 @@ export class GameService {
     return {
       ...row,
       name: row.name ?? undefined,
-      custom_settings: row.custom_settings ? JSON.parse(row.custom_settings) : undefined,
+      custom_settings: safeParseJsonWithDefault(row.custom_settings, undefined),
       scheduled_date: row.scheduled_date ?? undefined,
       started_at: row.started_at ?? undefined,
       completed_at: row.completed_at ?? undefined,
@@ -453,7 +462,7 @@ export class GameService {
     const handicapIndex = row.player_id ? row.player_handicap : row.guest_handicap;
     const courseRating = row.tee_course_rating;
     const slopeRating = row.tee_slope_rating;
-    const pars = row.course_pars ? JSON.parse(row.course_pars) : [];
+    const pars = safeParseJsonWithDefault<number[]>(row.course_pars, []);
     const coursePar = pars.reduce((sum: number, par: number) => sum + par, 0);
 
     if (
@@ -533,9 +542,13 @@ export class GameService {
       );
 
       // Automatically add the owner as a player
+      const ownerPlayerId = this.findPlayerIdByUserId(ownerId);
+      if (!ownerPlayerId) {
+        throw new Error("User has no player profile");
+      }
       this.insertGamePlayerRow(
         row.id,
-        ownerId, // player_id (owner is a registered player)
+        ownerPlayerId, // player_id (owner is a registered player)
         null,    // guest_name (not a guest)
         null,    // guest_handicap (not a guest)
         null,    // guest_gender (not a guest)
@@ -850,6 +863,6 @@ export class GameService {
   canUserModifyGame(gameId: number, userId: number): boolean {
     const game = this.findGameRow(gameId);
     if (!game) return false;
-    return game.owner_id === userId;
+    return game.owner_id === userId || this.isUserInGame(gameId, userId);
   }
 }

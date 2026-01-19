@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import type { Course, CreateCourseDto, UpdateCourseDto } from "../types";
 import { GOLF } from "../constants/golf";
-import { parseParsArray } from "../utils/parsing";
+import { parseParsArray, safeParseJsonWithDefault } from "../utils/parsing";
 import { getTeeColor } from "../utils/tee-colors";
 import { CourseTeeService } from "./course-tee.service";
 import { ClubService } from "./club.service";
@@ -119,7 +119,7 @@ export class CourseService {
 
   private transformCourseRow(row: CourseRow & { club_name?: string | null }): Course {
     const pars = parseParsArray(row.pars);
-    const strokeIndex = row.stroke_index ? JSON.parse(row.stroke_index) : undefined;
+    const strokeIndex = safeParseJsonWithDefault<number[] | undefined>(row.stroke_index, undefined);
     return {
       id: row.id,
       name: row.name,

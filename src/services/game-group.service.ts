@@ -55,6 +55,12 @@ export class GameGroupService {
     return stmt.get(groupId) as GameGroupRow | null;
   }
 
+  private findGameIdForGroup(groupId: number): number | null {
+    const stmt = this.db.prepare("SELECT game_id FROM game_groups WHERE id = ?");
+    const result = stmt.get(groupId) as { game_id: number } | null;
+    return result?.game_id ?? null;
+  }
+
   private findGameGroupsRows(gameId: number): GameGroupRow[] {
     const stmt = this.db.prepare(`
       SELECT * FROM game_groups
@@ -284,6 +290,10 @@ export class GameGroupService {
     }
 
     this.deleteGroupMemberRow(memberId);
+  }
+
+  getGameIdByGroupId(groupId: number): number | null {
+    return this.findGameIdForGroup(groupId);
   }
 
   /**

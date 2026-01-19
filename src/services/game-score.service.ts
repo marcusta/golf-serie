@@ -234,6 +234,17 @@ export class GameScoreService {
     return stmt.get(memberId) !== null;
   }
 
+  private findGameIdForMember(memberId: number): number | null {
+    const stmt = this.db.prepare(`
+      SELECT gg.game_id
+      FROM game_group_members ggm
+      JOIN game_groups gg ON gg.id = ggm.game_group_id
+      WHERE ggm.id = ?
+    `);
+    const result = stmt.get(memberId) as { game_id: number } | null;
+    return result?.game_id ?? null;
+  }
+
   private findPlayerIdForMember(memberId: number): number | null {
     const stmt = this.db.prepare(`
       SELECT gp.player_id
@@ -262,7 +273,7 @@ export class GameScoreService {
       is_locked: Boolean(row.is_locked),
       locked_at: row.locked_at ?? undefined,
       handicap_index: row.handicap_index ?? undefined,
-      custom_data: row.custom_data ? JSON.parse(row.custom_data) : undefined,
+      custom_data: safeParseJsonWithDefault(row.custom_data, undefined),
     };
   }
 
@@ -453,6 +464,10 @@ export class GameScoreService {
 
     const updated = this.findGameScoreRow(memberId);
     return this.transformGameScoreRow(updated!);
+  }
+
+  getGameIdByMemberId(memberId: number): number | null {
+    return this.findGameIdForMember(memberId);
   }
 
   /**
