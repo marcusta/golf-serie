@@ -20,6 +20,23 @@ import {
   type Tour,
 } from "../../../api/tours";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TourDocumentsTabProps {
   tourId: number;
@@ -28,6 +45,7 @@ interface TourDocumentsTabProps {
 
 export function TourDocumentsTab({ tourId, tour }: TourDocumentsTabProps) {
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
   const [showDocumentDialog, setShowDocumentDialog] = useState(false);
   const [editingDocument, setEditingDocument] = useState<TourDocument | null>(null);
   const [documentTitle, setDocumentTitle] = useState("");
@@ -95,12 +113,17 @@ export function TourDocumentsTab({ tourId, tour }: TourDocumentsTabProps) {
   };
 
   const handleDeleteDocument = async (documentId: number) => {
-    if (confirm("Are you sure you want to delete this document?")) {
-      try {
-        await deleteDocumentMutation.mutateAsync({ tourId, documentId });
-      } catch (err) {
-        showError(formatErrorMessage(err, "Failed to delete document"));
-      }
+    const shouldDelete = await confirm({
+      title: "Delete document?",
+      description: "This will permanently remove the document.",
+      confirmLabel: "Delete document",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteDocumentMutation.mutateAsync({ tourId, documentId });
+    } catch (err) {
+      showError(formatErrorMessage(err, "Failed to delete document"));
     }
   };
 
@@ -123,20 +146,24 @@ export function TourDocumentsTab({ tourId, tour }: TourDocumentsTabProps) {
         <p className="text-sm text-charcoal/60 mb-4">
           Select a document to display as the main content when players view this tour.
         </p>
-        <select
-          value={tour.landing_document_id || ""}
-          onChange={(e) =>
-            handleSetLandingDocument(e.target.value ? parseInt(e.target.value) : null)
+        <Select
+          value={tour.landing_document_id ? tour.landing_document_id.toString() : "none"}
+          onValueChange={(value) =>
+            handleSetLandingDocument(value === "none" ? null : parseInt(value))
           }
-          className="w-full max-w-md px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors bg-white"
         >
-          <option value="">No landing document (show description)</option>
-          {documents?.map((doc) => (
-            <option key={doc.id} value={doc.id}>
-              {doc.title}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full max-w-md">
+            <SelectValue placeholder="No landing document (show description)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No landing document (show description)</SelectItem>
+            {documents?.map((doc) => (
+              <SelectItem key={doc.id} value={doc.id.toString()}>
+                {doc.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Documents List */}
@@ -211,70 +238,78 @@ export function TourDocumentsTab({ tourId, tour }: TourDocumentsTabProps) {
       </div>
 
       {/* Document Dialog */}
-      {showDocumentDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-soft-grey">
-              <h2 className="text-xl font-semibold text-charcoal">
-                {editingDocument ? "Edit Document" : "Create Document"}
-              </h2>
+      <Dialog
+        open={showDocumentDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeDocumentDialog();
+          } else {
+            setShowDocumentDialog(true);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>
+              {editingDocument ? "Edit Document" : "Create Document"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">
+                Title
+              </label>
+              <Input
+                type="text"
+                value={documentTitle}
+                onChange={(e) => setDocumentTitle(e.target.value)}
+                placeholder="Document title"
+                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors"
+              />
             </div>
 
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-2">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={documentTitle}
-                  onChange={(e) => setDocumentTitle(e.target.value)}
-                  placeholder="Document title"
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-2">
-                  Content (Markdown supported)
-                </label>
-                <textarea
-                  value={documentContent}
-                  onChange={(e) => setDocumentContent(e.target.value)}
-                  placeholder="Write your document content here. Markdown is supported."
-                  rows={12}
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors resize-none font-mono text-sm"
-                />
-              </div>
-
-              {documentError && (
-                <p className="text-coral text-sm">{documentError}</p>
-              )}
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">
+                Content (Markdown supported)
+              </label>
+              <Textarea
+                value={documentContent}
+                onChange={(e) => setDocumentContent(e.target.value)}
+                placeholder="Write your document content here. Markdown is supported."
+                rows={12}
+                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors resize-none font-mono text-sm"
+              />
             </div>
 
-            <div className="p-6 border-t border-soft-grey flex justify-end gap-3">
-              <button
-                onClick={closeDocumentDialog}
-                className="px-4 py-2 text-charcoal/70 hover:text-charcoal transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveDocument}
-                disabled={createDocumentMutation.isPending || updateDocumentMutation.isPending}
-                className="flex items-center gap-2 px-6 py-2 bg-turf text-white rounded-lg hover:bg-fairway transition-colors disabled:opacity-50"
-              >
-                {(createDocumentMutation.isPending || updateDocumentMutation.isPending) ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
-                {editingDocument ? "Save Changes" : "Create Document"}
-              </button>
-            </div>
+            {documentError && (
+              <p className="text-coral text-sm">{documentError}</p>
+            )}
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <button
+              onClick={closeDocumentDialog}
+              className="px-4 py-2 text-charcoal/70 hover:text-charcoal transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveDocument}
+              disabled={createDocumentMutation.isPending || updateDocumentMutation.isPending}
+              className="flex items-center gap-2 px-6 py-2 bg-turf text-white rounded-lg hover:bg-fairway transition-colors disabled:opacity-50"
+            >
+              {(createDocumentMutation.isPending || updateDocumentMutation.isPending) ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              {editingDocument ? "Save Changes" : "Create Document"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {dialog}
     </div>
   );
 }

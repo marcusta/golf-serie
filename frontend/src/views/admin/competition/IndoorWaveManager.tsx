@@ -4,6 +4,7 @@ import { useCreateTeeTime } from "../../../api/tee-times";
 import { useNotification } from "@/hooks/useNotification";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 interface Wave {
   time: string;
@@ -26,6 +27,7 @@ export function IndoorWaveManager({
 
   const createTeeTimeMutation = useCreateTeeTime();
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
 
   const handleAddWave = () => {
     if (!newWaveTime) return;
@@ -44,9 +46,12 @@ export function IndoorWaveManager({
     const totalBays = waves.reduce((sum, wave) => sum + wave.numberOfBays, 0);
     const wavesList = waves.map(w => `${w.time} (${w.numberOfBays} bays)`).join(', ');
 
-    if (!confirm(`Create ${totalBays} bay slots from ${waves.length} wave(s)?\n\n${wavesList}\n\nYou can then assign participants to each bay below.`)) {
-      return;
-    }
+    const shouldCreate = await confirm({
+      title: "Create bay slots?",
+      description: `Create ${totalBays} bay slots from ${waves.length} wave(s)? ${wavesList}`,
+      confirmLabel: "Create bay slots",
+    });
+    if (!shouldCreate) return;
 
     setIsCreating(true);
     try {
@@ -76,7 +81,8 @@ export function IndoorWaveManager({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <>
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
         Define Wave Times and Bays
       </h3>
@@ -171,7 +177,9 @@ export function IndoorWaveManager({
           No waves defined yet. Add wave times above to get started.
         </div>
       )}
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }
 

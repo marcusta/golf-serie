@@ -20,6 +20,15 @@ import {
   type TourEnrollmentStatus,
 } from "../../../api/tours";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TourEnrollmentsTabProps {
   tourId: number;
@@ -27,6 +36,7 @@ interface TourEnrollmentsTabProps {
 
 export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
   const [statusFilter, setStatusFilter] = useState<TourEnrollmentStatus | "all">("all");
   const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -69,12 +79,17 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
   };
 
   const handleRemove = async (enrollmentId: number) => {
-    if (confirm("Are you sure you want to remove this enrollment?")) {
-      try {
-        await removeEnrollmentMutation.mutateAsync({ tourId, enrollmentId });
-      } catch (err) {
-        showError(formatErrorMessage(err, "Failed to remove"));
-      }
+    const shouldRemove = await confirm({
+      title: "Remove enrollment?",
+      description: "This will remove the player from the tour.",
+      confirmLabel: "Remove enrollment",
+      variant: "destructive",
+    });
+    if (!shouldRemove) return;
+    try {
+      await removeEnrollmentMutation.mutateAsync({ tourId, enrollmentId });
+    } catch (err) {
+      showError(formatErrorMessage(err, "Failed to remove"));
     }
   };
 
@@ -129,13 +144,14 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Add Enrollment Form */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold text-charcoal mb-4">Add Player by Email</h3>
         <form onSubmit={handleAddEnrollment} className="flex gap-3">
           <div className="flex-1">
-            <input
+            <Input
               type="email"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
@@ -209,23 +225,28 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
                 <div className="flex items-center gap-3">
                   {/* Category selector */}
                   {categories && categories.length > 0 && (
-                    <select
-                      value={enrollment.category_id || ""}
-                      onChange={(e) => handleAssignCategory(
-                        enrollment.id,
-                        e.target.value ? parseInt(e.target.value) : null
-                      )}
+                    <Select
+                      value={enrollment.category_id ? enrollment.category_id.toString() : "none"}
+                      onValueChange={(value) =>
+                        handleAssignCategory(
+                          enrollment.id,
+                          value === "none" ? null : parseInt(value)
+                        )
+                      }
                       disabled={assignEnrollmentCategoryMutation.isPending}
-                      className="px-2 py-1 text-sm border border-soft-grey rounded-lg focus:border-turf focus:outline-none bg-white"
-                      title="Assign category"
                     >
-                      <option value="">No category</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-8 w-[160px] text-sm">
+                        <SelectValue placeholder="No category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No category</SelectItem>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id.toString()}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                   {enrollment.status === "pending" && (
                     <button
@@ -271,6 +292,8 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

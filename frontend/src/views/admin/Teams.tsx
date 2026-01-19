@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useNotification } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 function TeamSkeleton() {
   return (
@@ -97,6 +98,7 @@ export default function Teams() {
   const updateTeam = useUpdateTeam();
   const deleteTeam = useDeleteTeam();
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -115,15 +117,18 @@ export default function Teams() {
   };
 
   const handleDelete = async (team: Team) => {
-    if (
-      window.confirm(`Are you sure you want to delete team "${team.name}"?`)
-    ) {
-      try {
-        await deleteTeam.mutateAsync(team.id);
-      } catch (error) {
-        console.error("Failed to delete team:", error);
-        showError("Failed to delete team. Please try again.");
-      }
+    const shouldDelete = await confirm({
+      title: "Delete team?",
+      description: `This will permanently remove "${team.name}".`,
+      confirmLabel: "Delete team",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteTeam.mutateAsync(team.id);
+    } catch (error) {
+      console.error("Failed to delete team:", error);
+      showError("Failed to delete team. Please try again.");
     }
   };
 
@@ -179,7 +184,8 @@ export default function Teams() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Users className="h-8 w-8 text-green-600" />
@@ -293,6 +299,8 @@ export default function Teams() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

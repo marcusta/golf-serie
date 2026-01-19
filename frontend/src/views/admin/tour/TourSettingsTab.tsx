@@ -2,14 +2,21 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Save, Calculator, Trophy } from "lucide-react";
-import { useUpdateTour, type Tour, type TourScoringMode } from "../../../api/tours";
+import { Loader2, Save } from "lucide-react";
+import {
+  useUpdateTour,
+  type Tour,
+  type TourEnrollmentMode,
+  type TourScoringMode,
+  type TourVisibility,
+} from "../../../api/tours";
 import {
   useTourPointTemplates,
   type PointTemplate,
 } from "../../../api/point-templates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -28,13 +35,19 @@ import {
 } from "@/components/ui/form";
 import { useNotification } from "@/hooks/useNotification";
 
-// Zod schema for tour settings validation
 const tourSettingsSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Tour name is required")
+    .max(100, "Tour name must be 100 characters or less"),
+  description: z.string().optional(),
   banner_image_url: z
     .string()
     .url("Please enter a valid URL")
     .or(z.literal(""))
     .optional(),
+  visibility: z.enum(["public", "private"] as const),
+  enrollment_mode: z.enum(["closed", "request"] as const),
   scoring_mode: z.enum(["gross", "net", "both"] as const),
   point_template_id: z.string().optional(),
 });
@@ -54,19 +67,26 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
   const form = useForm<TourSettingsFormData>({
     resolver: zodResolver(tourSettingsSchema),
     defaultValues: {
+      name: tour.name,
+      description: tour.description || "",
       banner_image_url: tour.banner_image_url || "",
+      visibility: tour.visibility,
+      enrollment_mode: tour.enrollment_mode,
       scoring_mode: tour.scoring_mode,
-      point_template_id: tour.point_template_id?.toString() || "",
+      point_template_id: tour.point_template_id?.toString() || "none",
     },
     mode: "onChange",
   });
 
-  // Reset form when tour data changes
   useEffect(() => {
     form.reset({
+      name: tour.name,
+      description: tour.description || "",
       banner_image_url: tour.banner_image_url || "",
+      visibility: tour.visibility,
+      enrollment_mode: tour.enrollment_mode,
       scoring_mode: tour.scoring_mode,
-      point_template_id: tour.point_template_id?.toString() || "",
+      point_template_id: tour.point_template_id?.toString() || "none",
     });
   }, [tour, form]);
 
@@ -75,19 +95,22 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       await updateTourMutation.mutateAsync({
         id: tourId,
         data: {
+          name: data.name,
+          description: data.description || undefined,
           banner_image_url: data.banner_image_url || null,
+          visibility: data.visibility as TourVisibility,
+          enrollment_mode: data.enrollment_mode as TourEnrollmentMode,
           scoring_mode: data.scoring_mode as TourScoringMode,
-          point_template_id: data.point_template_id
-            ? parseInt(data.point_template_id)
-            : null,
+          point_template_id:
+            data.point_template_id && data.point_template_id !== "none"
+              ? parseInt(data.point_template_id)
+              : null,
         },
       });
       showSuccess("Tour settings saved successfully");
     } catch (err) {
       console.error("Failed to save tour settings:", err);
-      showError(
-        err instanceof Error ? err.message : "Failed to save settings"
-      );
+      showError(err instanceof Error ? err.message : "Failed to save settings");
     }
   };
 
@@ -110,9 +133,10 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
   const isSubmitting = form.formState.isSubmitting || updateTourMutation.isPending;
 
   const selectedTemplateId = form.watch("point_template_id");
-  const selectedTemplate = selectedTemplateId
-    ? tourPointTemplates?.find((t) => t.id === parseInt(selectedTemplateId))
-    : null;
+  const selectedTemplate =
+    selectedTemplateId && selectedTemplateId !== "none"
+      ? tourPointTemplates?.find((t) => t.id === parseInt(selectedTemplateId))
+      : null;
 
   const scoringModeDescription: Record<TourScoringMode, string> = {
     gross: "Standings based on raw scores without handicap adjustments.",
@@ -121,82 +145,143 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h3 className="text-lg font-semibold text-charcoal mb-6">Tour Settings</h3>
+    <div className="bg-white border border-soft-grey rounded-lg p-4">
+      <div className="text-sm font-semibold uppercase tracking-wide text-charcoal mb-4">
+        Tour Settings
+      </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-w-2xl">
-          {/* Banner Image URL */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+            Basic Information
+          </div>
+
           <FormField
             control={form.control}
-            name="banner_image_url"
+            name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Banner Image URL</FormLabel>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Tour Name
+                </FormLabel>
                 <FormControl>
                   <Input
-                    type="url"
-                    placeholder="https://example.com/banner.jpg"
+                    placeholder="Enter tour name"
                     autoFocus
+                    className="h-9 text-sm"
                     {...field}
                   />
                 </FormControl>
-                <FormDescription>
-                  URL to an image that will be displayed as the tour hero banner.
+                <FormDescription className="text-xs text-charcoal/60">
+                  The name that will be displayed to players.
                 </FormDescription>
                 <FormMessage />
-
-                {/* Preview */}
-                {field.value && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-charcoal mb-2">
-                      Preview:
-                    </p>
-                    <div className="relative h-32 rounded-lg overflow-hidden border border-soft-grey">
-                      <img
-                        src={field.value}
-                        alt="Banner preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
               </FormItem>
             )}
           />
 
-          {/* Scoring Mode */}
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Description
+                </FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Describe the tour (optional)"
+                    className="min-h-[90px] text-sm"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  Appears on the player tour overview.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="visibility"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Visibility
+                </FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select visibility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="private">Private</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  Public tours appear to all players; private tours are hidden.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="enrollment_mode"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Enrollment Mode
+                </FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select enrollment mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="closed">Admin only</SelectItem>
+                      <SelectItem value="request">Requests</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  Control how players can join this tour.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+            Scoring & Points
+          </div>
+
           <FormField
             control={form.control}
             name="scoring_mode"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  <span className="flex items-center gap-2">
-                    <Calculator className="w-4 h-4" />
-                    Scoring Mode
-                  </span>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Scoring Mode
                 </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <FormControl>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full max-w-md">
                       <SelectValue placeholder="Select scoring mode" />
                     </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="gross">Gross (Raw Scores)</SelectItem>
-                    <SelectItem value="net">Net (Handicap-Adjusted)</SelectItem>
-                    <SelectItem value="both">Both (Gross & Net)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormDescription>
+                    <SelectContent>
+                      <SelectItem value="gross">Gross (Raw Scores)</SelectItem>
+                      <SelectItem value="net">Net (Handicap-Adjusted)</SelectItem>
+                      <SelectItem value="both">Both (Gross & Net)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
                   {scoringModeDescription[field.value as TourScoringMode]}
                 </FormDescription>
                 <FormMessage />
@@ -204,50 +289,39 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
             )}
           />
 
-          {/* Point Template */}
           <FormField
             control={form.control}
             name="point_template_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  <span className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4" />
-                    Point Template
-                  </span>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Point Template
                 </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  value={field.value}
-                >
-                  <FormControl>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full max-w-md">
                       <SelectValue placeholder="No point template (no standings points)" />
                     </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="">
-                      No point template (no standings points)
-                    </SelectItem>
-                    {tourPointTemplates?.map((template) => (
-                      <SelectItem key={template.id} value={template.id.toString()}>
-                        {template.name}
+                    <SelectContent>
+                      <SelectItem value="none">
+                        No point template (no standings points)
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormDescription>
-                  Point template defines how standings points are awarded based on
-                  finishing position.
+                      {tourPointTemplates?.map((template) => (
+                        <SelectItem key={template.id} value={template.id.toString()}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  Point template defines how standings points are awarded.
                 </FormDescription>
                 <FormMessage />
-
-                {/* Points structure preview */}
                 {selectedTemplate && (
-                  <div className="mt-2 p-3 bg-rough/20 rounded-lg">
+                  <div className="mt-2 p-3 bg-rough/20 rounded-md">
                     <p className="text-xs text-charcoal/70 font-medium mb-1">
-                      Points Structure:
+                      Points Structure
                     </p>
                     <p className="text-sm text-charcoal">
                       {getPointsStructurePreview(selectedTemplate)}
@@ -258,21 +332,63 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
             )}
           />
 
-          <div className="flex justify-end pt-4">
+          <FormField
+            control={form.control}
+            name="banner_image_url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Banner Image URL
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/banner.jpg"
+                    className="h-9 text-sm"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  URL to an image that will be displayed as the tour banner.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {form.watch("banner_image_url") && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                Preview
+              </p>
+              <div className="relative h-32 rounded-md overflow-hidden border border-soft-grey">
+                <img
+                  src={form.watch("banner_image_url")}
+                  alt="Banner preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
             <Button
               type="submit"
               disabled={!isDirty || !isValid || isSubmitting}
-              className="bg-turf hover:bg-fairway text-white"
+              className="h-9 px-3 rounded-md text-sm bg-turf hover:bg-fairway text-white"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
-                  Save Settings
+                  <Save className="h-4 w-4" />
+                  Save Changes
                 </>
               )}
             </Button>

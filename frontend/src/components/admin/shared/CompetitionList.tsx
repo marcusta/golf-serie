@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useCourses, useCourseTees } from "../../../api/courses";
 import { useFinalizeCompetitionResults } from "../../../api/competitions";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import {
   Calendar,
   MapPin,
@@ -79,6 +80,7 @@ export function CompetitionList<T extends CompetitionListItem>({
 }: CompetitionListProps<T>) {
   const { data: courses } = useCourses();
   const finalizeResults = useFinalizeCompetitionResults();
+  const { confirm, dialog } = useConfirmDialog();
 
   const getCourseName = (competition: T) => {
     // Use course_name if available (tour competitions have this)
@@ -107,7 +109,8 @@ export function CompetitionList<T extends CompetitionListItem>({
   }
 
   return (
-    <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
+    <>
+      <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <div className="min-w-[860px]">
           <div className="grid grid-cols-[minmax(220px,2fr)_120px_minmax(180px,1.5fr)_120px_110px_160px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
@@ -194,15 +197,14 @@ export function CompetitionList<T extends CompetitionListItem>({
                     </div>
                   ) : (
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (
-                          !confirm(
-                            "Finalize results for this competition? This will calculate and store the final standings and points."
-                          )
-                        ) {
-                          return;
-                        }
+                        const shouldFinalize = await confirm({
+                          title: "Finalize results?",
+                          description: "This will calculate and store the final standings and points.",
+                          confirmLabel: "Finalize results",
+                        });
+                        if (!shouldFinalize) return;
                         finalizeResults.mutate(competition.id);
                       }}
                       disabled={finalizeResults.isPending}
@@ -242,6 +244,8 @@ export function CompetitionList<T extends CompetitionListItem>({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

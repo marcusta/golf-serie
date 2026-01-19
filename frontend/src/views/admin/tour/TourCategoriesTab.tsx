@@ -18,6 +18,16 @@ import {
   type TourCategory,
 } from "../../../api/tours";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface TourCategoriesTabProps {
   tourId: number;
@@ -25,6 +35,7 @@ interface TourCategoriesTabProps {
 
 export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<TourCategory | null>(null);
   const [categoryName, setCategoryName] = useState("");
@@ -88,12 +99,17 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
   };
 
   const handleDeleteCategory = async (categoryId: number) => {
-    if (confirm("Are you sure you want to delete this category? Enrolled players will have their category cleared.")) {
-      try {
-        await deleteCategoryMutation.mutateAsync({ tourId, categoryId });
-      } catch (err) {
-        showError(formatErrorMessage(err, "Failed to delete category"));
-      }
+    const shouldDelete = await confirm({
+      title: "Delete category?",
+      description: "Enrolled players will have their category cleared.",
+      confirmLabel: "Delete category",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteCategoryMutation.mutateAsync({ tourId, categoryId });
+    } catch (err) {
+      showError(formatErrorMessage(err, "Failed to delete category"));
     }
   };
 
@@ -230,70 +246,77 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
       </div>
 
       {/* Category Dialog */}
-      {showCategoryDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full overflow-hidden">
-            <div className="p-6 border-b border-soft-grey">
-              <h2 className="text-xl font-semibold text-charcoal">
-                {editingCategory ? "Edit Category" : "Create Category"}
-              </h2>
+      <Dialog
+        open={showCategoryDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeCategoryDialog();
+          } else {
+            setShowCategoryDialog(true);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingCategory ? "Edit Category" : "Create Category"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">
+                Name <span className="text-coral">*</span>
+              </label>
+              <Input
+                type="text"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                placeholder="e.g., Men, Women, Seniors"
+                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors"
+              />
             </div>
 
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-2">
-                  Name <span className="text-coral">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={categoryName}
-                  onChange={(e) => setCategoryName(e.target.value)}
-                  placeholder="e.g., Men, Women, Seniors"
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-2">
-                  Description (optional)
-                </label>
-                <textarea
-                  value={categoryDescription}
-                  onChange={(e) => setCategoryDescription(e.target.value)}
-                  placeholder="Optional description for this category"
-                  rows={3}
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors resize-none"
-                />
-              </div>
-
-              {categoryError && (
-                <p className="text-coral text-sm">{categoryError}</p>
-              )}
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2">
+                Description (optional)
+              </label>
+              <Textarea
+                value={categoryDescription}
+                onChange={(e) => setCategoryDescription(e.target.value)}
+                placeholder="Optional description for this category"
+                rows={3}
+                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors resize-none"
+              />
             </div>
 
-            <div className="p-6 border-t border-soft-grey flex justify-end gap-3">
-              <button
-                onClick={closeCategoryDialog}
-                className="px-4 py-2 text-charcoal/70 hover:text-charcoal transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveCategory}
-                disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
-                className="flex items-center gap-2 px-6 py-2 bg-turf text-white rounded-lg hover:bg-fairway transition-colors disabled:opacity-50"
-              >
-                {(createCategoryMutation.isPending || updateCategoryMutation.isPending) ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
-                {editingCategory ? "Save Changes" : "Create Category"}
-              </button>
-            </div>
+            {categoryError && (
+              <p className="text-coral text-sm">{categoryError}</p>
+            )}
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <button
+              onClick={closeCategoryDialog}
+              className="px-4 py-2 text-charcoal/70 hover:text-charcoal transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveCategory}
+              disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
+              className="flex items-center gap-2 px-6 py-2 bg-turf text-white rounded-lg hover:bg-fairway transition-colors disabled:opacity-50"
+            >
+              {(createCategoryMutation.isPending || updateCategoryMutation.isPending) ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4" />
+              )}
+              {editingCategory ? "Save Changes" : "Create Category"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {dialog}
     </div>
   );
 }

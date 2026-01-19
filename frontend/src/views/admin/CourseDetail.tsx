@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNotification } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import {
   ArrowLeft,
   Loader2,
@@ -656,6 +657,7 @@ function TeeEditForm({
   const deleteTee = useDeleteCourseTee();
   const upsertRating = useUpsertCourseTeeRating();
   const { showSuccess, showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
 
   const handleSave = async () => {
     try {
@@ -703,7 +705,13 @@ function TeeEditForm({
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete tee "${tee.name}"? This cannot be undone.`)) return;
+    const shouldDelete = await confirm({
+      title: "Delete tee?",
+      description: `Delete tee "${tee.name}"? This cannot be undone.`,
+      confirmLabel: "Delete tee",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
 
     try {
       await deleteTee.mutateAsync({ courseId, teeId: tee.id });
@@ -716,8 +724,9 @@ function TeeEditForm({
   const isPending = updateTee.isPending || upsertRating.isPending;
 
   return (
-    <div className="px-4 py-4 bg-soft-grey/20 border-t border-soft-grey">
-      <div className="space-y-4">
+    <>
+      <div className="px-4 py-4 bg-soft-grey/20 border-t border-soft-grey">
+        <div className="space-y-4">
         {/* Name and Color */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -835,8 +844,10 @@ function TeeEditForm({
             )}
           </Button>
         </div>
+        </div>
       </div>
-    </div>
+      {dialog}
+    </>
   );
 }
 

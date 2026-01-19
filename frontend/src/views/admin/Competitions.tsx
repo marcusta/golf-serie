@@ -14,6 +14,15 @@ import { usePointTemplates } from "../../api/point-templates";
 import { useAuth } from "../../hooks/useAuth";
 import { TeeSelector } from "../../components/admin/competition";
 import { useNotification } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Plus,
   Edit,
@@ -56,6 +65,7 @@ export default function AdminCompetitions() {
   const updateCompetition = useUpdateCompetition();
   const deleteCompetition = useDeleteCompetition();
   const finalizeResults = useFinalizeCompetitionResults();
+  const { confirm, dialog } = useConfirmDialog();
 
   // Use series-specific or tour-specific competitions if filtering, otherwise stand-alone only
   const competitions = seriesFilter ? seriesCompetitions : tourFilter ? tourCompetitions : standAloneCompetitions;
@@ -134,15 +144,20 @@ export default function AdminCompetitions() {
     setShowForm(true);
   };
 
-  const handleDelete = (competitionId: number) => {
-    if (confirm("Are you sure you want to delete this competition?")) {
-      deleteCompetition.mutate(competitionId, {
-        onError: (error) => {
-          console.error("Error deleting competition:", error);
-          showError("Failed to delete competition. Please try again.");
-        },
-      });
-    }
+  const handleDelete = async (competitionId: number) => {
+    const shouldDelete = await confirm({
+      title: "Delete competition?",
+      description: "This will permanently remove the competition and its data.",
+      confirmLabel: "Delete competition",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    deleteCompetition.mutate(competitionId, {
+      onError: (error) => {
+        console.error("Error deleting competition:", error);
+        showError("Failed to delete competition. Please try again.");
+      },
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -226,7 +241,8 @@ export default function AdminCompetitions() {
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           {seriesFilter && filteredSeries ? (
@@ -307,12 +323,12 @@ export default function AdminCompetitions() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Competition Name
               </label>
-              <input
+              <Input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full"
                 placeholder="Enter competition name"
                 required
               />
@@ -321,12 +337,12 @@ export default function AdminCompetitions() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Date
               </label>
-              <input
+              <Input
                 type="date"
                 name="date"
                 value={formData.date}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full"
                 required
               />
             </div>
@@ -334,27 +350,28 @@ export default function AdminCompetitions() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Course
               </label>
-              <select
-                name="course_id"
-                value={formData.course_id}
-                onChange={(e) => {
-                  const value = e.target.value;
+              <Select
+                value={formData.course_id || "none"}
+                onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
-                    course_id: value,
-                    tee_id: "", // Reset tee when course changes
+                    course_id: value === "none" ? "" : value,
+                    tee_id: "",
                   }));
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
               >
-                <option value="">Select a course</option>
-                {courses?.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.name}
-                  </option>
-                ))}
-            </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a course" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select a course</SelectItem>
+                  {courses?.map((course) => (
+                    <SelectItem key={course.id} value={course.id.toString()}>
+                      {course.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <TeeSelector
@@ -375,18 +392,18 @@ export default function AdminCompetitions() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Series
                 </label>
-                <select
-                  name="series_id"
-                  value={formData.series_id}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  {series?.map((seriesItem) => (
-                    <option key={seriesItem.id} value={seriesItem.id}>
-                      {seriesItem.name}
-                    </option>
-                  ))}
-                </select>
+                <Select value={formData.series_id || "none"} disabled>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a series" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {series?.map((seriesItem) => (
+                      <SelectItem key={seriesItem.id} value={seriesItem.id.toString()}>
+                        {seriesItem.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             {/* Only show Tour selector when viewing tour competitions */}
@@ -395,76 +412,100 @@ export default function AdminCompetitions() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Tour
                 </label>
-                <select
-                  name="tour_id"
-                  value={formData.tour_id}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  {tours?.map((tour) => (
-                    <option key={tour.id} value={tour.id}>
-                      {tour.name}
-                    </option>
-                  ))}
-                </select>
+                <Select value={formData.tour_id || "none"} disabled>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a tour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tours?.map((tour) => (
+                      <SelectItem key={tour.id} value={tour.id.toString()}>
+                        {tour.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Point Template (Optional)
               </label>
-              <select
-                name="point_template_id"
-                value={formData.point_template_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <Select
+                value={formData.point_template_id || "none"}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    point_template_id: value === "none" ? "" : value,
+                  }))
+                }
               >
-                <option value="">No point template</option>
-                {pointTemplates?.map((template: any) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No point template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No point template</SelectItem>
+                  {pointTemplates?.map((template: any) => (
+                    <SelectItem key={template.id} value={template.id.toString()}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Manual Entry Format
               </label>
-              <select
-                name="manual_entry_format"
+              <Select
                 value={formData.manual_entry_format}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    manual_entry_format: value as "out_in_total" | "total_only",
+                  }))
+                }
               >
-                <option value="out_in_total">Out, In, and Total</option>
-                <option value="total_only">Total Score Only</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="out_in_total">Out, In, and Total</SelectItem>
+                  <SelectItem value="total_only">Total Score Only</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Venue Type
               </label>
-              <select
-                name="venue_type"
+              <Select
                 value={formData.venue_type}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    venue_type: value as "outdoor" | "indoor",
+                  }))
+                }
               >
-                <option value="outdoor">Outdoor</option>
-                <option value="indoor">Indoor (Simulator)</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select venue type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="outdoor">Outdoor</SelectItem>
+                  <SelectItem value="indoor">Indoor (Simulator)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Points Multiplier
               </label>
-              <input
+              <Input
                 type="number"
                 name="points_multiplier"
                 value={formData.points_multiplier}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full"
                 placeholder="1"
                 min="0.1"
                 max="10"
@@ -479,15 +520,23 @@ export default function AdminCompetitions() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Start Mode
               </label>
-              <select
-                name="start_mode"
+              <Select
                 value={formData.start_mode}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    start_mode: value as "scheduled" | "open",
+                  }))
+                }
               >
-                <option value="scheduled">Scheduled (Prepared Start List)</option>
-                <option value="open">Open (Ad-hoc Play)</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select start mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">Scheduled (Prepared Start List)</SelectItem>
+                  <SelectItem value="open">Open (Ad-hoc Play)</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-xs text-gray-500 mt-1">
                 Scheduled: Players have assigned tee times. Open: Players play ad-hoc.
               </p>
@@ -498,24 +547,24 @@ export default function AdminCompetitions() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Open Period Start
                   </label>
-                  <input
+                  <Input
                     type="datetime-local"
                     name="open_start"
                     value={formData.open_start}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Open Period End
                   </label>
-                  <input
+                  <Input
                     type="datetime-local"
                     name="open_end"
                     value={formData.open_end}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full"
                   />
                 </div>
               </>
@@ -671,10 +720,13 @@ export default function AdminCompetitions() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => {
-                              if (!confirm("Finalize results for this competition? This will calculate and store the final standings and points.")) {
-                                return;
-                              }
+                            onClick={async () => {
+                              const shouldFinalize = await confirm({
+                                title: "Finalize results?",
+                                description: "This will calculate and store the final standings and points.",
+                                confirmLabel: "Finalize results",
+                              });
+                              if (!shouldFinalize) return;
                               finalizeResults.mutate(competition.id);
                             }}
                             disabled={finalizeResults.isPending}
@@ -733,6 +785,8 @@ export default function AdminCompetitions() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

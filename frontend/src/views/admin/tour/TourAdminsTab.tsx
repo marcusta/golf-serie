@@ -14,6 +14,14 @@ import {
   type Tour,
 } from "../../../api/tours";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TourAdminsTabProps {
   tourId: number;
@@ -22,6 +30,7 @@ interface TourAdminsTabProps {
 
 export function TourAdminsTab({ tourId, tour }: TourAdminsTabProps) {
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [adminError, setAdminError] = useState<string | null>(null);
 
@@ -52,34 +61,46 @@ export function TourAdminsTab({ tourId, tour }: TourAdminsTabProps) {
   };
 
   const handleRemoveAdmin = async (userId: number) => {
-    if (confirm("Are you sure you want to remove this admin?")) {
-      try {
-        await removeAdminMutation.mutateAsync({ tourId, userId });
-      } catch (err) {
-        showError(formatErrorMessage(err, "Failed to remove admin"));
-      }
+    const shouldRemove = await confirm({
+      title: "Remove admin?",
+      description: "This user will lose admin access to this tour.",
+      confirmLabel: "Remove admin",
+      variant: "destructive",
+    });
+    if (!shouldRemove) return;
+    try {
+      await removeAdminMutation.mutateAsync({ tourId, userId });
+    } catch (err) {
+      showError(formatErrorMessage(err, "Failed to remove admin"));
     }
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Add Admin Form */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold text-charcoal mb-4">Add Tour Admin</h3>
         <div className="flex gap-3">
           <div className="flex-1">
-            <select
-              value={selectedUserId || ""}
-              onChange={(e) => setSelectedUserId(e.target.value ? parseInt(e.target.value) : null)}
-              className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors bg-white"
+            <Select
+              value={selectedUserId ? selectedUserId.toString() : "none"}
+              onValueChange={(value) =>
+                setSelectedUserId(value === "none" ? null : parseInt(value))
+              }
             >
-              <option value="">Select a user...</option>
-              {availableUsers?.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.email} ({user.role})
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a user..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Select a user...</SelectItem>
+                {availableUsers?.map((user) => (
+                  <SelectItem key={user.id} value={user.id.toString()}>
+                    {user.email} ({user.role})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {adminError && (
               <p className="text-coral text-sm mt-1">{adminError}</p>
             )}
@@ -159,6 +180,8 @@ export function TourAdminsTab({ tourId, tour }: TourAdminsTabProps) {
           </div>
         )}
       </div>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

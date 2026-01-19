@@ -9,6 +9,15 @@ import {
   type PointsStructure,
 } from "../../api/point-templates";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { Input } from "@/components/ui/input";
 
 // Type for a single position entry in the editor
 interface PositionEntry {
@@ -79,6 +88,7 @@ export default function PointTemplates() {
   const updateMutation = useUpdatePointTemplate();
   const deleteMutation = useDeletePointTemplate();
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
 
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PointTemplate | null>(null);
@@ -182,12 +192,17 @@ export default function PointTemplates() {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this template?")) {
-      try {
-        await deleteMutation.mutateAsync(id);
-      } catch (err) {
-        showError(formatErrorMessage(err, "Delete failed"));
-      }
+    const shouldDelete = await confirm({
+      title: "Delete template?",
+      description: "This will permanently remove the point template.",
+      confirmLabel: "Delete template",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (err) {
+      showError(formatErrorMessage(err, "Delete failed"));
     }
   };
 
@@ -196,7 +211,8 @@ export default function PointTemplates() {
   }
 
   return (
-    <div>
+    <>
+      <div>
       <div className="flex justify-between items-start mb-6">
         <div>
           <h2 className="text-xl font-bold text-charcoal font-['Inter']">
@@ -294,125 +310,131 @@ export default function PointTemplates() {
         })}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-scorecard rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-bold text-charcoal mb-4 font-['Inter']">
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
               {editingTemplate ? "Edit Template" : "Create Template"}
-            </h3>
+            </DialogTitle>
+          </DialogHeader>
 
-            {error && (
-              <div className="bg-coral/10 border border-coral text-coral rounded-lg p-3 mb-4 text-sm">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="bg-coral/10 border border-coral text-coral rounded-lg p-3 text-sm">
+              {error}
+            </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
-                  placeholder="e.g., Standard Event, Major, Elevated"
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
+                Name
+              </label>
+              <Input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
+                placeholder="e.g., Standard Event, Major, Elevated"
+              />
+            </div>
 
-              {/* Position Entries */}
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-2 font-['Inter']">
-                  Points by Position
-                </label>
-                <div className="space-y-2">
-                  {entries.map((entry) => (
-                    <div key={entry.id} className="flex items-center gap-2">
-                      <div className="flex-1 flex items-center gap-2">
-                        <span className="text-sm text-charcoal/60 w-6">#</span>
-                        <input
-                          type="number"
-                          min="1"
-                          value={entry.position}
-                          onChange={(e) => updateEntry(entry.id, "position", e.target.value)}
-                          className="w-16 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
-                          placeholder="Pos"
-                        />
-                        <span className="text-sm text-charcoal/60">=</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={entry.points}
-                          onChange={(e) => updateEntry(entry.id, "points", e.target.value)}
-                          className="w-24 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
-                          placeholder="Points"
-                        />
-                        <span className="text-sm text-charcoal/60">pts</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeEntry(entry.id)}
-                        className="p-2 text-charcoal/40 hover:text-coral transition-colors"
-                        title="Remove position"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+            {/* Position Entries */}
+            <div>
+              <label className="block text-sm font-medium text-charcoal mb-2 font-['Inter']">
+                Points by Position
+              </label>
+              <div className="space-y-2">
+                {entries.map((entry) => (
+                  <div key={entry.id} className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="text-sm text-charcoal/60 w-6">#</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={entry.position}
+                        onChange={(e) =>
+                          updateEntry(entry.id, "position", e.target.value)
+                        }
+                        className="w-16 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
+                        placeholder="Pos"
+                      />
+                      <span className="text-sm text-charcoal/60">=</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={entry.points}
+                        onChange={(e) =>
+                          updateEntry(entry.id, "points", e.target.value)
+                        }
+                        className="w-24 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
+                        placeholder="Points"
+                      />
+                      <span className="text-sm text-charcoal/60">pts</span>
                     </div>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addEntry}
-                  className="mt-3 flex items-center gap-2 text-sm text-turf hover:text-fairway transition-colors font-['Inter']"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Position
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => removeEntry(entry.id)}
+                      className="p-2 text-charcoal/40 hover:text-coral transition-colors"
+                      title="Remove position"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
 
-              {/* Default Points */}
-              <div className="pt-2 border-t border-soft-grey">
-                <div className="flex items-center gap-3">
-                  <label className="text-sm font-medium text-charcoal font-['Inter']">
-                    Default points
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={defaultPoints}
-                    onChange={(e) => setDefaultPoints(e.target.value)}
-                    className="w-24 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
-                  />
-                  <span className="text-sm text-charcoal/60">pts</span>
-                </div>
-                <p className="text-xs text-charcoal/60 mt-1">
-                  Points awarded to positions not listed above
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={addEntry}
+                className="mt-3 flex items-center gap-2 text-sm text-turf hover:text-fairway transition-colors font-['Inter']"
+              >
+                <Plus className="h-4 w-4" />
+                Add Position
+              </button>
+            </div>
 
-              <div className="flex gap-3 justify-end pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-charcoal hover:text-charcoal/70 font-['Inter']"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="px-4 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors font-['Inter'] font-semibold disabled:opacity-50"
-                >
-                  {editingTemplate ? "Save Changes" : "Create Template"}
-                </button>
+            {/* Default Points */}
+            <div className="pt-2 border-t border-soft-grey">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-charcoal font-['Inter']">
+                  Default points
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={defaultPoints}
+                  onChange={(e) => setDefaultPoints(e.target.value)}
+                  className="w-24 px-3 py-2 border-2 border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors font-['Inter'] text-center"
+                />
+                <span className="text-sm text-charcoal/60">pts</span>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+              <p className="text-xs text-charcoal/60 mt-1">
+                Points awarded to positions not listed above
+              </p>
+            </div>
+
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 text-charcoal hover:text-charcoal/70 font-['Inter']"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                className="px-4 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors font-['Inter'] font-semibold disabled:opacity-50"
+              >
+                {editingTemplate ? "Save Changes" : "Create Template"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      </div>
+      {dialog}
+    </>
   );
 }

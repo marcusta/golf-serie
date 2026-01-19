@@ -14,6 +14,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Plus, Trash2, Users, Shield, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function AdminCompetitionDetail() {
   const { competitionId } = useParams({
@@ -30,6 +38,7 @@ export default function AdminCompetitionDetail() {
   const addAdminMutation = useAddCompetitionAdmin();
   const removeAdminMutation = useRemoveCompetitionAdmin();
   const { data: users } = useUsers();
+  const { confirm, dialog } = useConfirmDialog();
 
   // Check if user can manage admins (owner or SUPER_ADMIN)
   // For stand-alone competitions, the owner_id would be the user who created it
@@ -68,12 +77,17 @@ export default function AdminCompetitionDetail() {
   };
 
   const handleRemoveAdmin = async (userId: number) => {
-    if (confirm("Are you sure you want to remove this admin?")) {
-      try {
-        await removeAdminMutation.mutateAsync({ competitionId: id, userId });
-      } catch (err) {
-        showError(formatErrorMessage(err, "Failed to remove admin"));
-      }
+    const shouldRemove = await confirm({
+      title: "Remove admin?",
+      description: "This user will lose admin access to this competition.",
+      confirmLabel: "Remove admin",
+      variant: "destructive",
+    });
+    if (!shouldRemove) return;
+    try {
+      await removeAdminMutation.mutateAsync({ competitionId: id, userId });
+    } catch (err) {
+      showError(formatErrorMessage(err, "Failed to remove admin"));
     }
   };
 
@@ -91,7 +105,8 @@ export default function AdminCompetitionDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -152,22 +167,24 @@ export default function AdminCompetitionDetail() {
               <CardContent>
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <select
-                      value={selectedUserId || ""}
-                      onChange={(e) =>
-                        setSelectedUserId(
-                          e.target.value ? parseInt(e.target.value) : null
-                        )
+                    <Select
+                      value={selectedUserId ? selectedUserId.toString() : "none"}
+                      onValueChange={(value) =>
+                        setSelectedUserId(value === "none" ? null : parseInt(value))
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="">Select a user...</option>
-                      {availableUsers?.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.email} ({u.role})
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a user..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Select a user...</SelectItem>
+                        {availableUsers?.map((u) => (
+                          <SelectItem key={u.id} value={u.id.toString()}>
+                            {u.email} ({u.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {adminError && (
                       <p className="text-red-600 text-sm mt-1">{adminError}</p>
                     )}
@@ -330,6 +347,8 @@ export default function AdminCompetitionDetail() {
           </Card>
         </div>
       )}
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

@@ -11,6 +11,14 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Plus, Shield, Trash2, Users } from "lucide-react";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface SeriesAdminsTabProps {
   seriesId: number;
@@ -20,6 +28,7 @@ interface SeriesAdminsTabProps {
 export function SeriesAdminsTab({ seriesId, series }: SeriesAdminsTabProps) {
   const { user, isSuperAdmin } = useAuth();
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
 
   const { data: admins } = useSeriesAdmins(seriesId);
   const addAdminMutation = useAddSeriesAdmin();
@@ -55,17 +64,23 @@ export function SeriesAdminsTab({ seriesId, series }: SeriesAdminsTabProps) {
   };
 
   const handleRemoveAdmin = async (userId: number) => {
-    if (confirm("Are you sure you want to remove this admin?")) {
-      try {
-        await removeAdminMutation.mutateAsync({ seriesId, userId });
-      } catch (err) {
-        showError(formatErrorMessage(err, "Failed to remove admin"));
-      }
+    const shouldRemove = await confirm({
+      title: "Remove admin?",
+      description: "This user will lose admin access to this series.",
+      confirmLabel: "Remove admin",
+      variant: "destructive",
+    });
+    if (!shouldRemove) return;
+    try {
+      await removeAdminMutation.mutateAsync({ seriesId, userId });
+    } catch (err) {
+      showError(formatErrorMessage(err, "Failed to remove admin"));
     }
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Add Admin Form - only visible to owners and SUPER_ADMIN */}
       {canManageAdmins && (
         <div className="bg-white border border-soft-grey rounded-lg p-4">
@@ -77,22 +92,24 @@ export function SeriesAdminsTab({ seriesId, series }: SeriesAdminsTabProps) {
               <label className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
                 User
               </label>
-              <select
-                value={selectedUserId || ""}
-                onChange={(e) =>
-                  setSelectedUserId(
-                    e.target.value ? parseInt(e.target.value) : null
-                  )
+              <Select
+                value={selectedUserId ? selectedUserId.toString() : "none"}
+                onValueChange={(value) =>
+                  setSelectedUserId(value === "none" ? null : parseInt(value))
                 }
-                className="w-full h-9 mt-1 px-3 border border-soft-grey rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-turf focus:border-transparent"
               >
-                <option value="">Select a user...</option>
-                {availableUsers?.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.email} ({u.role})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full h-9 mt-1">
+                  <SelectValue placeholder="Select a user..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select a user...</SelectItem>
+                  {availableUsers?.map((u) => (
+                    <SelectItem key={u.id} value={u.id.toString()}>
+                      {u.email} ({u.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {adminError && (
                 <p className="text-flag text-sm mt-1">{adminError}</p>
               )}
@@ -177,6 +194,8 @@ export function SeriesAdminsTab({ seriesId, series }: SeriesAdminsTabProps) {
           )}
         </div>
       </div>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

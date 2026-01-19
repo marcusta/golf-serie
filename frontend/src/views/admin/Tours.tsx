@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Trophy, Eye, Lock, Globe, Users, Calculator } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { Plus, Trash2, Trophy, Globe, Lock, Users, Calculator } from "lucide-react";
 import {
   useTours,
   useCreateTour,
-  useUpdateTour,
   useDeleteTour,
-  type Tour,
   type TourEnrollmentMode,
   type TourVisibility,
   type TourScoringMode,
@@ -15,347 +13,370 @@ import { useAuth } from "../../hooks/useAuth";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/PaginationControls";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+
+function ToursSkeleton() {
+  return (
+    <div className="grid grid-cols-[minmax(220px,2fr)_140px_140px_140px_120px] gap-4 px-4 py-2 items-center">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-[240px]" />
+        <Skeleton className="h-3 w-[320px]" />
+      </div>
+      <Skeleton className="h-3 w-[90px]" />
+      <Skeleton className="h-3 w-[90px]" />
+      <Skeleton className="h-3 w-[90px]" />
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+      </div>
+    </div>
+  );
+}
 
 export default function Tours() {
   const navigate = useNavigate();
   const { canCreate } = useAuth();
   const { showError } = useNotification();
-  const { data: tours, isLoading } = useTours();
+  const { data: tours, isLoading, error } = useTours();
   const createMutation = useCreateTour();
-  const updateMutation = useUpdateTour();
   const deleteMutation = useDeleteTour();
+  const { confirm, dialog } = useConfirmDialog();
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingTour, setEditingTour] = useState<Tour | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [enrollmentMode, setEnrollmentMode] = useState<TourEnrollmentMode>("closed");
   const [visibility, setVisibility] = useState<TourVisibility>("private");
   const [scoringMode, setScoringMode] = useState<TourScoringMode>("gross");
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  // Paginate tours
   const pagination = usePagination(tours, { pageSize: 100 });
 
   const openCreate = () => {
-    setEditingTour(null);
     setName("");
     setDescription("");
     setEnrollmentMode("closed");
     setVisibility("private");
     setScoringMode("gross");
-    setError(null);
-    setShowModal(true);
-  };
-
-  const openEdit = (tour: Tour) => {
-    setEditingTour(tour);
-    setName(tour.name);
-    setDescription(tour.description || "");
-    setEnrollmentMode(tour.enrollment_mode);
-    setVisibility(tour.visibility);
-    setScoringMode(tour.scoring_mode);
-    setError(null);
-    setShowModal(true);
+    setFormError(null);
+    setShowDialog(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
 
     try {
-      if (editingTour) {
-        await updateMutation.mutateAsync({
-          id: editingTour.id,
-          data: {
-            name,
-            description: description || undefined,
-            enrollment_mode: enrollmentMode,
-            visibility,
-            scoring_mode: scoringMode,
-          },
-        });
-      } else {
-        await createMutation.mutateAsync({
-          name,
-          description: description || undefined,
-          enrollment_mode: enrollmentMode,
-          visibility,
-          scoring_mode: scoringMode,
-        });
-      }
-      setShowModal(false);
+      await createMutation.mutateAsync({
+        name,
+        description: description || undefined,
+        enrollment_mode: enrollmentMode,
+        visibility,
+        scoring_mode: scoringMode,
+      });
+      setShowDialog(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Operation failed");
+      setFormError(err instanceof Error ? err.message : "Operation failed");
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this tour?")) {
-      try {
-        await deleteMutation.mutateAsync(id);
-      } catch (err) {
-        showError(formatErrorMessage(err, "Delete failed"));
-      }
+  const handleDelete = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    const shouldDelete = await confirm({
+      title: "Delete tour?",
+      description: "This will permanently remove the tour and its settings.",
+      confirmLabel: "Delete tour",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (err) {
+      showError(formatErrorMessage(err, "Delete failed"));
     }
+  };
+
+  const handleNavigate = (tourId: number) => {
+    navigate({ to: `/admin/tours/${tourId}` });
   };
 
   if (isLoading) {
-    return <div className="text-charcoal">Loading...</div>;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-turf" />
+            <h2 className="text-xl font-semibold text-charcoal">Tours</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-charcoal/60">Loading...</span>
+            {canCreate && (
+              <Button
+                onClick={openCreate}
+                className="flex items-center gap-2 h-9 px-3 rounded-md text-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Add Tour
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
+          <div className="divide-y divide-soft-grey">
+            {[...Array(3)].map((_, i) => (
+              <ToursSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-turf" />
+            <h2 className="text-xl font-semibold text-charcoal">Tours</h2>
+          </div>
+          {canCreate && (
+            <Button onClick={openCreate} className="flex items-center gap-2 h-9 px-3 rounded-md text-sm">
+              <Plus className="h-4 w-4" />
+              Add Tour
+            </Button>
+          )}
+        </div>
+        <div className="border border-flag/30 bg-flag/5 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-flag">
+            <Trophy className="h-4 w-4" />
+            <p className="text-sm font-semibold">Error loading tours</p>
+          </div>
+          <p className="text-sm text-flag/80 mt-2">
+            Please try refreshing the page or contact support if the problem persists.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-charcoal font-['Inter']">Tours</h2>
-          {tours && tours.length > 0 && (
-            <p className="text-sm text-charcoal/60 mt-1">{pagination.pageInfo}</p>
-          )}
-        </div>
-        {canCreate && (
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors font-['Inter'] font-semibold"
-          >
-            <Plus className="h-4 w-4" />
-            Create Tour
-          </button>
-        )}
-      </div>
-
-      {tours && tours.length === 0 && (
-        <div className="text-center py-12 text-charcoal/60">
-          <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>No tours yet. Create one to get started.</p>
-        </div>
-      )}
-
-      <div className="space-y-6">
-        <div className="grid gap-4">
-          {pagination.paginatedItems.map((tour) => (
-            <div
-              key={tour.id}
-              className="bg-rough/30 rounded-xl p-4 border-2 border-rough"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-charcoal font-['Inter']">
-                      {tour.name}
-                    </h3>
-                    <div className="flex gap-1">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          tour.visibility === "public"
-                            ? "bg-fairway/20 text-fairway"
-                            : "bg-charcoal/10 text-charcoal/70"
-                        }`}
-                        title={tour.visibility === "public" ? "Public tour" : "Private tour"}
-                      >
-                        {tour.visibility === "public" ? (
-                          <Globe className="h-3 w-3" />
-                        ) : (
-                          <Lock className="h-3 w-3" />
-                        )}
-                        {tour.visibility}
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          tour.enrollment_mode === "request"
-                            ? "bg-turf/20 text-turf"
-                            : "bg-charcoal/10 text-charcoal/70"
-                        }`}
-                        title={
-                          tour.enrollment_mode === "request"
-                            ? "Players can request to join"
-                            : "Admin-only enrollment"
-                        }
-                      >
-                        <Users className="h-3 w-3" />
-                        {tour.enrollment_mode === "request" ? "requests" : "closed"}
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          tour.scoring_mode === "net"
-                            ? "bg-amber-100 text-amber-700"
-                            : tour.scoring_mode === "both"
-                            ? "bg-purple-100 text-purple-700"
-                            : "bg-charcoal/10 text-charcoal/70"
-                        }`}
-                        title={`Scoring mode: ${tour.scoring_mode}`}
-                      >
-                        <Calculator className="h-3 w-3" />
-                        {tour.scoring_mode}
-                      </span>
-                    </div>
-                  </div>
-                  {tour.description && (
-                    <p className="text-sm text-charcoal/70 mt-1 font-['Inter']">
-                      {tour.description}
-                    </p>
-                  )}
-                  <p className="text-xs text-charcoal/50 mt-2 font-['Inter']">
-                    Created: {new Date(tour.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => navigate({ to: `/admin/tours/${tour.id}` })}
-                    className="p-2 text-charcoal hover:text-fairway transition-colors"
-                    title="View Details"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => openEdit(tour)}
-                    className="p-2 text-charcoal hover:text-turf transition-colors"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(tour.id)}
-                    className="p-2 text-charcoal hover:text-coral transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Pagination Controls */}
-        {tours && tours.length > 0 && (
-          <PaginationControls
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            onPageChange={pagination.setCurrentPage}
-          />
-        )}
-      </div>
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-scorecard rounded-2xl p-6 max-w-lg w-full">
-            <h3 className="text-xl font-bold text-charcoal mb-4 font-['Inter']">
-              {editingTour ? "Edit Tour" : "Create Tour"}
-            </h3>
-
-            {error && (
-              <div className="bg-coral/10 border border-coral text-coral rounded-lg p-3 mb-4 text-sm">
-                {error}
-              </div>
+    <>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-turf" />
+            <h2 className="text-xl font-semibold text-charcoal">Tours</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            {tours && tours.length > 0 && (
+              <span className="text-sm text-charcoal/60">{pagination.pageInfo}</span>
             )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
-                  placeholder="PGA Tour 2024"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
-                  Description (optional)
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter']"
-                  placeholder="A description of this tour..."
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
-                    Visibility
-                  </label>
-                  <select
-                    value={visibility}
-                    onChange={(e) => setVisibility(e.target.value as TourVisibility)}
-                    className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] bg-white"
-                  >
-                    <option value="private">Private</option>
-                    <option value="public">Public</option>
-                  </select>
-                  <p className="text-xs text-charcoal/50 mt-1">
-                    {visibility === "public"
-                      ? "Anyone can view"
-                      : "Enrolled only"}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
-                    Enrollment
-                  </label>
-                  <select
-                    value={enrollmentMode}
-                    onChange={(e) => setEnrollmentMode(e.target.value as TourEnrollmentMode)}
-                    className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] bg-white"
-                  >
-                    <option value="closed">Admin only</option>
-                    <option value="request">Requests</option>
-                  </select>
-                  <p className="text-xs text-charcoal/50 mt-1">
-                    {enrollmentMode === "request"
-                      ? "Players can request"
-                      : "Admin adds players"}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-charcoal mb-1 font-['Inter']">
-                    Scoring
-                  </label>
-                  <select
-                    value={scoringMode}
-                    onChange={(e) => setScoringMode(e.target.value as TourScoringMode)}
-                    className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors font-['Inter'] bg-white"
-                  >
-                    <option value="gross">Gross</option>
-                    <option value="net">Net</option>
-                    <option value="both">Both</option>
-                  </select>
-                  <p className="text-xs text-charcoal/50 mt-1">
-                    {scoringMode === "net"
-                      ? "Handicap-adjusted"
-                      : scoringMode === "both"
-                      ? "Show gross & net"
-                      : "Raw scores only"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 justify-end pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-charcoal hover:text-charcoal/70 font-['Inter']"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="px-4 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors font-['Inter'] font-semibold disabled:opacity-50"
-                >
-                  {editingTour ? "Save Changes" : "Create Tour"}
-                </button>
-              </div>
-            </form>
+            {canCreate && (
+              <Button onClick={openCreate} className="flex items-center gap-2 h-9 px-3 rounded-md text-sm">
+                <Plus className="h-4 w-4" />
+                Add Tour
+              </Button>
+            )}
           </div>
         </div>
-      )}
-    </div>
+
+        {!tours || tours.length === 0 ? (
+          <div className="border border-soft-grey rounded-lg bg-white px-6 py-10 text-center">
+            <h3 className="text-sm font-semibold text-charcoal mb-2">
+              No tours yet
+            </h3>
+            <p className="text-sm text-charcoal/60">
+              Create a tour to manage enrollment, points, and standings.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
+              <div className="grid grid-cols-[minmax(220px,2fr)_140px_140px_140px_120px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
+                <div>Tour</div>
+                <div>Visibility</div>
+                <div>Enrollment</div>
+                <div>Scoring</div>
+                <div className="text-right">Actions</div>
+              </div>
+              <div className="divide-y divide-soft-grey">
+                {pagination.paginatedItems.map((tour) => (
+                  <div
+                    key={tour.id}
+                    className="grid grid-cols-[minmax(220px,2fr)_140px_140px_140px_120px] gap-4 px-4 py-2 text-sm items-center hover:bg-rough/20 cursor-pointer"
+                    onClick={() => handleNavigate(tour.id)}
+                  >
+                    <div>
+                      <div className="font-medium text-charcoal">{tour.name}</div>
+                      <div className="text-xs text-charcoal/60">ID #{tour.id}</div>
+                      {tour.description && (
+                        <div className="text-sm text-charcoal/60 line-clamp-1">
+                          {tour.description}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className={`inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${
+                        tour.visibility === "public" ? "text-turf" : "text-charcoal/60"
+                      }`}
+                    >
+                      {tour.visibility === "public" ? (
+                        <Globe className="h-3 w-3" />
+                      ) : (
+                        <Lock className="h-3 w-3" />
+                      )}
+                      {tour.visibility === "public" ? "Public" : "Private"}
+                    </div>
+                    <div
+                      className={`inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${
+                        tour.enrollment_mode === "request" ? "text-sky" : "text-charcoal/60"
+                      }`}
+                    >
+                      <Users className="h-3 w-3" />
+                      {tour.enrollment_mode === "request" ? "Requests" : "Closed"}
+                    </div>
+                    <div className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-charcoal/60">
+                      <Calculator className="h-3 w-3" />
+                      {tour.scoring_mode}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(e, tour.id)}
+                        className="h-8 w-8 rounded-md text-flag hover:text-flag hover:bg-flag/10 transition-colors"
+                        title="Delete tour"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <PaginationControls
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={pagination.setCurrentPage}
+            />
+          </div>
+        )}
+      </div>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Tour</DialogTitle>
+          </DialogHeader>
+          {formError && (
+            <div className="border border-flag/30 bg-flag/5 rounded-md px-3 py-2 text-sm text-flag">
+              {formError}
+            </div>
+          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="tour-name" className="text-sm font-medium">
+                Tour Name
+              </label>
+              <Input
+                id="tour-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="PGA Tour 2024"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="tour-description" className="text-sm font-medium">
+                Description
+              </label>
+              <Textarea
+                id="tour-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="A description of this tour (optional)"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Visibility</label>
+                <Select
+                  value={visibility}
+                  onValueChange={(value) => setVisibility(value as TourVisibility)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select visibility" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">Private</SelectItem>
+                    <SelectItem value="public">Public</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Enrollment</label>
+                <Select
+                  value={enrollmentMode}
+                  onValueChange={(value) => setEnrollmentMode(value as TourEnrollmentMode)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select enrollment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="closed">Admin only</SelectItem>
+                    <SelectItem value="request">Requests</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Scoring</label>
+                <Select
+                  value={scoringMode}
+                  onValueChange={(value) => setScoringMode(value as TourScoringMode)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select scoring" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gross">Gross</SelectItem>
+                    <SelectItem value="net">Net</SelectItem>
+                    <SelectItem value="both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                Create Tour
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {dialog}
+    </>
   );
 }

@@ -23,6 +23,7 @@ import {
 import { useNotification } from "@/hooks/useNotification";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/PaginationControls";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 function SeriesSkeleton() {
   return (
@@ -48,6 +49,7 @@ export default function AdminSeries() {
   const { data: series, isLoading, error } = useSeries();
   const createSeries = useCreateSeries();
   const deleteSeries = useDeleteSeries();
+  const { confirm, dialog } = useConfirmDialog();
 
   const [showDialog, setShowDialog] = useState(false);
   const [formData, setFormData] = useState({
@@ -72,15 +74,18 @@ export default function AdminSeries() {
 
   const handleDelete = async (e: React.MouseEvent, series: Series) => {
     e.stopPropagation();
-    if (
-      window.confirm(`Are you sure you want to delete series "${series.name}"?`)
-    ) {
-      try {
-        await deleteSeries.mutateAsync(series.id);
-      } catch (error) {
-        console.error("Failed to delete series:", error);
-        showError("Failed to delete series. Please try again.");
-      }
+    const shouldDelete = await confirm({
+      title: "Delete series?",
+      description: `This will permanently remove "${series.name}" and its settings.`,
+      confirmLabel: "Delete series",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteSeries.mutateAsync(series.id);
+    } catch (error) {
+      console.error("Failed to delete series:", error);
+      showError("Failed to delete series. Please try again.");
     }
   };
 
@@ -348,6 +353,7 @@ export default function AdminSeries() {
           </form>
         </DialogContent>
       </Dialog>
+      {dialog}
     </>
   );
 }

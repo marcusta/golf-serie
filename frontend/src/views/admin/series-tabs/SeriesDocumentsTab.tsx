@@ -17,11 +17,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Edit, FileText, Plus, Save, Trash2 } from "lucide-react";
 import MarkdownEditor from "@/components/MarkdownEditor";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useNotification } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 interface SeriesDocumentsTabProps {
   seriesId: number;
@@ -30,6 +38,7 @@ interface SeriesDocumentsTabProps {
 
 export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps) {
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
 
   const { data: documents } = useSeriesDocuments(seriesId);
   const createDocument = useCreateSeriesDocument();
@@ -103,31 +112,33 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
 
   const handleDeleteDocument = async (document: SeriesDocument) => {
     const isLandingPage = series.landing_document_id === document.id;
-    const confirmMessage = isLandingPage
-      ? `Are you sure you want to delete "${document.title}"? This is currently set as the landing page and will be unset.`
-      : `Are you sure you want to delete "${document.title}"?`;
-
-    if (window.confirm(confirmMessage)) {
-      try {
-        // If deleting the landing page document, unset it first
-        if (isLandingPage) {
-          await updateSeries.mutateAsync({
-            id: series.id,
-            data: {
-              landing_document_id: undefined,
-            },
-          });
-          setLandingDocumentId(undefined);
-        }
-
-        await deleteDocument.mutateAsync({
-          seriesId,
-          documentId: document.id,
+    const shouldDelete = await confirm({
+      title: "Delete document?",
+      description: isLandingPage
+        ? `Deleting "${document.title}" will unset the landing page.`
+        : `Delete "${document.title}"?`,
+      confirmLabel: "Delete document",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      if (isLandingPage) {
+        await updateSeries.mutateAsync({
+          id: series.id,
+          data: {
+            landing_document_id: undefined,
+          },
         });
-      } catch (error) {
-        console.error("Failed to delete document:", error);
-        showError("Failed to delete document. Please try again.");
+        setLandingDocumentId(undefined);
       }
+
+      await deleteDocument.mutateAsync({
+        seriesId,
+        documentId: document.id,
+      });
+    } catch (error) {
+      console.error("Failed to delete document:", error);
+      showError("Failed to delete document. Please try again.");
     }
   };
 
@@ -148,7 +159,8 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
   const selectedDoc = documents?.find((doc) => doc.id === landingDocumentId);
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       {/* Landing Page Settings Section */}
       <div className="bg-white border border-soft-grey rounded-lg p-4">
         <div className="text-sm font-semibold uppercase tracking-wide text-charcoal mb-3">
@@ -161,22 +173,24 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
           >
             Landing Page Document
           </label>
-          <select
-            id="landing-document"
-            value={landingDocumentId || ""}
-            onChange={(e) => {
-              const value = e.target.value;
-              setLandingDocumentId(value ? parseInt(value) : undefined);
-            }}
-            className="w-full h-9 px-3 border border-soft-grey rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-turf focus:border-transparent"
+          <Select
+            value={landingDocumentId ? landingDocumentId.toString() : "none"}
+            onValueChange={(value) =>
+              setLandingDocumentId(value === "none" ? undefined : parseInt(value))
+            }
           >
-            <option value="">None (use series description)</option>
-            {documents?.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                {doc.title}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full h-9">
+              <SelectValue placeholder="None (use series description)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None (use series description)</SelectItem>
+              {documents?.map((doc) => (
+                <SelectItem key={doc.id} value={doc.id.toString()}>
+                  {doc.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="text-xs text-charcoal/60">
             Select which document players will see as the main content for this series.
           </p>
@@ -388,6 +402,8 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }

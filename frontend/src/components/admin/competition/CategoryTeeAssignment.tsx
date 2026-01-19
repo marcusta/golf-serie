@@ -1,6 +1,13 @@
 import { useTourCategories } from "../../../api/tours";
 import { useCourseTees } from "../../../api/courses";
 import type { CategoryTeeMapping } from "../../../api/competitions";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Tee color display helper
 function TeeColorDot({ color }: { color?: string }) {
@@ -47,12 +54,12 @@ export function CategoryTeeAssignment({
   // Get the tee ID for a given category from mappings
   const getTeeForCategory = (categoryId: number): string => {
     const mapping = mappings.find((m) => m.categoryId === categoryId);
-    return mapping?.teeId?.toString() || "";
+    return mapping?.teeId?.toString() || "default";
   };
 
   // Handle tee selection for a category
   const handleTeeChange = (categoryId: number, teeIdStr: string) => {
-    const teeId = teeIdStr ? parseInt(teeIdStr) : null;
+    const teeId = teeIdStr && teeIdStr !== "default" ? parseInt(teeIdStr) : null;
 
     // Create new mappings array
     const newMappings = mappings.filter((m) => m.categoryId !== categoryId);
@@ -108,25 +115,30 @@ export function CategoryTeeAssignment({
             <span className="text-sm font-medium text-charcoal min-w-[120px]">
               {category.name}
             </span>
-            <select
+            <Select
               value={getTeeForCategory(category.id)}
-              onChange={(e) => handleTeeChange(category.id, e.target.value)}
-              className="flex-1 px-3 py-1.5 text-sm border border-soft-grey rounded-lg focus:border-turf focus:outline-none transition-colors bg-white"
+              onValueChange={(value) => handleTeeChange(category.id, value)}
               disabled={disabled}
             >
-              <option value="">Use default tee</option>
-              {tees.map((tee) => (
-                <option key={tee.id} value={tee.id}>
-                  {tee.name}
-                  {tee.color ? ` (${tee.color})` : ""}
-                </option>
-              ))}
-            </select>
-            {getTeeForCategory(category.id) && (
+              <SelectTrigger className="flex-1 h-9">
+                <SelectValue placeholder="Use default tee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Use default tee</SelectItem>
+                {tees.map((tee) => (
+                  <SelectItem key={tee.id} value={tee.id.toString()}>
+                    {tee.name}
+                    {tee.color ? ` (${tee.color})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {getTeeForCategory(category.id) !== "default" && (
               <TeeColorDot
                 color={
-                  tees.find((t) => t.id === parseInt(getTeeForCategory(category.id)))
-                    ?.color
+                  tees.find(
+                    (t) => t.id === parseInt(getTeeForCategory(category.id))
+                  )?.color
                 }
               />
             )}

@@ -10,6 +10,7 @@ import {
   type Participant,
 } from "../../api/participants";
 import { useCourses } from "../../api/courses";
+import { Input } from "@/components/ui/input";
 
 interface ManualScoreInputs {
   out?: string;
@@ -498,7 +499,7 @@ export default function AdminManualScoreEntry() {
                       </td>
                       {isOutInTotalMode && (
                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <input
+                          <Input
                             type="number"
                             min="0"
                             value={
@@ -513,14 +514,14 @@ export default function AdminManualScoreEntry() {
                                 e.target.value
                               )
                             }
-                            className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-16 px-2 py-1 text-center"
                             placeholder="—"
                           />
                         </td>
                       )}
                       {isOutInTotalMode && (
                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <input
+                          <Input
                             type="number"
                             min="0"
                             value={
@@ -535,7 +536,7 @@ export default function AdminManualScoreEntry() {
                                 e.target.value
                               )
                             }
-                            className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-16 px-2 py-1 text-center"
                             placeholder="—"
                           />
                         </td>
@@ -546,7 +547,7 @@ export default function AdminManualScoreEntry() {
                             {calculateTotal(participant.id) || "—"}
                           </div>
                         ) : (
-                          <input
+                          <Input
                             type="number"
                             min="0"
                             value={
@@ -561,7 +562,7 @@ export default function AdminManualScoreEntry() {
                                 e.target.value
                               )
                             }
-                            className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-20 px-2 py-1 text-center"
                             placeholder="—"
                           />
                         )}

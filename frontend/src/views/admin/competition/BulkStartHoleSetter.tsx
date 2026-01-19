@@ -3,6 +3,14 @@ import type { TeeTime } from "../../../api/tee-times";
 import { useUpdateTeeTime } from "../../../api/tee-times";
 import { useNotification } from "@/hooks/useNotification";
 import { Button } from "@/components/ui/button";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BulkStartHoleSetterProps {
   teeTimes: TeeTime[] | undefined;
@@ -18,15 +26,16 @@ export function BulkStartHoleSetter({
 
   const updateTeeTimeMutation = useUpdateTeeTime();
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
 
   const handleApplyToAll = async () => {
     if (!teeTimes || teeTimes.length === 0) return;
-    if (
-      !confirm(
-        `Set start hole to ${bulkStartHole} for all ${teeTimes.length} tee times?`
-      )
-    )
-      return;
+    const shouldApply = await confirm({
+      title: "Apply start hole?",
+      description: `Set start hole to ${bulkStartHole} for all ${teeTimes.length} tee times?`,
+      confirmLabel: "Apply to all",
+    });
+    if (!shouldApply) return;
 
     setIsBulkUpdating(true);
     try {
@@ -50,20 +59,25 @@ export function BulkStartHoleSetter({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <>
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
       <h4 className="text-md font-semibold text-gray-900 mb-3">
         Apply Start Hole To All Tee Times
       </h4>
       <div className="flex items-center gap-3">
         <label className="text-sm text-gray-700">Start hole for all:</label>
-        <select
-          value={bulkStartHole}
-          onChange={(e) => setBulkStartHole(parseInt(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <Select
+          value={bulkStartHole.toString()}
+          onValueChange={(value) => setBulkStartHole(parseInt(value))}
         >
-          <option value={1}>Hole 1</option>
-          <option value={10}>Hole 10</option>
-        </select>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Select hole" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">Hole 1</SelectItem>
+            <SelectItem value="10">Hole 10</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           onClick={handleApplyToAll}
           disabled={
@@ -79,7 +93,9 @@ export function BulkStartHoleSetter({
       <p className="text-xs text-gray-500 mt-2">
         Useful when shotgun start is determined after tee times are created.
       </p>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }
 

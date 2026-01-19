@@ -12,6 +12,7 @@ import {
 import type { TeeTime, TeeTimeParticipant } from "../../../api/tee-times";
 import type { TourEnrollment } from "../../../api/tours";
 import { useNotification } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import {
   useDeleteTeeTime,
   useUpdateTeeTime,
@@ -20,6 +21,13 @@ import {
   useLockParticipant,
   useUnlockParticipant,
 } from "../../../api/participants";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TeeTimeListProps {
   teeTimes: TeeTime[];
@@ -54,9 +62,16 @@ export function TeeTimeList({
   const updateTeeTimeMutation = useUpdateTeeTime();
   const lockParticipantMutation = useLockParticipant();
   const unlockParticipantMutation = useUnlockParticipant();
+  const { confirm, dialog } = useConfirmDialog();
 
   const handleDeleteTeeTime = async (teeTimeId: number) => {
-    if (!confirm("Are you sure you want to delete this tee time?")) return;
+    const shouldDelete = await confirm({
+      title: "Delete tee time?",
+      description: "This will permanently remove the tee time.",
+      confirmLabel: "Delete tee time",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
 
     try {
       await deleteTeeTimeMutation.mutateAsync(teeTimeId);
@@ -83,7 +98,8 @@ export function TeeTimeList({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <>
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
         Existing Tee Times
       </h3>
@@ -110,7 +126,9 @@ export function TeeTimeList({
           />
         ))}
       </div>
-    </div>
+      </div>
+      {dialog}
+    </>
   );
 }
 
@@ -182,16 +200,20 @@ function TeeTimeCard({
           {competition?.venue_type === "outdoor" && (
             <>
               <label className="text-sm text-gray-600">Start hole:</label>
-              <select
-                value={teeTime.start_hole ?? 1}
-                onChange={(e) =>
-                  onUpdateStartHole(teeTime.id, parseInt(e.target.value))
+              <Select
+                value={(teeTime.start_hole ?? 1).toString()}
+                onValueChange={(value) =>
+                  onUpdateStartHole(teeTime.id, parseInt(value))
                 }
-                className="px-2 py-1 border border-gray-300 rounded-md text-sm"
               >
-                <option value={1}>1</option>
-                <option value={10}>10</option>
-              </select>
+                <SelectTrigger className="h-8 w-[72px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                </SelectContent>
+              </Select>
             </>
           )}
           <Users className="h-4 w-4 text-gray-500" />

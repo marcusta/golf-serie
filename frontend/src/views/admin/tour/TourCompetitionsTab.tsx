@@ -10,6 +10,7 @@ import {
   TourCompetitionModal,
 } from "../../../components/admin/tour";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 interface TourCompetitionsTabProps {
   tourId: number;
@@ -17,6 +18,7 @@ interface TourCompetitionsTabProps {
 
 export function TourCompetitionsTab({ tourId }: TourCompetitionsTabProps) {
   const { showError } = useNotification();
+  const { confirm, dialog } = useConfirmDialog();
   const [showCompetitionModal, setShowCompetitionModal] = useState(false);
   const [editingCompetitionId, setEditingCompetitionId] = useState<number | null>(null);
 
@@ -30,12 +32,17 @@ export function TourCompetitionsTab({ tourId }: TourCompetitionsTabProps) {
   };
 
   const handleDeleteCompetition = async (competition: TourCompetition) => {
-    if (confirm(`Are you sure you want to delete "${competition.name}"?`)) {
-      try {
-        await deleteCompetitionMutation.mutateAsync(competition.id);
-      } catch (err) {
-        showError(formatErrorMessage(err, "Failed to delete competition"));
-      }
+    const shouldDelete = await confirm({
+      title: "Delete competition?",
+      description: `This will permanently remove "${competition.name}".`,
+      confirmLabel: "Delete competition",
+      variant: "destructive",
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteCompetitionMutation.mutateAsync(competition.id);
+    } catch (err) {
+      showError(formatErrorMessage(err, "Failed to delete competition"));
     }
   };
 
@@ -83,6 +90,7 @@ export function TourCompetitionsTab({ tourId }: TourCompetitionsTabProps) {
         }}
         competition={editingCompetition}
       />
+      {dialog}
     </>
   );
 }
