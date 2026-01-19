@@ -349,6 +349,45 @@ export function createApp(db: Database): Hono {
     return await coursesApi.findAll();
   });
 
+  // Admin courses endpoint with pagination and filtering
+  // Query params: limit (default 50, max 100), offset (default 0), search (name substring), holeCount (9|18), hasTees (true|false)
+  app.get("/api/admin/courses", requireRole("SUPER_ADMIN", "ORGANIZER", "ADMIN"), (c) => {
+    // Parse query parameters
+    const limitParam = c.req.query("limit");
+    const offsetParam = c.req.query("offset");
+    const search = c.req.query("search") || undefined;
+    const holeCountParam = c.req.query("holeCount");
+    const hasTeesParam = c.req.query("hasTees");
+
+    // Parse numeric parameters with defaults
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+    const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+
+    // Check for NaN from invalid input
+    if (Number.isNaN(limit) || Number.isNaN(offset)) {
+      return c.json({ error: "Invalid limit or offset parameter" }, 400);
+    }
+
+    // Parse holeCount (must be 9 or 18)
+    let holeCount: 9 | 18 | undefined;
+    if (holeCountParam) {
+      const parsed = parseInt(holeCountParam, 10);
+      if (parsed === 9 || parsed === 18) {
+        holeCount = parsed;
+      }
+    }
+
+    // Parse hasTees (true/false)
+    let hasTees: boolean | undefined;
+    if (hasTeesParam === "true") {
+      hasTees = true;
+    } else if (hasTeesParam === "false") {
+      hasTees = false;
+    }
+
+    return coursesApi.getCoursesPagedAdmin({ limit, offset, search, holeCount, hasTees });
+  });
+
   app.get("/api/courses/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await coursesApi.findById(c.req.raw, id);

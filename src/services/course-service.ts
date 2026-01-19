@@ -50,6 +50,40 @@ interface ParsData {
   total: number;
 }
 
+// Types for paginated admin response
+export interface CourseAdminListItem {
+  id: number;
+  name: string;
+  totalPar: number;
+  holeCount: number;
+  teeCount: number;
+  crRange: { min: number | null; max: number | null } | null;
+}
+
+export interface GetCoursesPagedAdminOptions {
+  limit: number;
+  offset: number;
+  search?: string;
+  holeCount?: 9 | 18;
+  hasTees?: boolean;
+}
+
+export interface GetCoursesPagedAdminResult {
+  courses: CourseAdminListItem[];
+  total: number;
+  hasMore: boolean;
+}
+
+// Raw row type for the paged query
+interface CourseAdminRow {
+  id: number;
+  name: string;
+  pars: string;
+  tee_count: number;
+  cr_min: number | null;
+  cr_max: number | null;
+}
+
 // Raw database row type
 interface CourseRow {
   id: number;
@@ -264,6 +298,137 @@ export class CourseService {
     stmt.run(id);
   }
 
+  private buildCourseAdminFilters(
+    search?: string,
+    holeCount?: 9 | 18,
+    hasTees?: boolean
+  ): { whereClause: string; havingClause: string; params: (string | number)[] } {
+    const conditions: string[] = [];
+    const havingConditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (search) {
+      conditions.push("LOWER(c.name) LIKE LOWER(?)");
+      params.push(`%${search}%`);
+    }
+
+    if (hasTees !== undefined) {
+      if (hasTees) {
+        havingConditions.push("COUNT(ct.id) > 0");
+      } else {
+        havingConditions.push("COUNT(ct.id) = 0");
+      }
+    }
+
+    if (holeCount !== undefined) {
+      // holeCount filter: count non-zero pars in the array
+      // We'll add this as a HAVING clause after calculating hole_count
+      havingConditions.push("hole_count = ?");
+      params.push(holeCount);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const havingClause = havingConditions.length > 0 ? `HAVING ${havingConditions.join(" AND ")}` : "";
+
+    return { whereClause, havingClause, params };
+  }
+
+  private findCoursesPagedAdmin(
+    limit: number,
+    offset: number,
+    search?: string,
+    holeCount?: 9 | 18,
+    hasTees?: boolean
+  ): CourseAdminRow[] {
+    const { whereClause, havingClause, params } = this.buildCourseAdminFilters(search, holeCount, hasTees);
+
+    // Calculate hole_count by counting non-null/non-zero pars in the JSON array
+    // The pars are stored as a JSON array like [4,5,3,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    // We count values > 0 to get the hole count
+    const sql = `
+      SELECT
+        c.id,
+        c.name,
+        c.pars,
+        COUNT(ct.id) as tee_count,
+        MIN(ctr.course_rating) as cr_min,
+        MAX(ctr.course_rating) as cr_max,
+        (
+          SELECT COUNT(*)
+          FROM json_each(c.pars)
+          WHERE json_each.value > 0
+        ) as hole_count
+      FROM courses c
+      LEFT JOIN course_tees ct ON c.id = ct.course_id
+      LEFT JOIN course_tee_ratings ctr ON ct.id = ctr.tee_id
+      ${whereClause}
+      GROUP BY c.id
+      ${havingClause}
+      ORDER BY c.name ASC
+      LIMIT ? OFFSET ?
+    `;
+
+    return this.db.prepare(sql).all(...params, limit, offset) as CourseAdminRow[];
+  }
+
+  private countCoursesPagedAdmin(
+    search?: string,
+    holeCount?: 9 | 18,
+    hasTees?: boolean
+  ): number {
+    const { whereClause, havingClause, params } = this.buildCourseAdminFilters(search, holeCount, hasTees);
+
+    const sql = `
+      SELECT COUNT(*) as count FROM (
+        SELECT
+          c.id,
+          COUNT(ct.id) as tee_count,
+          (
+            SELECT COUNT(*)
+            FROM json_each(c.pars)
+            WHERE json_each.value > 0
+          ) as hole_count
+        FROM courses c
+        LEFT JOIN course_tees ct ON c.id = ct.course_id
+        ${whereClause}
+        GROUP BY c.id
+        ${havingClause}
+      )
+    `;
+
+    const result = this.db.prepare(sql).get(...params) as { count: number };
+    return result.count;
+  }
+
+  private transformCourseAdminRow(row: CourseAdminRow): CourseAdminListItem {
+    // Parse pars to calculate total and hole count
+    let totalPar = 0;
+    let holeCount = 0;
+
+    try {
+      const pars = JSON.parse(row.pars) as number[];
+      for (const par of pars) {
+        if (par > 0) {
+          totalPar += par;
+          holeCount++;
+        }
+      }
+    } catch {
+      // If parsing fails, default to 0
+    }
+
+    return {
+      id: row.id,
+      name: row.name,
+      totalPar,
+      holeCount,
+      teeCount: row.tee_count,
+      crRange: row.cr_min !== null && row.cr_max !== null
+        ? { min: row.cr_min, max: row.cr_max }
+        : null,
+    };
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // Public API Methods (orchestration only)
   // ─────────────────────────────────────────────────────────────────
@@ -277,6 +442,31 @@ export class CourseService {
   async findAll(): Promise<Course[]> {
     const rows = this.findAllCoursesWithClub();
     return rows.map((row) => this.transformCourseRow(row));
+  }
+
+  getCoursesPagedAdmin(options: GetCoursesPagedAdminOptions): GetCoursesPagedAdminResult {
+    // Validate and sanitize limit (1-100, default 50)
+    const limit = Math.min(Math.max(1, options.limit || 50), 100);
+
+    // Validate and sanitize offset (non-negative, default 0)
+    const offset = Math.max(0, options.offset || 0);
+
+    // Validate holeCount if provided (must be 9 or 18)
+    const holeCount = options.holeCount === 9 || options.holeCount === 18
+      ? options.holeCount
+      : undefined;
+
+    // Get total count for pagination
+    const total = this.countCoursesPagedAdmin(options.search, holeCount, options.hasTees);
+
+    // Get paginated courses
+    const rows = this.findCoursesPagedAdmin(limit, offset, options.search, holeCount, options.hasTees);
+    const courses = rows.map((row) => this.transformCourseAdminRow(row));
+
+    // Calculate if more results exist
+    const hasMore = offset + courses.length < total;
+
+    return { courses, total, hasMore };
   }
 
   async findById(id: number): Promise<Course | null> {

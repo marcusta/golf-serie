@@ -1,4 +1,4 @@
-import { CourseService, type ImportCourseData } from "../services/course-service";
+import { CourseService, type ImportCourseData, type GetCoursesPagedAdminOptions } from "../services/course-service";
 import { CourseTeeService } from "../services/course-tee.service";
 import type {
   CreateCourseDto,
@@ -41,6 +41,24 @@ export function createCoursesApi(courseService: CourseService, courseTeeService?
       try {
         const courses = await courseService.findAll();
         return new Response(JSON.stringify(courses), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Internal server error" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    },
+
+    getCoursesPagedAdmin(options: GetCoursesPagedAdminOptions): Response {
+      try {
+        const result = courseService.getCoursesPagedAdmin(options);
+        return new Response(JSON.stringify(result), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });

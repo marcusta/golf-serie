@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
 
 export interface Course {
   id: number;
   name: string;
+  club_id?: number;
   club_name?: string; // Joined from clubs table
   pars: {
     holes: number[];
@@ -46,6 +47,82 @@ export function useCourse(id: number) {
   });
 }
 
+// Types for infinite courses admin
+export interface CoursesPageResponse {
+  courses: Course[];
+  total: number;
+  hasMore: boolean;
+}
+
+export interface UseInfiniteCoursesAdminParams {
+  search?: string;
+  holeCount?: "18" | "9" | "all";
+  hasTees?: "yes" | "no" | "all";
+}
+
+// Interface for course with tee info (enriched data)
+export interface CourseWithTeeInfo extends Course {
+  tee_count: number;
+  cr_range?: string; // e.g., "71.2-75.4"
+}
+
+export function useInfiniteCoursesAdmin(params: UseInfiniteCoursesAdminParams = {}) {
+  const { search, holeCount, hasTees } = params;
+  const limit = 20;
+
+  return useInfiniteQuery<CoursesPageResponse>({
+    queryKey: ["courses", "admin", "infinite", { search, holeCount, hasTees }],
+    queryFn: async ({ pageParam = 0 }) => {
+      // For now, fetch all courses and do client-side filtering/pagination
+      // This can be updated to use backend pagination when available
+      const response = await fetch(`${API_BASE_URL}/courses`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch courses");
+      }
+      const allCourses: Course[] = await response.json();
+
+      // Client-side filtering
+      let filteredCourses = allCourses;
+
+      // Search filter
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredCourses = filteredCourses.filter(
+          (course) =>
+            course.name.toLowerCase().includes(searchLower) ||
+            (course.club_name && course.club_name.toLowerCase().includes(searchLower))
+        );
+      }
+
+      // Hole count filter
+      if (holeCount && holeCount !== "all") {
+        const targetHoles = holeCount === "18" ? 18 : 9;
+        filteredCourses = filteredCourses.filter(
+          (course) => course.pars.holes.length === targetHoles
+        );
+      }
+
+      // Client-side pagination
+      const offset = pageParam as number;
+      const paginatedCourses = filteredCourses.slice(offset, offset + limit);
+
+      return {
+        courses: paginatedCourses,
+        total: filteredCourses.length,
+        hasMore: offset + limit < filteredCourses.length,
+      };
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) {
+        return undefined;
+      }
+      const totalFetched = allPages.reduce((sum, page) => sum + page.courses.length, 0);
+      return totalFetched;
+    },
+    initialPageParam: 0,
+  });
+}
+
 export function useCreateCourse() {
   const queryClient = useQueryClient();
 
@@ -73,21 +150,30 @@ export function useUpdateCourse() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, name }: { id: number; name: string }) => {
+    mutationFn: async ({
+      id,
+      name,
+      club_id,
+    }: {
+      id: number;
+      name?: string;
+      club_id?: number | null;
+    }) => {
       const response = await fetch(`${API_BASE_URL}/courses/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, club_id }),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["courses"] });
+      queryClient.invalidateQueries({ queryKey: ["course", variables.id] });
     },
   });
 }
