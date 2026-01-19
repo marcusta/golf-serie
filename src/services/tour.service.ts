@@ -47,6 +47,8 @@ export type UpdateTourInput = {
   landing_document_id?: number | null;
   point_template_id?: number | null;
   scoring_mode?: string;
+  visibility?: string;
+  enrollment_mode?: string;
 };
 
 export type TourStanding = {
@@ -461,6 +463,14 @@ export class TourService {
     if (data.scoring_mode !== undefined) {
       updates.push("scoring_mode = ?");
       values.push(data.scoring_mode);
+    }
+    if (data.visibility !== undefined) {
+      updates.push("visibility = ?");
+      values.push(data.visibility);
+    }
+    if (data.enrollment_mode !== undefined) {
+      updates.push("enrollment_mode = ?");
+      values.push(data.enrollment_mode);
     }
 
     if (updates.length > 0) {

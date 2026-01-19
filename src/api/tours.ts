@@ -171,6 +171,9 @@ export function createToursApi(
         banner_image_url: body.banner_image_url,
         landing_document_id: body.landing_document_id,
         point_template_id: body.point_template_id,
+        scoring_mode: body.scoring_mode,
+        visibility: body.visibility,
+        enrollment_mode: body.enrollment_mode,
       });
 
       return c.json(updated);
