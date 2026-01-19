@@ -105,6 +105,12 @@ export class PointTemplateService {
       .all() as PointTemplate[];
   }
 
+  findLibraryTemplates(): PointTemplate[] {
+    return this.db
+      .prepare("SELECT * FROM point_templates WHERE tour_id IS NULL ORDER BY name ASC")
+      .all() as PointTemplate[];
+  }
+
   findById(id: number): PointTemplate | null {
     return this.db
       .prepare("SELECT * FROM point_templates WHERE id = ?")

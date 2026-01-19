@@ -7,10 +7,10 @@ export function createPointTemplatesApi(
 ) {
   const app = new Hono();
 
-  // GET /api/point-templates - Public: List all templates
+  // GET /api/point-templates - Public: List library templates (tour_id = NULL)
   app.get("/", async (c) => {
     try {
-      const templates = pointTemplateService.findAll();
+      const templates = pointTemplateService.findLibraryTemplates();
       return c.json(templates);
     } catch (error: any) {
       return c.json({ error: error.message }, 500);

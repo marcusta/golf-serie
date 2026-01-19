@@ -7,12 +7,16 @@ import {
   Trash2,
   Check,
   X,
+  Library,
+  FilePlus,
+  Copy,
 } from "lucide-react";
 import {
   useTourPointTemplates,
   useCreateTourPointTemplate,
   useUpdateTourPointTemplate,
   useDeleteTourPointTemplate,
+  usePointTemplates,
   type PointTemplate,
   type PointsStructure,
 } from "../../../api/point-templates";
@@ -86,6 +90,7 @@ function getDefaultEntries(): PositionEntry[] {
 
 export function TourPointsTab({ tourId }: TourPointsTabProps) {
   const { showError } = useNotification();
+  const [showSourceDialog, setShowSourceDialog] = useState(false);
   const [showPointTemplateDialog, setShowPointTemplateDialog] = useState(false);
   const [editingPointTemplate, setEditingPointTemplate] = useState<PointTemplate | null>(null);
   const [pointTemplateName, setPointTemplateName] = useState("");
@@ -94,13 +99,47 @@ export function TourPointsTab({ tourId }: TourPointsTabProps) {
   const [pointTemplateError, setPointTemplateError] = useState<string | null>(null);
 
   const { data: tourPointTemplates, isLoading: tourPointTemplatesLoading } = useTourPointTemplates(tourId);
+  const { data: libraryTemplates, isLoading: libraryTemplatesLoading } = usePointTemplates();
 
   const createPointTemplateMutation = useCreateTourPointTemplate(tourId);
   const updatePointTemplateMutation = useUpdateTourPointTemplate(tourId);
   const deletePointTemplateMutation = useDeleteTourPointTemplate(tourId);
 
+  const openSourceDialog = () => {
+    setShowSourceDialog(true);
+  };
+
+  const handleStartFresh = () => {
+    setShowSourceDialog(false);
+    setEditingPointTemplate(null);
+    setPointTemplateName("");
+    setPointTemplateEntries(getDefaultEntries());
+    setPointTemplateDefaultPoints("10");
+    setPointTemplateError(null);
+    setShowPointTemplateDialog(true);
+  };
+
+  const handleCopyFromLibrary = (template: PointTemplate) => {
+    setShowSourceDialog(false);
+    setEditingPointTemplate(null);
+    // Pre-populate with library template data (but without the name to encourage customization)
+    setPointTemplateName(template.name + " (Copy)");
+    try {
+      const parsed = JSON.parse(template.points_structure);
+      const { entries, defaultPoints } = structureToEntries(parsed);
+      setPointTemplateEntries(entries);
+      setPointTemplateDefaultPoints(defaultPoints);
+    } catch {
+      setPointTemplateEntries(getDefaultEntries());
+      setPointTemplateDefaultPoints("10");
+    }
+    setPointTemplateError(null);
+    setShowPointTemplateDialog(true);
+  };
+
   const openPointTemplateDialog = (template?: PointTemplate) => {
     if (template) {
+      // Editing existing template
       setEditingPointTemplate(template);
       setPointTemplateName(template.name);
       try {
@@ -112,14 +151,12 @@ export function TourPointsTab({ tourId }: TourPointsTabProps) {
         setPointTemplateEntries(getDefaultEntries());
         setPointTemplateDefaultPoints("10");
       }
+      setPointTemplateError(null);
+      setShowPointTemplateDialog(true);
     } else {
-      setEditingPointTemplate(null);
-      setPointTemplateName("");
-      setPointTemplateEntries(getDefaultEntries());
-      setPointTemplateDefaultPoints("10");
+      // Creating new template - show source selection
+      openSourceDialog();
     }
-    setPointTemplateError(null);
-    setShowPointTemplateDialog(true);
   };
 
   const closePointTemplateDialog = () => {
@@ -449,6 +486,109 @@ export function TourPointsTab({ tourId }: TourPointsTabProps) {
                   <Check className="w-4 h-4" />
                 )}
                 {editingPointTemplate ? "Save Changes" : "Create Template"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Source Selection Dialog */}
+      {showSourceDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-soft-grey">
+              <h2 className="text-xl font-semibold text-charcoal">
+                Add Point Template
+              </h2>
+              <p className="text-sm text-charcoal/60 mt-1">
+                Choose how to create your new template
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Start Fresh Option */}
+              <button
+                onClick={handleStartFresh}
+                className="w-full p-4 border-2 border-soft-grey rounded-xl hover:border-turf hover:bg-rough/20 transition-all text-left group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="p-2 bg-turf/10 rounded-lg group-hover:bg-turf/20 transition-colors">
+                    <FilePlus className="w-6 h-6 text-turf" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-charcoal">Start Fresh</h3>
+                    <p className="text-sm text-charcoal/60 mt-1">
+                      Create a new template from scratch with default values
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Copy from Library Section */}
+              <div className="border-2 border-soft-grey rounded-xl overflow-hidden">
+                <div className="p-4 bg-rough/30 border-b border-soft-grey">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-fairway/10 rounded-lg">
+                      <Library className="w-5 h-5 text-fairway" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-charcoal">Copy from Library</h3>
+                      <p className="text-sm text-charcoal/60">
+                        Start with a pre-configured template
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 max-h-64 overflow-y-auto">
+                  {libraryTemplatesLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="w-5 h-5 animate-spin text-fairway" />
+                    </div>
+                  ) : libraryTemplates && libraryTemplates.length > 0 ? (
+                    <div className="space-y-2">
+                      {libraryTemplates.map((template) => {
+                        let points: PointsStructure = {};
+                        try {
+                          points = JSON.parse(template.points_structure);
+                        } catch {
+                          // ignore parse errors
+                        }
+                        const positionCount = Object.keys(points).filter(k => k !== "default").length;
+
+                        return (
+                          <button
+                            key={template.id}
+                            onClick={() => handleCopyFromLibrary(template)}
+                            className="w-full p-3 border border-soft-grey rounded-lg hover:border-fairway hover:bg-fairway/5 transition-all text-left flex items-center justify-between gap-3"
+                          >
+                            <div>
+                              <span className="font-medium text-charcoal">{template.name}</span>
+                              <span className="text-xs text-charcoal/50 ml-2">
+                                {positionCount} positions
+                              </span>
+                            </div>
+                            <Copy className="w-4 h-4 text-charcoal/40" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-charcoal/50 text-sm">
+                      <p>No library templates available</p>
+                      <p className="text-xs mt-1">Contact an admin to create template library entries</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-soft-grey flex justify-end">
+              <button
+                onClick={() => setShowSourceDialog(false)}
+                className="px-4 py-2 text-charcoal/70 hover:text-charcoal transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

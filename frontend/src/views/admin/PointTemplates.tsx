@@ -197,10 +197,15 @@ export default function PointTemplates() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-charcoal font-['Inter']">
-          Point Templates
-        </h2>
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-charcoal font-['Inter']">
+            Points Template Library
+          </h2>
+          <p className="text-sm text-charcoal/60 mt-1 font-['Inter']">
+            Create reusable point structures that tour managers can copy when setting up their tours.
+          </p>
+        </div>
         <button
           onClick={openCreate}
           className="flex items-center gap-2 px-4 py-2 bg-turf text-scorecard rounded-xl hover:bg-fairway transition-colors font-['Inter'] font-semibold"

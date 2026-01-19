@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState, Navigate } from "@tanstack/react-router";
-import { Users, Map, Trophy, Settings, Award, LogOut, UserCog } from "lucide-react";
+import { Users, Map, Trophy, Settings, Award, LogOut, UserCog, Library } from "lucide-react";
 import TapScoreLogo from "../../components/ui/TapScoreLogo";
 import { useAuth } from "../../hooks/useAuth";
 
@@ -14,7 +14,7 @@ const adminNavLinks = [
 const superAdminNavLinks = [
   { to: "/admin/teams", label: "Teams", icon: Users },
   { to: "/admin/courses", label: "Courses", icon: Map },
-  { to: "/admin/point-templates", label: "Points", icon: Award },
+  { to: "/admin/point-templates", label: "Template Library", icon: Library },
   { to: "/admin/users", label: "Users", icon: UserCog },
 ];
 
