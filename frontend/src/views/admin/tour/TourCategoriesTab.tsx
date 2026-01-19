@@ -28,6 +28,7 @@ import {
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 interface TourCategoriesTabProps {
   tourId: number;
@@ -37,12 +38,15 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
   const { showError } = useNotification();
   const { confirm, dialog } = useConfirmDialog();
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<TourCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<TourCategory | null>(
+    null,
+  );
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
-  const { data: categories, isLoading: categoriesLoading } = useTourCategories(tourId);
+  const { data: categories, isLoading: categoriesLoading } =
+    useTourCategories(tourId);
 
   const createCategoryMutation = useCreateTourCategory();
   const updateCategoryMutation = useUpdateTourCategory();
@@ -84,17 +88,25 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
         await updateCategoryMutation.mutateAsync({
           tourId,
           categoryId: editingCategory.id,
-          data: { name: categoryName, description: categoryDescription || undefined },
+          data: {
+            name: categoryName,
+            description: categoryDescription || undefined,
+          },
         });
       } else {
         await createCategoryMutation.mutateAsync({
           tourId,
-          data: { name: categoryName, description: categoryDescription || undefined },
+          data: {
+            name: categoryName,
+            description: categoryDescription || undefined,
+          },
         });
       }
       closeCategoryDialog();
     } catch (err) {
-      setCategoryError(err instanceof Error ? err.message : "Failed to save category");
+      setCategoryError(
+        err instanceof Error ? err.message : "Failed to save category",
+      );
     }
   };
 
@@ -113,10 +125,13 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
     }
   };
 
-  const handleMoveCategory = async (categoryId: number, direction: "up" | "down") => {
+  const handleMoveCategory = async (
+    categoryId: number,
+    direction: "up" | "down",
+  ) => {
     if (!categories) return;
 
-    const currentIndex = categories.findIndex(c => c.id === categoryId);
+    const currentIndex = categories.findIndex((c) => c.id === categoryId);
     if (currentIndex === -1) return;
 
     const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
@@ -129,7 +144,7 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
     try {
       await reorderCategoriesMutation.mutateAsync({
         tourId,
-        categoryIds: newOrder.map(c => c.id),
+        categoryIds: newOrder.map((c) => c.id),
       });
     } catch (err) {
       showError(formatErrorMessage(err, "Failed to reorder categories"));
@@ -142,9 +157,12 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-charcoal">Player Categories</h3>
+            <h3 className="text-lg font-semibold text-charcoal">
+              Player Categories
+            </h3>
             <p className="text-sm text-charcoal/60 mt-1">
-              Create categories to group players (e.g., Men, Women, Seniors). Categories can be used to filter standings.
+              Create categories to group players (e.g., Men, Women, Seniors).
+              Categories can be used to filter standings.
             </p>
           </div>
           <button
@@ -178,7 +196,9 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
                     <div className="flex flex-col">
                       <button
                         onClick={() => handleMoveCategory(category.id, "up")}
-                        disabled={index === 0 || reorderCategoriesMutation.isPending}
+                        disabled={
+                          index === 0 || reorderCategoriesMutation.isPending
+                        }
                         className={`p-0.5 rounded transition-colors ${
                           index === 0
                             ? "text-charcoal/20 cursor-not-allowed"
@@ -190,7 +210,10 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
                       </button>
                       <button
                         onClick={() => handleMoveCategory(category.id, "down")}
-                        disabled={index === categories.length - 1 || reorderCategoriesMutation.isPending}
+                        disabled={
+                          index === categories.length - 1 ||
+                          reorderCategoriesMutation.isPending
+                        }
                         className={`p-0.5 rounded transition-colors ${
                           index === categories.length - 1
                             ? "text-charcoal/20 cursor-not-allowed"
@@ -204,13 +227,20 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-charcoal">{category.name}</h4>
+                        <h4 className="font-semibold text-charcoal">
+                          {category.name}
+                        </h4>
                         <span className="px-2 py-0.5 bg-charcoal/10 text-charcoal/70 text-xs rounded-full">
-                          {category.enrollment_count} {category.enrollment_count === 1 ? "player" : "players"}
+                          {category.enrollment_count}{" "}
+                          {category.enrollment_count === 1
+                            ? "player"
+                            : "players"}
                         </span>
                       </div>
                       {category.description && (
-                        <p className="text-sm text-charcoal/60 mt-0.5">{category.description}</p>
+                        <p className="text-sm text-charcoal/60 mt-0.5">
+                          {category.description}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -240,7 +270,9 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
           <div className="text-center py-12 text-charcoal/60">
             <Layers className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No categories yet.</p>
-            <p className="text-sm mt-2">Create categories to organize players into groups.</p>
+            <p className="text-sm mt-2">
+              Create categories to organize players into groups.
+            </p>
           </div>
         )}
       </div>
@@ -272,7 +304,7 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
                 value={categoryName}
                 onChange={(e) => setCategoryName(e.target.value)}
                 placeholder="e.g., Men, Women, Seniors"
-                className="w-full px-4 py-2.5 border-2 border-soft-grey rounded-xl focus:border-turf focus:outline-none transition-colors"
+                className="w-full px-4 py-2.5 border-2 border-soft-grey  focus:border-turf focus:outline-none transition-colors"
               />
             </div>
 
@@ -295,24 +327,30 @@ export function TourCategoriesTab({ tourId }: TourCategoriesTabProps) {
           </div>
 
           <DialogFooter>
-            <button
+            <Button
+              type="button"
+              variant="outline"
               onClick={closeCategoryDialog}
-              className="px-4 py-2 text-charcoal/70 hover:text-charcoal transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
               onClick={handleSaveCategory}
-              disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
-              className="flex items-center gap-2 px-6 py-2 bg-turf text-white rounded-lg hover:bg-fairway transition-colors disabled:opacity-50"
+              disabled={
+                createCategoryMutation.isPending ||
+                updateCategoryMutation.isPending
+              }
+              className="flex items-center gap-2 bg-turf text-white hover:bg-fairway"
             >
-              {(createCategoryMutation.isPending || updateCategoryMutation.isPending) ? (
+              {createCategoryMutation.isPending ||
+              updateCategoryMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Check className="w-4 h-4" />
               )}
               {editingCategory ? "Save Changes" : "Create Category"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
