@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { API_BASE_URL } from "./config";
 
 export type UserRole = "SUPER_ADMIN" | "ORGANIZER" | "ADMIN" | "PLAYER";
@@ -26,6 +26,18 @@ export interface User {
   created_at: string;
 }
 
+export interface UsersPageResponse {
+  users: User[];
+  total: number;
+  hasMore: boolean;
+}
+
+export interface UseInfiniteUsersParams {
+  limit?: number;
+  search?: string;
+  role?: UserRole | "ALL";
+}
+
 export function useUsers() {
   return useQuery<User[]>({
     queryKey: ["users"],
@@ -38,6 +50,45 @@ export function useUsers() {
       }
       return response.json();
     },
+  });
+}
+
+export function useInfiniteUsers(params: UseInfiniteUsersParams = {}) {
+  const { limit = 50, search, role } = params;
+
+  return useInfiniteQuery<UsersPageResponse>({
+    queryKey: ["users", "infinite", { search, role }],
+    queryFn: async ({ pageParam = 0 }) => {
+      const searchParams = new URLSearchParams();
+      searchParams.set("limit", String(limit));
+      searchParams.set("offset", String(pageParam));
+      if (search) {
+        searchParams.set("search", search);
+      }
+      if (role && role !== "ALL") {
+        searchParams.set("role", role);
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/users?${searchParams.toString()}`,
+        {
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch users");
+      }
+      return response.json();
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage.hasMore) {
+        return undefined;
+      }
+      // Calculate the next offset based on how many items we've fetched
+      const totalFetched = allPages.reduce((sum, page) => sum + page.users.length, 0);
+      return totalFetched;
+    },
+    initialPageParam: 0,
   });
 }
 

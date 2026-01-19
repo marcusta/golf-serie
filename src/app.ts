@@ -130,7 +130,8 @@ export function createApp(db: Database): Hono {
   // Mount auth API routes
   app.route("/api/auth", authApi);
 
-  // Users endpoint (for admin selection in tour management)
+  // Users endpoint with pagination and filtering (for admin user management)
+  // Query params: limit (default 50, max 100), offset (default 0), search (email substring), role
   app.get("/api/users", (c) => {
     const user = c.get("user");
     if (!user) {
@@ -140,8 +141,24 @@ export function createApp(db: Database): Hono {
     if (user.role !== "SUPER_ADMIN" && user.role !== "ORGANIZER" && user.role !== "ADMIN") {
       return c.json({ error: "Forbidden" }, 403);
     }
-    const users = authService.getAllUsers();
-    return c.json(users);
+
+    // Parse query parameters
+    const limitParam = c.req.query("limit");
+    const offsetParam = c.req.query("offset");
+    const search = c.req.query("search") || undefined;
+    const role = c.req.query("role") || undefined;
+
+    // Parse numeric parameters with defaults
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+    const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+
+    // Check for NaN from invalid input
+    if (Number.isNaN(limit) || Number.isNaN(offset)) {
+      return c.json({ error: "Invalid limit or offset parameter" }, 400);
+    }
+
+    const result = authService.getUsers({ limit, offset, search, role });
+    return c.json(result);
   });
 
   // Update user role (SUPER_ADMIN only)

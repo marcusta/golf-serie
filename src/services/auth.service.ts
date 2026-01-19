@@ -9,6 +9,7 @@ import type { PlayerProfileService } from "./player-profile.service";
 
 const SESSION_EXPIRY_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 const MIN_PASSWORD_LENGTH = 6;
+const VALID_ROLES = ["SUPER_ADMIN", "ORGANIZER", "ADMIN", "PLAYER"] as const;
 
 // ============================================================================
 // Internal Row Types (database representation)
@@ -83,6 +84,19 @@ export interface AuthServiceDependencies {
   tourEnrollmentService?: TourEnrollmentService;
   playerService?: PlayerService;
   playerProfileService?: PlayerProfileService;
+}
+
+export interface GetUsersOptions {
+  limit: number;
+  offset: number;
+  search?: string;
+  role?: string;
+}
+
+export interface GetUsersResult {
+  users: Array<{ id: number; email: string; role: string; created_at: string }>;
+  total: number;
+  hasMore: boolean;
 }
 
 export class AuthService {
@@ -177,6 +191,58 @@ export class AuthService {
   private findAllUsersRows(): Array<{ id: number; email: string; role: string; created_at: string }> {
     return this.db.prepare("SELECT id, email, role, created_at FROM users ORDER BY email")
       .all() as Array<{ id: number; email: string; role: string; created_at: string }>;
+  }
+
+  private buildUserFilters(search?: string, role?: string): {
+    whereClause: string;
+    params: (string | number)[];
+  } {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (search) {
+      conditions.push("LOWER(email) LIKE LOWER(?)");
+      params.push(`%${search}%`);
+    }
+
+    if (role) {
+      conditions.push("role = ?");
+      params.push(role);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    return { whereClause, params };
+  }
+
+  private findUsersWithPagination(
+    limit: number,
+    offset: number,
+    search?: string,
+    role?: string
+  ): Array<{ id: number; email: string; role: string; created_at: string }> {
+    const { whereClause, params } = this.buildUserFilters(search, role);
+
+    const sql = `
+      SELECT id, email, role, created_at
+      FROM users
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    return this.db.prepare(sql).all(...params, limit, offset) as Array<{
+      id: number;
+      email: string;
+      role: string;
+      created_at: string;
+    }>;
+  }
+
+  private countUsersWithFilters(search?: string, role?: string): number {
+    const { whereClause, params } = this.buildUserFilters(search, role);
+    const sql = `SELECT COUNT(*) as count FROM users ${whereClause}`;
+    const result = this.db.prepare(sql).get(...params) as { count: number };
+    return result.count;
   }
 
   private updateUserRoleRow(userId: number, role: string): void {
@@ -415,10 +481,33 @@ export class AuthService {
     return this.findAllUsersRows();
   }
 
+  getUsers(options: GetUsersOptions): GetUsersResult {
+    // Validate and sanitize limit (1-100, default 50)
+    const limit = Math.min(Math.max(1, options.limit || 50), 100);
+
+    // Validate and sanitize offset (non-negative, default 0)
+    const offset = Math.max(0, options.offset || 0);
+
+    // Validate role if provided - silently ignore invalid roles
+    const role = options.role && (VALID_ROLES as readonly string[]).includes(options.role)
+      ? options.role
+      : undefined;
+
+    // Get total count for stats
+    const total = this.countUsersWithFilters(options.search, role);
+
+    // Get paginated users
+    const users = this.findUsersWithPagination(limit, offset, options.search, role);
+
+    // Calculate if more results exist
+    const hasMore = offset + users.length < total;
+
+    return { users, total, hasMore };
+  }
+
   updateUserRole(userId: number, newRole: string): { id: number; email: string; role: string } {
-    const validRoles = ["SUPER_ADMIN", "ORGANIZER", "ADMIN", "PLAYER"];
-    if (!validRoles.includes(newRole)) {
-      throw new Error(`Invalid role. Must be one of: ${validRoles.join(", ")}`);
+    if (!(VALID_ROLES as readonly string[]).includes(newRole)) {
+      throw new Error(`Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`);
     }
 
     const user = this.findUserById(userId);

@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from "react";
-import { useUsers, useUpdateUserRole, type UserRole } from "@/api/users";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useInfiniteUsers, useUpdateUserRole, type UserRole, type User } from "@/api/users";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { UserCog, Mail, Calendar, Shield, Search, Pencil } from "lucide-react";
+import { UserCog, Mail, Calendar, Shield, Search, Pencil, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,14 +16,19 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { EditPlayerProfileDialog } from "./EditPlayerProfileDialog";
 import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
-import { usePagination } from "@/hooks/usePagination";
-import { PaginationControls } from "@/components/PaginationControls";
 
 const ROLES: { value: UserRole; label: string; description: string }[] = [
   { value: "SUPER_ADMIN", label: "Super Admin", description: "Full system access" },
   { value: "ORGANIZER", label: "Organizer", description: "Can create tours/series/competitions" },
   { value: "ADMIN", label: "Admin", description: "Manage assigned resources only" },
   { value: "PLAYER", label: "Player", description: "Player access only" },
+];
+
+const ROLE_FILTER_OPTIONS: { value: UserRole | "ALL"; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "SUPER_ADMIN", label: "Admin" },
+  { value: "ORGANIZER", label: "Organizer" },
+  { value: "PLAYER", label: "Player" },
 ];
 
 function getRoleBadgeColor(role: UserRole) {
@@ -41,14 +46,33 @@ function getRoleBadgeColor(role: UserRole) {
   }
 }
 
+// Debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function Users() {
-  const { data: users, isLoading, error } = useUsers();
   const updateRole = useUpdateUserRole();
   const { user: currentUser } = useAuth();
   const { showError } = useNotification();
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "ALL">("ALL");
+
+  // Debounce search input
+  const debouncedSearch = useDebounce(searchInput, 300);
 
   // State for edit player profile dialog
   const [editProfileDialogOpen, setEditProfileDialogOpen] = useState(false);
@@ -57,7 +81,56 @@ export default function Users() {
     email: string;
   } | null>(null);
 
+  // Intersection Observer ref for infinite scroll
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
   const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+
+  // Use infinite query with debounced search
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteUsers({
+    limit: 50,
+    search: debouncedSearch || undefined,
+    role: roleFilter,
+  });
+
+  // Flatten all pages of users into a single array
+  const users = data?.pages.flatMap((page) => page.users) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
+
+  // Set up Intersection Observer for infinite scroll
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [target] = entries;
+      if (target.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage]
+  );
+
+  useEffect(() => {
+    const element = loadMoreRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: "100px",
+      threshold: 0,
+    });
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [handleObserver]);
 
   const handleEditPlayerProfile = (userId: number, userEmail: string) => {
     setSelectedUserForEdit({ id: userId, email: userEmail });
@@ -76,30 +149,9 @@ export default function Users() {
     }
   };
 
-  // Filter users based on search query and/or role filter
-  const hasActiveFilter = searchQuery.length >= 2 || roleFilter !== "ALL";
-  const filteredUsers = hasActiveFilter
-    ? users?.filter(user => {
-        const matchesEmail = searchQuery.length < 2 ||
-          user.email.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
-        return matchesEmail && matchesRole;
-      })
-    : [];
-
-  // Paginate filtered results
-  const pagination = usePagination(filteredUsers, { pageSize: 100 });
-
-  // Reset pagination when filters change
-  const previousSearchQuery = useRef(searchQuery);
-  const previousRoleFilter = useRef(roleFilter);
-  useEffect(() => {
-    if (previousSearchQuery.current !== searchQuery || previousRoleFilter.current !== roleFilter) {
-      pagination.resetPage();
-      previousSearchQuery.current = searchQuery;
-      previousRoleFilter.current = roleFilter;
-    }
-  }, [searchQuery, roleFilter, pagination]);
+  const handleRoleFilterClick = (role: UserRole | "ALL") => {
+    setRoleFilter(role);
+  };
 
   if (isLoading) {
     return (
@@ -109,6 +161,11 @@ export default function Users() {
           <h2 className="text-3xl font-bold text-charcoal font-['Inter']">Users</h2>
         </div>
         <Skeleton className="h-10 w-full" />
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -134,70 +191,65 @@ export default function Users() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <UserCog className="h-8 w-8 text-turf" />
-          <h2 className="text-3xl font-bold text-charcoal font-['Inter']">Users</h2>
+          <h2 className="text-3xl font-bold text-charcoal font-['Inter']">
+            Users ({total})
+          </h2>
         </div>
-        <Badge variant="secondary" className="text-sm">
-          {users?.length || 0} {users?.length === 1 ? "user" : "users"}
-        </Badge>
       </div>
 
-      {/* Search Bar and Role Filter */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="text"
-            placeholder="Search by email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select
-          value={roleFilter}
-          onValueChange={(value: UserRole | "ALL") => setRoleFilter(value)}
-        >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Filter by role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Roles</SelectItem>
-            {ROLES.map((role) => (
-              <SelectItem key={role.value} value={role.value}>
-                {role.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          type="text"
+          placeholder="Search by email..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
-      {/* Search Results */}
-      {!hasActiveFilter ? (
-        <Card className="border-dashed border-2 border-gray-200">
-          <CardContent className="p-8 text-center">
-            <Search className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">
-              Search by email or select a role to filter users
-            </p>
-          </CardContent>
-        </Card>
-      ) : filteredUsers && filteredUsers.length === 0 ? (
+      {/* Role Filter Chips */}
+      <div className="flex flex-wrap gap-2">
+        {ROLE_FILTER_OPTIONS.map((option) => (
+          <Button
+            key={option.value}
+            variant={roleFilter === option.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleRoleFilterClick(option.value)}
+            className={
+              roleFilter === option.value
+                ? "bg-turf hover:bg-turf/90 text-white"
+                : "hover:bg-turf/10"
+            }
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Users List */}
+      {users.length === 0 ? (
         <Card className="border-dashed border-2 border-gray-200">
           <CardContent className="p-8 text-center">
             <UserCog className="h-10 w-10 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">
-              No users found
-              {searchQuery.length >= 2 && ` matching "${searchQuery}"`}
-              {roleFilter !== "ALL" && ` with role ${ROLES.find(r => r.value === roleFilter)?.label}`}
+              {debouncedSearch || roleFilter !== "ALL"
+                ? `No users found${debouncedSearch ? ` matching "${debouncedSearch}"` : ""}${
+                    roleFilter !== "ALL"
+                      ? ` with role ${ROLES.find((r) => r.value === roleFilter)?.label}`
+                      : ""
+                  }`
+                : "No users found"}
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-gray-500">
-            {pagination.pageInfo}
+            Showing {users.length} of {total} users
           </p>
-          {pagination.paginatedItems.map((user) => {
+          {users.map((user: User) => {
             const isCurrentUser = user.id === currentUser?.id;
             const isUpdating = updatingUserId === user.id;
 
@@ -251,7 +303,7 @@ export default function Users() {
                       {isCurrentUser ? (
                         <Badge className={`${getRoleBadgeColor(user.role)} border`}>
                           <Shield className="h-3 w-3 mr-1" />
-                          {ROLES.find(r => r.value === user.role)?.label || user.role}
+                          {ROLES.find((r) => r.value === user.role)?.label || user.role}
                         </Badge>
                       ) : (
                         <Select
@@ -278,13 +330,19 @@ export default function Users() {
             );
           })}
 
-          {/* Pagination Controls */}
-          <PaginationControls
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            onPageChange={pagination.setCurrentPage}
-            className="mt-6"
-          />
+          {/* Load More Trigger / Loading Indicator */}
+          <div ref={loadMoreRef} className="py-4 flex justify-center">
+            {isFetchingNextPage ? (
+              <div className="flex items-center gap-2 text-gray-500">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Loading more...</span>
+              </div>
+            ) : hasNextPage ? (
+              <div className="h-4" /> // Spacer for intersection observer
+            ) : users.length > 0 ? (
+              <p className="text-sm text-gray-400">All users loaded</p>
+            ) : null}
+          </div>
         </div>
       )}
 
