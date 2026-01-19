@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Plus, Trash2, Users, Shield, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
 
 export default function AdminCompetitionDetail() {
   const { competitionId } = useParams({
@@ -20,6 +21,7 @@ export default function AdminCompetitionDetail() {
   });
   const id = parseInt(competitionId);
   const { user, isSuperAdmin } = useAuth();
+  const { showError } = useNotification();
 
   // API hooks
   const { data: competition, isLoading: competitionLoading } =
@@ -70,7 +72,7 @@ export default function AdminCompetitionDetail() {
       try {
         await removeAdminMutation.mutateAsync({ competitionId: id, userId });
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Failed to remove admin");
+        showError(formatErrorMessage(err, "Failed to remove admin"));
       }
     }
   };

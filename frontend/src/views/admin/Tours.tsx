@@ -12,10 +12,14 @@ import {
   type TourScoringMode,
 } from "../../api/tours";
 import { useAuth } from "../../hooks/useAuth";
+import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import { usePagination } from "@/hooks/usePagination";
+import { PaginationControls } from "@/components/PaginationControls";
 
 export default function Tours() {
   const navigate = useNavigate();
   const { canCreate } = useAuth();
+  const { showError } = useNotification();
   const { data: tours, isLoading } = useTours();
   const createMutation = useCreateTour();
   const updateMutation = useUpdateTour();
@@ -29,6 +33,9 @@ export default function Tours() {
   const [visibility, setVisibility] = useState<TourVisibility>("private");
   const [scoringMode, setScoringMode] = useState<TourScoringMode>("gross");
   const [error, setError] = useState<string | null>(null);
+
+  // Paginate tours
+  const pagination = usePagination(tours, { pageSize: 100 });
 
   const openCreate = () => {
     setEditingTour(null);
@@ -88,7 +95,7 @@ export default function Tours() {
       try {
         await deleteMutation.mutateAsync(id);
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Delete failed");
+        showError(formatErrorMessage(err, "Delete failed"));
       }
     }
   };
@@ -100,7 +107,12 @@ export default function Tours() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-charcoal font-['Inter']">Tours</h2>
+        <div>
+          <h2 className="text-xl font-bold text-charcoal font-['Inter']">Tours</h2>
+          {tours && tours.length > 0 && (
+            <p className="text-sm text-charcoal/60 mt-1">{pagination.pageInfo}</p>
+          )}
+        </div>
         {canCreate && (
           <button
             onClick={openCreate}
@@ -119,97 +131,108 @@ export default function Tours() {
         </div>
       )}
 
-      <div className="grid gap-4">
-        {tours?.map((tour) => (
-          <div
-            key={tour.id}
-            className="bg-rough/30 rounded-xl p-4 border-2 border-rough"
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-charcoal font-['Inter']">
-                    {tour.name}
-                  </h3>
-                  <div className="flex gap-1">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        tour.visibility === "public"
-                          ? "bg-fairway/20 text-fairway"
-                          : "bg-charcoal/10 text-charcoal/70"
-                      }`}
-                      title={tour.visibility === "public" ? "Public tour" : "Private tour"}
-                    >
-                      {tour.visibility === "public" ? (
-                        <Globe className="h-3 w-3" />
-                      ) : (
-                        <Lock className="h-3 w-3" />
-                      )}
-                      {tour.visibility}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        tour.enrollment_mode === "request"
-                          ? "bg-turf/20 text-turf"
-                          : "bg-charcoal/10 text-charcoal/70"
-                      }`}
-                      title={
-                        tour.enrollment_mode === "request"
-                          ? "Players can request to join"
-                          : "Admin-only enrollment"
-                      }
-                    >
-                      <Users className="h-3 w-3" />
-                      {tour.enrollment_mode === "request" ? "requests" : "closed"}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        tour.scoring_mode === "net"
-                          ? "bg-amber-100 text-amber-700"
-                          : tour.scoring_mode === "both"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-charcoal/10 text-charcoal/70"
-                      }`}
-                      title={`Scoring mode: ${tour.scoring_mode}`}
-                    >
-                      <Calculator className="h-3 w-3" />
-                      {tour.scoring_mode}
-                    </span>
+      <div className="space-y-6">
+        <div className="grid gap-4">
+          {pagination.paginatedItems.map((tour) => (
+            <div
+              key={tour.id}
+              className="bg-rough/30 rounded-xl p-4 border-2 border-rough"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-charcoal font-['Inter']">
+                      {tour.name}
+                    </h3>
+                    <div className="flex gap-1">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          tour.visibility === "public"
+                            ? "bg-fairway/20 text-fairway"
+                            : "bg-charcoal/10 text-charcoal/70"
+                        }`}
+                        title={tour.visibility === "public" ? "Public tour" : "Private tour"}
+                      >
+                        {tour.visibility === "public" ? (
+                          <Globe className="h-3 w-3" />
+                        ) : (
+                          <Lock className="h-3 w-3" />
+                        )}
+                        {tour.visibility}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          tour.enrollment_mode === "request"
+                            ? "bg-turf/20 text-turf"
+                            : "bg-charcoal/10 text-charcoal/70"
+                        }`}
+                        title={
+                          tour.enrollment_mode === "request"
+                            ? "Players can request to join"
+                            : "Admin-only enrollment"
+                        }
+                      >
+                        <Users className="h-3 w-3" />
+                        {tour.enrollment_mode === "request" ? "requests" : "closed"}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          tour.scoring_mode === "net"
+                            ? "bg-amber-100 text-amber-700"
+                            : tour.scoring_mode === "both"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-charcoal/10 text-charcoal/70"
+                        }`}
+                        title={`Scoring mode: ${tour.scoring_mode}`}
+                      >
+                        <Calculator className="h-3 w-3" />
+                        {tour.scoring_mode}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                {tour.description && (
-                  <p className="text-sm text-charcoal/70 mt-1 font-['Inter']">
-                    {tour.description}
+                  {tour.description && (
+                    <p className="text-sm text-charcoal/70 mt-1 font-['Inter']">
+                      {tour.description}
+                    </p>
+                  )}
+                  <p className="text-xs text-charcoal/50 mt-2 font-['Inter']">
+                    Created: {new Date(tour.created_at).toLocaleDateString()}
                   </p>
-                )}
-                <p className="text-xs text-charcoal/50 mt-2 font-['Inter']">
-                  Created: {new Date(tour.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => navigate({ to: `/admin/tours/${tour.id}` })}
-                  className="p-2 text-charcoal hover:text-fairway transition-colors"
-                  title="View Details"
-                >
-                  <Eye className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => openEdit(tour)}
-                  className="p-2 text-charcoal hover:text-turf transition-colors"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(tour.id)}
-                  className="p-2 text-charcoal hover:text-coral transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate({ to: `/admin/tours/${tour.id}` })}
+                    className="p-2 text-charcoal hover:text-fairway transition-colors"
+                    title="View Details"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => openEdit(tour)}
+                    className="p-2 text-charcoal hover:text-turf transition-colors"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(tour.id)}
+                    className="p-2 text-charcoal hover:text-coral transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        {/* Pagination Controls */}
+        {tours && tours.length > 0 && (
+          <PaginationControls
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setCurrentPage}
+          />
+        )}
       </div>
 
       {showModal && (

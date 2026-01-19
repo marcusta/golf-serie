@@ -10,6 +10,7 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useAdminSetDQ } from "../../api/participants";
+import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
 
 interface AdminDQDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ export function AdminDQDialog({
 }: AdminDQDialogProps) {
   const [adminNotes, setAdminNotes] = useState("");
   const setDQMutation = useAdminSetDQ();
+  const { showError } = useNotification();
 
   useEffect(() => {
     if (open) {
@@ -45,7 +47,7 @@ export function AdminDQDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to update DQ status:", error);
-      alert(error instanceof Error ? error.message : "Failed to update DQ status");
+      showError(formatErrorMessage(error, "Failed to update DQ status"));
     }
   };
 

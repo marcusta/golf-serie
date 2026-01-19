@@ -10,6 +10,7 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useAdminUpdateScore } from "../../api/participants";
+import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
 
 interface AdminEditScoreDialogProps {
   open: boolean;
@@ -31,6 +32,7 @@ export function AdminEditScoreDialog({
   const [scores, setScores] = useState<string[]>(Array(18).fill(""));
   const [adminNotes, setAdminNotes] = useState("");
   const updateScoreMutation = useAdminUpdateScore();
+  const { showError } = useNotification();
 
   useEffect(() => {
     if (open) {
@@ -68,7 +70,7 @@ export function AdminEditScoreDialog({
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to update score:", error);
-      alert(error instanceof Error ? error.message : "Failed to update score");
+      showError(formatErrorMessage(error, "Failed to update score"));
     }
   };
 

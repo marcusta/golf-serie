@@ -31,6 +31,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useNotification } from "@/hooks/useNotification";
+import { usePagination } from "@/hooks/usePagination";
+import { PaginationControls } from "@/components/PaginationControls";
 
 function SeriesSkeleton() {
   return (
@@ -52,6 +55,7 @@ function SeriesSkeleton() {
 export default function AdminSeries() {
   const navigate = useNavigate();
   const { canCreate } = useAuth();
+  const { showError } = useNotification();
   const { data: series, isLoading, error } = useSeries();
   const createSeries = useCreateSeries();
   const updateSeries = useUpdateSeries();
@@ -65,6 +69,9 @@ export default function AdminSeries() {
     banner_image_url: "",
     is_public: true,
   });
+
+  // Paginate series
+  const pagination = usePagination(series, { pageSize: 100 });
 
   const handleCreate = () => {
     setEditingSeries(null);
@@ -98,7 +105,7 @@ export default function AdminSeries() {
         await deleteSeries.mutateAsync(series.id);
       } catch (error) {
         console.error("Failed to delete series:", error);
-        alert("Failed to delete series. Please try again.");
+        showError("Failed to delete series. Please try again.");
       }
     }
   };
@@ -121,7 +128,7 @@ export default function AdminSeries() {
       setShowDialog(false);
     } catch (error) {
       console.error("Failed to save series:", error);
-      alert("Failed to save series. Please try again.");
+      showError("Failed to save series. Please try again.");
     }
   };
 
@@ -209,7 +216,7 @@ export default function AdminSeries() {
           </div>
           <div className="flex items-center gap-4">
             <Badge variant="secondary" className="text-sm">
-              {series?.length || 0} {series?.length === 1 ? "series" : "series"}
+              {pagination.pageInfo}
             </Badge>
             {canCreate && (
               <Button onClick={handleCreate} className="flex items-center gap-2">
@@ -234,74 +241,83 @@ export default function AdminSeries() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {series.map((seriesItem) => (
-              <Card
-                key={seriesItem.id}
-                className="hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-                onClick={() => handleNavigate(seriesItem.id)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                        <Trophy className="h-5 w-5 text-blue-600" />
-                        {seriesItem.name}
-                      </CardTitle>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline" className="text-xs">
-                          #{seriesItem.id}
-                        </Badge>
-                        <Badge
-                          variant={
-                            seriesItem.is_public ? "default" : "secondary"
-                          }
-                          className="text-xs flex items-center gap-1"
+          <div className="space-y-6">
+            <div className="grid gap-4">
+              {pagination.paginatedItems.map((seriesItem) => (
+                <Card
+                  key={seriesItem.id}
+                  className="hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+                  onClick={() => handleNavigate(seriesItem.id)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+                          <Trophy className="h-5 w-5 text-blue-600" />
+                          {seriesItem.name}
+                        </CardTitle>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-xs">
+                            #{seriesItem.id}
+                          </Badge>
+                          <Badge
+                            variant={
+                              seriesItem.is_public ? "default" : "secondary"
+                            }
+                            className="text-xs flex items-center gap-1"
+                          >
+                            {seriesItem.is_public ? (
+                              <Eye className="h-3 w-3" />
+                            ) : (
+                              <EyeOff className="h-3 w-3" />
+                            )}
+                            {seriesItem.is_public ? "Public" : "Private"}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleEdit(e, seriesItem)}
+                          className="h-8 w-8"
                         >
-                          {seriesItem.is_public ? (
-                            <Eye className="h-3 w-3" />
-                          ) : (
-                            <EyeOff className="h-3 w-3" />
-                          )}
-                          {seriesItem.is_public ? "Public" : "Private"}
-                        </Badge>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => handleDelete(e, seriesItem)}
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleEdit(e, seriesItem)}
-                        className="h-8 w-8"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleDelete(e, seriesItem)}
-                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  {seriesItem.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {seriesItem.description}
-                    </p>
-                  )}
-                  {seriesItem.banner_image_url && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Image className="h-4 w-4" />
-                      <span>Has banner image</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {seriesItem.description && (
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                        {seriesItem.description}
+                      </p>
+                    )}
+                    {seriesItem.banner_image_url && (
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <Image className="h-4 w-4" />
+                        <span>Has banner image</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            <PaginationControls
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={pagination.setCurrentPage}
+            />
           </div>
         )}
       </div>

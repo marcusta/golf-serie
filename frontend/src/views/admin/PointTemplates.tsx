@@ -8,6 +8,7 @@ import {
   type PointTemplate,
   type PointsStructure,
 } from "../../api/point-templates";
+import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
 
 // Type for a single position entry in the editor
 interface PositionEntry {
@@ -77,6 +78,7 @@ export default function PointTemplates() {
   const createMutation = useCreatePointTemplate();
   const updateMutation = useUpdatePointTemplate();
   const deleteMutation = useDeletePointTemplate();
+  const { showError } = useNotification();
 
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PointTemplate | null>(null);
@@ -184,7 +186,7 @@ export default function PointTemplates() {
       try {
         await deleteMutation.mutateAsync(id);
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Delete failed");
+        showError(formatErrorMessage(err, "Delete failed"));
       }
     }
   };

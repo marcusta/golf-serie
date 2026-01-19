@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUsers, useUpdateUserRole, type UserRole } from "@/api/users";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { EditPlayerProfileDialog } from "./EditPlayerProfileDialog";
+import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
+import { usePagination } from "@/hooks/usePagination";
+import { PaginationControls } from "@/components/PaginationControls";
 
 const ROLES: { value: UserRole; label: string; description: string }[] = [
   { value: "SUPER_ADMIN", label: "Super Admin", description: "Full system access" },
@@ -42,6 +45,7 @@ export default function Users() {
   const { data: users, isLoading, error } = useUsers();
   const updateRole = useUpdateUserRole();
   const { user: currentUser } = useAuth();
+  const { showError } = useNotification();
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "ALL">("ALL");
@@ -66,7 +70,7 @@ export default function Users() {
       await updateRole.mutateAsync({ userId, role: newRole });
     } catch (err) {
       console.error("Failed to update role:", err);
-      alert(err instanceof Error ? err.message : "Failed to update role");
+      showError(formatErrorMessage(err, "Failed to update role"));
     } finally {
       setUpdatingUserId(null);
     }
@@ -82,6 +86,20 @@ export default function Users() {
         return matchesEmail && matchesRole;
       })
     : [];
+
+  // Paginate filtered results
+  const pagination = usePagination(filteredUsers, { pageSize: 100 });
+
+  // Reset pagination when filters change
+  const previousSearchQuery = useRef(searchQuery);
+  const previousRoleFilter = useRef(roleFilter);
+  useEffect(() => {
+    if (previousSearchQuery.current !== searchQuery || previousRoleFilter.current !== roleFilter) {
+      pagination.resetPage();
+      previousSearchQuery.current = searchQuery;
+      previousRoleFilter.current = roleFilter;
+    }
+  }, [searchQuery, roleFilter, pagination]);
 
   if (isLoading) {
     return (
@@ -177,9 +195,9 @@ export default function Users() {
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-gray-500">
-            Showing {filteredUsers?.length} result{filteredUsers?.length !== 1 ? "s" : ""}
+            {pagination.pageInfo}
           </p>
-          {filteredUsers?.map((user) => {
+          {pagination.paginatedItems.map((user) => {
             const isCurrentUser = user.id === currentUser?.id;
             const isUpdating = updatingUserId === user.id;
 
@@ -259,6 +277,14 @@ export default function Users() {
               </Card>
             );
           })}
+
+          {/* Pagination Controls */}
+          <PaginationControls
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setCurrentPage}
+            className="mt-6"
+          />
         </div>
       )}
 

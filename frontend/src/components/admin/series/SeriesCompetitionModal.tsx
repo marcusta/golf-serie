@@ -1,4 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateCompetition,
@@ -7,7 +10,32 @@ import {
 } from "../../../api/competitions";
 import { useCourses } from "../../../api/courses";
 import { TeeSelector } from "../competition";
-import { Loader2, Check, X, Star } from "lucide-react";
+import { Loader2, Check, Star } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 export interface SeriesCompetitionModalProps {
   seriesId: number;
@@ -17,28 +45,52 @@ export interface SeriesCompetitionModalProps {
   onSuccess?: () => void;
 }
 
-interface FormData {
-  name: string;
-  date: string;
-  course_id: string;
-  tee_id: string;
-  points_multiplier: string;
-  venue_type: "outdoor" | "indoor";
-  start_mode: "scheduled" | "open";
-  open_start: string;
-  open_end: string;
-}
+// Zod schema for series competition validation
+const seriesCompetitionSchema = z
+  .object({
+    name: z.string().min(1, "Competition name is required"),
+    date: z.string().min(1, "Date is required"),
+    course_id: z.string().min(1, "Course is required"),
+    tee_id: z.string().optional(),
+    points_multiplier: z.string(),
+    venue_type: z.enum(["outdoor", "indoor"] as const),
+    start_mode: z.enum(["scheduled", "open"] as const),
+    open_start: z.string().optional(),
+    open_end: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // If start_mode is 'open', open_start is required
+      if (data.start_mode === "open" && !data.open_start) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Open period start is required for open mode",
+      path: ["open_start"],
+    }
+  )
+  .refine(
+    (data) => {
+      const num = parseFloat(data.points_multiplier);
+      return !isNaN(num) && num >= 0;
+    },
+    {
+      message: "Points multiplier must be 0 or greater",
+      path: ["points_multiplier"],
+    }
+  );
 
-const initialFormData: FormData = {
-  name: "",
-  date: "",
-  course_id: "",
-  tee_id: "",
-  points_multiplier: "1",
-  venue_type: "outdoor",
-  start_mode: "scheduled",
-  open_start: "",
-  open_end: "",
+type SeriesCompetitionFormData = z.infer<typeof seriesCompetitionSchema>;
+
+// Helper to convert date or datetime to datetime-local format
+const toDatetimeLocal = (value?: string | null): string => {
+  if (!value) return "";
+  if (value.includes("T")) {
+    return value.slice(0, 16);
+  }
+  return `${value}T00:00`;
 };
 
 export function SeriesCompetitionModal({
@@ -52,338 +104,384 @@ export function SeriesCompetitionModal({
   const { data: courses } = useCourses();
   const createMutation = useCreateCompetition();
   const updateMutation = useUpdateCompetition();
-
-  const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [error, setError] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const isEditing = !!competition;
 
-  // Helper to convert date or datetime to datetime-local format
-  const toDatetimeLocal = (value?: string | null): string => {
-    if (!value) return "";
-    if (value.includes("T")) {
-      return value.slice(0, 16);
-    }
-    return `${value}T00:00`;
-  };
+  const form = useForm<SeriesCompetitionFormData>({
+    resolver: zodResolver(seriesCompetitionSchema),
+    defaultValues: {
+      name: "",
+      date: "",
+      course_id: "",
+      tee_id: "",
+      points_multiplier: "1",
+      venue_type: "outdoor",
+      start_mode: "scheduled",
+      open_start: "",
+      open_end: "",
+    },
+    mode: "onChange",
+  });
 
   // Reset form when modal opens or competition changes
   useEffect(() => {
     if (open) {
       if (competition) {
-        setFormData({
+        form.reset({
           name: competition.name,
           date: competition.date,
           course_id: competition.course_id?.toString() || "",
           tee_id: competition.tee_id?.toString() || "",
-          points_multiplier: competition.points_multiplier?.toString() || "1",
+          points_multiplier: (competition.points_multiplier || 1).toString(),
           venue_type: competition.venue_type || "outdoor",
           start_mode: competition.start_mode || "scheduled",
           open_start: toDatetimeLocal(competition.open_start),
           open_end: toDatetimeLocal(competition.open_end),
         });
       } else {
-        setFormData(initialFormData);
+        form.reset({
+          name: "",
+          date: "",
+          course_id: "",
+          tee_id: "",
+          points_multiplier: "1",
+          venue_type: "outdoor",
+          start_mode: "scheduled",
+          open_start: "",
+          open_end: "",
+        });
       }
-      setError(null);
+      // Auto-focus name field
+      setTimeout(() => nameInputRef.current?.focus(), 100);
     }
-  }, [open, competition]);
+  }, [open, competition, form]);
 
   const handleClose = () => {
     onOpenChange(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!formData.name.trim()) {
-      setError("Competition name is required");
-      return;
-    }
-    if (!formData.date) {
-      setError("Date is required");
-      return;
-    }
-    if (!formData.course_id) {
-      setError("Course is required");
-      return;
-    }
-
-    const data = {
-      name: formData.name.trim(),
-      date: formData.date,
-      course_id: parseInt(formData.course_id),
-      tee_id: formData.tee_id ? parseInt(formData.tee_id) : undefined,
+  const onSubmit = async (data: SeriesCompetitionFormData) => {
+    const submitData = {
+      name: data.name.trim(),
+      date: data.date,
+      course_id: parseInt(data.course_id),
+      tee_id: data.tee_id ? parseInt(data.tee_id) : undefined,
       series_id: seriesId,
-      points_multiplier: parseFloat(formData.points_multiplier) || 1,
-      venue_type: formData.venue_type,
-      start_mode: formData.start_mode,
+      points_multiplier: parseFloat(data.points_multiplier),
+      venue_type: data.venue_type,
+      start_mode: data.start_mode,
       open_start:
-        formData.start_mode === "open" && formData.open_start
-          ? formData.open_start
+        data.start_mode === "open" && data.open_start
+          ? data.open_start
           : undefined,
       open_end:
-        formData.start_mode === "open" && formData.open_end
-          ? formData.open_end
-          : undefined,
+        data.start_mode === "open" && data.open_end ? data.open_end : undefined,
     };
 
     try {
       if (isEditing && competition) {
-        await updateMutation.mutateAsync({ id: competition.id, data });
+        await updateMutation.mutateAsync({ id: competition.id, data: submitData });
       } else {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync(submitData);
       }
 
       // Invalidate series competitions query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ["series", seriesId, "competitions"] });
+      queryClient.invalidateQueries({
+        queryKey: ["series", seriesId, "competitions"],
+      });
 
       onSuccess?.();
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save competition");
+      // Error is handled by form
+      form.setError("root", {
+        message: err instanceof Error ? err.message : "Failed to save competition",
+      });
     }
   };
 
   const handleCourseChange = (courseId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      course_id: courseId,
-      tee_id: "", // Reset tee when course changes
-    }));
+    form.setValue("course_id", courseId, { shouldValidate: true });
+    form.setValue("tee_id", ""); // Reset tee when course changes
   };
 
-  if (!open) return null;
-
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const startMode = form.watch("start_mode");
+  const selectedCourseId = form.watch("course_id");
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-charcoal">
             {isEditing ? "Edit Competition" : "Add Competition"}
-          </h2>
-          <button
-            onClick={handleClose}
-            className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+          </DialogTitle>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex flex-col flex-1 overflow-hidden"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Competition Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="e.g., Round 1"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                disabled={isPending}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {/* Name */}
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Competition Name <span className="text-coral">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., Round 1"
+                        {...field}
+                        ref={nameInputRef}
+                        disabled={isPending}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, date: e.target.value }))
-                }
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                disabled={isPending}
+              {/* Date */}
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Date <span className="text-coral">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} disabled={isPending} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Course */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Course <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.course_id}
-                onChange={(e) => handleCourseChange(e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors bg-white"
-                disabled={isPending}
-              >
-                <option value="">Select a course</option>
-                {courses?.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Tee */}
-            <TeeSelector
-              courseId={formData.course_id ? parseInt(formData.course_id) : null}
-              value={formData.tee_id ? parseInt(formData.tee_id) : null}
-              onChange={(teeId) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  tee_id: teeId?.toString() || "",
-                }))
-              }
-              label="Tee Box (Optional)"
-              disabled={isPending}
-            />
-
-            {/* Points Multiplier */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <span className="flex items-center gap-2">
-                  <Star className="w-4 h-4" />
-                  Points Multiplier
-                </span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={formData.points_multiplier}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    points_multiplier: e.target.value,
-                  }))
-                }
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                disabled={isPending}
+              {/* Course */}
+              <FormField
+                control={form.control}
+                name="course_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Course <span className="text-coral">*</span>
+                    </FormLabel>
+                    <Select
+                      onValueChange={handleCourseChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a course" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {courses?.map((course) => (
+                          <SelectItem key={course.id} value={course.id.toString()}>
+                            {course.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <p className="text-sm text-gray-500 mt-1">
-                Multiplier for team points (e.g., 2 = double points)
-              </p>
-            </div>
 
-            {/* Venue Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Venue Type
-              </label>
-              <select
-                value={formData.venue_type}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    venue_type: e.target.value as "outdoor" | "indoor",
-                  }))
-                }
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors bg-white"
-                disabled={isPending}
-              >
-                <option value="outdoor">Outdoor</option>
-                <option value="indoor">Indoor (Simulator)</option>
-              </select>
-            </div>
+              {/* Tee - Using existing TeeSelector component */}
+              <FormField
+                control={form.control}
+                name="tee_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <TeeSelector
+                      courseId={selectedCourseId ? parseInt(selectedCourseId) : null}
+                      value={field.value ? parseInt(field.value) : null}
+                      onChange={(teeId) =>
+                        form.setValue("tee_id", teeId?.toString() || "")
+                      }
+                      label="Tee Box (Optional)"
+                      disabled={isPending}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Start Mode */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Mode
-              </label>
-              <select
-                value={formData.start_mode}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    start_mode: e.target.value as "scheduled" | "open",
-                  }))
-                }
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors bg-white"
-                disabled={isPending}
-              >
-                <option value="scheduled">Scheduled (Prepared Start List)</option>
-                <option value="open">Open (Ad-hoc Play)</option>
-              </select>
-              <p className="text-sm text-gray-500 mt-1">
-                Scheduled: Assigned tee times. Open: Ad-hoc play.
-              </p>
-            </div>
+              {/* Points Multiplier */}
+              <FormField
+                control={form.control}
+                name="points_multiplier"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      <span className="flex items-center gap-2">
+                        <Star className="w-4 h-4" />
+                        Points Multiplier
+                      </span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        {...field}
+                        disabled={isPending}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Multiplier for team points (e.g., 2 = double points)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Open Period (only when start_mode is open) */}
-            {formData.start_mode === "open" && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Open Period Start
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formData.open_start}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        open_start: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                    disabled={isPending}
+              {/* Venue Type */}
+              <FormField
+                control={form.control}
+                name="venue_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Venue Type</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="outdoor">Outdoor</SelectItem>
+                        <SelectItem value="indoor">Indoor (Simulator)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Start Mode */}
+              <FormField
+                control={form.control}
+                name="start_mode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Mode</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="scheduled">
+                          Scheduled (Prepared Start List)
+                        </SelectItem>
+                        <SelectItem value="open">Open (Ad-hoc Play)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Scheduled: Assigned tee times. Open: Ad-hoc play.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Open Period (only when start_mode is open) */}
+              {startMode === "open" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="open_start"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Open Period Start</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            {...field}
+                            disabled={isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="open_end"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Open Period End</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            {...field}
+                            disabled={isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Open Period End
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formData.open_end}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        open_end: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                    disabled={isPending}
-                  />
-                </div>
-              </div>
-            )}
-
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-          </div>
-
-          {/* Footer */}
-          <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-              disabled={isPending}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              {isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Check className="w-4 h-4" />
               )}
-              {isEditing ? "Save Changes" : "Create Competition"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+
+              {/* Root error message */}
+              {form.formState.errors.root && (
+                <p className="text-coral text-sm">
+                  {form.formState.errors.root.message}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter className="pt-4 border-t border-soft-grey mt-4">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleClose}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!form.formState.isValid || isPending}
+                className="bg-turf hover:bg-fairway text-white"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    {isEditing ? "Save Changes" : "Create Competition"}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

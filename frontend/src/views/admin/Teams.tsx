@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useNotification } from "@/hooks/useNotification";
 
 function TeamSkeleton() {
   return (
@@ -95,6 +96,7 @@ export default function Teams() {
   const createTeam = useCreateTeam();
   const updateTeam = useUpdateTeam();
   const deleteTeam = useDeleteTeam();
+  const { showError } = useNotification();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -120,7 +122,7 @@ export default function Teams() {
         await deleteTeam.mutateAsync(team.id);
       } catch (error) {
         console.error("Failed to delete team:", error);
-        alert("Failed to delete team. Please try again.");
+        showError("Failed to delete team. Please try again.");
       }
     }
   };
@@ -139,7 +141,7 @@ export default function Teams() {
       setShowDialog(false);
     } catch (error) {
       console.error("Failed to save team:", error);
-      alert("Failed to save team. Please try again.");
+      showError("Failed to save team. Please try again.");
     }
   };
 

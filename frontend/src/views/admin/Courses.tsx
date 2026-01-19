@@ -31,6 +31,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useNotification, formatErrorMessage } from "@/hooks/useNotification";
 
 function CourseSkeleton() {
   return (
@@ -91,6 +92,7 @@ export default function Courses() {
   const deleteCourse = useDeleteCourse();
   const importCourses = useImportCourses();
   const importForCourse = useImportForCourse();
+  const { showError } = useNotification();
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -162,7 +164,7 @@ export default function Courses() {
         await deleteCourse.mutateAsync(course.id);
       } catch (error) {
         console.error("Failed to delete course:", error);
-        alert("Failed to delete course. Please try again.");
+        showError("Failed to delete course. Please try again.");
       }
     }
   };
@@ -401,7 +403,7 @@ export default function Courses() {
           resetTeeForm();
         }
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Failed to delete tee");
+        showError(formatErrorMessage(err, "Failed to delete tee"));
       }
     }
   };
@@ -446,7 +448,7 @@ export default function Courses() {
         setStep("pars");
       } else if (editingCourse) {
         if (!isStrokeIndexValid()) {
-          alert("Invalid stroke index. Each value from 1-18 must appear exactly once.");
+          showError("Invalid stroke index. Each value from 1-18 must appear exactly once.");
           return;
         }
         // Update name if changed
@@ -466,7 +468,7 @@ export default function Courses() {
       }
     } catch (error) {
       console.error("Failed to save course:", error);
-      alert("Failed to save course. Please try again.");
+      showError("Failed to save course. Please try again.");
     }
   };
 

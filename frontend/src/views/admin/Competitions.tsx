@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useStandAloneCompetitions,
   useCreateCompetition,
@@ -13,6 +13,7 @@ import { useTours, useTourCompetitions } from "../../api/tours";
 import { usePointTemplates } from "../../api/point-templates";
 import { useAuth } from "../../hooks/useAuth";
 import { TeeSelector } from "../../components/admin/competition";
+import { useNotification } from "@/hooks/useNotification";
 import {
   Plus,
   Edit,
@@ -30,6 +31,8 @@ import {
   Shield,
 } from "lucide-react";
 import { Link, useSearch } from "@tanstack/react-router";
+import { usePagination } from "@/hooks/usePagination";
+import { PaginationControls } from "@/components/PaginationControls";
 
 export default function AdminCompetitions() {
   // Get series and tour filter from URL search params
@@ -41,6 +44,7 @@ export default function AdminCompetitions() {
   const tourFilter = search.tour ? parseInt(search.tour) : null;
 
   const { canCreate } = useAuth();
+  const { showError } = useNotification();
   const { data: standAloneCompetitions, isLoading, error } = useStandAloneCompetitions();
   const { data: seriesCompetitions } = useSeriesCompetitions(seriesFilter || 0);
   const { data: tourCompetitions } = useTourCompetitions(tourFilter || 0);
@@ -57,6 +61,21 @@ export default function AdminCompetitions() {
   const competitions = seriesFilter ? seriesCompetitions : tourFilter ? tourCompetitions : standAloneCompetitions;
   const filteredSeries = series?.find((s) => s.id === seriesFilter);
   const filteredTour = tours?.find((t) => t.id === tourFilter);
+
+  // Paginate competitions - use base type for compatibility
+  type BaseCompetition = { id: number; name: string; date: string; course_id?: number };
+  const pagination = usePagination(competitions as BaseCompetition[] | undefined, { pageSize: 100 });
+
+  // Reset pagination when filter changes
+  const previousSeriesFilter = useRef(seriesFilter);
+  const previousTourFilter = useRef(tourFilter);
+  useEffect(() => {
+    if (previousSeriesFilter.current !== seriesFilter || previousTourFilter.current !== tourFilter) {
+      pagination.resetPage();
+      previousSeriesFilter.current = seriesFilter;
+      previousTourFilter.current = tourFilter;
+    }
+  }, [seriesFilter, tourFilter, pagination]);
 
   const [showForm, setShowForm] = useState(false);
   const [editingCompetition, setEditingCompetition] =
@@ -120,7 +139,7 @@ export default function AdminCompetitions() {
       deleteCompetition.mutate(competitionId, {
         onError: (error) => {
           console.error("Error deleting competition:", error);
-          alert("Failed to delete competition. Please try again.");
+          showError("Failed to delete competition. Please try again.");
         },
       });
     }
@@ -168,7 +187,7 @@ export default function AdminCompetitions() {
 
     const onError = (error: Error) => {
       console.error("Error saving competition:", error);
-      alert("Failed to save competition. Please try again.");
+      showError("Failed to save competition. Please try again.");
     };
 
     if (editingCompetition) {
@@ -556,8 +575,7 @@ export default function AdminCompetitions() {
           </h3>
           {competitions && (
             <p className="text-sm text-gray-500 mt-1">
-              {competitions.length} competition
-              {competitions.length !== 1 ? "s" : ""}
+              {pagination.pageInfo}
             </p>
           )}
         </div>
@@ -577,7 +595,7 @@ export default function AdminCompetitions() {
               )}
             </div>
           ) : (
-            competitions?.map((competition) => {
+            pagination.paginatedItems.map((competition) => {
               const course = getCourse(competition.course_id ?? 0);
               // Check if this is a full Competition (not a TourCompetition)
               const isFullCompetition = "series_id" in competition;
@@ -703,6 +721,17 @@ export default function AdminCompetitions() {
             })
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {competitions && competitions.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200">
+            <PaginationControls
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={pagination.setCurrentPage}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
