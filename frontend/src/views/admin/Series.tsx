@@ -3,23 +3,12 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   useSeries,
   useCreateSeries,
-  useUpdateSeries,
   useDeleteSeries,
   type Series,
 } from "@/api/series";
 import { useAuth } from "@/hooks/useAuth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Trophy,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  EyeOff,
-  Image,
-} from "lucide-react";
+import { Trophy, Plus, Trash2, Eye, EyeOff, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,18 +26,18 @@ import { PaginationControls } from "@/components/PaginationControls";
 
 function SeriesSkeleton() {
   return (
-    <Card className="mb-4">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-[200px]" />
-          <Skeleton className="h-5 w-[80px] rounded-full" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-4 w-full mb-2" />
-        <Skeleton className="h-4 w-[150px]" />
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-[minmax(200px,2fr)_140px_140px_120px] gap-4 px-4 py-2 items-center">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-[240px]" />
+        <Skeleton className="h-3 w-[320px]" />
+      </div>
+      <Skeleton className="h-3 w-[80px]" />
+      <Skeleton className="h-3 w-[90px]" />
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-8 w-8 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+      </div>
+    </div>
   );
 }
 
@@ -58,11 +47,9 @@ export default function AdminSeries() {
   const { showError } = useNotification();
   const { data: series, isLoading, error } = useSeries();
   const createSeries = useCreateSeries();
-  const updateSeries = useUpdateSeries();
   const deleteSeries = useDeleteSeries();
 
   const [showDialog, setShowDialog] = useState(false);
-  const [editingSeries, setEditingSeries] = useState<Series | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -74,24 +61,11 @@ export default function AdminSeries() {
   const pagination = usePagination(series, { pageSize: 100 });
 
   const handleCreate = () => {
-    setEditingSeries(null);
     setFormData({
       name: "",
       description: "",
       banner_image_url: "",
       is_public: true,
-    });
-    setShowDialog(true);
-  };
-
-  const handleEdit = (e: React.MouseEvent, series: Series) => {
-    e.stopPropagation();
-    setEditingSeries(series);
-    setFormData({
-      name: series.name,
-      description: series.description || "",
-      banner_image_url: series.banner_image_url || "",
-      is_public: series.is_public,
     });
     setShowDialog(true);
   };
@@ -119,13 +93,14 @@ export default function AdminSeries() {
         banner_image_url: formData.banner_image_url || undefined,
         is_public: formData.is_public,
       };
-
-      if (editingSeries) {
-        await updateSeries.mutateAsync({ id: editingSeries.id, data });
-      } else {
-        await createSeries.mutateAsync(data);
-      }
+      await createSeries.mutateAsync(data);
       setShowDialog(false);
+      setFormData({
+        name: "",
+        description: "",
+        banner_image_url: "",
+        is_public: true,
+      });
     } catch (error) {
       console.error("Failed to save series:", error);
       showError("Failed to save series. Please try again.");
@@ -145,20 +120,18 @@ export default function AdminSeries() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Trophy className="h-8 w-8 text-blue-600" />
-            <h2 className="text-3xl font-bold text-gray-900">Series</h2>
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-turf" />
+            <h2 className="text-xl font-semibold text-charcoal">Series</h2>
           </div>
-          <div className="flex items-center gap-4">
-            <Badge variant="secondary" className="text-sm">
-              Loading...
-            </Badge>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-charcoal/60">Loading...</span>
             {canCreate && (
               <Button
                 onClick={handleCreate}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 h-9 px-3 rounded-md text-sm"
               >
                 <Plus className="h-4 w-4" />
                 Add Series
@@ -166,10 +139,12 @@ export default function AdminSeries() {
             )}
           </div>
         </div>
-        <div className="grid gap-4">
-          {[...Array(3)].map((_, i) => (
-            <SeriesSkeleton key={i} />
-          ))}
+        <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
+          <div className="divide-y divide-soft-grey">
+            {[...Array(3)].map((_, i) => (
+              <SeriesSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -177,49 +152,44 @@ export default function AdminSeries() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Trophy className="h-8 w-8 text-blue-600" />
-            <h2 className="text-3xl font-bold text-gray-900">Series</h2>
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-turf" />
+            <h2 className="text-xl font-semibold text-charcoal">Series</h2>
           </div>
           {canCreate && (
-            <Button onClick={handleCreate} className="flex items-center gap-2">
+            <Button onClick={handleCreate} className="flex items-center gap-2 h-9 px-3 rounded-md text-sm">
               <Plus className="h-4 w-4" />
               Add Series
             </Button>
           )}
         </div>
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2 text-red-700">
-              <Trophy className="h-5 w-5" />
-              <p className="font-medium">Error loading series</p>
-            </div>
-            <p className="text-red-600 text-sm mt-2">
-              Please try refreshing the page or contact support if the problem
-              persists.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="border border-flag/30 bg-flag/5 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-flag">
+            <Trophy className="h-4 w-4" />
+            <p className="text-sm font-semibold">Error loading series</p>
+          </div>
+          <p className="text-sm text-flag/80 mt-2">
+            Please try refreshing the page or contact support if the problem persists.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Trophy className="h-8 w-8 text-blue-600" />
-            <h2 className="text-3xl font-bold text-gray-900">Series</h2>
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-turf" />
+            <h2 className="text-xl font-semibold text-charcoal">Series</h2>
           </div>
-          <div className="flex items-center gap-4">
-            <Badge variant="secondary" className="text-sm">
-              {pagination.pageInfo}
-            </Badge>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-charcoal/60">{pagination.pageInfo}</span>
             {canCreate && (
-              <Button onClick={handleCreate} className="flex items-center gap-2">
+              <Button onClick={handleCreate} className="flex items-center gap-2 h-9 px-3 rounded-md text-sm">
                 <Plus className="h-4 w-4" />
                 Add Series
               </Button>
@@ -228,88 +198,74 @@ export default function AdminSeries() {
         </div>
 
         {!series || series.length === 0 ? (
-          <Card className="border-dashed border-2 border-gray-300">
-            <CardContent className="p-12 text-center">
-              <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No series yet
-              </h3>
-              <p className="text-gray-600">
-                Create series to organize multiple competitions into
-                tournaments.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="border border-soft-grey rounded-lg bg-white px-6 py-10 text-center">
+            <h3 className="text-sm font-semibold text-charcoal mb-2">
+              No series yet
+            </h3>
+            <p className="text-sm text-charcoal/60">
+              Create a series to organize multiple competitions into tournaments.
+            </p>
+          </div>
         ) : (
           <div className="space-y-6">
-            <div className="grid gap-4">
-              {pagination.paginatedItems.map((seriesItem) => (
-                <Card
-                  key={seriesItem.id}
-                  className="hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-                  onClick={() => handleNavigate(seriesItem.id)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                          <Trophy className="h-5 w-5 text-blue-600" />
-                          {seriesItem.name}
-                        </CardTitle>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline" className="text-xs">
-                            #{seriesItem.id}
-                          </Badge>
-                          <Badge
-                            variant={
-                              seriesItem.is_public ? "default" : "secondary"
-                            }
-                            className="text-xs flex items-center gap-1"
-                          >
-                            {seriesItem.is_public ? (
-                              <Eye className="h-3 w-3" />
-                            ) : (
-                              <EyeOff className="h-3 w-3" />
-                            )}
-                            {seriesItem.is_public ? "Public" : "Private"}
-                          </Badge>
+            <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
+              <div className="grid grid-cols-[minmax(200px,2fr)_140px_140px_120px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
+                <div>Series</div>
+                <div>Visibility</div>
+                <div>Assets</div>
+                <div className="text-right">Actions</div>
+              </div>
+              <div className="divide-y divide-soft-grey">
+                {pagination.paginatedItems.map((seriesItem) => (
+                  <div
+                    key={seriesItem.id}
+                    className="grid grid-cols-[minmax(200px,2fr)_140px_140px_120px] gap-4 px-4 py-2 text-sm items-center hover:bg-rough/20 cursor-pointer"
+                    onClick={() => handleNavigate(seriesItem.id)}
+                  >
+                    <div>
+                      <div className="font-medium text-charcoal">{seriesItem.name}</div>
+                      <div className="text-xs text-charcoal/60">ID #{seriesItem.id}</div>
+                      {seriesItem.description && (
+                        <div className="text-sm text-charcoal/60 line-clamp-1">
+                          {seriesItem.description}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => handleEdit(e, seriesItem)}
-                          className="h-8 w-8"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => handleDelete(e, seriesItem)}
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      )}
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    {seriesItem.description && (
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                        {seriesItem.description}
-                      </p>
-                    )}
-                    {seriesItem.banner_image_url && (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Image className="h-4 w-4" />
-                        <span>Has banner image</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                    <div
+                      className={`inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${
+                        seriesItem.is_public ? "text-turf" : "text-charcoal/60"
+                      }`}
+                    >
+                      {seriesItem.is_public ? (
+                        <Eye className="h-3 w-3" />
+                      ) : (
+                        <EyeOff className="h-3 w-3" />
+                      )}
+                      {seriesItem.is_public ? "Public" : "Private"}
+                    </div>
+                    <div className="text-sm text-charcoal/60">
+                      {seriesItem.banner_image_url ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Image className="h-3 w-3" />
+                          Banner
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => handleDelete(e, seriesItem)}
+                        className="h-8 w-8 rounded-md text-flag hover:text-flag hover:bg-flag/10 transition-colors"
+                        title="Delete series"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Pagination Controls */}
@@ -325,9 +281,7 @@ export default function AdminSeries() {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingSeries ? "Edit Series" : "Create New Series"}
-            </DialogTitle>
+            <DialogTitle>Create New Series</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -389,9 +343,7 @@ export default function AdminSeries() {
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingSeries ? "Update" : "Create"}
-              </Button>
+              <Button type="submit">Create</Button>
             </DialogFooter>
           </form>
         </DialogContent>

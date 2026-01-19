@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { useSingleSeries, useSeriesDocuments } from "@/api/series";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
@@ -32,9 +31,9 @@ export default function AdminSeriesDetail() {
 
   if (seriesLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-[300px]" />
-        <Skeleton className="h-[400px] w-full" />
+      <div className="space-y-4">
+        <Skeleton className="h-6 w-[280px]" />
+        <Skeleton className="h-[360px] w-full" />
       </div>
     );
   }
@@ -52,44 +51,48 @@ export default function AdminSeriesDetail() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             to="/admin/series"
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-sm text-charcoal/60 hover:text-charcoal transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Series
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{series.name}</h1>
-            <p className="text-gray-600">Series #{series.id}</p>
+            <h1 className="text-xl font-semibold text-charcoal">{series.name}</h1>
+            <p className="text-sm text-charcoal/60">Series #{series.id}</p>
           </div>
         </div>
-        <Badge variant={series.is_public ? "default" : "secondary"}>
+        <span
+          className={`text-xs font-semibold uppercase tracking-wide ${
+            series.is_public ? "text-turf" : "text-charcoal/60"
+          }`}
+        >
           {series.is_public ? "Public" : "Private"}
-        </Badge>
+        </span>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex gap-6">
+      <div className="border-b border-soft-grey">
+        <nav className="flex gap-4">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 pb-2 px-1 border-b-2 text-sm font-semibold transition-colors ${
                 activeTab === tab.id
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-turf text-turf"
+                  : "border-transparent text-charcoal/60 hover:text-charcoal"
               }`}
             >
               {tab.icon}
               {tab.label}
               {tab.badge !== undefined && tab.badge > 0 && (
-                <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                <span className="text-xs text-charcoal/60 bg-soft-grey/40 px-1.5 py-0.5 rounded">
                   {tab.badge}
                 </span>
               )}

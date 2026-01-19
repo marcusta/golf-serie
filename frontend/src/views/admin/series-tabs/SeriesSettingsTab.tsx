@@ -3,10 +3,16 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type Series, useUpdateSeries } from "@/api/series";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -25,6 +31,7 @@ const seriesSettingsSchema = z.object({
     .string()
     .min(1, "Series name is required")
     .max(100, "Series name must be 100 characters or less"),
+  description: z.string().optional(),
   banner_image_url: z
     .string()
     .url("Please enter a valid URL")
@@ -47,8 +54,9 @@ export function SeriesSettingsTab({ series }: SeriesSettingsTabProps) {
     resolver: zodResolver(seriesSettingsSchema),
     defaultValues: {
       name: series.name,
+      description: series.description || "",
       banner_image_url: series.banner_image_url || "",
-      is_public: series.is_public,
+      is_public: Boolean(series.is_public),
     },
     mode: "onChange",
   });
@@ -57,8 +65,9 @@ export function SeriesSettingsTab({ series }: SeriesSettingsTabProps) {
   useEffect(() => {
     form.reset({
       name: series.name,
+      description: series.description || "",
       banner_image_url: series.banner_image_url || "",
-      is_public: series.is_public,
+      is_public: Boolean(series.is_public),
     });
   }, [series, form]);
 
@@ -68,6 +77,7 @@ export function SeriesSettingsTab({ series }: SeriesSettingsTabProps) {
         id: series.id,
         data: {
           name: data.name,
+          description: data.description || undefined,
           banner_image_url: data.banner_image_url || undefined,
           is_public: data.is_public,
         },
@@ -84,119 +94,152 @@ export function SeriesSettingsTab({ series }: SeriesSettingsTabProps) {
   const isSubmitting = form.formState.isSubmitting || updateSeries.isPending;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Series Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter series name"
-                        autoFocus
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      The name that will be displayed to players.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div className="bg-white border border-soft-grey rounded-lg p-4">
+      <div className="text-sm font-semibold uppercase tracking-wide text-charcoal mb-4">
+        Basic Information
+      </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Series Name
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter series name"
+                    autoFocus
+                    className="h-9 text-sm"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  The name that will be displayed to players.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <FormField
-                control={form.control}
-                name="banner_image_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Banner Image URL</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="url"
-                        placeholder="https://example.com/banner.jpg"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      URL to an image that will be displayed as the series
-                      banner.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Description
+                </FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Describe the series (optional)"
+                    className="min-h-[90px] text-sm"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  Appears on the player series overview.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              {/* Banner preview */}
-              {form.watch("banner_image_url") && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-charcoal">Preview:</p>
-                  <div className="relative h-32 rounded-lg overflow-hidden border border-soft-grey">
-                    <img
-                      src={form.watch("banner_image_url")}
-                      alt="Banner preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
+          <FormField
+            control={form.control}
+            name="banner_image_url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Banner Image URL
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/banner.jpg"
+                    className="h-9 text-sm"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  URL to an image that will be displayed as the series banner.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <FormField
-                control={form.control}
-                name="is_public"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border border-soft-grey p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Public Series</FormLabel>
-                      <FormDescription>
-                        When enabled, this series will be visible to all players
-                        on the public series list.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={!isDirty || !isValid || isSubmitting}
-                  className="bg-turf hover:bg-fairway text-white"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
+          {form.watch("banner_image_url") && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                Preview
+              </p>
+              <div className="relative h-32 rounded-md overflow-hidden border border-soft-grey">
+                <img
+                  src={form.watch("banner_image_url")}
+                  alt="Banner preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
               </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+            </div>
+          )}
+
+          <FormField
+            control={form.control}
+            name="is_public"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Visibility
+                </FormLabel>
+                <FormControl>
+                  <Select
+                    value={field.value ? "public" : "private"}
+                    onValueChange={(value) => field.onChange(value === "public")}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select visibility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="private">Private</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  Public series appear to all players; private series are hidden.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={!isDirty || !isValid || isSubmitting}
+              className="h-9 px-3 rounded-md text-sm bg-turf hover:bg-fairway text-white"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 }

@@ -53,14 +53,17 @@ export function SeriesCompetitionsTab({ seriesId }: SeriesCompetitionsTabProps) 
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Competitions</h2>
+      <div className="bg-white rounded-lg border border-soft-grey p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-charcoal">
+            Competitions
+          </h2>
           <Button
             onClick={() => {
               setEditingCompetition(null);
               setShowCompetitionModal(true);
             }}
+            className="h-9 px-3 rounded-md text-sm"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Competition
@@ -101,6 +104,7 @@ export function SeriesCompetitionsTab({ seriesId }: SeriesCompetitionsTabProps) 
             <Button
               variant="outline"
               onClick={() => setDeletingCompetition(null)}
+              className="h-9 px-3 rounded-md text-sm"
             >
               Cancel
             </Button>
@@ -108,6 +112,7 @@ export function SeriesCompetitionsTab({ seriesId }: SeriesCompetitionsTabProps) 
               variant="destructive"
               onClick={handleConfirmDeleteCompetition}
               disabled={deleteCompetition.isPending}
+              className="h-9 px-3 rounded-md text-sm"
             >
               {deleteCompetition.isPending ? "Deleting..." : "Delete"}
             </Button>

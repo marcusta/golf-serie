@@ -48,21 +48,17 @@ export interface CompetitionListProps<T extends CompetitionListItem> {
 function TeeDisplay({
   courseId,
   teeId,
-  variant,
 }: {
   courseId?: number;
   teeId?: number;
-  variant: "series" | "tour";
 }) {
   const { data: tees } = useCourseTees(courseId || 0);
   if (!courseId || !teeId) return null;
   const tee = tees?.find((t) => t.id === teeId);
   if (!tee) return null;
 
-  const colorClass = variant === "series" ? "text-blue-600" : "text-green-600";
-
   return (
-    <span className={`flex items-center gap-1 ${colorClass} text-sm`}>
+    <span className="flex items-center gap-1 text-sm text-charcoal/60">
       <Flag className="h-3 w-3" />
       {tee.name}
     </span>
@@ -91,54 +87,19 @@ export function CompetitionList<T extends CompetitionListItem>({
     return courses?.find((c) => c.id === competition.course_id)?.name || "Unknown course";
   };
 
-  // Styling based on parent type
-  const styles = {
-    series: {
-      loader: "text-blue-600",
-      empty: "text-gray-500",
-      card: "border border-gray-200 rounded-lg p-4 hover:bg-gray-50",
-      title: "text-gray-900",
-      meta: "text-gray-600",
-      scheduledIcon: Clock,
-      scheduledIconClass: "text-blue-600 hover:bg-blue-50",
-      groupsIconClass: "text-purple-600 hover:bg-purple-50",
-      manualScoreClass: "text-green-600 hover:bg-green-50",
-      finalizedClass: "text-green-600",
-      finalizeClass: "text-gray-400 hover:text-green-600 hover:bg-green-50",
-      editClass: "text-blue-600 hover:bg-blue-50",
-      deleteClass: "text-red-600 hover:bg-red-50",
-    },
-    tour: {
-      loader: "text-fairway",
-      empty: "text-charcoal/60",
-      card: "border border-soft-grey rounded-lg p-4 hover:bg-light-rough/30",
-      title: "text-charcoal",
-      meta: "text-charcoal/60",
-      scheduledIcon: ListOrdered,
-      scheduledIconClass: "text-charcoal/60 hover:text-fairway",
-      groupsIconClass: "text-charcoal/60 hover:text-purple-600",
-      manualScoreClass: "text-charcoal/60 hover:text-green-600",
-      finalizedClass: "text-fairway",
-      finalizeClass: "text-orange-500 hover:text-orange-600",
-      editClass: "text-charcoal/60 hover:text-turf",
-      deleteClass: "text-charcoal/60 hover:text-coral",
-    },
-  };
-
-  const s = styles[parentType];
-  const ScheduledIcon = s.scheduledIcon;
+  const ScheduledIcon = parentType === "series" ? Clock : ListOrdered;
 
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className={`w-6 h-6 animate-spin ${s.loader}`} />
+        <Loader2 className="w-6 h-6 animate-spin text-turf" />
       </div>
     );
   }
 
   if (!competitions || competitions.length === 0) {
     return (
-      <div className={`text-center py-12 ${s.empty}`}>
+      <div className="text-center py-10 text-charcoal/60">
         <p>No competitions yet.</p>
         <p className="text-sm mt-2">Click "Add Competition" to create one.</p>
       </div>
@@ -146,121 +107,141 @@ export function CompetitionList<T extends CompetitionListItem>({
   }
 
   return (
-    <div className="space-y-3">
-      {competitions.map((competition) => (
-        <div key={competition.id} className={`${s.card} transition-colors`}>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h3 className={`font-semibold ${s.title}`}>{competition.name}</h3>
-              <div className={`flex flex-wrap items-center gap-3 text-sm ${s.meta} mt-1`}>
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {competition.date}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {getCourseName(competition)}
-                </span>
-                {competition.tee_id && (
-                  <TeeDisplay
-                    courseId={competition.course_id}
-                    teeId={competition.tee_id}
-                    variant={parentType}
-                  />
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              {/* Tee times / Start list - for scheduled competitions */}
-              {competition.start_mode === "scheduled" && (
-                <Link
-                  to="/admin/competitions/$competitionId/tee-times"
-                  params={{ competitionId: competition.id.toString() }}
-                  className={`p-2 ${s.scheduledIconClass} rounded-lg transition-colors`}
-                  title={parentType === "series" ? "Manage tee times" : "Manage start list"}
-                >
-                  <ScheduledIcon className="w-4 h-4" />
-                </Link>
-              )}
-              {/* Playing groups - for open start competitions */}
-              {competition.start_mode === "open" && (
-                <Link
-                  to="/admin/competitions/$competitionId/groups"
-                  params={{ competitionId: competition.id.toString() }}
-                  className={`p-2 ${s.groupsIconClass} rounded-lg transition-colors`}
-                  title="View playing groups"
-                >
-                  <Users className="w-4 h-4" />
-                </Link>
-              )}
-              {/* Manual score entry - typically for series */}
-              {showManualScoreEntry && (
-                <Link
-                  to={`/admin/competitions/${competition.id}/manual-scores`}
-                  className={`p-2 ${s.manualScoreClass} rounded-lg transition-colors`}
-                  title="Manual score entry"
-                >
-                  <ClipboardEdit className="w-4 h-4" />
-                </Link>
-              )}
-              {/* Finalize results */}
-              {competition.is_results_final ? (
-                <div
-                  className={`p-2 ${s.finalizedClass}`}
-                  title={`Results finalized${competition.results_finalized_at ? ` on ${new Date(competition.results_finalized_at).toLocaleDateString()}` : ""}`}
-                >
-                  <CheckCircle className="w-4 h-4" />
+    <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
+      <div className="overflow-x-auto">
+        <div className="min-w-[860px]">
+          <div className="grid grid-cols-[minmax(220px,2fr)_120px_minmax(180px,1.5fr)_120px_110px_160px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
+            <div>Competition</div>
+            <div>Date</div>
+            <div>Course</div>
+            <div>Tee</div>
+            <div>Mode</div>
+            <div className="text-right">Actions</div>
+          </div>
+          <div className="divide-y divide-soft-grey">
+            {competitions.map((competition) => (
+              <div
+                key={competition.id}
+                className="grid grid-cols-[minmax(220px,2fr)_120px_minmax(180px,1.5fr)_120px_110px_160px] gap-4 px-4 py-2 text-sm items-center hover:bg-rough/20"
+              >
+                <div>
+                  <div className="font-medium text-charcoal">{competition.name}</div>
+                  <div className="text-xs text-charcoal/60">
+                    {competition.is_results_final ? "Results final" : "Draft"}
+                  </div>
                 </div>
-              ) : (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (
-                      !confirm(
-                        "Finalize results for this competition? This will calculate and store the final standings and points."
-                      )
-                    ) {
-                      return;
-                    }
-                    finalizeResults.mutate(competition.id);
-                  }}
-                  disabled={finalizeResults.isPending}
-                  className={`p-2 ${s.finalizeClass} rounded-lg transition-colors disabled:opacity-50`}
-                  title="Finalize results"
-                >
-                  {finalizeResults.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                <div className="text-charcoal/70 tabular-nums">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    {competition.date}
+                  </span>
+                </div>
+                <div className="text-charcoal/70">
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {getCourseName(competition)}
+                  </span>
+                </div>
+                <div className="text-charcoal/60">
+                  {competition.tee_id ? (
+                    <TeeDisplay
+                      courseId={competition.course_id}
+                      teeId={competition.tee_id}
+                    />
                   ) : (
-                    <CheckCircle className="w-4 h-4" />
+                    "-"
                   )}
-                </button>
-              )}
-              {/* Edit competition */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(competition);
-                }}
-                className={`p-2 ${s.editClass} rounded-lg transition-colors`}
-                title="Edit competition"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
-              {/* Delete competition */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(competition);
-                }}
-                className={`p-2 ${s.deleteClass} rounded-lg transition-colors`}
-                title="Delete competition"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+                </div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-charcoal/60">
+                  {competition.start_mode === "open" ? "Open" : "Scheduled"}
+                </div>
+                <div className="flex items-center justify-end gap-1">
+                  {competition.start_mode === "scheduled" && (
+                    <Link
+                      to="/admin/competitions/$competitionId/tee-times"
+                      params={{ competitionId: competition.id.toString() }}
+                      className="h-8 w-8 flex items-center justify-center rounded-md text-charcoal/60 hover:text-turf hover:bg-rough/30 transition-colors"
+                      title={parentType === "series" ? "Manage tee times" : "Manage start list"}
+                    >
+                      <ScheduledIcon className="w-4 h-4" />
+                    </Link>
+                  )}
+                  {competition.start_mode === "open" && (
+                    <Link
+                      to="/admin/competitions/$competitionId/groups"
+                      params={{ competitionId: competition.id.toString() }}
+                      className="h-8 w-8 flex items-center justify-center rounded-md text-charcoal/60 hover:text-turf hover:bg-rough/30 transition-colors"
+                      title="View playing groups"
+                    >
+                      <Users className="w-4 h-4" />
+                    </Link>
+                  )}
+                  {showManualScoreEntry && (
+                    <Link
+                      to={`/admin/competitions/${competition.id}/manual-scores`}
+                      className="h-8 w-8 flex items-center justify-center rounded-md text-charcoal/60 hover:text-turf hover:bg-rough/30 transition-colors"
+                      title="Manual score entry"
+                    >
+                      <ClipboardEdit className="w-4 h-4" />
+                    </Link>
+                  )}
+                  {competition.is_results_final ? (
+                    <div
+                      className="h-8 w-8 flex items-center justify-center rounded-md text-turf"
+                      title={`Results finalized${competition.results_finalized_at ? ` on ${new Date(competition.results_finalized_at).toLocaleDateString()}` : ""}`}
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (
+                          !confirm(
+                            "Finalize results for this competition? This will calculate and store the final standings and points."
+                          )
+                        ) {
+                          return;
+                        }
+                        finalizeResults.mutate(competition.id);
+                      }}
+                      disabled={finalizeResults.isPending}
+                      className="h-8 w-8 flex items-center justify-center rounded-md text-coral hover:bg-coral/10 transition-colors disabled:opacity-50"
+                      title="Finalize results"
+                    >
+                      {finalizeResults.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(competition);
+                    }}
+                    className="h-8 w-8 flex items-center justify-center rounded-md text-charcoal/60 hover:text-turf hover:bg-rough/30 transition-colors"
+                    title="Edit competition"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(competition);
+                    }}
+                    className="h-8 w-8 flex items-center justify-center rounded-md text-flag hover:bg-flag/10 transition-colors"
+                    title="Delete competition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      ))}
+      </div>
     </div>
   );
 }

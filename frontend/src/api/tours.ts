@@ -526,7 +526,11 @@ export function useUsers() {
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
-      return response.json();
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+      return Array.isArray(data?.users) ? data.users : [];
     },
   });
 }

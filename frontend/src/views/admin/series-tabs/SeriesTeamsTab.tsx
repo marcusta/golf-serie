@@ -6,7 +6,6 @@ import {
 } from "@/api/series";
 import { type Team } from "@/api/teams";
 import { useAuth } from "@/context/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users } from "lucide-react";
 import { useNotification } from "@/hooks/useNotification";
@@ -51,86 +50,82 @@ export function SeriesTeamsTab({ seriesId }: SeriesTeamsTabProps) {
   return (
     <div className="space-y-6">
       {!isSuperAdmin && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
+        <div className="bg-sky/5 border border-sky/30 rounded-lg p-3">
+          <p className="text-sm text-sky">
             Team management is restricted to super administrators. Contact a
             super admin to add or remove teams from this series.
           </p>
         </div>
       )}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Teams in Series</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {seriesTeams && seriesTeams.length > 0 ? (
-              <div className="space-y-2">
-                {seriesTeams.map((team: Team) => (
+        <div className="bg-white border border-soft-grey rounded-lg p-4">
+          <div className="text-sm font-semibold uppercase tracking-wide text-charcoal mb-3">
+            Teams in Series
+          </div>
+          {seriesTeams && seriesTeams.length > 0 ? (
+            <div className="divide-y divide-soft-grey">
+              {seriesTeams.map((team: Team) => (
+                <div
+                  key={team.id}
+                  className="flex items-center justify-between py-2"
+                >
+                  <div className="flex items-center gap-2 text-sm text-charcoal">
+                    <Users className="h-4 w-4 text-charcoal/60" />
+                    <span className="font-medium">{team.name}</span>
+                  </div>
+                  {isSuperAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRemoveTeam(team.id)}
+                      className="h-8 px-2 rounded-md text-sm text-flag hover:text-flag hover:bg-flag/10"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-charcoal/60">
+              No teams in this series yet.
+            </p>
+          )}
+        </div>
+
+        {isSuperAdmin && (
+          <div className="bg-white border border-soft-grey rounded-lg p-4">
+            <div className="text-sm font-semibold uppercase tracking-wide text-charcoal mb-3">
+              Available Teams
+            </div>
+            {availableTeams && availableTeams.length > 0 ? (
+              <div className="divide-y divide-soft-grey">
+                {availableTeams.map((team: Team) => (
                   <div
                     key={team.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
+                    className="flex items-center justify-between py-2"
                   >
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-blue-600" />
+                    <div className="flex items-center gap-2 text-sm text-charcoal">
+                      <Users className="h-4 w-4 text-charcoal/60" />
                       <span className="font-medium">{team.name}</span>
                     </div>
-                    {isSuperAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRemoveTeam(team.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddTeam(team.id)}
+                      className="h-8 px-2 rounded-md text-sm text-turf hover:text-fairway hover:bg-rough/30"
+                    >
+                      Add to Series
+                    </Button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">
-                No teams in this series yet.
+              <p className="text-sm text-charcoal/60">
+                All teams are already in this series.
               </p>
             )}
-          </CardContent>
-        </Card>
-
-        {isSuperAdmin && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Teams</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {availableTeams && availableTeams.length > 0 ? (
-                <div className="space-y-2">
-                  {availableTeams.map((team: Team) => (
-                    <div
-                      key={team.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-gray-600" />
-                        <span className="font-medium">{team.name}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddTeam(team.id)}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        Add to Series
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">
-                  All teams are already in this series.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          </div>
         )}
       </div>
     </div>

@@ -8,8 +8,6 @@ import {
   useDeleteSeriesDocument,
   useUpdateSeries,
 } from "@/api/series";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -152,134 +150,131 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
   return (
     <div className="space-y-6">
       {/* Landing Page Settings Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Landing Page Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label
-              htmlFor="landing-document"
-              className="text-sm font-medium"
-            >
-              Landing Page Document
-            </label>
-            <select
-              id="landing-document"
-              value={landingDocumentId || ""}
-              onChange={(e) => {
-                const value = e.target.value;
-                setLandingDocumentId(value ? parseInt(value) : undefined);
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">None (use series description)</option>
-              {documents?.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.title}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500">
-              Select which document players will see as the main content for
-              this series.
-            </p>
-          </div>
+      <div className="bg-white border border-soft-grey rounded-lg p-4">
+        <div className="text-sm font-semibold uppercase tracking-wide text-charcoal mb-3">
+          Landing Page Settings
+        </div>
+        <div className="space-y-2">
+          <label
+            htmlFor="landing-document"
+            className="text-xs font-semibold uppercase tracking-wide text-charcoal/70"
+          >
+            Landing Page Document
+          </label>
+          <select
+            id="landing-document"
+            value={landingDocumentId || ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              setLandingDocumentId(value ? parseInt(value) : undefined);
+            }}
+            className="w-full h-9 px-3 border border-soft-grey rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-turf focus:border-transparent"
+          >
+            <option value="">None (use series description)</option>
+            {documents?.map((doc) => (
+              <option key={doc.id} value={doc.id}>
+                {doc.title}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-charcoal/60">
+            Select which document players will see as the main content for this series.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveLandingPage}
+            disabled={updateSeries.isPending}
+            className="h-8 px-2 rounded-md text-sm"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save Landing Page Settings
+          </Button>
+          {landingDocumentId && (
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSaveLandingPage}
-              disabled={updateSeries.isPending}
+              onClick={() => setShowPreviewDialog(true)}
+              className="h-8 px-2 rounded-md text-sm"
             >
-              <Save className="h-4 w-4 mr-2" />
-              Save Landing Page Settings
+              Preview
             </Button>
-            {landingDocumentId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPreviewDialog(true)}
-              >
-                Preview
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+      </div>
 
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Series Documents</h3>
-        <Button onClick={handleCreateDocument}>
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal">
+          Series Documents
+        </h3>
+        <Button onClick={handleCreateDocument} className="h-9 px-3 rounded-md text-sm">
           <Plus className="h-4 w-4 mr-2" />
           Add Document
         </Button>
       </div>
 
-      <div className="grid gap-4">
+      <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
         {documents && documents.length > 0 ? (
-          documents.map((document) => (
-            <Card key={document.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg">
-                      {document.title}
-                    </CardTitle>
-                    {series.landing_document_id === document.id && (
-                      <Badge
-                        variant="default"
-                        className="bg-blue-100 text-blue-800 hover:bg-blue-100"
-                      >
-                        Landing Page
-                      </Badge>
-                    )}
+          <>
+            <div className="grid grid-cols-[minmax(220px,2fr)_160px_140px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
+              <div>Document</div>
+              <div>Status</div>
+              <div className="text-right">Actions</div>
+            </div>
+            <div className="divide-y divide-soft-grey">
+              {documents.map((document) => (
+                <div
+                  key={document.id}
+                  className="grid grid-cols-[minmax(220px,2fr)_160px_140px] gap-4 px-4 py-2 text-sm items-center"
+                >
+                  <div>
+                    <div className="font-medium text-charcoal">{document.title}</div>
+                    <div className="text-xs text-charcoal/60 line-clamp-1">
+                      {document.content}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-charcoal/60">
+                    {series.landing_document_id === document.id ? "Landing" : "Standard"}
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleEditDocument(document)}
+                      className="h-8 px-2 rounded-md text-sm"
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleDeleteDocument(document)}
-                      className="text-red-600 hover:text-red-700"
+                      className="h-8 px-2 rounded-md text-sm text-flag hover:text-flag hover:bg-flag/10"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 mr-1" />
                       Delete
                     </Button>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="prose prose-gray max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {document.content}
-                  </ReactMarkdown>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+              ))}
+            </div>
+          </>
         ) : (
-          <Card>
-            <CardContent className="text-center py-8">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No documents created yet.</p>
-              <Button
-                variant="outline"
-                onClick={handleCreateDocument}
-                className="mt-4"
-              >
-                Create your first document
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="text-center py-10 text-charcoal/60">
+            <FileText className="h-10 w-10 text-charcoal/40 mx-auto mb-3" />
+            <p>No documents created yet.</p>
+            <Button
+              variant="outline"
+              onClick={handleCreateDocument}
+              className="mt-4 h-9 px-3 rounded-md text-sm"
+            >
+              Create your first document
+            </Button>
+          </div>
         )}
       </div>
 
@@ -293,7 +288,10 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
           </DialogHeader>
           <form onSubmit={handleSaveDocument} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="document-title" className="text-sm font-medium">
+              <label
+                htmlFor="document-title"
+                className="text-xs font-semibold uppercase tracking-wide text-charcoal/70"
+              >
                 Document Title
               </label>
               <Input
@@ -307,10 +305,14 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
                 }
                 placeholder="Enter document title"
                 required
+                className="h-9 text-sm"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="document-content" className="text-sm font-medium">
+              <label
+                htmlFor="document-content"
+                className="text-xs font-semibold uppercase tracking-wide text-charcoal/70"
+              >
                 Content (Markdown)
               </label>
               <MarkdownEditor
@@ -326,10 +328,11 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
                 type="button"
                 variant="outline"
                 onClick={() => setShowDocumentDialog(false)}
+                className="h-9 px-3 rounded-md text-sm"
               >
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="h-9 px-3 rounded-md text-sm">
                 {editingDocument ? "Update" : "Create"}
               </Button>
             </DialogFooter>
@@ -344,21 +347,21 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
             <DialogTitle>Landing Page Preview</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-charcoal/60">
               This is how players will see the landing page for this series:
             </p>
 
             {!selectedDoc ? (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <p className="text-gray-500">
+              <div className="border border-soft-grey rounded-md p-4 bg-soft-grey/30">
+                <p className="text-charcoal/60">
                   No document selected for preview.
                 </p>
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border border-soft-grey rounded-md overflow-hidden">
                 {/* Preview header */}
-                <div className="bg-gray-50 border-b px-4 py-2">
-                  <h3 className="font-medium text-gray-900">
+                <div className="bg-soft-grey/30 border-b border-soft-grey px-4 py-2">
+                  <h3 className="font-medium text-charcoal">
                     {selectedDoc.title}
                   </h3>
                 </div>
@@ -378,6 +381,7 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
             <Button
               variant="outline"
               onClick={() => setShowPreviewDialog(false)}
+              className="h-9 px-3 rounded-md text-sm"
             >
               Close Preview
             </Button>
