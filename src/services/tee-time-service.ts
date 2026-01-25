@@ -88,9 +88,10 @@ export class TeeTimeService {
     }
   }
 
-  private transformParticipantRow(row: ParticipantWithTeamRow): ParticipantWithTeamRow {
+  private transformParticipantRow(row: ParticipantWithTeamRow & { player_names?: string }): ParticipantWithTeamRow {
     return {
       ...row,
+      player_name: row.player_names ?? row.player_name ?? null,
       score:
         typeof row.score === "string"
           ? safeParseJsonWithDefault<number[]>(row.score, [])

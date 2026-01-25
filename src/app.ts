@@ -1030,20 +1030,8 @@ export function createApp(db: Database): Hono {
     return await participantsApi.findById(c.req.raw, id);
   });
 
-  app.put("/api/participants/:id", requireAuth(), async (c) => {
-    const user = c.get("user");
+  app.put("/api/participants/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
-    const participant = await participantService.findById(id);
-    if (!participant) {
-      return c.json({ error: "Participant not found" }, 404);
-    }
-    const teeTime = await teeTimeService.findById(participant.tee_time_id);
-    if (!teeTime) {
-      return c.json({ error: "Tee time not found" }, 404);
-    }
-    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
-      return c.json({ error: "Forbidden" }, 403);
-    }
     return await participantsApi.update(c.req.raw, id);
   });
 
