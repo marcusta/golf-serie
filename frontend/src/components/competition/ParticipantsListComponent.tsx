@@ -5,6 +5,11 @@ import {
   formatParticipantTypeDisplay,
   isMultiPlayerFormat,
 } from "../../utils/playerUtils";
+import {
+  calculateParticipantScore,
+  formatToPar,
+  getToParColor,
+} from "../../utils/scoreCalculations";
 import type { TeeTimeParticipant } from "../../api/tee-times";
 import { AddPlayersToGroup } from "../tour/AddPlayersToGroup";
 import { useMyRegistration } from "../../api/tour-registration";
@@ -153,72 +158,124 @@ export function ParticipantsListComponent({
           </div>
         ) : (
           <div className="space-y-6">
-            {teeTimes.map((teeTime) => (
-              <div
-                key={teeTime.id}
-                className="border-l-4 border-turf"
-              >
-                <div className="bg-rough/20 px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-base md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
-                      <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />
-                      {teeTime.teetime}
-                      <span className="text-xs md:text-sm text-turf font-primary font-medium">
-                        {venueType === "indoor" && teeTime.hitting_bay
-                          ? `· Bay ${teeTime.hitting_bay}`
-                          : `· Hole ${teeTime.start_hole}`}
-                      </span>
-                    </h4>
-                    <div className="flex items-center gap-3">
-                      {/* QR Code Button */}
-                      <button
-                        onClick={() =>
-                          setQrDialogState({
-                            open: true,
-                            url: getTeeTimeUrl(parseInt(competitionId), teeTime.id),
-                            title: `Tee Time ${teeTime.teetime}`,
-                          })
-                        }
-                        className="p-1.5 text-turf hover:text-fairway hover:bg-turf/10 rounded-lg transition-colors"
-                        title="Share tee time"
-                      >
-                        <QrCode className="h-4 w-4" />
-                      </button>
-                      <div className="text-xs md:text-sm text-turf font-primary">
-                        {teeTime.participants.length} players
+            {teeTimes.map((teeTime) => {
+              const status = getGroupStatus(teeTime);
+              const currentHole = getGroupCurrentHole(teeTime);
+
+              // Determine border color based on status
+              const borderColor = status === "playing"
+                ? "border-coral"
+                : status === "finished"
+                  ? "border-turf"
+                  : "border-soft-grey";
+
+              return (
+                <div
+                  key={teeTime.id}
+                  className={`border-l-4 ${borderColor}`}
+                >
+                  <div className="bg-rough/20 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-base md:text-lg font-semibold text-fairway font-display flex items-center gap-2">
+                        <Clock className="h-4 w-4 md:h-5 md:w-5 text-turf" />
+                        {teeTime.teetime}
+                        <span className="text-xs md:text-sm text-turf font-primary font-medium">
+                          {venueType === "indoor" && teeTime.hitting_bay
+                            ? `· Bay ${teeTime.hitting_bay}`
+                            : `· Hole ${teeTime.start_hole}`}
+                        </span>
+                      </h4>
+                      <div className="flex items-center gap-3">
+                        {/* Status indicator */}
+                        {status === "playing" && (
+                          <span className="text-xs text-coral font-semibold font-primary flex items-center gap-1">
+                            <Play className="h-3 w-3" />
+                            Hole {currentHole}
+                          </span>
+                        )}
+                        {status === "finished" && (
+                          <span className="text-xs text-turf font-medium font-primary flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Done
+                          </span>
+                        )}
+                        {status === "not_started" && (
+                          <span className="text-xs text-charcoal/50 font-primary flex items-center gap-1">
+                            <Circle className="h-3 w-3" />
+                            Waiting
+                          </span>
+                        )}
+                        {/* QR Code Button */}
+                        <button
+                          onClick={() =>
+                            setQrDialogState({
+                              open: true,
+                              url: getTeeTimeUrl(parseInt(competitionId), teeTime.id),
+                              title: `Tee Time ${teeTime.teetime}`,
+                            })
+                          }
+                          className="p-1.5 text-turf hover:text-fairway hover:bg-turf/10 rounded-lg transition-colors"
+                          title="Share tee time"
+                        >
+                          <QrCode className="h-4 w-4" />
+                        </button>
+                        <div className="text-xs md:text-sm text-turf font-primary">
+                          {teeTime.participants.length} players
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {teeTime.participants.length === 0 ? (
-                  <div className="text-center py-4 text-soft-grey text-sm font-primary">
-                    No participants assigned to this tee time yet.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-soft-grey">
-                    {teeTime.participants.map((participant) => (
-                      <Link
-                        key={participant.id}
-                        to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
-                        className="px-4 py-3 flex items-center justify-between hover:bg-rough hover:bg-opacity-20 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <h5 className="text-sm md:text-base font-medium text-fairway font-primary">
-                            {formatParticipantDisplay(participant)}
-                          </h5>
-                        </div>
-                        <div className="text-xs text-turf">
-                          {isMultiPlayerFormat(participant.position_name) && (
-                            <Users className="w-4 h-4 inline-block" />
-                          )}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+                  {teeTime.participants.length === 0 ? (
+                    <div className="text-center py-4 text-soft-grey text-sm font-primary">
+                      No participants assigned to this tee time yet.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-soft-grey">
+                      {teeTime.participants.map((participant) => {
+                        // Calculate score relative to par
+                        const scoreStats = calculateParticipantScore(
+                          participant.score || [],
+                          teeTime.pars || []
+                        );
+                        const hasStarted = scoreStats.holesPlayed > 0;
+
+                        return (
+                          <Link
+                            key={participant.id}
+                            to={`/player/competitions/${competitionId}/tee-times/${teeTime.id}`}
+                            className="px-4 py-3 flex items-center justify-between hover:bg-rough hover:bg-opacity-20 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-sm md:text-base font-medium text-fairway font-primary truncate">
+                                {formatParticipantDisplay(participant)}
+                              </h5>
+                              {/* Show handicap for tour competitions */}
+                              {isTourCompetition && participant.handicap_index !== undefined && (
+                                <div className="text-xs text-charcoal/50 mt-0.5">
+                                  HCP {participant.handicap_index.toFixed(1)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 ml-2">
+                              {/* Score relative to par */}
+                              {hasStarted && scoreStats.isValidRound && (
+                                <span className={`text-sm font-semibold ${getToParColor(scoreStats.relativeToPar)}`}>
+                                  {formatToPar(scoreStats.relativeToPar)}
+                                </span>
+                              )}
+                              {isMultiPlayerFormat(participant.position_name) && (
+                                <Users className="w-4 h-4 text-turf" />
+                              )}
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
