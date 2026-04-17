@@ -608,6 +608,22 @@ export class TourEnrollmentService {
   }
 
   /**
+   * Returns true if any competition in this tour has self_organize = 1.
+   * Used to gate public reads (the player-side group organizer needs the
+   * tour roster without admin auth).
+   */
+  hasAnySelfOrganizeCompetition(tourId: number): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT 1 FROM competitions
+         WHERE tour_id = ? AND self_organize = 1
+         LIMIT 1`
+      )
+      .get(tourId);
+    return !!row;
+  }
+
+  /**
    * Set the playing_handicap for an enrollment. Pass null to clear.
    */
   setPlayingHandicap(

@@ -209,10 +209,11 @@ export function createToursApi(
   // ENROLLMENT ENDPOINTS
   // ==========================================
 
-  // GET /api/tours/:id/enrollments - Admin: List enrollments
-  app.get("/:id/enrollments", requireAuth(), async (c) => {
+  // GET /api/tours/:id/enrollments - List enrollments
+  // Admin-gated unless any competition in this tour has self_organize=true,
+  // in which case the player-side group organizer needs unauthenticated read.
+  app.get("/:id/enrollments", async (c) => {
     try {
-      const user = c.get("user");
       const id = parseInt(c.req.param("id"));
       const status = c.req.query("status") as
         | "pending"
@@ -220,9 +221,14 @@ export function createToursApi(
         | "active"
         | undefined;
 
-      // Check if user can manage tour
-      if (!enrollmentService.canManageTour(id, user!.id)) {
-        return c.json({ error: "Forbidden" }, 403);
+      if (!enrollmentService.hasAnySelfOrganizeCompetition(id)) {
+        const user = c.get("user");
+        if (!user) {
+          return c.json({ error: "Authentication required" }, 401);
+        }
+        if (!enrollmentService.canManageTour(id, user.id)) {
+          return c.json({ error: "Forbidden" }, 403);
+        }
       }
 
       const enrollments = enrollmentService.getEnrollments(id, status);
