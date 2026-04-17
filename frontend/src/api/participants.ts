@@ -425,3 +425,107 @@ export function useAdminUpdateScore() {
     },
   });
 }
+
+// ========================================
+// Participant-Player Linking (Round History)
+// ========================================
+
+export interface LinkedPlayer {
+  player_id: number;
+  player_name: string;
+  handicap_index: number | null;
+  linked_at: string;
+}
+
+/**
+ * Fetch players linked to a participant (for round history in team formats)
+ */
+export function useParticipantPlayers(participantId: number) {
+  return useQuery<LinkedPlayer[]>({
+    queryKey: ["participant-players", participantId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${participantId}/players`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch linked players");
+      }
+      return response.json();
+    },
+    enabled: participantId > 0,
+  });
+}
+
+/**
+ * Link a player to a participant
+ */
+export function useLinkPlayer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      participantId,
+      playerId,
+    }: {
+      participantId: number;
+      playerId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${participantId}/players`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ player_id: playerId }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to link player");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["participant-players", variables.participantId],
+      });
+    },
+  });
+}
+
+/**
+ * Unlink a player from a participant
+ */
+export function useUnlinkPlayer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      participantId,
+      playerId,
+    }: {
+      participantId: number;
+      playerId: number;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/participants/${participantId}/players/${playerId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to unlink player");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["participant-players", variables.participantId],
+      });
+    },
+  });
+}

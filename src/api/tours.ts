@@ -244,11 +244,20 @@ export function createToursApi(
         return c.json({ error: "Forbidden" }, 403);
       }
 
-      if (!body.email) {
-        return c.json({ error: "Email is required" }, 400);
+      const rawName = typeof body.name === "string" ? body.name.trim() : "";
+      const rawEmail = typeof body.email === "string" ? body.email.trim() : "";
+
+      if (!rawEmail && !rawName) {
+        return c.json({ error: "Name or email is required" }, 400);
       }
 
-      const enrollment = enrollmentService.addPendingEnrollment(id, body.email);
+      const enrollment = rawEmail
+        ? enrollmentService.addPendingEnrollment(
+            id,
+            rawEmail,
+            rawName || undefined
+          )
+        : enrollmentService.addNameOnlyEnrollment(id, rawName);
       return c.json(enrollment, 201);
     } catch (error: any) {
       return c.json({ error: error.message }, 400);
@@ -701,6 +710,42 @@ export function createToursApi(
       return c.json({ success: true });
     } catch (error: any) {
       return c.json({ error: error.message }, 400);
+    }
+  });
+
+  // PUT /api/tours/:id/enrollments/:enrollmentId/handicap - Admin: Set playing handicap
+  app.put("/:id/enrollments/:enrollmentId/handicap", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const enrollmentId = parseInt(c.req.param("enrollmentId"));
+      const body = await c.req.json();
+
+      if (!enrollmentService.canManageTour(id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const raw = body.handicap;
+      let handicap: number | null;
+      if (raw === null || raw === undefined || raw === "") {
+        handicap = null;
+      } else {
+        const parsed = typeof raw === "number" ? raw : parseFloat(raw);
+        if (!Number.isFinite(parsed)) {
+          return c.json({ error: "handicap must be a number or null" }, 400);
+        }
+        handicap = parsed;
+      }
+
+      const updated = enrollmentService.setPlayingHandicap(
+        id,
+        enrollmentId,
+        handicap
+      );
+      return c.json(updated);
+    } catch (error: any) {
+      const status = error.message === "Enrollment not found" ? 404 : 400;
+      return c.json({ error: error.message }, status);
     }
   });
 

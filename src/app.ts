@@ -44,6 +44,7 @@ import { createCompetitionResultsService } from "./services/competition-results.
 import { GameService } from "./services/game.service";
 import { GameGroupService } from "./services/game-group.service";
 import { GameScoreService } from "./services/game-score.service";
+import { createParticipantPlayersService } from "./services/participant-players.service";
 
 export function createApp(db: Database): Hono {
   // Initialize services
@@ -72,6 +73,7 @@ export function createApp(db: Database): Hono {
   const gameService = new GameService(db);
   const gameGroupService = new GameGroupService(db);
   const gameScoreService = new GameScoreService(db);
+  const participantPlayersService = createParticipantPlayersService(db);
 
   // Auth service with auto-enrollment dependencies
   const authService = createAuthService(db, {
@@ -1004,8 +1006,8 @@ export function createApp(db: Database): Hono {
   });
 
   // Participant routes
-  app.post("/api/participants", requireAuth(), async (c) => {
-    const user = c.get("user");
+  // Allows admin OR any caller when competition.self_organize is true.
+  app.post("/api/participants", async (c) => {
     const body = await c.req.raw.clone().json();
     const teeTimeId = body?.tee_time_id;
     if (!teeTimeId) {
@@ -1015,8 +1017,15 @@ export function createApp(db: Database): Hono {
     if (!teeTime) {
       return c.json({ error: "Tee time not found" }, 404);
     }
-    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
-      return c.json({ error: "Forbidden" }, 403);
+    const competition = await competitionService.findById(teeTime.competition_id);
+    if (!competition?.self_organize) {
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Authentication required" }, 401);
+      }
+      if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
     }
     return await participantsApi.create(c.req.raw);
   });
@@ -1035,8 +1044,7 @@ export function createApp(db: Database): Hono {
     return await participantsApi.update(c.req.raw, id);
   });
 
-  app.delete("/api/participants/:id", requireAuth(), async (c) => {
-    const user = c.get("user");
+  app.delete("/api/participants/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
     const participant = await participantService.findById(id);
     if (!participant) {
@@ -1046,8 +1054,15 @@ export function createApp(db: Database): Hono {
     if (!teeTime) {
       return c.json({ error: "Tee time not found" }, 404);
     }
-    if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
-      return c.json({ error: "Forbidden" }, 403);
+    const competition = await competitionService.findById(teeTime.competition_id);
+    if (!competition?.self_organize) {
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Authentication required" }, 401);
+      }
+      if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
     }
     return await participantsApi.delete(id);
   });
@@ -1111,6 +1126,96 @@ export function createApp(db: Database): Hono {
       return c.json({ error: "Forbidden" }, 403);
     }
     return await participantsApi.adminUpdateScore(c.req.raw, id, user.id);
+  });
+
+  // Participant Players routes (linked player accounts)
+  // GET /api/participants/:id/players - Get all linked players for a participant
+  app.get("/api/participants/:id/players", async (c) => {
+    try {
+      const id = parseInt(c.req.param("id"));
+      const linkedPlayers = participantPlayersService.getLinkedPlayers(id);
+      return c.json(linkedPlayers);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      const status = message === "Participant not found" ? 404 : 500;
+      return c.json({ error: message }, status);
+    }
+  });
+
+  // POST /api/participants/:id/players - Link a player to a participant
+  app.post("/api/participants/:id/players", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+
+      // Get participant to check authorization
+      const participant = await participantService.findById(id);
+      if (!participant) {
+        return c.json({ error: "Participant not found" }, 404);
+      }
+
+      const teeTime = await teeTimeService.findById(participant.tee_time_id);
+      if (!teeTime) {
+        return c.json({ error: "Tee time not found" }, 404);
+      }
+
+      // Check if user can manage the competition
+      if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const body = await c.req.json();
+      if (!body.player_id) {
+        return c.json({ error: "player_id is required" }, 400);
+      }
+
+      const linkedPlayer = participantPlayersService.linkPlayer(id, body.player_id);
+      return c.json(linkedPlayer, 201);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      const status =
+        message === "Participant not found" || message === "Player not found"
+          ? 404
+          : message === "Player is already linked to this participant"
+          ? 409
+          : 400;
+      return c.json({ error: message }, status);
+    }
+  });
+
+  // DELETE /api/participants/:id/players/:playerId - Unlink a player from a participant
+  app.delete("/api/participants/:id/players/:playerId", requireAuth(), async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+      const playerId = parseInt(c.req.param("playerId"));
+
+      // Get participant to check authorization
+      const participant = await participantService.findById(id);
+      if (!participant) {
+        return c.json({ error: "Participant not found" }, 404);
+      }
+
+      const teeTime = await teeTimeService.findById(participant.tee_time_id);
+      if (!teeTime) {
+        return c.json({ error: "Tee time not found" }, 404);
+      }
+
+      // Check if user can manage the competition
+      if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      participantPlayersService.unlinkPlayer(id, playerId);
+      return c.json({ success: true });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      const status =
+        message === "Participant not found" || message === "Player is not linked to this participant"
+          ? 404
+          : 400;
+      return c.json({ error: message }, status);
+    }
   });
 
   // Series routes

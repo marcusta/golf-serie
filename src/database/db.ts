@@ -47,6 +47,11 @@ import { AddCasualGamesMigration } from "./migrations/045_add_casual_games";
 import { AddPlayerGenderFieldsMigration } from "./migrations/046_add_player_gender_fields";
 import { AddGameNameMigration } from "./migrations/047_add_game_name";
 import { ReplaceHomeCourseWithClubMigration } from "./migrations/048_replace_home_course_with_club";
+import { AddParticipantPlayersMigration } from "./migrations/049_add_participant_players";
+import { AllowNameOnlyEnrollmentsMigration } from "./migrations/050_allow_name_only_enrollments";
+import { AddCompetitionRoundTypeMigration } from "./migrations/051_add_competition_round_type";
+import { AddCompetitionSelfOrganizeMigration } from "./migrations/052_add_competition_self_organize";
+import { AddCompetitionResultsEnrollmentIdMigration } from "./migrations/053_add_competition_results_enrollment_id";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -126,6 +131,11 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddPlayerGenderFieldsMigration(db),
     new AddGameNameMigration(db),
     new ReplaceHomeCourseWithClubMigration(db),
+    new AddParticipantPlayersMigration(db),
+    new AllowNameOnlyEnrollmentsMigration(db),
+    new AddCompetitionRoundTypeMigration(db),
+    new AddCompetitionSelfOrganizeMigration(db),
+    new AddCompetitionResultsEnrollmentIdMigration(db),
   ];
 
   // Apply pending migrations

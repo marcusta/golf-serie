@@ -383,7 +383,7 @@ export function LeaderboardComponent({
                               skipFriendCheck={isTourCompetition}
                             />
                           </h3>
-                          {showNetScores && entry.participant.handicap_index !== undefined && (
+                          {showNetScores && entry.participant.handicap_index != null && (
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs text-turf font-primary">
                                 HCP {entry.participant.handicap_index.toFixed(1)}
@@ -465,7 +465,10 @@ export function LeaderboardComponent({
 
                           {/* Points (for tour competitions) */}
                           {isTourCompetition && (() => {
-                            const displayPoints = sortBy === "net" ? entry.netPoints : entry.points;
+                            const displayPoints =
+                              sortBy === "net"
+                                ? entry.netPoints ?? entry.points
+                                : entry.points;
                             return (
                               <div className={`w-8 text-center text-sm font-bold ${
                                 displayPoints && displayPoints > 0
@@ -565,7 +568,7 @@ export function LeaderboardComponent({
                               </>
                             )}
                             {/* Show handicap info when net scoring enabled */}
-                            {showNetScores && entry.participant.handicap_index !== undefined && (
+                            {showNetScores && entry.participant.handicap_index != null && (
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-xs text-turf font-primary">
                                   HCP {entry.participant.handicap_index.toFixed(1)}
@@ -684,7 +687,10 @@ export function LeaderboardComponent({
                           )}
                         </td>
                         {isTourCompetition && (() => {
-                          const displayPoints = sortBy === "net" ? entry.netPoints : entry.points;
+                          const displayPoints =
+                            sortBy === "net"
+                              ? entry.netPoints ?? entry.points
+                              : entry.points;
                           return (
                             <td className="py-4 px-4 text-center">
                               <div className={`text-lg font-bold ${

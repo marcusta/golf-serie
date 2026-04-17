@@ -13,6 +13,7 @@ import type {
   CompetitionGroupMember,
 } from "../types";
 import { GOLF } from "../constants/golf";
+import { getExpectedHolesCount } from "../utils/round-type";
 import { safeParseJsonWithDefault } from "../utils/parsing";
 import {
   calculateHolesPlayed,
@@ -65,6 +66,7 @@ interface RegistrationRoundRow {
   participant_id: number;
   registration_status: string;
   open_until: string | null;
+  round_type: string | null;
   score: string;
 }
 
@@ -377,6 +379,7 @@ export class TourCompetitionRegistrationService {
           r.participant_id,
           r.status as registration_status,
           c.open_end as open_until,
+          c.round_type as round_type,
           p.score
          FROM tour_competition_registrations r
          JOIN competitions c ON r.competition_id = c.id
@@ -600,11 +603,12 @@ export class TourCompetitionRegistrationService {
 
   private isRoundFinished(
     registrationStatus: string,
-    holesPlayed: number
+    holesPlayed: number,
+    expectedHoles: number
   ): boolean {
     return (
       registrationStatus === "finished" ||
-      holesPlayed === GOLF.HOLES_PER_ROUND
+      holesPlayed === expectedHoles
     );
   }
 
@@ -1061,7 +1065,8 @@ export class TourCompetitionRegistrationService {
       const holesPlayed = calculateHolesPlayed(scores);
 
       const isExpired = this.isRoundExpired(round.open_until);
-      const isFinished = this.isRoundFinished(round.registration_status, holesPlayed);
+      const expectedHoles = getExpectedHolesCount(round.round_type);
+      const isFinished = this.isRoundFinished(round.registration_status, holesPlayed, expectedHoles);
 
       // Skip DNF rounds - they'll appear on the leaderboard instead
       if (isExpired && !isFinished) {

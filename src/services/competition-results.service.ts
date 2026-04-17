@@ -1,5 +1,9 @@
 import { Database } from "bun:sqlite";
 import { GOLF } from "../constants/golf";
+import {
+  getActiveHoleIndices,
+  getExpectedHolesCount,
+} from "../utils/round-type";
 import { parseParsArray, safeParseJson } from "../utils/parsing";
 import { calculateDefaultPoints } from "../utils/points";
 import {
@@ -16,7 +20,8 @@ interface PointsStructure {
 
 interface ParticipantData {
   id: number;
-  player_id: number;
+  player_id: number | null;
+  enrollment_id: number | null;
   player_name: string;
   score: string;
   is_locked: number;
@@ -27,7 +32,8 @@ interface ParticipantData {
 
 interface CompetitionResult {
   participant_id: number;
-  player_id: number;
+  player_id: number | null;
+  enrollment_id: number | null;
   player_name: string;
   gross_score: number;
   net_score: number | null;
@@ -64,6 +70,7 @@ interface CompetitionDetailsRow {
   scoring_mode: string | null;
   start_mode: string;
   open_end: string | null;
+  round_type: string | null;
   points_multiplier: number | null;
 }
 
@@ -144,21 +151,33 @@ export class CompetitionResultsService {
   }
 
   private findParticipantDataRows(competitionId: number): ParticipantData[] {
+    // Includes both real players (via p.player_id) and name-only participants
+    // (matched to a tour_enrollment by case-insensitive name within the
+    // competition's tour). enrollment_id is set only for the name-only path.
     return this.db
       .prepare(`
         SELECT
           p.id,
           p.player_id,
+          te.id as enrollment_id,
           p.score,
           p.is_locked,
           p.is_dq,
           p.manual_score_total,
           p.handicap_index,
-          pl.name as player_name
+          COALESCE(pl.name, p.player_names, p.position_name) as player_name
         FROM participants p
-        JOIN players pl ON p.player_id = pl.id
+        LEFT JOIN players pl ON p.player_id = pl.id
         JOIN tee_times tt ON p.tee_time_id = tt.id
-        WHERE tt.competition_id = ? AND p.player_id IS NOT NULL
+        JOIN competitions c ON tt.competition_id = c.id
+        LEFT JOIN tour_enrollments te
+          ON p.player_id IS NULL
+          AND te.tour_id = c.tour_id
+          AND te.player_id IS NULL
+          AND LOWER(TRIM(COALESCE(te.name, ''))) =
+              LOWER(TRIM(COALESCE(p.player_names, p.position_name, '')))
+        WHERE tt.competition_id = ?
+          AND (p.player_id IS NOT NULL OR te.id IS NOT NULL)
       `)
       .all(competitionId) as ParticipantData[];
   }
@@ -177,13 +196,14 @@ export class CompetitionResultsService {
     this.db
       .prepare(`
         INSERT INTO competition_results
-          (competition_id, participant_id, player_id, position, points, gross_score, net_score, relative_to_par, scoring_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (competition_id, participant_id, player_id, enrollment_id, position, points, gross_score, net_score, relative_to_par, scoring_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         competitionId,
         result.participant_id,
         result.player_id,
+        result.enrollment_id,
         result.position,
         result.points,
         result.gross_score,
@@ -335,7 +355,8 @@ export class CompetitionResultsService {
   private isParticipantFinished(
     participant: ParticipantData,
     score: number[],
-    isOpenCompetitionClosed: boolean
+    isOpenCompetitionClosed: boolean,
+    expectedHoles: number
   ): boolean {
     // DQ'd players are never considered finished
     if (participant.is_dq) {
@@ -351,14 +372,14 @@ export class CompetitionResultsService {
     const holesPlayed = calculateHolesPlayed(score);
 
     if (isOpenCompetitionClosed) {
-      // Competition window closed: finished if 18 holes played
-      return holesPlayed === GOLF.HOLES_PER_ROUND && !hasInvalidRound;
+      // Competition window closed: finished if all expected holes played
+      return holesPlayed === expectedHoles && !hasInvalidRound;
     }
 
     // Competition still open: require is_locked
     return (
       participant.is_locked === 1 &&
-      holesPlayed === GOLF.HOLES_PER_ROUND &&
+      holesPlayed === expectedHoles &&
       !hasInvalidRound
     );
   }
@@ -366,11 +387,12 @@ export class CompetitionResultsService {
   private buildParticipantResult(
     participant: ParticipantData,
     pars: number[],
-    totalPar: number,
-    isOpenCompetitionClosed: boolean
+    activePar: number,
+    isOpenCompetitionClosed: boolean,
+    expectedHoles: number
   ): CompetitionResult {
     const score = this.parseParticipantScore(participant.score);
-    const isFinished = this.isParticipantFinished(participant, score, isOpenCompetitionClosed);
+    const isFinished = this.isParticipantFinished(participant, score, isOpenCompetitionClosed, expectedHoles);
 
     let grossScore = 0;
     let relativeToPar = 0;
@@ -379,7 +401,7 @@ export class CompetitionResultsService {
     if (isFinished) {
       if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
         grossScore = participant.manual_score_total;
-        relativeToPar = grossScore - totalPar;
+        relativeToPar = grossScore - activePar;
       } else {
         grossScore = calculateGrossScore(score);
         relativeToPar = calculateRelativeToPar(score, pars);
@@ -390,6 +412,7 @@ export class CompetitionResultsService {
     return {
       participant_id: participant.id,
       player_id: participant.player_id,
+      enrollment_id: participant.enrollment_id,
       player_name: participant.player_name,
       gross_score: grossScore,
       net_score: netScore,
@@ -602,6 +625,11 @@ export class CompetitionResultsService {
     // Parse pars
     const { pars, totalPar } = this.parseParsFromCompetition(competition);
 
+    // Compute hole-set for the competition's round type
+    const expectedHoles = getExpectedHolesCount(competition.round_type);
+    const activeIndices = getActiveHoleIndices(competition.round_type);
+    const activePar = activeIndices.reduce((sum, i) => sum + (pars[i] || 0), 0);
+
     // Get point template if exists
     const pointTemplate = competition.point_template_id
       ? this.findPointTemplateRow(competition.point_template_id)
@@ -618,7 +646,7 @@ export class CompetitionResultsService {
     // Get participants and build results
     const participants = this.findParticipantDataRows(competitionId);
     const results = participants.map((p) =>
-      this.buildParticipantResult(p, pars, totalPar, isOpenCompetitionClosed)
+      this.buildParticipantResult(p, pars, activePar, isOpenCompetitionClosed, expectedHoles)
     );
 
     // Rank and assign points

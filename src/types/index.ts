@@ -42,6 +42,8 @@ export interface Team {
   updated_at: string;
 }
 
+export type CompetitionRoundType = "full_18" | "front_9" | "back_9";
+
 export interface Competition {
   id: number;
   name: string;
@@ -57,6 +59,8 @@ export interface Competition {
   start_mode: "scheduled" | "open";
   open_start?: string;
   open_end?: string;
+  round_type: CompetitionRoundType;
+  self_organize: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -137,6 +141,8 @@ export interface CreateCompetitionDto {
   start_mode?: "scheduled" | "open";
   open_start?: string;
   open_end?: string;
+  round_type?: CompetitionRoundType;
+  self_organize?: boolean;
   owner_id?: number;
 }
 
@@ -154,6 +160,8 @@ export interface UpdateCompetitionDto {
   start_mode?: "scheduled" | "open";
   open_start?: string | null;
   open_end?: string | null;
+  round_type?: CompetitionRoundType;
+  self_organize?: boolean;
 }
 
 export interface TeeTime {
@@ -447,7 +455,8 @@ export interface TourEnrollment {
   id: number;
   tour_id: number;
   player_id?: number;
-  email: string;
+  email: string | null;
+  name: string | null;
   status: TourEnrollmentStatus;
   playing_handicap?: number;
   category_id?: number;
@@ -510,7 +519,8 @@ export interface UpdateTourDto {
 }
 
 export interface CreateTourEnrollmentDto {
-  email: string;
+  email?: string;
+  name?: string;
 }
 
 export interface TourEnrollmentWithPlayer extends TourEnrollment {

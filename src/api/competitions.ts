@@ -8,6 +8,7 @@ const createCompetitionSchema = z.object({
   course_id: z.number().positive(),
   series_id: z.number().positive().optional(),
   tour_id: z.number().positive().optional(),
+  tee_id: z.number().positive().optional(),
   point_template_id: z.number().positive().optional(),
   manual_entry_format: z.enum(["out_in_total", "total_only"]).optional(),
   points_multiplier: z.number().positive().optional(),
@@ -15,6 +16,8 @@ const createCompetitionSchema = z.object({
   start_mode: z.enum(["scheduled", "open"]).optional(),
   open_start: z.string().optional(),
   open_end: z.string().optional(),
+  round_type: z.enum(["full_18", "front_9", "back_9"]).optional(),
+  self_organize: z.boolean().optional(),
   owner_id: z.number().positive().optional(),
 });
 
@@ -24,6 +27,7 @@ const updateCompetitionSchema = z.object({
   course_id: z.number().positive().optional(),
   series_id: z.number().positive().nullable().optional(),
   tour_id: z.number().positive().nullable().optional(),
+  tee_id: z.number().positive().nullable().optional(),
   point_template_id: z.number().positive().nullable().optional(),
   manual_entry_format: z.enum(["out_in_total", "total_only"]).optional(),
   points_multiplier: z.number().positive().optional(),
@@ -31,6 +35,8 @@ const updateCompetitionSchema = z.object({
   start_mode: z.enum(["scheduled", "open"]).optional(),
   open_start: z.string().nullable().optional(),
   open_end: z.string().nullable().optional(),
+  round_type: z.enum(["full_18", "front_9", "back_9"]).optional(),
+  self_organize: z.boolean().optional(),
 });
 
 export function createCompetitionsApi(competitionService: CompetitionService) {

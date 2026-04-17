@@ -3,6 +3,8 @@ import { API_BASE_URL } from "./config";
 import type { Series } from "./series";
 import type { TeeTimeParticipant } from "./tee-times";
 
+export type CompetitionRoundType = "full_18" | "front_9" | "back_9";
+
 export interface Competition {
   id: number;
   name: string;
@@ -18,6 +20,8 @@ export interface Competition {
   start_mode: "scheduled" | "open";
   open_start?: string;
   open_end?: string;
+  round_type: CompetitionRoundType;
+  self_organize: boolean;
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -236,6 +240,8 @@ export interface CreateCompetitionDto {
   start_mode?: "scheduled" | "open";
   open_start?: string;
   open_end?: string;
+  round_type?: CompetitionRoundType;
+  self_organize?: boolean;
 }
 
 export interface UpdateCompetitionDto {
@@ -252,6 +258,8 @@ export interface UpdateCompetitionDto {
   start_mode?: "scheduled" | "open";
   open_start?: string | null;
   open_end?: string | null;
+  round_type?: CompetitionRoundType;
+  self_organize?: boolean;
 }
 
 export function useCreateCompetition() {

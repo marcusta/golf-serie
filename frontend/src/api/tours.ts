@@ -74,7 +74,8 @@ export interface TourEnrollment {
   id: number;
   tour_id: number;
   player_id?: number;
-  email: string;
+  email: string | null;
+  name: string | null;
   status: TourEnrollmentStatus;
   player_name?: string;
   category_id?: number;
@@ -324,12 +325,20 @@ export function useAddEnrollment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ tourId, email }: { tourId: number; email: string }) => {
+    mutationFn: async ({
+      tourId,
+      name,
+      email,
+    }: {
+      tourId: number;
+      name?: string;
+      email?: string;
+    }) => {
       const response = await fetch(`${API_BASE_URL}/tours/${tourId}/enrollments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ name, email }),
       });
       if (!response.ok) {
         const error = await response.json();
@@ -805,6 +814,42 @@ export function useReorderTourCategories() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tour-categories", variables.tourId] });
+    },
+  });
+}
+
+export function useSetEnrollmentHandicap() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      tourId,
+      enrollmentId,
+      handicap,
+    }: {
+      tourId: number;
+      enrollmentId: number;
+      handicap: number | null;
+    }) => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/enrollments/${enrollmentId}/handicap`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ handicap }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update handicap");
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tour-enrollments", variables.tourId],
+      });
     },
   });
 }

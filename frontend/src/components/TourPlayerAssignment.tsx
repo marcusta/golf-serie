@@ -90,7 +90,7 @@ function AssignmentDialog({
                       <div className="font-medium text-gray-900">
                         {player.playerName}
                       </div>
-                      {player.handicap !== undefined && (
+                      {player.handicap != null && (
                         <span className="text-sm text-gray-500 font-mono">
                           HCP {player.handicap.toFixed(1)}
                         </span>
@@ -242,7 +242,7 @@ function AvailablePlayersPanel({
                       />
                     )}
                     <span className="flex-1 text-sm truncate">{player.playerName}</span>
-                    {player.handicap !== undefined && (
+                    {player.handicap != null && (
                       <span className="text-xs text-gray-500 font-mono flex-shrink-0">
                         {player.handicap.toFixed(1)}
                       </span>
@@ -299,36 +299,52 @@ export default function TourPlayerAssignment({
     // Add existing participants from tee times
     teeTimes.forEach((teeTime) => {
       teeTime.participants.forEach((participant: TeeTimeParticipant) => {
-        if (participant.player_id) {
-          // Look up enrollment from all enrollments for handicap data
-          const enrollment = enrollmentsForLookup.find(
-            (e) => e.player_id === participant.player_id
-          );
-          newPlayers.push({
-            id: `existing-${participant.id}`,
-            enrollmentId: enrollment?.id || 0,
-            playerId: participant.player_id,
-            playerName: participant.player_name || participant.position_name,
-            categoryName: enrollment?.category_name,
-            handicap: enrollment?.handicap,
-            assignedToTeeTimeId: teeTime.id,
-            assignedToTeeTime: teeTime.teetime,
-          });
-        }
+        const participantLabel =
+          participant.player_name || participant.position_name;
+        const enrollment = participant.player_id
+          ? enrollmentsForLookup.find(
+              (e) => e.player_id === participant.player_id
+            )
+          : enrollmentsForLookup.find(
+              (e) =>
+                !e.player_id &&
+                (e.name || e.player_name) === participantLabel
+            );
+        newPlayers.push({
+          id: `existing-${participant.id}`,
+          enrollmentId: enrollment?.id || 0,
+          playerId: participant.player_id ?? undefined,
+          playerName: participantLabel,
+          categoryName: enrollment?.category_name,
+          handicap: enrollment?.handicap,
+          assignedToTeeTimeId: teeTime.id,
+          assignedToTeeTime: teeTime.teetime,
+        });
       });
     });
 
     // Add selected enrollments that aren't already assigned
     selectedEnrollments.forEach((enrollment) => {
-      const isAlreadyAssigned = newPlayers.some(
-        (p) => p.playerId === enrollment.player_id
-      );
+      const enrollmentLabel =
+        enrollment.player_name ||
+        enrollment.name ||
+        enrollment.email ||
+        "Unnamed";
+      const isAlreadyAssigned = newPlayers.some((p) => {
+        if (enrollment.player_id && p.playerId) {
+          return p.playerId === enrollment.player_id;
+        }
+        if (!enrollment.player_id && !p.playerId) {
+          return p.playerName === enrollmentLabel;
+        }
+        return false;
+      });
       if (!isAlreadyAssigned) {
         newPlayers.push({
           id: `enrollment-${enrollment.id}`,
           enrollmentId: enrollment.id,
           playerId: enrollment.player_id,
-          playerName: enrollment.player_name || enrollment.email,
+          playerName: enrollmentLabel,
           categoryName: enrollment.category_name,
           handicap: enrollment.handicap,
         });
@@ -343,13 +359,25 @@ export default function TourPlayerAssignment({
   // Get participant display info for the shared panel
   const getParticipantDisplay = useCallback(
     (participant: TeeTimeParticipant) => {
-      // First try to find in players array, then fall back to enrollment lookup
-      const playerData = players.find((p) => p.playerId === participant.player_id);
-      const enrollment = !playerData?.handicap && participant.player_id
-        ? enrollmentsForLookup.find((e) => e.player_id === participant.player_id)
+      const displayName =
+        participant.player_name || participant.position_name;
+      const playerData = participant.player_id
+        ? players.find((p) => p.playerId === participant.player_id)
+        : players.find(
+            (p) => !p.playerId && p.playerName === displayName
+          );
+      const enrollment = !playerData?.handicap
+        ? participant.player_id
+          ? enrollmentsForLookup.find(
+              (e) => e.player_id === participant.player_id
+            )
+          : enrollmentsForLookup.find(
+              (e) =>
+                !e.player_id && (e.name || e.player_name) === displayName
+            )
         : null;
       return {
-        displayName: participant.player_name || participant.position_name,
+        displayName,
         handicap: playerData?.handicap ?? enrollment?.handicap,
       };
     },

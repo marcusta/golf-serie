@@ -278,6 +278,47 @@ export class PlayerService {
   updateHandicap(id: number, handicap: number): Player {
     return this.update(id, { handicap });
   }
+
+  /**
+   * Search players by name for typeahead functionality.
+   * Returns players matching the search query with their display names.
+   */
+  search(query: string, limit: number = 10): Array<{
+    id: number;
+    name: string;
+    handicap: number | null;
+  }> {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
+    const searchTerm = `%${query.trim()}%`;
+
+    return this.db
+      .prepare(
+        `
+        SELECT
+          p.id,
+          COALESCE(pp.display_name, p.name) as name,
+          p.handicap
+        FROM players p
+        LEFT JOIN player_profiles pp ON p.id = pp.player_id
+        WHERE p.name LIKE ? OR pp.display_name LIKE ?
+        ORDER BY
+          CASE
+            WHEN COALESCE(pp.display_name, p.name) LIKE ? THEN 0
+            ELSE 1
+          END,
+          COALESCE(pp.display_name, p.name) ASC
+        LIMIT ?
+      `
+      )
+      .all(searchTerm, searchTerm, query.trim() + '%', limit) as Array<{
+        id: number;
+        name: string;
+        handicap: number | null;
+      }>;
+  }
 }
 
 export function createPlayerService(db: Database) {

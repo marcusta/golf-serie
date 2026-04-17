@@ -35,6 +35,7 @@ import { PlayerPageLayout } from "../../components/layout/PlayerPageLayout";
 import { useSeriesTeams } from "../../api/series";
 import { SeriesLinkBanner, TourLinkBanner } from "../../components/competition";
 import { JoinCompetitionFlow, GroupStatusCard } from "../../components/tour";
+import { PlayerGroupOrganizer } from "../../components/competition/PlayerGroupOrganizer";
 import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
 import { QRCodeDialog } from "../../components/competition/QRCodeDialog";
 import { getCompetitionStartlistUrl } from "../../utils/qrCodeUrls";
@@ -527,14 +528,22 @@ export default function CompetitionDetail() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "startlist" && (
-          <ParticipantsListComponent
-            teeTimes={teeTimes}
-            teeTimesLoading={teeTimesLoading}
-            competitionId={competitionId}
-            venueType={competition?.venue_type}
-          />
-        )}
+        {activeTab === "startlist" &&
+          (competition?.self_organize && competition?.tour_id ? (
+            <PlayerGroupOrganizer
+              competitionId={parseInt(competitionId || "0")}
+              tourId={competition.tour_id}
+              teeTimes={teeTimes}
+              onUpdate={refetchTeeTimes}
+            />
+          ) : (
+            <ParticipantsListComponent
+              teeTimes={teeTimes}
+              teeTimesLoading={teeTimesLoading}
+              competitionId={competitionId}
+              venueType={competition?.venue_type}
+            />
+          ))}
 
         {activeTab === "leaderboard" && (
           <LeaderboardComponent

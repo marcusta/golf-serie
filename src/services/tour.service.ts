@@ -2,6 +2,10 @@ import { Database } from "bun:sqlite";
 import type { TourCategory, TourPlayerStanding, TourStandings, Tour as TourType } from "../types";
 import { calculateCourseHandicap } from "../utils/handicap";
 import { GOLF } from "../constants/golf";
+import {
+  getActiveHoleIndices,
+  getExpectedHolesCount,
+} from "../utils/round-type";
 import { safeParseJson, parseScoreArray, parseParsArray } from "../utils/parsing";
 import {
   calculateHolesPlayed,
@@ -72,6 +76,7 @@ type CompetitionWithCourseRow = {
   is_results_final: number;
   start_mode: string;
   open_end: string | null;
+  round_type: string | null;
   course_name: string;
   pars: string;
   slope_rating: number | null;
@@ -205,16 +210,22 @@ export class TourService {
   }
 
   private findEnrollmentRows(tourId: number): EnrollmentRow[] {
+    // For name-only enrollments (no player record) we synthesize a
+    // negative player_id from the enrollment id so standings can group
+    // them across competitions without colliding with real player ids.
     return this.db
       .prepare(`
-        SELECT te.player_id, te.category_id, tc.name as category_name,
-               COALESCE(te.playing_handicap, pl.handicap) as handicap,
-               ${PLAYER_NAME_COALESCE}
+        SELECT
+          COALESCE(te.player_id, -te.id) as player_id,
+          te.category_id,
+          tc.name as category_name,
+          COALESCE(te.playing_handicap, pl.handicap) as handicap,
+          COALESCE(pp.display_name, pl.name, te.name) as player_name
         FROM tour_enrollments te
         LEFT JOIN tour_categories tc ON te.category_id = tc.id
         LEFT JOIN players pl ON te.player_id = pl.id
         LEFT JOIN player_profiles pp ON pl.id = pp.player_id
-        WHERE te.tour_id = ? AND te.status = 'active' AND te.player_id IS NOT NULL
+        WHERE te.tour_id = ? AND te.status = 'active'
       `)
       .all(tourId) as EnrollmentRow[];
   }
@@ -230,55 +241,65 @@ export class TourService {
     return this.db
       .prepare(`
         SELECT
-          cr.player_id,
+          COALESCE(cr.player_id, -cr.enrollment_id) as player_id,
           cr.competition_id,
           cr.position,
           cr.points,
           cr.relative_to_par,
           c.name as competition_name,
           c.date as competition_date,
-          ${PLAYER_NAME_COALESCE}
+          COALESCE(pp.display_name, pl.name, te.name) as player_name
         FROM competition_results cr
         JOIN competitions c ON cr.competition_id = c.id
-        JOIN players pl ON cr.player_id = pl.id
+        LEFT JOIN players pl ON cr.player_id = pl.id
         LEFT JOIN player_profiles pp ON pl.id = pp.player_id
+        LEFT JOIN tour_enrollments te ON cr.enrollment_id = te.id
         WHERE c.tour_id = ?
           AND cr.scoring_type = ?
           AND c.is_results_final = 1
+          AND (cr.player_id IS NOT NULL OR cr.enrollment_id IS NOT NULL)
         ORDER BY c.date ASC
       `)
       .all(tourId, scoringType) as StoredResultRow[];
   }
 
-  private findCompetitionStartInfo(competitionId: number): { start_mode: string; open_end: string | null } | null {
+  private findCompetitionStartInfo(competitionId: number): { start_mode: string; open_end: string | null; round_type: string | null } | null {
     return this.db
-      .prepare("SELECT start_mode, open_end FROM competitions WHERE id = ?")
-      .get(competitionId) as { start_mode: string; open_end: string | null } | null;
+      .prepare("SELECT start_mode, open_end, round_type FROM competitions WHERE id = ?")
+      .get(competitionId) as { start_mode: string; open_end: string | null; round_type: string | null } | null;
   }
 
   private findParticipantRowsForCompetition(competitionId: number): ParticipantRow[] {
-    // Note: Uses 3-level fallback for participant name resolution
-    // Even though WHERE requires player_id IS NOT NULL, we include p.player_names
-    // for consistency with the participant pattern
+    // Includes name-only participants by left-joining tour_enrollments on
+    // a case-insensitive name match within the competition's tour. Synthesizes
+    // a negative player_id from the matched enrollment id so standings can
+    // aggregate cross-competition without collisions.
     return this.db
       .prepare(`
         SELECT
           p.id,
-          p.player_id,
+          COALESCE(p.player_id, -te.id) as player_id,
           p.score,
           p.is_locked,
           p.is_dq,
           p.manual_score_total,
-          ${PARTICIPANT_NAME_COALESCE},
+          COALESCE(pp.display_name, pl.name, p.player_names, p.position_name) as player_name,
           c.id as competition_id,
           c.name as competition_name,
           c.date as competition_date
         FROM participants p
-        JOIN players pl ON p.player_id = pl.id
+        LEFT JOIN players pl ON p.player_id = pl.id
         LEFT JOIN player_profiles pp ON pl.id = pp.player_id
         JOIN tee_times t ON p.tee_time_id = t.id
         JOIN competitions c ON t.competition_id = c.id
-        WHERE t.competition_id = ? AND p.player_id IS NOT NULL
+        LEFT JOIN tour_enrollments te
+          ON p.player_id IS NULL
+          AND te.tour_id = c.tour_id
+          AND te.player_id IS NULL
+          AND LOWER(TRIM(COALESCE(te.name, ''))) =
+              LOWER(TRIM(COALESCE(p.player_names, p.position_name, '')))
+        WHERE t.competition_id = ?
+          AND (p.player_id IS NOT NULL OR te.id IS NOT NULL)
       `)
       .all(competitionId) as ParticipantRow[];
   }
@@ -399,7 +420,8 @@ export class TourService {
 
   private determineParticipantFinished(
     participant: ParticipantRow,
-    isOpenCompetitionClosed: boolean
+    isOpenCompetitionClosed: boolean,
+    expectedHoles: number
   ): { isFinished: boolean; totalShots: number; relativeToPar: number } {
     // DQ'd players are never finished
     if (participant.is_dq) {
@@ -423,9 +445,9 @@ export class TourService {
     // Determine if finished based on competition type
     let isFinished: boolean;
     if (isOpenCompetitionClosed) {
-      isFinished = holesPlayed === GOLF.HOLES_PER_ROUND && !hasInvalidRound;
+      isFinished = holesPlayed === expectedHoles && !hasInvalidRound;
     } else {
-      isFinished = Boolean(participant.is_locked) && holesPlayed === GOLF.HOLES_PER_ROUND && !hasInvalidRound;
+      isFinished = Boolean(participant.is_locked) && holesPlayed === expectedHoles && !hasInvalidRound;
     }
 
     if (!isFinished) {
@@ -625,7 +647,7 @@ export class TourService {
     const finalizedCompetitionIds = this.findFinalizedCompetitionIds(tourId);
 
     // Load stored results for finalized competitions
-    this.processStoredResults(
+    const competitionsWithStoredResults = this.processStoredResults(
       tourId,
       effectiveScoringType,
       categoryId,
@@ -637,6 +659,7 @@ export class TourService {
     const hasProjectedResults = this.processLiveCompetitions(
       competitions,
       finalizedCompetitionIds,
+      competitionsWithStoredResults,
       categoryId,
       effectiveScoringType,
       playerCategories,
@@ -684,10 +707,12 @@ export class TourService {
     categoryId: number | undefined,
     playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
     playerStandings: Map<number, TourPlayerStanding>
-  ): void {
+  ): Set<number> {
     const storedResults = this.findStoredResultRows(tourId, scoringType);
+    const competitionsWithStoredResults = new Set<number>();
 
     for (const result of storedResults) {
+      competitionsWithStoredResults.add(result.competition_id);
       const playerCategory = playerCategories.get(result.player_id);
 
       // Filter by category if specified
@@ -720,11 +745,14 @@ export class TourService {
         is_projected: false,
       });
     }
+
+    return competitionsWithStoredResults;
   }
 
   private processLiveCompetitions(
     competitions: CompetitionWithCourseRow[],
     finalizedCompetitionIds: Set<number>,
+    competitionsWithStoredResults: Set<number>,
     categoryId: number | undefined,
     scoringType: string,
     playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
@@ -736,8 +764,14 @@ export class TourService {
     let hasProjectedResults = false;
 
     for (const competition of competitions) {
-      // Skip finalized competitions
-      if (finalizedCompetitionIds.has(competition.id)) {
+      // Skip finalized competitions only when they actually have stored
+      // results. A finalized competition without stored rows (e.g. legacy
+      // data, or finalize ran before name-only support) should still
+      // contribute via live calculation as a fallback.
+      if (
+        finalizedCompetitionIds.has(competition.id) &&
+        competitionsWithStoredResults.has(competition.id)
+      ) {
         continue;
       }
 
@@ -763,6 +797,14 @@ export class TourService {
       // Rank and calculate points
       const rankedResults = this.rankPlayersByScore(adjustedResults);
 
+      // Build per-position tie counts so tied players split the sum of points
+      // across the positions they occupy (e.g. positions 4 and 5 tied → both
+      // get (pts_4 + pts_5) / 2).
+      const positionCounts = new Map<number, number>();
+      for (const r of rankedResults) {
+        positionCounts.set(r.position, (positionCounts.get(r.position) || 0) + 1);
+      }
+
       for (const result of rankedResults) {
         const playerCategory = playerCategories.get(result.player_id);
 
@@ -773,7 +815,16 @@ export class TourService {
           }
         }
 
-        const points = this.calculatePlayerPoints(result.position, numberOfPlayers, pointTemplate);
+        const tieCount = positionCounts.get(result.position) || 1;
+        let pointsSum = 0;
+        for (let i = 0; i < tieCount; i++) {
+          pointsSum += this.calculatePlayerPoints(
+            result.position + i,
+            numberOfPlayers,
+            pointTemplate
+          );
+        }
+        const points = Math.round((pointsSum / tieCount) * 100) / 100;
 
         // Initialize or update standing
         if (!playerStandings.has(result.player_id)) {
@@ -783,7 +834,14 @@ export class TourService {
           );
         }
 
+        // A finalized competition that lacks stored rows still counts as
+        // "actual" — mirror processStoredResults so it adds to both
+        // actual_points and projected_points (projected accumulates everything).
+        const isFinalized = finalizedCompetitionIds.has(competition.id);
         const standing = playerStandings.get(result.player_id)!;
+        if (isFinalized) {
+          standing.actual_points += points;
+        }
         standing.projected_points += points;
         standing.total_points += points;
         standing.competitions_played += 1;
@@ -794,7 +852,7 @@ export class TourService {
           points,
           position: result.position,
           score_relative_to_par: result.relative_to_par,
-          is_projected: true,
+          is_projected: !isFinalized,
         });
       }
     }
@@ -816,15 +874,19 @@ export class TourService {
     const courseRating = competition.course_rating || GOLF.STANDARD_COURSE_RATING;
     const pars = parseParsArray(competition.pars);
     const totalPar = pars.reduce((sum, par) => sum + par, 0);
+    const expectedHoles = getExpectedHolesCount(competition.round_type);
+    // 9-hole rounds use half the full course handicap (WHS convention).
+    const handicapScale = expectedHoles === 18 ? 1 : expectedHoles / 18;
 
     return results.map(result => {
       const handicapIndex = playerHandicaps.get(result.player_id) || 0;
-      const courseHandicap = calculateCourseHandicap(
+      const fullCourseHandicap = calculateCourseHandicap(
         handicapIndex,
         slopeRating,
         courseRating,
         totalPar
       );
+      const courseHandicap = Math.round(fullCourseHandicap * handicapScale);
       return {
         ...result,
         relative_to_par: result.relative_to_par - courseHandicap,
@@ -837,22 +899,25 @@ export class TourService {
    */
   private getCompetitionPlayerResults(competitionId: number, coursePars: string): (CompetitionResult & { position: number })[] {
     const pars = parseParsArray(coursePars);
-    const totalPar = pars.reduce((sum, par) => sum + par, 0);
 
     const startInfo = this.findCompetitionStartInfo(competitionId);
     const isOpenCompetitionClosed = this.isCompetitionWindowClosed(startInfo);
+    const expectedHoles = getExpectedHolesCount(startInfo?.round_type);
+    const activeIndices = getActiveHoleIndices(startInfo?.round_type);
+    const activePar = activeIndices.reduce((sum, i) => sum + (pars[i] || 0), 0);
     const participants = this.findParticipantRowsForCompetition(competitionId);
 
     const results: CompetitionResult[] = participants.map(participant => {
       const { isFinished, totalShots } = this.determineParticipantFinished(
         participant,
-        isOpenCompetitionClosed
+        isOpenCompetitionClosed,
+        expectedHoles
       );
 
       let relativeToPar = 0;
       if (isFinished) {
         if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
-          relativeToPar = totalShots - totalPar;
+          relativeToPar = totalShots - activePar;
         } else {
           const score = parseScoreArray(participant.score || "");
           relativeToPar = calculateRelativeToPar(score, pars);

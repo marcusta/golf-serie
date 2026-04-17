@@ -36,10 +36,11 @@ import {
   type CourseData,
   type ParticipantData,
 } from "../../components/scorecard/ParticipantScorecard";
-import { EditPlayerNameModal } from "../../components/competition/EditPlayerNameModal";
+import { EditParticipantModal } from "../../components/competition/EditParticipantModal";
 import { FullScorecardModal } from "../../components/score-entry/FullScorecardModal";
 import { formatCourseFromTeeTime } from "@/utils/courseFormatting";
 import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
+import { getActiveHoleNumbers, normalizeRoundType } from "../../utils/roundType";
 import type { TeeTime } from "../../api/tee-times";
 
 type TabType = "score" | "leaderboard" | "teams" | "participants";
@@ -185,6 +186,15 @@ export default function CompetitionRound() {
     }
   }, [teeTimeId, currentHole]);
 
+  // Round-type-aware active holes (front_9, back_9, or full_18).
+  const roundType = normalizeRoundType(competition?.round_type);
+  const activeHoles = useMemo(
+    () => getActiveHoleNumbers(roundType),
+    [roundType]
+  );
+  const minActiveHole = activeHoles[0];
+  const maxActiveHole = activeHoles[activeHoles.length - 1];
+
   // Check if round is complete when teeTime data changes
   useEffect(() => {
     if (teeTime?.participants && teeTime.participants.length > 0) {
@@ -194,7 +204,7 @@ export default function CompetitionRound() {
       );
 
       if (participantsWithScores.length === teeTime.participants.length) {
-        const roundComplete = isRoundComplete(teeTime.participants);
+        const roundComplete = isRoundComplete(teeTime.participants, activeHoles);
         setIsReadyToFinalize(roundComplete);
       } else {
         setIsReadyToFinalize(false);
@@ -202,7 +212,7 @@ export default function CompetitionRound() {
     } else {
       setIsReadyToFinalize(false);
     }
-  }, [teeTime]);
+  }, [teeTime, activeHoles]);
 
   // Initialize to tee time's configured start_hole if no progress exists
   useEffect(() => {
@@ -225,6 +235,20 @@ export default function CompetitionRound() {
         return s.length === 0 || s.every((v) => !v || v === 0);
       });
 
+    // For 9-hole competitions, force start at the active range start
+    // and clamp any stale remembered hole into the active range.
+    if (roundType !== "full_18") {
+      const remembered = rememberedHole ? parseInt(rememberedHole, 10) : NaN;
+      const inRange =
+        Number.isFinite(remembered) &&
+        remembered >= minActiveHole &&
+        remembered <= maxActiveHole;
+      const targetHole = inRange && !hasNoScores ? remembered : minActiveHole;
+      setCurrentHole(targetHole);
+      if (sessionKey) sessionStorage.setItem(sessionKey, String(targetHole));
+      return;
+    }
+
     const startHole: number | undefined =
       typeof (teeTime as unknown as { start_hole?: number }).start_hole ===
       "number"
@@ -245,7 +269,7 @@ export default function CompetitionRound() {
       setCurrentHole(startHole!);
       if (sessionKey) sessionStorage.setItem(sessionKey, String(startHole));
     }
-  }, [teeTime, teeTimeId]);
+  }, [teeTime, teeTimeId, roundType, minActiveHole]);
 
   // Format data using utility functions
   const teeTimeGroup = formatTeeTimeGroup(teeTime);
@@ -481,10 +505,14 @@ export default function CompetitionRound() {
             }
             return undefined;
           })()}
-          onPrevious={() => handleHoleChange(Math.max(1, currentHole - 1))}
-          onNext={() => handleHoleChange(Math.min(18, currentHole + 1))}
-          canGoPrevious={currentHole > 1}
-          canGoNext={currentHole < 18}
+          onPrevious={() =>
+            handleHoleChange(Math.max(minActiveHole, currentHole - 1))
+          }
+          onNext={() =>
+            handleHoleChange(Math.min(maxActiveHole, currentHole + 1))
+          }
+          canGoPrevious={currentHole > minActiveHole}
+          canGoNext={currentHole < maxActiveHole}
           className="flex-shrink-0"
         />
       )}
@@ -514,8 +542,8 @@ export default function CompetitionRound() {
         onClose={handleCloseScorecardModal}
       />
 
-      {/* Player Name Editing Modal */}
-      <EditPlayerNameModal
+      {/* Participant Editing Modal */}
+      <EditParticipantModal
         isOpen={editingParticipant !== null}
         onClose={handleCloseNameModal}
         onSave={handleSaveName}

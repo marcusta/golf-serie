@@ -1,11 +1,17 @@
 import { Database } from "bun:sqlite";
 import type {
+  CompetitionRoundType,
   LeaderboardEntry,
   LeaderboardResponse,
   Participant,
   TeamLeaderboardEntry,
   TourScoringMode,
 } from "../types";
+import {
+  getActiveHoleIndices,
+  getExpectedHolesCount,
+  normalizeRoundType,
+} from "../utils/round-type";
 import {
   calculateCourseHandicap,
   distributeHandicapStrokes,
@@ -37,6 +43,7 @@ interface CompetitionRow {
   points_multiplier: number | null;
   start_mode: string | null;
   open_end: string | null;
+  round_type: string | null;
   pars: string;
   course_stroke_index: string | null;
   is_results_final?: number;
@@ -150,6 +157,9 @@ interface LeaderboardContext {
   competition: CompetitionRow;
   pars: number[];
   totalPar: number;
+  roundType: CompetitionRoundType;
+  expectedHoles: number;
+  activePar: number;
   scoringMode: TourScoringMode | undefined;
   isTourCompetition: boolean;
   isResultsFinal: boolean;
@@ -161,6 +171,7 @@ interface LeaderboardContext {
   categoryTeeRatings: Map<number, CategoryTeeRating>;
   categories: CategoryRow[];
   playerHandicaps: Map<number, number>;
+  nameOnlyHandicaps: Map<string, number>;
 }
 
 export class LeaderboardService {
@@ -247,6 +258,15 @@ export class LeaderboardService {
       scoringMode
     );
 
+    const nameOnlyHandicaps =
+      competition.tour_id && scoringMode && scoringMode !== "gross"
+        ? new Map(
+            this.findNameOnlyEnrollmentHandicaps(competition.tour_id).map(
+              (r) => [r.name.trim().toLowerCase(), r.handicap_index]
+            )
+          )
+        : new Map<string, number>();
+
     const categories = competition.tour_id
       ? this.findCategoriesForCompetition(competition.tour_id, competitionId)
       : [];
@@ -260,12 +280,23 @@ export class LeaderboardService {
     const pars = parseParsArray(competition.pars);
     const totalPar = pars.reduce((sum, par) => sum + par, 0);
 
+    const roundType = normalizeRoundType(competition.round_type);
+    const expectedHoles = getExpectedHolesCount(roundType);
+    const activeIndices = getActiveHoleIndices(roundType);
+    const activePar = activeIndices.reduce(
+      (sum, i) => sum + (pars[i] || 0),
+      0
+    );
+
     const isOpenCompetitionClosed = this.isCompetitionWindowClosed(competition);
 
     return {
       competition,
       pars,
       totalPar,
+      roundType,
+      expectedHoles,
+      activePar,
       scoringMode,
       isTourCompetition,
       isResultsFinal,
@@ -277,6 +308,7 @@ export class LeaderboardService {
       categoryTeeRatings,
       categories,
       playerHandicaps,
+      nameOnlyHandicaps,
     };
   }
 
@@ -290,7 +322,7 @@ export class LeaderboardService {
   ): LeaderboardEntry {
     const score = this.parseParticipantScore(participant.score);
 
-    const handicapIndex = this.getParticipantHandicapIndex(participant, context.playerHandicaps);
+    const handicapIndex = this.getParticipantHandicapIndex(participant, context);
 
     const handicapInfo = this.calculateHandicapInfo(
       participant,
@@ -307,13 +339,21 @@ export class LeaderboardService {
 
   private getParticipantHandicapIndex(
     participant: ParticipantWithDetailsRow,
-    playerHandicaps: Map<number, number>
+    context: LeaderboardContext
   ): number | null {
     if (participant.handicap_index !== null && participant.handicap_index !== undefined) {
       return participant.handicap_index;
     }
     if (participant.player_id) {
-      return playerHandicaps.get(participant.player_id) ?? null;
+      return context.playerHandicaps.get(participant.player_id) ?? null;
+    }
+    // Fall back to name-only enrollment lookup (no player account, name-keyed).
+    const label = (participant.player_name || participant.position_name || "")
+      .trim()
+      .toLowerCase();
+    if (label) {
+      const fromName = context.nameOnlyHandicaps.get(label);
+      if (fromName !== undefined) return fromName;
     }
     return null;
   }
@@ -357,8 +397,8 @@ export class LeaderboardService {
     context: LeaderboardContext
   ): LeaderboardEntry {
     const totalShots = participant.manual_score_total!;
-    const holesPlayed = GOLF.HOLES_PER_ROUND;
-    const relativeToPar = totalShots - context.totalPar;
+    const holesPlayed = context.expectedHoles;
+    const relativeToPar = totalShots - context.activePar;
 
     let netTotalShots: number | undefined;
     let netRelativeToPar: number | undefined;
@@ -413,13 +453,14 @@ export class LeaderboardService {
         holesPlayed,
         totalShots,
         handicapInfo.courseHandicap,
-        handicapInfo.handicapStrokesPerHole
+        handicapInfo.handicapStrokesPerHole,
+        context.expectedHoles
       );
       netTotalShots = netScores.netTotalShots;
       netRelativeToPar = netScores.netRelativeToPar;
     }
 
-    const isDNF = context.isOpenCompetitionClosed && holesPlayed < GOLF.HOLES_PER_ROUND;
+    const isDNF = context.isOpenCompetitionClosed && holesPlayed < context.expectedHoles;
 
     return {
       participant: this.transformParticipantRowForLeaderboard(
@@ -458,7 +499,8 @@ export class LeaderboardService {
     holesPlayed: number,
     totalShots: number,
     courseHandicap: number,
-    handicapStrokesPerHole: number[]
+    handicapStrokesPerHole: number[],
+    expectedHoles: number
   ): { netTotalShots: number | undefined; netRelativeToPar: number | undefined } {
     if (holesPlayed === 0 || hasInvalidHole(score)) {
       return { netTotalShots: undefined, netRelativeToPar: undefined };
@@ -475,7 +517,7 @@ export class LeaderboardService {
     const netRelativeToPar = netScore - parForHolesPlayed;
 
     const netTotalShots =
-      holesPlayed === GOLF.HOLES_PER_ROUND ? totalShots - courseHandicap : undefined;
+      holesPlayed === expectedHoles ? totalShots - courseHandicap : undefined;
 
     return { netTotalShots, netRelativeToPar };
   }
@@ -761,7 +803,8 @@ export class LeaderboardService {
     return this.addProjectedPointsToLeaderboard(
       sortedEntries,
       pointTemplate,
-      context.competition.points_multiplier || 1
+      context.competition.points_multiplier || 1,
+      context.expectedHoles
     );
   }
 
@@ -797,14 +840,16 @@ export class LeaderboardService {
   private addProjectedPointsToLeaderboard(
     sortedEntries: LeaderboardEntry[],
     pointTemplate: PointTemplateRow | null,
-    pointsMultiplier: number
+    pointsMultiplier: number,
+    expectedHoles: number
   ): LeaderboardEntry[] {
     // Calculate gross positions and points
     const grossPositions = this.calculateProjectedPositions(
       sortedEntries,
       (entry) => entry.relativeToPar,
       pointTemplate,
-      pointsMultiplier
+      pointsMultiplier,
+      expectedHoles
     );
 
     // Calculate net positions and points if entries have net scores
@@ -814,7 +859,8 @@ export class LeaderboardService {
           sortedEntries,
           (entry) => entry.netRelativeToPar ?? entry.relativeToPar,
           pointTemplate,
-          pointsMultiplier
+          pointsMultiplier,
+          expectedHoles
         )
       : null;
 
@@ -838,10 +884,11 @@ export class LeaderboardService {
     entries: LeaderboardEntry[],
     scoreGetter: (entry: LeaderboardEntry) => number,
     pointTemplate: PointTemplateRow | null,
-    pointsMultiplier: number
+    pointsMultiplier: number,
+    expectedHoles: number
   ): Map<number, { position: number; points: number }> {
     const finishedPlayers = entries.filter(
-      (e) => e.holesPlayed === GOLF.HOLES_PER_ROUND && !e.participant.is_dq && !e.isDNF
+      (e) => e.holesPlayed === expectedHoles && !e.participant.is_dq && !e.isDNF
     );
     const numberOfPlayers = finishedPlayers.length;
 
@@ -863,16 +910,35 @@ export class LeaderboardService {
       (item, pos) => (item.position = pos)
     );
 
-    // Build results map with positions and calculated points
-    const results = new Map<number, { position: number; points: number }>();
+    // Group ties: players sharing a position split the sum of points across
+    // the positions they occupy. e.g. if positions 4 and 5 are tied, both
+    // receive (points_for_4 + points_for_5) / 2.
+    const tieGroups = new Map<number, typeof entriesWithPosition>();
     for (const item of entriesWithPosition) {
-      const points = this.calculateProjectedPoints(
-        item.position,
-        numberOfPlayers,
-        pointTemplate,
-        pointsMultiplier
-      );
-      results.set(item.entry.participant.id, { position: item.position, points });
+      const bucket = tieGroups.get(item.position) ?? [];
+      bucket.push(item);
+      tieGroups.set(item.position, bucket);
+    }
+
+    const results = new Map<number, { position: number; points: number }>();
+    for (const [position, items] of tieGroups) {
+      const tieCount = items.length;
+      let sumPoints = 0;
+      for (let i = 0; i < tieCount; i++) {
+        sumPoints += this.calculateProjectedPoints(
+          position + i,
+          numberOfPlayers,
+          pointTemplate,
+          pointsMultiplier
+        );
+      }
+      const sharedPoints = Math.round((sumPoints / tieCount) * 100) / 100;
+      for (const item of items) {
+        results.set(item.entry.participant.id, {
+          position: item.position,
+          points: sharedPoints,
+        });
+      }
     }
 
     return results;
@@ -1182,6 +1248,21 @@ export class LeaderboardService {
       WHERE te.tour_id = ? AND te.player_id IS NOT NULL AND te.status = 'active'
     `);
     return stmt.all(tourId) as PlayerHandicapRow[];
+  }
+
+  private findNameOnlyEnrollmentHandicaps(
+    tourId: number
+  ): { name: string; handicap_index: number }[] {
+    const stmt = this.db.prepare(`
+      SELECT COALESCE(te.name, '') as name, te.playing_handicap as handicap_index
+      FROM tour_enrollments te
+      WHERE te.tour_id = ?
+        AND te.status = 'active'
+        AND te.player_id IS NULL
+        AND te.playing_handicap IS NOT NULL
+        AND COALESCE(te.name, '') <> ''
+    `);
+    return stmt.all(tourId) as { name: string; handicap_index: number }[];
   }
 
   private findParticipantsForCompetition(competitionId: number): ParticipantWithDetailsRow[] {

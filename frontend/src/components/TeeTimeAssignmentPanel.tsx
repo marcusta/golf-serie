@@ -336,7 +336,7 @@ export default function TeeTimeAssignmentPanel({
                             )}
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            {display.handicap !== undefined && (
+                            {display.handicap != null && (
                               <span className="text-xs text-blue-700 font-mono">
                                 {display.handicap.toFixed(1)}
                               </span>

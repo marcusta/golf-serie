@@ -330,10 +330,18 @@ export function calculateNetHoleTotal(
   }, 0);
 }
 
-export function isRoundComplete(players: PlayerForRoundCheck[]): boolean {
+export function isRoundComplete(
+  players: PlayerForRoundCheck[],
+  activeHoleNumbers?: number[]
+): boolean {
   if (!players || players.length === 0) {
     return false;
   }
+
+  const holeNumbers =
+    activeHoleNumbers && activeHoleNumbers.length > 0
+      ? activeHoleNumbers
+      : Array.from({ length: 18 }, (_, i) => i + 1);
 
   // Check every player in the group
   for (const player of players) {
@@ -341,9 +349,9 @@ export function isRoundComplete(players: PlayerForRoundCheck[]): boolean {
       return false;
     }
 
-    // Check all 18 holes for this player
-    for (let holeIndex = 0; holeIndex < 18; holeIndex++) {
-      const score = player.score[holeIndex];
+    // Check every active hole for this player
+    for (const holeNumber of holeNumbers) {
+      const score = player.score[holeNumber - 1];
       // A score of 0, null, or undefined indicates the hole is not yet played.
       if (score === 0 || score === null || score === undefined) {
         return false;
@@ -351,6 +359,5 @@ export function isRoundComplete(players: PlayerForRoundCheck[]): boolean {
     }
   }
 
-  // If all loops complete, the round is finished.
   return true;
 }

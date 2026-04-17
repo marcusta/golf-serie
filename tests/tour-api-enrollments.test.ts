@@ -117,7 +117,7 @@ describe("Tours API - Enrollment Endpoints", () => {
       expectErrorResponse(response, 403);
     });
 
-    test("should require email field", async () => {
+    test("should require name or email field", async () => {
       const { tour } = await createOrganizerAndTour();
 
       const response = await makeRequest(
@@ -128,7 +128,7 @@ describe("Tours API - Enrollment Endpoints", () => {
 
       expectErrorResponse(response, 400);
       const error = await response.json();
-      expect(error.error).toBe("Email is required");
+      expect(error.error).toBe("Name or email is required");
     });
 
     test("should prevent duplicate enrollments", async () => {

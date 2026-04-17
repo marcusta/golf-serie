@@ -19,6 +19,24 @@ export function createPlayersApi(
     }
   });
 
+  // GET /api/players/search - Public: Search players by name for typeahead
+  app.get("/search", async (c) => {
+    try {
+      const query = c.req.query("q") || "";
+      const limitParam = c.req.query("limit");
+      const limit = limitParam ? parseInt(limitParam, 10) : 10;
+
+      if (!query.trim()) {
+        return c.json([]);
+      }
+
+      const players = playerService.search(query, limit);
+      return c.json(players);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
   // GET /api/players/me - Auth: Get current user's player profile
   // MUST come before /:id route to avoid matching "me" as an ID
   app.get("/me", requireAuth(), async (c) => {

@@ -125,7 +125,25 @@ export default function AdminCompetitionTeeTimes() {
           onSelectAll={() => {
             if (!tourEnrollments) return;
             const unassignedIds = tourEnrollments
-              .filter((e) => !teeTimes?.some((tt) => tt.participants.some((p) => p.player_id === e.player_id)))
+              .filter((e) => {
+                if (!teeTimes) return true;
+                return !teeTimes.some((tt) =>
+                  tt.participants.some((p) => {
+                    if (e.player_id && p.player_id) {
+                      return p.player_id === e.player_id;
+                    }
+                    if (!e.player_id && !p.player_id) {
+                      const enrollmentLabel = e.name || e.player_name;
+                      if (!enrollmentLabel) return false;
+                      return (
+                        p.player_name === enrollmentLabel ||
+                        p.position_name === enrollmentLabel
+                      );
+                    }
+                    return false;
+                  })
+                );
+              })
               .map((e) => e.id);
             setSelectedEnrollments(
               selectedEnrollments.length === unassignedIds.length ? [] : unassignedIds

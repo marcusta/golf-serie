@@ -133,32 +133,49 @@ export class TourEnrollmentService {
   private insertActiveEnrollmentRow(
     tourId: number,
     playerId: number,
-    email: string
+    email: string,
+    name: string | null
   ): TourEnrollment {
     return this.db
       .prepare(
         `
-        INSERT INTO tour_enrollments (tour_id, player_id, email, status)
-        VALUES (?, ?, ?, 'active')
+        INSERT INTO tour_enrollments (tour_id, player_id, email, name, status)
+        VALUES (?, ?, ?, ?, 'active')
         RETURNING *
       `
       )
-      .get(tourId, playerId, email) as TourEnrollment;
+      .get(tourId, playerId, email, name) as TourEnrollment;
   }
 
   private insertPendingEnrollmentRow(
     tourId: number,
-    email: string
+    email: string,
+    name: string | null
   ): TourEnrollment {
     return this.db
       .prepare(
         `
-        INSERT INTO tour_enrollments (tour_id, email, status)
-        VALUES (?, ?, 'pending')
+        INSERT INTO tour_enrollments (tour_id, email, name, status)
+        VALUES (?, ?, ?, 'pending')
         RETURNING *
       `
       )
-      .get(tourId, email) as TourEnrollment;
+      .get(tourId, email, name) as TourEnrollment;
+  }
+
+  private insertNameOnlyEnrollmentRow(
+    tourId: number,
+    name: string
+  ): TourEnrollment {
+    return this.db
+      .prepare(
+        `
+        INSERT INTO tour_enrollments (tour_id, name, status)
+        VALUES (?, ?, 'active')
+        RETURNING *
+      `
+      )
+      .get(tourId, name) as TourEnrollment;
   }
 
   private insertRequestedEnrollmentRow(
@@ -309,7 +326,11 @@ export class TourEnrollmentService {
    * If user exists but no player profile -> create player, then 'active'
    * If user doesn't exist -> 'pending' (waiting for registration)
    */
-  addPendingEnrollment(tourId: number, email: string): TourEnrollment {
+  addPendingEnrollment(
+    tourId: number,
+    email: string,
+    name?: string
+  ): TourEnrollment {
     if (!this.findTourExists(tourId)) {
       throw new Error("Tour not found");
     }
@@ -320,20 +341,44 @@ export class TourEnrollmentService {
     }
 
     const normalizedEmail = email.toLowerCase();
+    const storedName = name?.trim() || null;
     const existingUser = this.findUserByEmailLower(normalizedEmail);
 
     if (existingUser) {
       let player = this.findPlayerByUserId(existingUser.id);
 
       if (!player) {
-        const emailName = this.extractEmailName(existingUser.email);
-        player = this.insertPlayerRow(emailName, existingUser.id);
+        const playerName =
+          storedName || this.extractEmailName(existingUser.email);
+        player = this.insertPlayerRow(playerName, existingUser.id);
       }
 
-      return this.insertActiveEnrollmentRow(tourId, player.id, normalizedEmail);
+      return this.insertActiveEnrollmentRow(
+        tourId,
+        player.id,
+        normalizedEmail,
+        storedName
+      );
     }
 
-    return this.insertPendingEnrollmentRow(tourId, normalizedEmail);
+    return this.insertPendingEnrollmentRow(tourId, normalizedEmail, storedName);
+  }
+
+  /**
+   * Add a name-only enrollment (trust-based, no email, no player account).
+   * Status is 'active' immediately.
+   */
+  addNameOnlyEnrollment(tourId: number, name: string): TourEnrollment {
+    if (!this.findTourExists(tourId)) {
+      throw new Error("Tour not found");
+    }
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Name is required");
+    }
+
+    return this.insertNameOnlyEnrollmentRow(tourId, trimmed);
   }
 
   /**
@@ -560,6 +605,30 @@ export class TourEnrollmentService {
     if (changes === 0) {
       throw new Error("Enrollment not found");
     }
+  }
+
+  /**
+   * Set the playing_handicap for an enrollment. Pass null to clear.
+   */
+  setPlayingHandicap(
+    tourId: number,
+    enrollmentId: number,
+    handicap: number | null
+  ): TourEnrollment {
+    const result = this.db
+      .prepare(
+        `
+        UPDATE tour_enrollments
+        SET playing_handicap = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND tour_id = ?
+        RETURNING *
+      `
+      )
+      .get(handicap, enrollmentId, tourId) as TourEnrollment | null;
+    if (!result) {
+      throw new Error("Enrollment not found");
+    }
+    return result;
   }
 }
 

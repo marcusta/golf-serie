@@ -166,6 +166,7 @@ export class CompetitionService {
   private transformCompetitionRowToResult(row: CompetitionWithCourseRow): Competition & { course: { id: number; name: string }; participant_count: number } {
     return {
       ...row,
+      self_organize: !!(row as unknown as { self_organize?: number | boolean }).self_organize,
       course: {
         id: row.course_id,
         name: row.course_name,
@@ -257,6 +258,14 @@ export class CompetitionService {
       updates.push("open_end = ?");
       values.push(data.open_end);
     }
+    if (data.round_type !== undefined) {
+      updates.push("round_type = ?");
+      values.push(data.round_type);
+    }
+    if (data.self_organize !== undefined) {
+      updates.push("self_organize = ?");
+      values.push(data.self_organize ? 1 : 0);
+    }
 
     return { updates, values };
   }
@@ -315,11 +324,11 @@ export class CompetitionService {
 
   private insertCompetitionRow(data: CreateCompetitionDto): Competition {
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, round_type, self_organize, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
-    return stmt.get(
+    const row = stmt.get(
       data.name,
       data.date,
       data.course_id,
@@ -333,8 +342,11 @@ export class CompetitionService {
       data.start_mode || "scheduled",
       data.open_start || null,
       data.open_end || null,
+      data.round_type || "full_18",
+      data.self_organize ? 1 : 0,
       data.owner_id || null
-    ) as Competition;
+    ) as Competition & { self_organize: number | boolean };
+    return { ...row, self_organize: !!row.self_organize };
   }
 
   private updateCompetitionRow(id: number, updates: string[], values: (string | number | null)[]): Competition {
@@ -346,7 +358,10 @@ export class CompetitionService {
       WHERE id = ?
       RETURNING *
     `);
-    return stmt.get(...values) as Competition;
+    const row = stmt.get(...values) as Competition & {
+      self_organize: number | boolean;
+    };
+    return { ...row, self_organize: !!row.self_organize };
   }
 
   private deleteCompetitionRow(id: number): void {

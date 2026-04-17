@@ -62,6 +62,8 @@ const tourCompetitionSchema = z
     start_mode: z.enum(["scheduled", "open"] as const),
     open_start: z.string().optional(),
     open_end: z.string().optional(),
+    round_type: z.enum(["full_18", "front_9", "back_9"] as const),
+    self_organize: z.boolean(),
   })
   .refine(
     (data) => {
@@ -127,6 +129,8 @@ export function TourCompetitionModal({
       start_mode: "scheduled",
       open_start: "",
       open_end: "",
+      round_type: "full_18",
+      self_organize: false,
     },
     mode: "onChange",
   });
@@ -146,6 +150,8 @@ export function TourCompetitionModal({
           start_mode: competition.start_mode || "scheduled",
           open_start: toDatetimeLocal(competition.open_start),
           open_end: toDatetimeLocal(competition.open_end),
+          round_type: competition.round_type || "full_18",
+          self_organize: !!competition.self_organize,
         });
       } else {
         form.reset({
@@ -159,6 +165,8 @@ export function TourCompetitionModal({
           start_mode: "scheduled",
           open_start: "",
           open_end: "",
+          round_type: "full_18",
+          self_organize: false,
         });
         setCategoryTeeMappings([]);
       }
@@ -203,6 +211,8 @@ export function TourCompetitionModal({
           : undefined,
       open_end:
         data.start_mode === "open" && data.open_end ? data.open_end : undefined,
+      round_type: data.round_type,
+      self_organize: data.self_organize,
     };
 
     try {
@@ -381,8 +391,10 @@ export function TourCompetitionModal({
                       </span>
                     </FormLabel>
                     <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
+                      onValueChange={(value) =>
+                        field.onChange(value === "none" ? "" : value)
+                      }
+                      value={field.value || "none"}
                       disabled={isPending}
                     >
                       <FormControl>
@@ -391,7 +403,7 @@ export function TourCompetitionModal({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Use tour default</SelectItem>
+                        <SelectItem value="none">Use tour default</SelectItem>
                         {pointTemplates?.map((template) => (
                           <SelectItem
                             key={template.id}
@@ -432,6 +444,65 @@ export function TourCompetitionModal({
                         <SelectItem value="indoor">Indoor (Simulator)</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Round Type */}
+              <FormField
+                control={form.control}
+                name="round_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Round</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="full_18">18 holes</SelectItem>
+                        <SelectItem value="front_9">Front 9 (holes 1-9)</SelectItem>
+                        <SelectItem value="back_9">Back 9 (holes 10-18)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Pick which holes to score. Defaults to 18.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Self-Organize */}
+              <FormField
+                control={form.control}
+                name="self_organize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Self-Organize Groups</FormLabel>
+                    <FormControl>
+                      <label className="flex items-start gap-3 p-3 border-2 border-soft-grey rounded-xl cursor-pointer hover:border-turf transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                          disabled={isPending}
+                          className="mt-1"
+                        />
+                        <span className="text-sm text-charcoal/80">
+                          Anyone with the link can build groups, move players
+                          between tee times, and edit any score. Trust-based —
+                          no login required for the round.
+                        </span>
+                      </label>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

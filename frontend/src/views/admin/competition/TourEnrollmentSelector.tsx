@@ -18,8 +18,28 @@ export function TourEnrollmentSelector({
 }: TourEnrollmentSelectorProps) {
   if (!tourEnrollments) return null;
 
+  const isEnrollmentAssigned = (e: TourEnrollment): boolean => {
+    if (!teeTimes) return false;
+    return teeTimes.some((tt) =>
+      tt.participants.some((p) => {
+        if (e.player_id && p.player_id) {
+          return p.player_id === e.player_id;
+        }
+        if (!e.player_id && !p.player_id) {
+          const enrollmentLabel = e.name || e.player_name;
+          if (!enrollmentLabel) return false;
+          return (
+            p.player_name === enrollmentLabel ||
+            p.position_name === enrollmentLabel
+          );
+        }
+        return false;
+      })
+    );
+  };
+
   const unassignedCount = tourEnrollments.filter(
-    (e) => !teeTimes?.some((tt) => tt.participants.some((p) => p.player_id === e.player_id))
+    (e) => !isEnrollmentAssigned(e)
   ).length;
 
   return (
@@ -51,10 +71,8 @@ export function TourEnrollmentSelector({
       {tourEnrollments.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {tourEnrollments.map((enrollment) => {
-            // Check if this player is already assigned to a tee time
-            const isAssigned = teeTimes?.some((tt) =>
-              tt.participants.some((p) => p.player_id === enrollment.player_id)
-            );
+            // Check if this enrollment is already assigned to a tee time
+            const isAssigned = isEnrollmentAssigned(enrollment);
             const isSelected = selectedEnrollments.includes(enrollment.id);
 
             return (
@@ -139,9 +157,12 @@ function EnrollmentCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-900 truncate">
-              {enrollment.player_name || enrollment.email}
+              {enrollment.player_name ||
+                enrollment.name ||
+                enrollment.email ||
+                "Unnamed"}
             </span>
-            {enrollment.handicap !== undefined && (
+            {enrollment.handicap != null && (
               <span className="text-xs text-gray-500 font-mono flex-shrink-0">
                 HCP {enrollment.handicap.toFixed(1)}
               </span>
