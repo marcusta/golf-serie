@@ -710,7 +710,13 @@ export class CompetitionResultsService {
 
   /**
    * Assign averaged points to groups of tied players
-   * When players tie, they share the sum of points for all positions they occupy
+   * When players tie, they share the sum of points for all positions they occupy.
+   *
+   * Matches the projected leaderboard/tour-standings path: multiplier is applied
+   * per position (with per-position rounding), then averaged across tied players
+   * with 2-decimal precision. The INTEGER affinity on competition_results.points
+   * tolerates REAL values like 4.5 without truncation, so finalized totals stay
+   * consistent with pre-finalization projections.
    */
   private assignAveragedPointsToGroups<T, R>(
     groups: T[][],
@@ -725,25 +731,23 @@ export class CompetitionResultsService {
     for (const group of groups) {
       const tiedCount = group.length;
 
-      // Calculate sum of points for all positions this group occupies
       let totalPoints = 0;
       for (let i = 0; i < tiedCount; i++) {
-        totalPoints += this.calculatePointsForPosition(
+        const basePoints = this.calculatePointsForPosition(
           currentPosition + i,
           numberOfPlayers,
           pointTemplate
         );
+        totalPoints += Math.round(basePoints * pointsMultiplier);
       }
 
-      // Average and apply multiplier
-      const averagedPoints = (totalPoints / tiedCount) * pointsMultiplier;
+      const averagedPoints =
+        Math.round((totalPoints / tiedCount) * 100) / 100;
 
-      // Assign to each player in the group
       for (const result of group) {
-        results.push(mapResult(result, currentPosition, Math.round(averagedPoints)));
+        results.push(mapResult(result, currentPosition, averagedPoints));
       }
 
-      // Next group starts after all positions occupied by this group
       currentPosition += tiedCount;
     }
 

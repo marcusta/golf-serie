@@ -331,14 +331,15 @@ describe("CompetitionResultsService", () => {
       expect(result1.position).toBe(1);
       expect(result1.points).toBe(7);
 
-      // Players 2,3,4: All position 2, get averaged points for positions 2,3,4
-      // With 5 players: 2nd=5, 3rd=3, 4th=2 → average = (5+3+2)/3 = 3.33 → rounds to 3
+      // Players 2,3,4: All position 2, get averaged points for positions 2,3,4.
+      // With 5 players: 2nd=5, 3rd=3, 4th=2 → (5+3+2)/3 = 3.333... → 3.33
+      // (finalized ties preserve 2-decimal precision to match projected path)
       expect(result2.position).toBe(2);
       expect(result3.position).toBe(2);
       expect(result4.position).toBe(2);
-      expect(result2.points).toBe(3);
-      expect(result3.points).toBe(3);
-      expect(result4.points).toBe(3);
+      expect(result2.points).toBe(3.33);
+      expect(result3.points).toBe(3.33);
+      expect(result4.points).toBe(3.33);
 
       // Player 5: Position 5 (after three 2nd places), gets 5th place points (1)
       expect(result5.position).toBe(5);
@@ -346,9 +347,173 @@ describe("CompetitionResultsService", () => {
 
       // Verify total points distributed
       // Without ties: 7 + 5 + 3 + 2 + 1 = 18
-      // With averaging and rounding: 7 + 3 + 3 + 3 + 1 = 17
+      // With averaging (2-decimal): 7 + 3.33*3 + 1 = 17.99
       const totalPoints = results.reduce((sum, r) => sum + r.points, 0);
-      expect(totalPoints).toBe(7 + 3 + 3 + 3 + 1); // 17
+      expect(totalPoints).toBeCloseTo(7 + 3.33 * 3 + 1, 5);
+    });
+
+    test("should preserve half-points for two-way ties (matches projected)", () => {
+      const course = createTestCourse("Test Course", standardPars);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id);
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      // 5 players, default formula: 1=7, 2=5, 3=3, 4=2, 5=1
+      // Pair tied at positions 3+4 → (3+2)/2 = 2.5
+      // Pair tied at positions 4+5 → exercised below by a different layout
+      const first = createTestPlayer("First");
+      const second = createTestPlayer("Second");
+      const tieA = createTestPlayer("TieA");
+      const tieB = createTestPlayer("TieB");
+      const last = createTestPlayer("Last");
+
+      createTestParticipant(teeTime.id, team.id, first.id, {
+        score: createScoreWithRelative(-3),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, second.id, {
+        score: createScoreWithRelative(-1),
+        isLocked: true,
+      });
+      // TieA and TieB share positions 3 and 4
+      createTestParticipant(teeTime.id, team.id, tieA.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, tieB.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, last.id, {
+        score: createScoreWithRelative(5),
+        isLocked: true,
+      });
+
+      service.finalizeCompetitionResults(competition.id);
+      const results = service.getCompetitionResults(competition.id);
+
+      const tieAResult = results.find((r) => r.player_id === tieA.id)!;
+      const tieBResult = results.find((r) => r.player_id === tieB.id)!;
+      const lastResult = results.find((r) => r.player_id === last.id)!;
+
+      expect(tieAResult.position).toBe(3);
+      expect(tieBResult.position).toBe(3);
+      expect(tieAResult.points).toBe(2.5);
+      expect(tieBResult.points).toBe(2.5);
+      // Position 5 is still 1 (not re-averaged)
+      expect(lastResult.position).toBe(5);
+      expect(lastResult.points).toBe(1);
+    });
+
+    test("should apply points multiplier per position before averaging ties", () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const template = createPointTemplate("Standard", {
+        "1": 5,
+        "2": 4,
+        "3": 3,
+        "4": 2,
+        "5": 1,
+        default: 0,
+      });
+      const tour = createTestTour("Test Tour", user.id, {
+        pointTemplateId: template.id,
+      });
+      const competition = createTestCompetition(
+        "Test Comp",
+        "2024-01-15",
+        course.id,
+        { tourId: tour.id, pointsMultiplier: 1.5 }
+      );
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const a = createTestPlayer("A");
+      const b = createTestPlayer("B");
+      createEnrollment(tour.id, a.id, "a@test.com");
+      createEnrollment(tour.id, b.id, "b@test.com");
+
+      // Both tied at position 1+2
+      createTestParticipant(teeTime.id, team.id, a.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, b.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      service.finalizeCompetitionResults(competition.id);
+      const results = service.getCompetitionResults(competition.id);
+
+      // Per-position rounding (matches projected path):
+      //   pos1: round(5 * 1.5) = 8, pos2: round(4 * 1.5) = 6 → (8+6)/2 = 7
+      expect(results[0].position).toBe(1);
+      expect(results[1].position).toBe(1);
+      expect(results[0].points).toBe(7);
+      expect(results[1].points).toBe(7);
+    });
+
+    test("should store fractional stableford tie points (matches projected)", () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const template = createPointTemplate("Standard", {
+        "1": 5,
+        "2": 4,
+        "3": 3,
+        "4": 2,
+        "5": 1,
+        default: 0,
+      });
+      const tour = createTestTour("Test Tour", user.id, {
+        pointTemplateId: template.id,
+        scoringFormat: "stableford",
+      });
+      const competition = createTestCompetition(
+        "Stableford Comp",
+        "2024-01-15",
+        course.id,
+        { tourId: tour.id, scoringFormat: "stableford" }
+      );
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      // Three players. Two of them tied at the top of stableford points
+      // (same gross → same stableford totals) so they split positions 1+2.
+      //   (5 + 4) / 2 = 4.5 per tied player.
+      const p1 = createTestPlayer("Top1");
+      const p2 = createTestPlayer("Top2");
+      const p3 = createTestPlayer("Third");
+      createEnrollment(tour.id, p1.id, "p1@test.com");
+      createEnrollment(tour.id, p2.id, "p2@test.com");
+      createEnrollment(tour.id, p3.id, "p3@test.com");
+
+      createTestParticipant(teeTime.id, team.id, p1.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, p2.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, p3.id, {
+        score: createScoreWithRelative(2),
+        isLocked: true,
+      });
+
+      service.finalizeCompetitionResults(competition.id);
+      const results = service.getCompetitionResults(competition.id);
+
+      const r1 = results.find((r) => r.player_id === p1.id)!;
+      const r2 = results.find((r) => r.player_id === p2.id)!;
+      const r3 = results.find((r) => r.player_id === p3.id)!;
+
+      expect(r1.position).toBe(1);
+      expect(r2.position).toBe(1);
+      expect(r1.points).toBe(4.5);
+      expect(r2.points).toBe(4.5);
+      expect(r3.position).toBe(3);
+      expect(r3.points).toBe(3);
     });
 
     test("should exclude DQ players from results", () => {
