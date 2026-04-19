@@ -280,6 +280,7 @@ export default function TourStandings() {
     event.stopPropagation();
     navigate({
       to: `/player/competitions/${competitionId}`,
+      hash: "leaderboard",
     });
   };
 
