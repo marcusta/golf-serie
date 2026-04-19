@@ -5,6 +5,7 @@ export type TourEnrollmentStatus = "pending" | "requested" | "active";
 export type TourEnrollmentMode = "closed" | "request";
 export type TourVisibility = "private" | "public";
 export type TourScoringMode = "gross" | "net" | "both";
+export type TourScoringFormat = "stroke_play" | "stableford";
 
 export interface Tour {
   id: number;
@@ -14,6 +15,7 @@ export interface Tour {
   enrollment_mode: TourEnrollmentMode;
   visibility: TourVisibility;
   scoring_mode: TourScoringMode;
+  scoring_format: TourScoringFormat;
   banner_image_url: string | null;
   landing_document_id: number | null;
   point_template_id: number | null;
@@ -39,6 +41,7 @@ export interface TourPlayerCompetition {
   points: number;
   position: number;
   score_relative_to_par: number;
+  stableford_points?: number;
   is_projected?: boolean; // True if from non-finalized competition
 }
 
@@ -60,6 +63,7 @@ export interface TourStandings {
   player_standings: TourPlayerStanding[];
   total_competitions: number;
   scoring_mode: TourScoringMode;
+  scoring_format: TourScoringFormat;
   selected_scoring_type?: "gross" | "net";
   point_template?: {
     id: number;
@@ -122,6 +126,7 @@ export interface CreateTourData {
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
   scoring_mode?: TourScoringMode;
+  scoring_format?: TourScoringFormat;
   banner_image_url?: string;
 }
 
@@ -131,6 +136,7 @@ export interface UpdateTourData {
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
   scoring_mode?: TourScoringMode;
+  scoring_format?: TourScoringFormat;
   banner_image_url?: string | null;
   landing_document_id?: number | null;
   point_template_id?: number | null;

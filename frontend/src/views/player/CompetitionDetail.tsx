@@ -192,11 +192,9 @@ export default function CompetitionDetail() {
     const entry = leaderboard.find(e => e.participant.id === selectedParticipantId);
     if (!entry || entry.courseHandicap === undefined) return undefined;
 
-    // Calculate handicap strokes per hole locally
-    const handicapStrokesPerHole = distributeHandicapStrokes(
-      entry.courseHandicap,
-      teeInfo.strokeIndex
-    );
+    const handicapStrokesPerHole =
+      entry.handicapStrokesPerHole ||
+      distributeHandicapStrokes(entry.courseHandicap, teeInfo.strokeIndex);
 
     return {
       strokeIndex: teeInfo.strokeIndex,
@@ -552,6 +550,7 @@ export default function CompetitionDetail() {
             onParticipantClick={handleParticipantClick}
             isTourCompetition={!!competition?.tour_id}
             scoringMode={scoringMode}
+            scoringFormat={leaderboardResponse?.scoringFormat}
             teeInfo={teeInfo}
             categoryTees={categoryTees}
             categories={leaderboardCategories}

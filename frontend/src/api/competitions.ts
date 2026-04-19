@@ -51,6 +51,8 @@ export interface LeaderboardEntry {
   netRelativeToPar?: number;
   courseHandicap?: number;
   handicapStrokesPerHole?: number[];
+  stablefordPoints?: number;
+  netStablefordPoints?: number;
   // DNF status (Did Not Finish - competition window closed before completion)
   isDNF?: boolean;
   // Points and position (for tour competitions)
@@ -62,6 +64,7 @@ export interface LeaderboardEntry {
 }
 
 export type TourScoringMode = "gross" | "net" | "both";
+export type TourScoringFormat = "stroke_play" | "stableford";
 
 export interface TeeInfo {
   id: number;
@@ -94,6 +97,7 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
   competitionId: number;
   scoringMode?: TourScoringMode;
+  scoringFormat?: TourScoringFormat;
   isTourCompetition?: boolean;
   isResultsFinal?: boolean;
   tee?: TeeInfo;

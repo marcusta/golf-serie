@@ -153,11 +153,11 @@ export default function CompetitionRound() {
 
     leaderboardWithDetails.entries.forEach((entry) => {
       const participantId = entry.participant.id.toString();
-      // Calculate handicap strokes per hole locally instead of using API value
       const handicapStrokesPerHole =
-        strokeIndex && entry.courseHandicap !== undefined
+        entry.handicapStrokesPerHole ||
+        (strokeIndex && entry.courseHandicap !== undefined
           ? distributeHandicapStrokes(entry.courseHandicap, strokeIndex)
-          : undefined;
+          : undefined);
       dataMap.set(participantId, {
         participantId,
         strokeIndex,
@@ -439,6 +439,7 @@ export default function CompetitionRound() {
             isRoundView={true}
             isTourCompetition={!!competition?.tour_id}
             scoringMode={leaderboardWithDetails?.scoringMode}
+            scoringFormat={leaderboardWithDetails?.scoringFormat}
             teeInfo={leaderboardWithDetails?.tee}
             categoryTees={leaderboardWithDetails?.categoryTees}
             categories={leaderboardWithDetails?.categories}

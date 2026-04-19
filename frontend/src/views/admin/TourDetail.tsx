@@ -141,7 +141,7 @@ export default function TourDetail() {
           </span>
           <span className="inline-flex items-center gap-1 text-charcoal/60">
             <Calculator className="h-3 w-3" />
-            Scoring: {tour.scoring_mode}
+            Scoring: {tour.scoring_mode} · {tour.scoring_format === "stableford" ? "stableford" : "stroke"}
           </span>
         </div>
       </div>

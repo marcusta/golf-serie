@@ -6,6 +6,7 @@ import {
   useCreateTour,
   useDeleteTour,
   type TourEnrollmentMode,
+  type TourScoringFormat,
   type TourVisibility,
   type TourScoringMode,
 } from "../../api/tours";
@@ -66,6 +67,7 @@ export default function Tours() {
   const [enrollmentMode, setEnrollmentMode] = useState<TourEnrollmentMode>("closed");
   const [visibility, setVisibility] = useState<TourVisibility>("private");
   const [scoringMode, setScoringMode] = useState<TourScoringMode>("gross");
+  const [scoringFormat, setScoringFormat] = useState<TourScoringFormat>("stroke_play");
   const [formError, setFormError] = useState<string | null>(null);
 
   const pagination = usePagination(tours, { pageSize: 100 });
@@ -76,6 +78,7 @@ export default function Tours() {
     setEnrollmentMode("closed");
     setVisibility("private");
     setScoringMode("gross");
+    setScoringFormat("stroke_play");
     setFormError(null);
     setShowDialog(true);
   };
@@ -91,6 +94,7 @@ export default function Tours() {
         enrollment_mode: enrollmentMode,
         visibility,
         scoring_mode: scoringMode,
+        scoring_format: scoringFormat,
       });
       setShowDialog(false);
     } catch (err) {
@@ -256,7 +260,7 @@ export default function Tours() {
                     </div>
                     <div className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-charcoal/60">
                       <Calculator className="h-3 w-3" />
-                      {tour.scoring_mode}
+                      {tour.scoring_mode} · {tour.scoring_format === "stableford" ? "stableford" : "stroke"}
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
@@ -317,7 +321,7 @@ export default function Tours() {
                 rows={3}
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Visibility</label>
                 <Select
@@ -361,6 +365,21 @@ export default function Tours() {
                     <SelectItem value="gross">Gross</SelectItem>
                     <SelectItem value="net">Net</SelectItem>
                     <SelectItem value="both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Format</label>
+                <Select
+                  value={scoringFormat}
+                  onValueChange={(value) => setScoringFormat(value as TourScoringFormat)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stroke_play">Stroke Play</SelectItem>
+                    <SelectItem value="stableford">Stableford</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

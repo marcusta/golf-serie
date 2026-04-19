@@ -6,6 +6,7 @@ import { Loader2, Save } from "lucide-react";
 import {
   useUpdateTour,
   type Tour,
+  type TourScoringFormat,
   type TourEnrollmentMode,
   type TourScoringMode,
   type TourVisibility,
@@ -49,6 +50,7 @@ const tourSettingsSchema = z.object({
   visibility: z.enum(["public", "private"] as const),
   enrollment_mode: z.enum(["closed", "request"] as const),
   scoring_mode: z.enum(["gross", "net", "both"] as const),
+  scoring_format: z.enum(["stroke_play", "stableford"] as const),
   point_template_id: z.string().optional(),
 });
 
@@ -73,6 +75,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       visibility: tour.visibility,
       enrollment_mode: tour.enrollment_mode,
       scoring_mode: tour.scoring_mode,
+      scoring_format: tour.scoring_format,
       point_template_id: tour.point_template_id?.toString() || "none",
     },
     mode: "onChange",
@@ -86,6 +89,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       visibility: tour.visibility,
       enrollment_mode: tour.enrollment_mode,
       scoring_mode: tour.scoring_mode,
+      scoring_format: tour.scoring_format,
       point_template_id: tour.point_template_id?.toString() || "none",
     });
   }, [tour, form]);
@@ -101,6 +105,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
           visibility: data.visibility as TourVisibility,
           enrollment_mode: data.enrollment_mode as TourEnrollmentMode,
           scoring_mode: data.scoring_mode as TourScoringMode,
+          scoring_format: data.scoring_format as TourScoringFormat,
           point_template_id:
             data.point_template_id && data.point_template_id !== "none"
               ? parseInt(data.point_template_id)
@@ -142,6 +147,11 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
     gross: "Standings based on raw scores without handicap adjustments.",
     net: "Standings based on handicap-adjusted net scores.",
     both: "Display both gross and net scores in standings.",
+  };
+
+  const scoringFormatDescription: Record<TourScoringFormat, string> = {
+    stroke_play: "Traditional stroke play where the lowest score wins.",
+    stableford: "Stableford (poangbogey) where holes score points and the highest total wins.",
   };
 
   return (
@@ -283,6 +293,33 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
                 </FormControl>
                 <FormDescription className="text-xs text-charcoal/60">
                   {scoringModeDescription[field.value as TourScoringMode]}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="scoring_format"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Scoring Format
+                </FormLabel>
+                <FormControl>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full max-w-md">
+                      <SelectValue placeholder="Select scoring format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stroke_play">Stroke Play</SelectItem>
+                      <SelectItem value="stableford">Stableford (Poangbogey)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  {scoringFormatDescription[field.value as TourScoringFormat]}
                 </FormDescription>
                 <FormMessage />
               </FormItem>

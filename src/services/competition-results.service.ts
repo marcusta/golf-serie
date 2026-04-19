@@ -1,6 +1,11 @@
 import { Database } from "bun:sqlite";
 import { GOLF } from "../constants/golf";
 import {
+  calculateCourseHandicap,
+  distributeHandicapStrokes,
+} from "../utils/handicap";
+import type { TourScoringFormat } from "../types";
+import {
   getActiveHoleIndices,
   getExpectedHolesCount,
 } from "../utils/round-type";
@@ -12,6 +17,7 @@ import {
   calculateRelativeToPar,
   hasInvalidHole,
 } from "../utils/golf-scoring";
+import { calculateStablefordPoints } from "../utils/stableford";
 import { assignPositionsMap } from "../utils/ranking";
 
 interface PointsStructure {
@@ -35,9 +41,12 @@ interface CompetitionResult {
   player_id: number | null;
   enrollment_id: number | null;
   player_name: string;
-  gross_score: number;
+  gross_score: number | null;
   net_score: number | null;
-  relative_to_par: number;
+  relative_to_par: number | null;
+  stableford_points?: number | null;
+  net_relative_to_par?: number | null;
+  net_stableford_points?: number | null;
   is_finished: boolean;
   position: number;
   points: number;
@@ -53,6 +62,7 @@ export interface StoredCompetitionResult {
   gross_score: number | null;
   net_score: number | null;
   relative_to_par: number | null;
+  stableford_points?: number | null;
   scoring_type: "gross" | "net";
   calculated_at: string;
 }
@@ -66,8 +76,12 @@ interface CompetitionDetailsRow {
   tour_id: number | null;
   course_id: number | null;
   pars: string | null;
+  course_stroke_index: string | null;
+  slope_rating: number | null;
+  course_rating: number | null;
   point_template_id: number | null;
   scoring_mode: string | null;
+  scoring_format: TourScoringFormat | null;
   start_mode: string;
   open_end: string | null;
   round_type: string | null;
@@ -110,6 +124,7 @@ interface PlayerResultRow {
   gross_score: number | null;
   net_score: number | null;
   relative_to_par: number | null;
+  stableford_points?: number | null;
   scoring_type: "gross" | "net";
   calculated_at: string;
   competition_name: string;
@@ -128,9 +143,18 @@ export class CompetitionResultsService {
   private findCompetitionDetails(competitionId: number): CompetitionDetailsRow | null {
     return this.db
       .prepare(`
-        SELECT c.*, co.pars, t.point_template_id, t.scoring_mode
+        SELECT
+          c.*,
+          co.pars,
+          co.stroke_index as course_stroke_index,
+          ct.slope_rating,
+          ct.course_rating,
+          t.point_template_id,
+          t.scoring_mode,
+          t.scoring_format
         FROM competitions c
         LEFT JOIN courses co ON c.course_id = co.id
+        LEFT JOIN course_tees ct ON c.tee_id = ct.id
         LEFT JOIN tours t ON c.tour_id = t.id
         WHERE c.id = ?
       `)
@@ -196,8 +220,20 @@ export class CompetitionResultsService {
     this.db
       .prepare(`
         INSERT INTO competition_results
-          (competition_id, participant_id, player_id, enrollment_id, position, points, gross_score, net_score, relative_to_par, scoring_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (
+            competition_id,
+            participant_id,
+            player_id,
+            enrollment_id,
+            position,
+            points,
+            gross_score,
+            net_score,
+            relative_to_par,
+            stableford_points,
+            scoring_type
+          )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         competitionId,
@@ -209,6 +245,7 @@ export class CompetitionResultsService {
         result.gross_score,
         result.net_score,
         result.relative_to_par,
+        result.stableford_points ?? null,
         scoringType
       );
   }
@@ -345,18 +382,12 @@ export class CompetitionResultsService {
     }
   }
 
-  private calculateNetScore(grossScore: number, handicapIndex: number | null): number | null {
-    if (handicapIndex === null) {
-      return null;
-    }
-    return grossScore - Math.round(handicapIndex);
-  }
-
   private isParticipantFinished(
     participant: ParticipantData,
     score: number[],
     isOpenCompetitionClosed: boolean,
-    expectedHoles: number
+    expectedHoles: number,
+    scoringFormat: TourScoringFormat
   ): boolean {
     // DQ'd players are never considered finished
     if (participant.is_dq) {
@@ -365,10 +396,13 @@ export class CompetitionResultsService {
 
     // Manual score means finished
     if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
+      if (scoringFormat === "stableford") {
+        return false;
+      }
       return true;
     }
 
-    const hasInvalidRound = hasInvalidHole(score);
+    const hasInvalidRound = scoringFormat === "stableford" ? false : hasInvalidHole(score);
     const holesPlayed = calculateHolesPlayed(score);
 
     if (isOpenCompetitionClosed) {
@@ -386,17 +420,28 @@ export class CompetitionResultsService {
 
   private buildParticipantResult(
     participant: ParticipantData,
+    competition: CompetitionDetailsRow,
     pars: number[],
     activePar: number,
     isOpenCompetitionClosed: boolean,
     expectedHoles: number
   ): CompetitionResult {
+    const scoringFormat = competition.scoring_format || "stroke_play";
     const score = this.parseParticipantScore(participant.score);
-    const isFinished = this.isParticipantFinished(participant, score, isOpenCompetitionClosed, expectedHoles);
+    const isFinished = this.isParticipantFinished(
+      participant,
+      score,
+      isOpenCompetitionClosed,
+      expectedHoles,
+      scoringFormat
+    );
 
-    let grossScore = 0;
-    let relativeToPar = 0;
+    let grossScore: number | null = null;
+    let relativeToPar: number | null = null;
     let netScore: number | null = null;
+    let netRelativeToPar: number | null = null;
+    let stablefordPoints: number | null = null;
+    let netStablefordPoints: number | null = null;
 
     if (isFinished) {
       if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
@@ -405,8 +450,51 @@ export class CompetitionResultsService {
       } else {
         grossScore = calculateGrossScore(score);
         relativeToPar = calculateRelativeToPar(score, pars);
+
+        if (scoringFormat === "stableford") {
+          stablefordPoints = calculateStablefordPoints(score, pars).totalPoints;
+        }
       }
-      netScore = this.calculateNetScore(grossScore, participant.handicap_index);
+
+      if (participant.handicap_index !== null) {
+        const totalPar = pars.reduce((sum, par) => sum + par, 0);
+        const slopeRating = competition.slope_rating || GOLF.STANDARD_SLOPE_RATING;
+        const courseRating = competition.course_rating || GOLF.STANDARD_COURSE_RATING;
+        const strokeIndex = this.parseStrokeIndexSafe(competition.course_stroke_index);
+        const activeHoleIndices = getActiveHoleIndices(competition.round_type);
+        const fullCourseHandicap = calculateCourseHandicap(
+          participant.handicap_index,
+          slopeRating,
+          courseRating,
+          totalPar
+        );
+        const handicapStrokesPerHole = distributeHandicapStrokes(
+          fullCourseHandicap,
+          strokeIndex
+        );
+        const activeCourseHandicap = this.calculateActiveHoleHandicap(
+          handicapStrokesPerHole,
+          activeHoleIndices
+        );
+
+        if (grossScore !== null && !hasInvalidHole(score)) {
+          netScore = grossScore - activeCourseHandicap;
+          netRelativeToPar = netScore - activePar;
+        }
+
+        if (
+          participant.manual_score_total === null &&
+          scoringFormat === "stableford"
+        ) {
+          netStablefordPoints = calculateStablefordPoints(
+            score,
+            pars,
+            handicapStrokesPerHole
+          ).totalPoints;
+        } else if (grossScore !== null && netScore !== null) {
+          netRelativeToPar = netScore - activePar;
+        }
+      }
     }
 
     return {
@@ -417,28 +505,52 @@ export class CompetitionResultsService {
       gross_score: grossScore,
       net_score: netScore,
       relative_to_par: relativeToPar,
+      stableford_points: stablefordPoints,
+      net_relative_to_par: netRelativeToPar,
+      net_stableford_points: netStablefordPoints,
       is_finished: isFinished,
       position: 0,
       points: 0,
     };
   }
 
-  private sortResultsByScore(results: CompetitionResult[]): CompetitionResult[] {
+  private sortResultsByScore(
+    results: CompetitionResult[],
+    scoringFormat: TourScoringFormat
+  ): CompetitionResult[] {
     return [...results].sort((a, b) => {
-      if (a.relative_to_par !== b.relative_to_par) {
-        return a.relative_to_par - b.relative_to_par;
+      if (scoringFormat === "stableford") {
+        const aPoints = a.stableford_points ?? Number.NEGATIVE_INFINITY;
+        const bPoints = b.stableford_points ?? Number.NEGATIVE_INFINITY;
+        if (aPoints !== bPoints) {
+          return bPoints - aPoints;
+        }
+      } else if (a.relative_to_par !== b.relative_to_par) {
+        return (a.relative_to_par ?? Number.MAX_SAFE_INTEGER) -
+          (b.relative_to_par ?? Number.MAX_SAFE_INTEGER);
       }
       // Tie-breaker: alphabetical by name
       return a.player_name.localeCompare(b.player_name);
     });
   }
 
-  private sortResultsByNetScore(results: CompetitionResult[], totalPar: number): CompetitionResult[] {
+  private sortResultsByNetScore(
+    results: CompetitionResult[],
+    scoringFormat: TourScoringFormat
+  ): CompetitionResult[] {
     return [...results]
-      .filter(r => r.net_score !== null)
+      .filter((r) =>
+        scoringFormat === "stableford"
+          ? r.net_stableford_points !== null && r.net_stableford_points !== undefined
+          : r.net_relative_to_par !== null && r.net_relative_to_par !== undefined
+      )
       .sort((a, b) => {
-        const aNetRelative = a.net_score! - totalPar;
-        const bNetRelative = b.net_score! - totalPar;
+        if (scoringFormat === "stableford") {
+          return (b.net_stableford_points ?? Number.NEGATIVE_INFINITY) -
+            (a.net_stableford_points ?? Number.NEGATIVE_INFINITY);
+        }
+        const aNetRelative = a.net_relative_to_par ?? Number.MAX_SAFE_INTEGER;
+        const bNetRelative = b.net_relative_to_par ?? Number.MAX_SAFE_INTEGER;
         if (aNetRelative !== bNetRelative) {
           return aNetRelative - bNetRelative;
         }
@@ -452,18 +564,15 @@ export class CompetitionResultsService {
     numberOfPlayers: number,
     pointTemplate: PointTemplateRow | null,
     pointsMultiplier: number,
-    totalPar: number
+    scoringFormat: TourScoringFormat
   ): CompetitionResult[] {
-    // Add net relative score to each result for grouping
-    const resultsWithNetRelative = sortedResults.map(r => ({
-      ...r,
-      netRelative: r.net_score! - totalPar,
-    }));
-
     // Group by net relative score
     const groups = this.groupResultsByScore(
-      resultsWithNetRelative,
-      r => r.netRelative
+      sortedResults,
+      (r) =>
+        scoringFormat === "stableford"
+          ? (r.net_stableford_points ?? Number.NEGATIVE_INFINITY)
+          : (r.net_relative_to_par ?? Number.MAX_SAFE_INTEGER)
     );
 
     // Assign averaged points to each group
@@ -476,7 +585,14 @@ export class CompetitionResultsService {
         ...r,
         position,
         points,
-        relative_to_par: r.netRelative,
+        relative_to_par:
+          scoringFormat === "stableford"
+            ? r.net_relative_to_par ?? null
+            : r.net_relative_to_par ?? null,
+        stableford_points:
+          scoringFormat === "stableford"
+            ? r.net_stableford_points ?? null
+            : r.stableford_points ?? null,
       })
     );
   }
@@ -485,12 +601,16 @@ export class CompetitionResultsService {
     sortedResults: CompetitionResult[],
     numberOfPlayers: number,
     pointTemplate: PointTemplateRow | null,
-    pointsMultiplier: number
+    pointsMultiplier: number,
+    scoringFormat: TourScoringFormat
   ): CompetitionResult[] {
     // Group by relative_to_par score
     const groups = this.groupResultsByScore(
       sortedResults,
-      r => r.relative_to_par
+      (r) =>
+        scoringFormat === "stableford"
+          ? (r.stableford_points ?? Number.NEGATIVE_INFINITY)
+          : (r.relative_to_par ?? Number.MAX_SAFE_INTEGER)
     );
 
     // Assign averaged points to each group
@@ -533,6 +653,31 @@ export class CompetitionResultsService {
     }
 
     return groups;
+  }
+
+  private parseStrokeIndexSafe(json: string | null): number[] {
+    if (!json) {
+      return [];
+    }
+    try {
+      const parsed = typeof json === "string" ? JSON.parse(json) : json;
+      if (!Array.isArray(parsed) || parsed.length !== GOLF.HOLES_PER_ROUND) {
+        return [];
+      }
+      return parsed;
+    } catch {
+      return [];
+    }
+  }
+
+  private calculateActiveHoleHandicap(
+    handicapStrokesPerHole: number[],
+    activeHoleIndices: number[]
+  ): number {
+    return activeHoleIndices.reduce(
+      (sum, holeIndex) => sum + (handicapStrokesPerHole[holeIndex] || 0),
+      0
+    );
   }
 
   /**
@@ -621,9 +766,10 @@ export class CompetitionResultsService {
     if (!competition) {
       throw new Error("Competition not found");
     }
+    const scoringFormat = competition.scoring_format || "stroke_play";
 
     // Parse pars
-    const { pars, totalPar } = this.parseParsFromCompetition(competition);
+    const { pars } = this.parseParsFromCompetition(competition);
 
     // Compute hole-set for the competition's round type
     const expectedHoles = getExpectedHolesCount(competition.round_type);
@@ -646,18 +792,26 @@ export class CompetitionResultsService {
     // Get participants and build results
     const participants = this.findParticipantDataRows(competitionId);
     const results = participants.map((p) =>
-      this.buildParticipantResult(p, pars, activePar, isOpenCompetitionClosed, expectedHoles)
+      this.buildParticipantResult(
+        p,
+        competition,
+        pars,
+        activePar,
+        isOpenCompetitionClosed,
+        expectedHoles
+      )
     );
 
     // Rank and assign points
     const finishedResults = results.filter((r) => r.is_finished);
-    const sortedResults = this.sortResultsByScore(finishedResults);
+    const sortedResults = this.sortResultsByScore(finishedResults, scoringFormat);
     const effectivePlayerCount = numberOfPlayers || finishedResults.length;
     const rankedResults = this.assignPositionsAndPoints(
       sortedResults,
       effectivePlayerCount,
       pointTemplate,
-      competition.points_multiplier || 1
+      competition.points_multiplier || 1,
+      scoringFormat
     );
 
     // Add back unfinished players
@@ -677,13 +831,13 @@ export class CompetitionResultsService {
     // Store net results if scoring_mode is 'net' or 'both'
     const scoringMode = competition.scoring_mode || "gross";
     if (scoringMode === "net" || scoringMode === "both") {
-      const netSortedResults = this.sortResultsByNetScore(finishedResults, totalPar);
+      const netSortedResults = this.sortResultsByNetScore(finishedResults, scoringFormat);
       const netRankedResults = this.assignNetPositionsAndPoints(
         netSortedResults,
         effectivePlayerCount,
         pointTemplate,
         competition.points_multiplier || 1,
-        totalPar
+        scoringFormat
       );
       for (const result of netRankedResults) {
         this.insertCompetitionResultRow(competitionId, result, "net");

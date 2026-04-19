@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
-import type { LeaderboardEntry, TourScoringMode, TeeInfo, LeaderboardCategory, CategoryTee } from "../../api/competitions";
+import type {
+  LeaderboardEntry,
+  TourScoringMode,
+  TourScoringFormat,
+  TeeInfo,
+  LeaderboardCategory,
+  CategoryTee,
+} from "../../api/competitions";
 import {
   Select,
   SelectContent,
@@ -20,6 +27,7 @@ interface LeaderboardComponentProps {
   isTourCompetition?: boolean;
   // Scoring mode from tour
   scoringMode?: TourScoringMode;
+  scoringFormat?: TourScoringFormat;
   // Tee info for display (default/single tee)
   teeInfo?: TeeInfo;
   // Category-specific tee assignments (when categories use different tees)
@@ -35,6 +43,7 @@ export function LeaderboardComponent({
   isRoundView = false,
   isTourCompetition = false,
   scoringMode,
+  scoringFormat = "stroke_play",
   teeInfo,
   categoryTees,
   categories,
@@ -57,13 +66,14 @@ export function LeaderboardComponent({
 
   // Check if we should show net scores
   const showNetScores = scoringMode === "net" || scoringMode === "both";
+  const isStableford = scoringFormat === "stableford";
 
   // Helper function to determine player status
   const getPlayerStatus = (entry: LeaderboardEntry) => {
     // DNF takes priority - competition closed and didn't finish
     if (entry.isDNF) return "DNF";
 
-    const hasInvalidRound = entry.participant.score.includes(-1);
+    const hasInvalidRound = entry.participant.score.includes(-1) && !isStableford;
     const isLocked = entry.participant.is_locked;
     const hasStarted = entry.holesPlayed > 0;
 
@@ -88,6 +98,37 @@ export function LeaderboardComponent({
     return entry.holesPlayed.toString();
   };
 
+  const getPrimaryScoreLabel = (finished: boolean) => {
+    if (isStableford) return "Gross Pts";
+    return finished ? (showNetScores ? "Gross" : "Total") : (showNetScores ? "Gross" : "To Par");
+  };
+
+  const formatPrimaryScore = (entry: LeaderboardEntry, finished: boolean, isRoundInvalid: boolean) => {
+    if (isStableford) {
+      const points = entry.stablefordPoints;
+      return points === undefined ? "-" : points.toString();
+    }
+    if (finished) {
+      return isRoundInvalid ? "-" : entry.totalShots.toString();
+    }
+    return isRoundInvalid ? "-" : formatToPar(entry.relativeToPar);
+  };
+
+  const formatSecondaryScore = (entry: LeaderboardEntry, finished: boolean, isRoundInvalid: boolean) => {
+    if (isStableford) {
+      const points = entry.netStablefordPoints;
+      return isRoundInvalid || points === undefined ? "-" : points.toString();
+    }
+    if (finished) {
+      return isRoundInvalid || entry.netTotalShots === undefined
+        ? "-"
+        : entry.netTotalShots.toString();
+    }
+    return isRoundInvalid || entry.netRelativeToPar === undefined
+      ? "-"
+      : formatToPar(entry.netRelativeToPar);
+  };
+
   // Shared sorting logic for both mobile and desktop views
   const sortedLeaderboard = leaderboard
     ? [...leaderboard].sort((a, b) => {
@@ -100,8 +141,8 @@ export function LeaderboardComponent({
         }
 
         // Check if rounds are invalid (contain -1 scores)
-        const aHasInvalidRound = a.participant.score.includes(-1);
-        const bHasInvalidRound = b.participant.score.includes(-1);
+        const aHasInvalidRound = a.participant.score.includes(-1) && !isStableford;
+        const bHasInvalidRound = b.participant.score.includes(-1) && !isStableford;
 
         // Check if players have started (holes played > 0)
         const aStarted = a.holesPlayed > 0;
@@ -128,9 +169,16 @@ export function LeaderboardComponent({
 
         // Within valid scores category: sort by score (best score first)
         if (aHasValidScore && bHasValidScore) {
-          // Use net score for sorting if sorting by net
+          if (isStableford) {
+            const aScore = sortBy === "net"
+              ? (a.netStablefordPoints ?? a.stablefordPoints ?? -1)
+              : (a.stablefordPoints ?? -1);
+            const bScore = sortBy === "net"
+              ? (b.netStablefordPoints ?? b.stablefordPoints ?? -1)
+              : (b.stablefordPoints ?? -1);
+            return bScore - aScore;
+          }
           if (sortBy === "net") {
-            // Handle cases where net scores might be undefined
             const aNet = a.netRelativeToPar ?? a.relativeToPar;
             const bNet = b.netRelativeToPar ?? b.relativeToPar;
             return aNet - bNet;
@@ -339,15 +387,15 @@ export function LeaderboardComponent({
               <div className="w-7 mr-2">#</div>
               <div className="flex-1 min-w-0">Player</div>
               <div className={`flex items-center ${showNetScores ? 'gap-1' : ''}`}>
-                <div className="w-10 text-center">Gross</div>
-                {showNetScores && <div className="w-10 text-center">Net</div>}
+                <div className="w-10 text-center">{isStableford ? "Pts" : "Gross"}</div>
+                {showNetScores && <div className="w-10 text-center">{isStableford ? "Net" : "Net"}</div>}
                 <div className="w-8 text-center">Thru</div>
                 {isTourCompetition && <div className="w-8 text-center">Pts</div>}
               </div>
             </div>
 
             {filteredLeaderboard.map((entry, index) => {
-              const isRoundInvalid = entry.participant.score.includes(-1);
+              const isRoundInvalid = entry.participant.score.includes(-1) && !isStableford;
               const isLeader = index === 0 && entry.holesPlayed > 0 && !entry.isDNF;
               const status = getPlayerStatus(entry);
               const displayProgress = getDisplayProgress(entry);
@@ -418,7 +466,11 @@ export function LeaderboardComponent({
                         <>
                           {/* DNF - show partial score greyed out */}
                           <div className="w-10 text-center text-lg font-bold text-gray-400">
-                            {entry.holesPlayed > 0 ? formatToPar(entry.relativeToPar) : "-"}
+                            {entry.holesPlayed > 0
+                              ? (isStableford
+                                  ? (entry.stablefordPoints?.toString() ?? "-")
+                                  : formatToPar(entry.relativeToPar))
+                              : "-"}
                           </div>
                           {showNetScores && (
                             <div className="w-10 text-center text-lg font-bold text-gray-400">
@@ -437,24 +489,28 @@ export function LeaderboardComponent({
                             className={`w-10 text-center text-lg font-bold ${
                               isRoundInvalid
                                 ? "text-gray-400"
-                                : getToParColor(entry.relativeToPar)
+                                : isStableford
+                                  ? "text-charcoal"
+                                  : getToParColor(entry.relativeToPar)
                             }`}
                           >
-                            {isRoundInvalid ? "-" : formatToPar(entry.relativeToPar)}
+                            {formatPrimaryScore(entry, status === "FINISHED", isRoundInvalid)}
                           </div>
 
                           {/* Net Score */}
                           {showNetScores && (
                             <div
                               className={`w-10 text-center text-lg font-bold ${
-                                isRoundInvalid || entry.netRelativeToPar === undefined
+                                isRoundInvalid ||
+                                (!isStableford && entry.netRelativeToPar === undefined) ||
+                                (isStableford && entry.netStablefordPoints === undefined)
                                   ? "text-gray-400"
-                                  : getToParColor(entry.netRelativeToPar)
+                                  : isStableford
+                                    ? "text-charcoal"
+                                    : getToParColor(entry.netRelativeToPar!)
                               }`}
                             >
-                              {isRoundInvalid || entry.netRelativeToPar === undefined
-                                ? "-"
-                                : formatToPar(entry.netRelativeToPar)}
+                              {formatSecondaryScore(entry, status === "FINISHED", isRoundInvalid)}
                             </div>
                           )}
 
@@ -513,7 +569,7 @@ export function LeaderboardComponent({
                 </thead>
                 <tbody>
                   {filteredLeaderboard.map((entry, index) => {
-                    const isRoundInvalid = entry.participant.score.includes(-1);
+                    const isRoundInvalid = entry.participant.score.includes(-1) && !isStableford;
                     const status = getPlayerStatus(entry);
                     const displayProgress = getDisplayProgress(entry);
 
@@ -610,7 +666,11 @@ export function LeaderboardComponent({
                                   Thru {entry.holesPlayed}
                                 </div>
                                 <div className="text-xl font-bold text-gray-400 font-display">
-                                  {entry.holesPlayed > 0 ? formatToPar(entry.relativeToPar) : "-"}
+                                  {entry.holesPlayed > 0
+                                    ? (isStableford
+                                        ? (entry.stablefordPoints?.toString() ?? "-")
+                                        : formatToPar(entry.relativeToPar))
+                                    : "-"}
                                 </div>
                               </div>
                             </div>
@@ -630,27 +690,27 @@ export function LeaderboardComponent({
                               {status === "FINISHED" ? (
                                 <div className="text-center">
                                   <div className="text-xs text-gray-500">
-                                    {showNetScores ? "Gross" : "Total"}
+                                    {getPrimaryScoreLabel(true)}
                                   </div>
                                   <div className="text-xl font-bold text-charcoal font-display">
-                                    {isRoundInvalid ? "-" : entry.totalShots}
+                                    {formatPrimaryScore(entry, true, isRoundInvalid)}
                                   </div>
                                 </div>
                               ) : (
                                 <div className="text-center">
                                   <div className="text-xs text-gray-500">
-                                    {showNetScores ? "Gross" : "To Par"}
+                                    {getPrimaryScoreLabel(false)}
                                   </div>
                                   <div
                                     className={`text-xl font-bold font-display ${
                                       isRoundInvalid
                                         ? "text-gray-500"
-                                        : getToParColor(entry.relativeToPar)
+                                        : isStableford
+                                          ? "text-charcoal"
+                                          : getToParColor(entry.relativeToPar)
                                     }`}
                                   >
-                                    {isRoundInvalid
-                                      ? "-"
-                                      : formatToPar(entry.relativeToPar)}
+                                    {formatPrimaryScore(entry, false, isRoundInvalid)}
                                   </div>
                                 </div>
                               )}
@@ -659,26 +719,30 @@ export function LeaderboardComponent({
                               {showNetScores && (
                                 status === "FINISHED" ? (
                                   <div className="text-center">
-                                    <div className="text-xs text-gray-500">Net</div>
+                                    <div className="text-xs text-gray-500">
+                                      {isStableford ? "Net Pts" : "Net"}
+                                    </div>
                                     <div className="text-xl font-bold text-charcoal font-display">
-                                      {isRoundInvalid || entry.netTotalShots === undefined
-                                        ? "-"
-                                        : entry.netTotalShots}
+                                      {formatSecondaryScore(entry, true, isRoundInvalid)}
                                     </div>
                                   </div>
                                 ) : (
                                   <div className="text-center">
-                                    <div className="text-xs text-gray-500">Net</div>
+                                    <div className="text-xs text-gray-500">
+                                      {isStableford ? "Net Pts" : "Net"}
+                                    </div>
                                     <div
                                       className={`text-xl font-bold font-display ${
-                                        isRoundInvalid || entry.netRelativeToPar === undefined
+                                        isRoundInvalid ||
+                                        (!isStableford && entry.netRelativeToPar === undefined) ||
+                                        (isStableford && entry.netStablefordPoints === undefined)
                                           ? "text-gray-500"
-                                          : getToParColor(entry.netRelativeToPar)
+                                          : isStableford
+                                            ? "text-charcoal"
+                                            : getToParColor(entry.netRelativeToPar!)
                                       }`}
                                     >
-                                      {isRoundInvalid || entry.netRelativeToPar === undefined
-                                        ? "-"
-                                        : formatToPar(entry.netRelativeToPar)}
+                                      {formatSecondaryScore(entry, false, isRoundInvalid)}
                                     </div>
                                   </div>
                                 )

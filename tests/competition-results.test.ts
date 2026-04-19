@@ -39,14 +39,24 @@ describe("CompetitionResultsService", () => {
   const createTestTour = (
     name: string,
     ownerId: number,
-    options: { pointTemplateId?: number; scoringMode?: string } = {}
+    options: {
+      pointTemplateId?: number;
+      scoringMode?: string;
+      scoringFormat?: "stroke_play" | "stableford";
+    } = {}
   ) => {
     return db
       .prepare(
-        `INSERT INTO tours (name, owner_id, enrollment_mode, visibility, point_template_id, scoring_mode)
-         VALUES (?, ?, 'closed', 'public', ?, ?) RETURNING *`
+        `INSERT INTO tours (name, owner_id, enrollment_mode, visibility, point_template_id, scoring_mode, scoring_format)
+         VALUES (?, ?, 'closed', 'public', ?, ?, ?) RETURNING *`
       )
-      .get(name, ownerId, options.pointTemplateId || null, options.scoringMode || "gross") as {
+      .get(
+        name,
+        ownerId,
+        options.pointTemplateId || null,
+        options.scoringMode || "gross",
+        options.scoringFormat || "stroke_play"
+      ) as {
       id: number;
       name: string;
     };
@@ -482,6 +492,48 @@ describe("CompetitionResultsService", () => {
       expect(results).toHaveLength(0);
     });
 
+    test("should store stableford results for players with gave-up holes", () => {
+      const user = createTestUser("stableford@test.com", "ADMIN");
+      const course = createTestCourse("Stableford Course", standardPars);
+      db.prepare("UPDATE courses SET stroke_index = ? WHERE id = ?").run(
+        JSON.stringify([1, 3, 17, 7, 5, 11, 15, 9, 13, 2, 4, 18, 8, 6, 12, 16, 10, 14]),
+        course.id
+      );
+      const tour = createTestTour("Stableford Tour", user.id, {
+        scoringMode: "gross",
+        scoringFormat: "stableford",
+      });
+      const competition = createTestCompetition("Stableford Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Stableford Team");
+      const player1 = createTestPlayer("Par Player");
+      const player2 = createTestPlayer("Pickup Player");
+
+      createEnrollment(tour.id, player1.id, "par@test.com");
+      createEnrollment(tour.id, player2.id, "pickup@test.com");
+
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      const scoreWithPickup = createEvenParScore();
+      scoreWithPickup[0] = -1;
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: scoreWithPickup,
+        isLocked: true,
+      });
+
+      service.finalizeCompetitionResults(competition.id);
+
+      const results = service.getCompetitionResults(competition.id);
+      expect(results).toHaveLength(2);
+      expect(results[0].stableford_points).toBe(36);
+      expect(results[1].stableford_points).toBe(34);
+    });
+
     test("should assign points using default formula when no template", () => {
       const user = createTestUser("owner@test.com", "ADMIN");
       const course = createTestCourse("Test Course", standardPars);
@@ -793,6 +845,38 @@ describe("CompetitionResultsService", () => {
 
         expect(grossResults[0].relative_to_par).toBe(10); // +10 gross
         expect(netResults[0].relative_to_par).toBe(0); // even par net (72 - 72)
+      });
+
+      test("should calculate net stableford from per-hole handicap strokes", () => {
+        const user = createTestUser("net-stableford@test.com", "ADMIN");
+        const course = createTestCourse("Net Stableford Course", standardPars);
+        db.prepare("UPDATE courses SET stroke_index = ? WHERE id = ?").run(
+          JSON.stringify([1, 3, 17, 7, 5, 11, 15, 9, 13, 2, 4, 18, 8, 6, 12, 16, 10, 14]),
+          course.id
+        );
+        const tour = createTestTour("Net Stableford Tour", user.id, {
+          scoringMode: "net",
+          scoringFormat: "stableford",
+        });
+        const competition = createTestCompetition("Stableford Net", "2024-01-15", course.id, {
+          tourId: tour.id,
+        });
+        const teeTime = createTestTeeTime(competition.id, "08:00");
+        const team = createTestTeam("Stableford Net Team");
+        const player = createTestPlayer("Bogey Player");
+
+        createEnrollment(tour.id, player.id, "bogey@test.com");
+        createTestParticipant(teeTime.id, team.id, player.id, {
+          score: standardPars.map((par) => par + 1),
+          isLocked: true,
+          handicapIndex: 18,
+        });
+
+        service.finalizeCompetitionResults(competition.id);
+
+        const netResults = service.getCompetitionResults(competition.id, "net");
+        expect(netResults).toHaveLength(1);
+        expect(netResults[0].stableford_points).toBe(36);
       });
 
       test("should assign correct points in net standings", () => {

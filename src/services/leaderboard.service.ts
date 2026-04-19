@@ -4,6 +4,7 @@ import type {
   LeaderboardEntry,
   LeaderboardResponse,
   Participant,
+  TourScoringFormat,
   TeamLeaderboardEntry,
   TourScoringMode,
 } from "../types";
@@ -19,6 +20,7 @@ import {
 import { GOLF } from "../constants/golf";
 import { parseParsArray, safeParseJsonWithDefault } from "../utils/parsing";
 import { calculateDefaultPoints } from "../utils/points";
+import { calculateStablefordPoints } from "../utils/stableford";
 import {
   calculateHolesPlayed,
   calculateGrossScore,
@@ -159,8 +161,10 @@ interface LeaderboardContext {
   totalPar: number;
   roundType: CompetitionRoundType;
   expectedHoles: number;
+  activeHoleIndices: number[];
   activePar: number;
   scoringMode: TourScoringMode | undefined;
+  scoringFormat: TourScoringFormat;
   isTourCompetition: boolean;
   isResultsFinal: boolean;
   isOpenCompetitionClosed: boolean;
@@ -195,7 +199,7 @@ export class LeaderboardService {
     const entries = participants.map((p) => this.buildParticipantEntry(p, context));
 
     // Step 3: Sort by score
-    const sortedEntries = this.sortLeaderboard(entries);
+    const sortedEntries = this.sortLeaderboard(entries, context.scoringFormat);
 
     // Step 4: Add points
     const entriesWithPoints = this.addPointsToLeaderboard(sortedEntries, context, competitionId);
@@ -235,9 +239,11 @@ export class LeaderboardService {
     const isTourCompetition = !!competition.tour_id;
     const isResultsFinal = !!competition.is_results_final;
 
-    const scoringMode = competition.tour_id
-      ? this.findTourScoringMode(competition.tour_id)
-      : undefined;
+    const scoringSettings = competition.tour_id
+      ? this.findTourScoringSettings(competition.tour_id)
+      : null;
+    const scoringMode = scoringSettings?.scoring_mode as TourScoringMode | undefined;
+    const scoringFormat = scoringSettings?.scoring_format || "stroke_play";
 
     // Stroke index comes from the course (not the tee)
     // Load stroke index for net scoring calculations OR when a tee is assigned
@@ -282,8 +288,8 @@ export class LeaderboardService {
 
     const roundType = normalizeRoundType(competition.round_type);
     const expectedHoles = getExpectedHolesCount(roundType);
-    const activeIndices = getActiveHoleIndices(roundType);
-    const activePar = activeIndices.reduce(
+    const activeHoleIndices = getActiveHoleIndices(roundType);
+    const activePar = activeHoleIndices.reduce(
       (sum, i) => sum + (pars[i] || 0),
       0
     );
@@ -296,8 +302,10 @@ export class LeaderboardService {
       totalPar,
       roundType,
       expectedHoles,
+      activeHoleIndices,
       activePar,
       scoringMode,
+      scoringFormat,
       isTourCompetition,
       isResultsFinal,
       isOpenCompetitionClosed,
@@ -378,13 +386,20 @@ export class LeaderboardService {
       playerSlopeRating = catTee.slopeRating;
     }
 
-    const courseHandicap = calculateCourseHandicap(
+    const fullCourseHandicap = calculateCourseHandicap(
       handicapIndex,
       playerSlopeRating,
       playerCourseRating,
       context.totalPar
     );
-    const handicapStrokesPerHole = distributeHandicapStrokes(courseHandicap, context.strokeIndex);
+    const handicapStrokesPerHole = distributeHandicapStrokes(
+      fullCourseHandicap,
+      context.strokeIndex
+    );
+    const courseHandicap = this.calculateActiveHoleHandicap(
+      handicapStrokesPerHole,
+      context.activeHoleIndices
+    );
 
     return { courseHandicap, handicapStrokesPerHole };
   }
@@ -404,7 +419,7 @@ export class LeaderboardService {
     let netRelativeToPar: number | undefined;
     if (handicapInfo.courseHandicap !== undefined) {
       netTotalShots = totalShots - handicapInfo.courseHandicap;
-      netRelativeToPar = netTotalShots - context.totalPar;
+      netRelativeToPar = netTotalShots - context.activePar;
     }
 
     return {
@@ -421,8 +436,10 @@ export class LeaderboardService {
       startTime: participant.teetime,
       netTotalShots,
       netRelativeToPar,
+      stablefordPoints: undefined,
+      netStablefordPoints: undefined,
       courseHandicap: handicapInfo.courseHandicap,
-      // handicapStrokesPerHole is calculated on the frontend from courseHandicap and strokeIndex
+      handicapStrokesPerHole: handicapInfo.handicapStrokesPerHole,
       isDNF: false,
     };
   }
@@ -440,25 +457,38 @@ export class LeaderboardService {
 
     let netTotalShots: number | undefined;
     let netRelativeToPar: number | undefined;
+    let netStablefordPoints: number | undefined;
 
     if (
       handicapInfo.courseHandicap !== undefined &&
       handicapInfo.handicapStrokesPerHole &&
-      holesPlayed > 0 &&
-      !hasInvalidHole(score)
+      holesPlayed > 0
     ) {
-      const netScores = this.calculateNetScores(
-        score,
-        context.pars,
-        holesPlayed,
-        totalShots,
-        handicapInfo.courseHandicap,
-        handicapInfo.handicapStrokesPerHole,
-        context.expectedHoles
-      );
-      netTotalShots = netScores.netTotalShots;
-      netRelativeToPar = netScores.netRelativeToPar;
+      if (!hasInvalidHole(score)) {
+        const netScores = this.calculateNetScores(
+          score,
+          context.pars,
+          holesPlayed,
+          totalShots,
+          handicapInfo.courseHandicap,
+          handicapInfo.handicapStrokesPerHole,
+          context.expectedHoles
+        );
+        netTotalShots = netScores.netTotalShots;
+        netRelativeToPar = netScores.netRelativeToPar;
+      }
+      if (context.scoringFormat === "stableford") {
+        netStablefordPoints = calculateStablefordPoints(
+          score,
+          context.pars,
+          handicapInfo.handicapStrokesPerHole
+        ).totalPoints;
+      }
     }
+
+    const stablefordPoints = context.scoringFormat === "stableford"
+      ? calculateStablefordPoints(score, context.pars).totalPoints
+      : undefined;
 
     const isDNF = context.isOpenCompetitionClosed && holesPlayed < context.expectedHoles;
 
@@ -476,8 +506,10 @@ export class LeaderboardService {
       startTime: participant.teetime,
       netTotalShots,
       netRelativeToPar,
+      stablefordPoints,
+      netStablefordPoints,
       courseHandicap: handicapInfo.courseHandicap,
-      // handicapStrokesPerHole is calculated on the frontend from courseHandicap and strokeIndex
+      handicapStrokesPerHole: handicapInfo.handicapStrokesPerHole,
       isDNF,
     };
   }
@@ -514,12 +546,31 @@ export class LeaderboardService {
         parForHolesPlayed += pars[i] || 0;
       }
     }
-    const netRelativeToPar = netScore - parForHolesPlayed;
-
     const netTotalShots =
       holesPlayed === expectedHoles ? totalShots - courseHandicap : undefined;
+    const netRelativeToPar =
+      netTotalShots !== undefined
+        ? netTotalShots - parForHolesPlayed
+        : netScore - parForHolesPlayed;
 
     return { netTotalShots, netRelativeToPar };
+  }
+
+  private calculateActiveHoleHandicap(
+    handicapStrokesPerHole: number[],
+    activeHoleIndices: number[]
+  ): number {
+    return activeHoleIndices.reduce(
+      (sum, holeIndex) => sum + (handicapStrokesPerHole[holeIndex] || 0),
+      0
+    );
+  }
+
+  private isScoreInvalidForRanking(
+    score: number[],
+    scoringFormat: TourScoringFormat
+  ): boolean {
+    return scoringFormat === "stableford" ? false : hasInvalidHole(score);
   }
 
   private isCompetitionWindowClosed(competition: CompetitionRow): boolean {
@@ -755,7 +806,10 @@ export class LeaderboardService {
   // Sorting and Ranking
   // ─────────────────────────────────────────────────────────────────────────────
 
-  private sortLeaderboard(entries: LeaderboardEntry[]): LeaderboardEntry[] {
+  private sortLeaderboard(
+    entries: LeaderboardEntry[],
+    scoringFormat: TourScoringFormat
+  ): LeaderboardEntry[] {
     return entries.sort((a, b) => {
       // DQ entries always go to the very bottom
       const aIsDQ = a.participant.is_dq;
@@ -773,7 +827,10 @@ export class LeaderboardService {
       if (a.isDNF && b.isDNF) {
         return b.holesPlayed - a.holesPlayed;
       }
-      // Normal sorting by relative to par
+      if (scoringFormat === "stableford") {
+        return (b.stablefordPoints ?? Number.NEGATIVE_INFINITY) -
+          (a.stablefordPoints ?? Number.NEGATIVE_INFINITY);
+      }
       return a.relativeToPar - b.relativeToPar;
     });
   }
@@ -804,7 +861,8 @@ export class LeaderboardService {
       sortedEntries,
       pointTemplate,
       context.competition.points_multiplier || 1,
-      context.expectedHoles
+      context.expectedHoles,
+      context.scoringFormat
     );
   }
 
@@ -841,15 +899,20 @@ export class LeaderboardService {
     sortedEntries: LeaderboardEntry[],
     pointTemplate: PointTemplateRow | null,
     pointsMultiplier: number,
-    expectedHoles: number
+    expectedHoles: number,
+    scoringFormat: TourScoringFormat
   ): LeaderboardEntry[] {
     // Calculate gross positions and points
     const grossPositions = this.calculateProjectedPositions(
       sortedEntries,
-      (entry) => entry.relativeToPar,
+      (entry) =>
+        scoringFormat === "stableford"
+          ? (entry.stablefordPoints ?? Number.NEGATIVE_INFINITY)
+          : entry.relativeToPar,
       pointTemplate,
       pointsMultiplier,
-      expectedHoles
+      expectedHoles,
+      scoringFormat
     );
 
     // Calculate net positions and points if entries have net scores
@@ -857,10 +920,16 @@ export class LeaderboardService {
     const netPositions = hasNetScores
       ? this.calculateProjectedPositions(
           sortedEntries,
-          (entry) => entry.netRelativeToPar ?? entry.relativeToPar,
+          (entry) =>
+            scoringFormat === "stableford"
+              ? (entry.netStablefordPoints ??
+                  entry.stablefordPoints ??
+                  Number.NEGATIVE_INFINITY)
+              : (entry.netRelativeToPar ?? entry.relativeToPar),
           pointTemplate,
           pointsMultiplier,
-          expectedHoles
+          expectedHoles,
+          scoringFormat
         )
       : null;
 
@@ -885,16 +954,27 @@ export class LeaderboardService {
     scoreGetter: (entry: LeaderboardEntry) => number,
     pointTemplate: PointTemplateRow | null,
     pointsMultiplier: number,
-    expectedHoles: number
+    expectedHoles: number,
+    scoringFormat: TourScoringFormat
   ): Map<number, { position: number; points: number }> {
     const finishedPlayers = entries.filter(
-      (e) => e.holesPlayed === expectedHoles && !e.participant.is_dq && !e.isDNF
+      (e) =>
+        e.holesPlayed === expectedHoles &&
+        !e.participant.is_dq &&
+        !e.isDNF &&
+        !this.isScoreInvalidForRanking(e.participant.score, scoringFormat) &&
+        !(
+          scoringFormat === "stableford" &&
+          !Number.isFinite(scoreGetter(e))
+        )
     );
     const numberOfPlayers = finishedPlayers.length;
 
     // Sort by the specified score
     const sortedByScore = [...finishedPlayers].sort((a, b) => {
-      return scoreGetter(a) - scoreGetter(b);
+      return scoringFormat === "stableford"
+        ? scoreGetter(b) - scoreGetter(a)
+        : scoreGetter(a) - scoreGetter(b);
     });
 
     // Create temporary structure to hold positions
@@ -990,6 +1070,7 @@ export class LeaderboardService {
       entries,
       competitionId,
       scoringMode: context.scoringMode,
+      scoringFormat: context.scoringFormat,
       isTourCompetition: context.isTourCompetition,
       isResultsFinal: context.isResultsFinal,
       tee: context.teeInfo,
@@ -1223,10 +1304,16 @@ export class LeaderboardService {
     return stmt.get(id) as CompetitionRow | null;
   }
 
-  private findTourScoringMode(tourId: number): TourScoringMode | undefined {
-    const stmt = this.db.prepare("SELECT scoring_mode FROM tours WHERE id = ?");
-    const tour = stmt.get(tourId) as { scoring_mode: string } | null;
-    return tour?.scoring_mode as TourScoringMode | undefined;
+  private findTourScoringSettings(
+    tourId: number
+  ): { scoring_mode: TourScoringMode; scoring_format: TourScoringFormat } | null {
+    const stmt = this.db.prepare(
+      "SELECT scoring_mode, scoring_format FROM tours WHERE id = ?"
+    );
+    return stmt.get(tourId) as {
+      scoring_mode: TourScoringMode;
+      scoring_format: TourScoringFormat;
+    } | null;
   }
 
   private findTeeWithRatings(teeId: number): TeeRow | null {

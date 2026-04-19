@@ -289,6 +289,13 @@ export default function TourStandings() {
     return score > 0 ? `+${score}` : score.toString();
   };
 
+  const formatCompetitionScore = (competition: TourPlayerCompetition) => {
+    if (standings?.scoring_format === "stableford") {
+      return `${competition.stableford_points ?? 0} p`;
+    }
+    return formatScore(competition.score_relative_to_par);
+  };
+
   // Create enhanced player standings with all competitions
   const getEnhancedPlayerStandings = () => {
     if (!standings || !allCompetitions) return [];
@@ -317,6 +324,7 @@ export default function TourStandings() {
             points: 0,
             position: 0,
             score_relative_to_par: 0,
+            stableford_points: undefined,
             is_future: isFutureCompetition,
             not_participated: !isFutureCompetition,
           };
@@ -679,7 +687,7 @@ export default function TourStandings() {
                             {!isFuture && !notParticipated && (
                               <div className="flex items-center gap-3 text-sm">
                                 <span className="text-charcoal/60">
-                                  {formatScore(competition.score_relative_to_par)}
+                                  {formatCompetitionScore(competition)}
                                 </span>
                                 <span className="font-semibold text-charcoal">
                                   {competition.points} pts

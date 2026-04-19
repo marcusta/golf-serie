@@ -55,14 +55,24 @@ describe("LeaderboardService", () => {
   const createTestTour = (
     name: string,
     ownerId: number,
-    options: { pointTemplateId?: number; scoringMode?: string } = {}
+    options: {
+      pointTemplateId?: number;
+      scoringMode?: string;
+      scoringFormat?: "stroke_play" | "stableford";
+    } = {}
   ) => {
     return db
       .prepare(
-        `INSERT INTO tours (name, owner_id, enrollment_mode, visibility, point_template_id, scoring_mode)
-         VALUES (?, ?, 'closed', 'public', ?, ?) RETURNING *`
+        `INSERT INTO tours (name, owner_id, enrollment_mode, visibility, point_template_id, scoring_mode, scoring_format)
+         VALUES (?, ?, 'closed', 'public', ?, ?, ?) RETURNING *`
       )
-      .get(name, ownerId, options.pointTemplateId || null, options.scoringMode || "gross") as {
+      .get(
+        name,
+        ownerId,
+        options.pointTemplateId || null,
+        options.scoringMode || "gross",
+        options.scoringFormat || "stroke_play"
+      ) as {
       id: number;
       name: string;
     };
@@ -79,12 +89,13 @@ describe("LeaderboardService", () => {
       openEnd?: string;
       pointsMultiplier?: number;
       isResultsFinal?: boolean;
+      roundType?: "full_18" | "front_9" | "back_9";
     } = {}
   ) => {
     return db
       .prepare(
-        `INSERT INTO competitions (name, date, course_id, tour_id, tee_id, start_mode, open_end, points_multiplier, is_results_final)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
+        `INSERT INTO competitions (name, date, course_id, tour_id, tee_id, start_mode, open_end, points_multiplier, is_results_final, round_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
       )
       .get(
         name,
@@ -95,7 +106,8 @@ describe("LeaderboardService", () => {
         options.startMode || "scheduled",
         options.openEnd || null,
         options.pointsMultiplier || 1,
-        options.isResultsFinal ? 1 : 0
+        options.isResultsFinal ? 1 : 0,
+        options.roundType || "full_18"
       ) as { id: number; name: string };
   };
 
@@ -961,6 +973,74 @@ describe("LeaderboardService", () => {
       expect(leaderboard[0].netTotalShots).toBeDefined();
     });
 
+    test("should scale course handicap for 9-hole competitions", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars, standardStrokeIndex);
+      const tee = createTestTee(course.id, "White Tees", "white");
+      const tour = createTestTour("Test Tour", user.id, { scoringMode: "net" });
+      const competition = createTestCompetition("Back 9 Net", "2024-01-15", course.id, {
+        tourId: tour.id,
+        teeId: tee.id,
+        roundType: "back_9",
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+      const player = createTestPlayer("Nine Hole Player", undefined, 7);
+
+      createEnrollment(tour.id, player.id, "player@test.com");
+      createTestParticipant(teeTime.id, team.id, player.id, {
+        score: [0, 0, 0, 0, 0, 0, 0, 0, 0, ...standardPars.slice(9)],
+        isLocked: true,
+        handicapIndex: 7,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      expect(leaderboard[0].holesPlayed).toBe(9);
+      expect(leaderboard[0].totalShots).toBe(36);
+      expect(leaderboard[0].courseHandicap).toBe(3);
+      expect(leaderboard[0].handicapStrokesPerHole).toEqual([
+        1, 1, 0, 1, 1, 0, 0, 0, 0,
+        1, 1, 0, 0, 1, 0, 0, 0, 0,
+      ]);
+      expect(leaderboard[0].netTotalShots).toBe(33);
+      expect(leaderboard[0].netRelativeToPar).toBe(-3);
+    });
+
+    test("should use active par for 9-hole manual-score net relative to par", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars, standardStrokeIndex);
+      const tee = createTestTee(course.id, "White Tees", "white");
+      const tour = createTestTour("Test Tour", user.id, { scoringMode: "net" });
+      const competition = createTestCompetition("Back 9 Manual", "2024-01-15", course.id, {
+        tourId: tour.id,
+        teeId: tee.id,
+        roundType: "back_9",
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+      const player = createTestPlayer("Manual Player", undefined, 7);
+
+      createEnrollment(tour.id, player.id, "player@test.com");
+      createTestParticipant(teeTime.id, team.id, player.id, {
+        manualScoreTotal: 36,
+        isLocked: true,
+        handicapIndex: 7,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      expect(leaderboard[0].holesPlayed).toBe(9);
+      expect(leaderboard[0].totalShots).toBe(36);
+      expect(leaderboard[0].courseHandicap).toBe(3);
+      expect(leaderboard[0].handicapStrokesPerHole).toEqual([
+        1, 1, 0, 1, 1, 0, 0, 0, 0,
+        1, 1, 0, 0, 1, 0, 0, 0, 0,
+      ]);
+      expect(leaderboard[0].netTotalShots).toBe(33);
+      expect(leaderboard[0].netRelativeToPar).toBe(-3);
+    });
+
     test("should not calculate net scores for gross-only tour", async () => {
       const user = createTestUser("owner@test.com", "ADMIN");
       const course = createTestCourse("Test Course", standardPars);
@@ -1060,6 +1140,82 @@ describe("LeaderboardService", () => {
       expect(leaderboard[0].points).toBeDefined();
       // With 1 player and 2x multiplier: 1+2=3 * 2 = 6
       expect(leaderboard[0].points).toBe(6);
+    });
+  });
+
+  describe("Stableford Scoring", () => {
+    test("should rank players by stableford points and allow gave-up holes", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Stableford Course", standardPars, standardStrokeIndex);
+      const tee = createTestTee(course.id, "Yellow", "#ff0");
+      const tour = createTestTour("Stableford Tour", user.id, {
+        scoringMode: "gross",
+        scoringFormat: "stableford",
+      });
+      const competition = createTestCompetition("Stableford Round", "2024-01-15", course.id, {
+        tourId: tour.id,
+        teeId: tee.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "09:00");
+      const team = createTestTeam("Stableford Team");
+      const player1 = createTestPlayer("Steady");
+      const player2 = createTestPlayer("Pickup");
+
+      createEnrollment(tour.id, player1.id, "steady@test.com");
+      createEnrollment(tour.id, player2.id, "pickup@test.com");
+
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      const scoreWithPickup = createEvenParScore();
+      scoreWithPickup[0] = GOLF.UNREPORTED_HOLE;
+      createTestParticipant(teeTime.id, team.id, player2.id, {
+        score: scoreWithPickup,
+        isLocked: true,
+      });
+
+      const leaderboard = await service.getLeaderboardWithDetails(competition.id);
+
+      expect(leaderboard.scoringFormat).toBe("stableford");
+      expect(leaderboard.entries[0].participant.player_name).toBe("Steady");
+      expect(leaderboard.entries[0].stablefordPoints).toBe(36);
+      expect(leaderboard.entries[1].participant.player_name).toBe("Pickup");
+      expect(leaderboard.entries[1].stablefordPoints).toBe(34);
+      expect(leaderboard.entries[1].holesPlayed).toBe(18);
+      expect(leaderboard.entries[1].isDNF).toBe(false);
+    });
+
+    test("should calculate net stableford using per-hole handicap strokes", async () => {
+      const user = createTestUser("owner2@test.com", "ADMIN");
+      const course = createTestCourse("Net Stableford Course", standardPars, standardStrokeIndex);
+      const tee = createTestTee(course.id, "Yellow", "#ff0");
+      const tour = createTestTour("Net Stableford Tour", user.id, {
+        scoringMode: "net",
+        scoringFormat: "stableford",
+      });
+      const competition = createTestCompetition("Net Stableford Round", "2024-01-15", course.id, {
+        tourId: tour.id,
+        teeId: tee.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "09:10");
+      const team = createTestTeam("Net Stableford Team");
+      const player = createTestPlayer("Bogey Golfer");
+
+      createEnrollment(tour.id, player.id, "bogey@test.com");
+
+      const bogeyGolf = standardPars.map((par) => par + 1);
+      createTestParticipant(teeTime.id, team.id, player.id, {
+        score: bogeyGolf,
+        isLocked: true,
+        handicapIndex: 18,
+      });
+
+      const leaderboard = await service.getLeaderboard(competition.id);
+
+      expect(leaderboard[0].stablefordPoints).toBe(18);
+      expect(leaderboard[0].netStablefordPoints).toBe(36);
     });
   });
 

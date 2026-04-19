@@ -138,6 +138,8 @@ export function createToursApi(
           description: body.description,
           banner_image_url: body.banner_image_url,
           point_template_id: body.point_template_id,
+          scoring_mode: body.scoring_mode,
+          scoring_format: body.scoring_format,
         },
         user!.id
       );
@@ -172,6 +174,7 @@ export function createToursApi(
         landing_document_id: body.landing_document_id,
         point_template_id: body.point_template_id,
         scoring_mode: body.scoring_mode,
+        scoring_format: body.scoring_format,
         visibility: body.visibility,
         enrollment_mode: body.enrollment_mode,
       });

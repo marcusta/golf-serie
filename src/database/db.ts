@@ -52,6 +52,7 @@ import { AllowNameOnlyEnrollmentsMigration } from "./migrations/050_allow_name_o
 import { AddCompetitionRoundTypeMigration } from "./migrations/051_add_competition_round_type";
 import { AddCompetitionSelfOrganizeMigration } from "./migrations/052_add_competition_self_organize";
 import { AddCompetitionResultsEnrollmentIdMigration } from "./migrations/053_add_competition_results_enrollment_id";
+import { AddTourScoringFormatAndStablefordPointsMigration } from "./migrations/054_add_tour_scoring_format_and_stableford_points";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -136,6 +137,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddCompetitionRoundTypeMigration(db),
     new AddCompetitionSelfOrganizeMigration(db),
     new AddCompetitionResultsEnrollmentIdMigration(db),
+    new AddTourScoringFormatAndStablefordPointsMigration(db),
   ];
 
   // Apply pending migrations

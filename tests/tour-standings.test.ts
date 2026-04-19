@@ -10,14 +10,20 @@ describe("TourService.getFullStandings", () => {
   let pointTemplateService: PointTemplateService;
 
   // Helper to create test data
-  const createTestTour = (name: string, ownerId: number, pointTemplateId?: number) => {
+  const createTestTour = (
+    name: string,
+    ownerId: number,
+    pointTemplateId?: number,
+    scoringFormat: "stroke_play" | "stableford" = "stroke_play",
+    scoringMode: "gross" | "net" | "both" = "gross"
+  ) => {
     return db
       .prepare(`
-        INSERT INTO tours (name, owner_id, enrollment_mode, visibility, point_template_id)
-        VALUES (?, ?, 'closed', 'public', ?)
+        INSERT INTO tours (name, owner_id, enrollment_mode, visibility, point_template_id, scoring_format, scoring_mode)
+        VALUES (?, ?, 'closed', 'public', ?, ?, ?)
         RETURNING *
       `)
-      .get(name, ownerId, pointTemplateId || null) as any;
+      .get(name, ownerId, pointTemplateId || null, scoringFormat, scoringMode) as any;
   };
 
   const createTestUser = (email: string, role: string = "PLAYER") => {
@@ -40,24 +46,59 @@ describe("TourService.getFullStandings", () => {
       .get(name, userId || null) as any;
   };
 
-  const createTestCourse = (name: string, pars: number[]) => {
+  const createTestCourse = (name: string, pars: number[], strokeIndex?: number[]) => {
     return db
       .prepare(`
-        INSERT INTO courses (name, pars)
-        VALUES (?, ?)
+        INSERT INTO courses (name, pars, stroke_index)
+        VALUES (?, ?, ?)
         RETURNING *
       `)
-      .get(name, JSON.stringify(pars)) as any;
+      .get(
+        name,
+        JSON.stringify(pars),
+        strokeIndex ? JSON.stringify(strokeIndex) : null
+      ) as any;
   };
 
-  const createTestCompetition = (name: string, date: string, courseId: number, tourId: number) => {
+  const createTestTee = (
+    courseId: number,
+    name: string,
+    courseRating: number,
+    slopeRating: number
+  ) => {
     return db
       .prepare(`
-        INSERT INTO competitions (name, date, course_id, tour_id, points_multiplier)
-        VALUES (?, ?, ?, ?, 1)
+        INSERT INTO course_tees (course_id, name, course_rating, slope_rating)
+        VALUES (?, ?, ?, ?)
         RETURNING *
       `)
-      .get(name, date, courseId, tourId) as any;
+      .get(courseId, name, courseRating, slopeRating) as any;
+  };
+
+  const createTestCompetition = (
+    name: string,
+    date: string,
+    courseId: number,
+    tourId: number,
+    options: {
+      teeId?: number;
+      roundType?: "full_18" | "front_9" | "back_9";
+    } = {}
+  ) => {
+    return db
+      .prepare(`
+        INSERT INTO competitions (name, date, course_id, tour_id, tee_id, round_type, points_multiplier)
+        VALUES (?, ?, ?, ?, ?, ?, 1)
+        RETURNING *
+      `)
+      .get(
+        name,
+        date,
+        courseId,
+        tourId,
+        options.teeId || null,
+        options.roundType || "full_18"
+      ) as any;
   };
 
   const createTestTeeTime = (competitionId: number, teetime: string) => {
@@ -243,6 +284,36 @@ describe("TourService.getFullStandings", () => {
 
       expect(standings.player_standings.length).toBe(1);
       expect(standings.player_standings[0].player_name).toBe("Valid");
+    });
+
+    test("should rank stableford standings by points and keep gave-up holes in play", async () => {
+      const user = createTestUser("stableford-owner@test.com", "ADMIN");
+      const pars = [4, 4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
+      const strokeIndex = [1, 3, 17, 7, 5, 11, 15, 9, 13, 2, 4, 18, 8, 6, 12, 16, 10, 14];
+      const tour = createTestTour("Stableford Tour", user.id, undefined, "stableford");
+      const course = createTestCourse("Stableford Course", pars, strokeIndex);
+      const competition = createTestCompetition("Stableford Comp", "2024-01-15", course.id, tour.id);
+      const teeTime = createTestTeeTime(competition.id, "09:00");
+      const team = createTestTeam("Stableford Team");
+
+      const steadyPlayer = createTestPlayer("Steady");
+      const pickupPlayer = createTestPlayer("Pickup");
+      createEnrollment(tour.id, steadyPlayer.id, "steady@test.com");
+      createEnrollment(tour.id, pickupPlayer.id, "pickup@test.com");
+
+      createTestParticipant(teeTime.id, team.id, steadyPlayer.id, pars, true);
+      const pickupScore = [...pars];
+      pickupScore[0] = -1;
+      createTestParticipant(teeTime.id, team.id, pickupPlayer.id, pickupScore, true);
+
+      const standings = tourService.getFullStandings(tour.id);
+
+      expect(standings.scoring_format).toBe("stableford");
+      expect(standings.player_standings).toHaveLength(2);
+      expect(standings.player_standings[0].player_name).toBe("Steady");
+      expect(standings.player_standings[0].competitions[0].stableford_points).toBe(36);
+      expect(standings.player_standings[1].player_name).toBe("Pickup");
+      expect(standings.player_standings[1].competitions[0].stableford_points).toBe(34);
     });
   });
 
@@ -562,6 +633,106 @@ describe("TourService.getFullStandings", () => {
       expect(manual?.competitions[0].score_relative_to_par).toBe(-2);
       expect(hbh?.position).toBe(2);
       expect(hbh?.competitions[0].score_relative_to_par).toBe(0);
+    });
+  });
+
+  describe("Net 9-hole standings", () => {
+    test("should use active-hole stroke indexes for net tie points in 9-hole rounds", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const template = pointTemplateService.create(
+        {
+          name: "Standard",
+          points_structure: { "1": 5, "2": 4, "3": 3, "4": 2, "5": 1, default: 0 },
+        },
+        user.id
+      );
+      const strokeIndex = [10, 6, 16, 8, 18, 2, 14, 12, 4, 3, 15, 11, 7, 1, 13, 17, 5, 9];
+      const pars = [4, 4, 3, 5, 3, 5, 3, 4, 4, 5, 3, 4, 4, 5, 4, 3, 4, 4];
+      const course = createTestCourse("Nine Hole Course", pars, strokeIndex);
+      const tee = createTestTee(course.id, "Yellow", 69.5, 124);
+      const team = createTestTeam("Team");
+
+      const tour = db
+        .prepare(`
+          INSERT INTO tours (name, owner_id, enrollment_mode, visibility, scoring_mode, point_template_id)
+          VALUES (?, ?, 'closed', 'public', 'net', ?)
+          RETURNING *
+        `)
+        .get("Net Tour", user.id, template.id) as any;
+
+      const marten = createTestPlayer("Mårten");
+      const marcus = createTestPlayer("Marcus");
+      const johan = createTestPlayer("Johan");
+      const hampus = createTestPlayer("Hampus");
+
+      createEnrollment(tour.id, marten.id, "marten@test.com");
+      createEnrollment(tour.id, marcus.id, "marcus@test.com");
+      createEnrollment(tour.id, johan.id, "johan@test.com");
+      createEnrollment(tour.id, hampus.id, "hampus@test.com");
+
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(5.3, tour.id, marten.id);
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(1.2, tour.id, marcus.id);
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(4.9, tour.id, johan.id);
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(9.3, tour.id, hampus.id);
+
+      const competition = createTestCompetition(
+        "Front 9",
+        "2024-01-01",
+        course.id,
+        tour.id,
+        { teeId: tee.id, roundType: "front_9" }
+      );
+      const teeTime = createTestTeeTime(competition.id, "09:00");
+
+      createTestParticipant(
+        teeTime.id,
+        team.id,
+        marten.id,
+        [4, 5, 3, 5, 4, 5, 3, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        true
+      );
+      createTestParticipant(
+        teeTime.id,
+        team.id,
+        marcus.id,
+        [4, 5, 3, 6, 2, 5, 3, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        true
+      );
+      createTestParticipant(
+        teeTime.id,
+        team.id,
+        johan.id,
+        [4, 5, 3, 5, 4, 5, 5, 4, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        true
+      );
+      createTestParticipant(
+        teeTime.id,
+        team.id,
+        hampus.id,
+        [4, 7, 4, 6, 3, 5, 3, 6, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        true
+      );
+
+      const standings = tourService.getFullStandings(tour.id);
+
+      const marcusStanding = standings.player_standings.find((s) => s.player_name === "Marcus");
+      const johanStanding = standings.player_standings.find((s) => s.player_name === "Johan");
+      const hampusStanding = standings.player_standings.find((s) => s.player_name === "Hampus");
+
+      expect(marcusStanding?.total_points).toBe(3.5);
+      expect(johanStanding?.total_points).toBe(3.5);
+      expect(hampusStanding?.total_points).toBe(2);
+      expect(marcusStanding?.competitions[0].position).toBe(2);
+      expect(johanStanding?.competitions[0].position).toBe(2);
+      expect(hampusStanding?.competitions[0].position).toBe(4);
     });
   });
 

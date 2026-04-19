@@ -268,7 +268,9 @@ export interface LeaderboardEntry {
   netTotalShots?: number;
   netRelativeToPar?: number;
   courseHandicap?: number;
-  // Note: handicapStrokesPerHole is calculated on the frontend from courseHandicap and strokeIndex
+  handicapStrokesPerHole?: number[];
+  stablefordPoints?: number;
+  netStablefordPoints?: number;
   // DNF status (Did Not Finish - competition window closed before completion)
   isDNF?: boolean;
   // Points and position (for tour competitions)
@@ -284,6 +286,7 @@ export interface LeaderboardResponse {
   // Competition info
   competitionId: number;
   scoringMode?: TourScoringMode;
+  scoringFormat?: TourScoringFormat;
   isTourCompetition?: boolean;
   isResultsFinal?: boolean;
   // Tee info (when competition has a default tee assigned)
@@ -357,6 +360,7 @@ export type TourEnrollmentStatus = "pending" | "requested" | "active";
 export type TourEnrollmentMode = "closed" | "request";
 export type TourVisibility = "private" | "public";
 export type TourScoringMode = "gross" | "net" | "both";
+export type TourScoringFormat = "stroke_play" | "stableford";
 
 // Course tee types
 export type TeeRatingGender = "men" | "women";
@@ -444,6 +448,7 @@ export interface Tour {
   enrollment_mode: TourEnrollmentMode;
   visibility: TourVisibility;
   scoring_mode: TourScoringMode;
+  scoring_format: TourScoringFormat;
   banner_image_url?: string;
   landing_document_id?: number;
   point_template_id?: number;
@@ -503,6 +508,7 @@ export interface CreateTourDto {
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
   scoring_mode?: TourScoringMode;
+  scoring_format?: TourScoringFormat;
   banner_image_url?: string;
   point_template_id?: number;
 }
@@ -513,6 +519,7 @@ export interface UpdateTourDto {
   enrollment_mode?: TourEnrollmentMode;
   visibility?: TourVisibility;
   scoring_mode?: TourScoringMode;
+  scoring_format?: TourScoringFormat;
   banner_image_url?: string;
   landing_document_id?: number | null;
   point_template_id?: number | null;
@@ -602,6 +609,7 @@ export interface TourPlayerStanding {
     points: number;
     position: number;
     score_relative_to_par: number;
+    stableford_points?: number;
     net_score_relative_to_par?: number;
     course_handicap?: number;
     is_projected?: boolean; // True if from active/non-finalized competition
@@ -613,6 +621,7 @@ export interface TourStandings {
   player_standings: TourPlayerStanding[];
   total_competitions: number;
   scoring_mode: TourScoringMode;
+  scoring_format: TourScoringFormat;
   selected_scoring_type?: "gross" | "net";
   point_template?: {
     id: number;

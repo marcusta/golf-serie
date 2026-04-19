@@ -1,6 +1,15 @@
 import { Database } from "bun:sqlite";
-import type { TourCategory, TourPlayerStanding, TourStandings, Tour as TourType } from "../types";
-import { calculateCourseHandicap } from "../utils/handicap";
+import type {
+  TourCategory,
+  TourPlayerStanding,
+  TourScoringFormat,
+  TourStandings,
+  Tour as TourType,
+} from "../types";
+import {
+  calculateCourseHandicap,
+  distributeHandicapStrokes,
+} from "../utils/handicap";
 import { GOLF } from "../constants/golf";
 import {
   getActiveHoleIndices,
@@ -13,6 +22,7 @@ import {
   calculateRelativeToPar,
   hasInvalidHole,
 } from "../utils/golf-scoring";
+import { calculateStablefordPoints } from "../utils/stableford";
 import {
   PLAYER_NAME_COALESCE,
   PARTICIPANT_NAME_COALESCE,
@@ -29,6 +39,7 @@ export type Tour = {
   enrollment_mode: string;
   visibility: string;
   scoring_mode: string;
+  scoring_format: TourScoringFormat;
   banner_image_url: string | null;
   landing_document_id: number | null;
   point_template_id: number | null;
@@ -42,6 +53,7 @@ export type CreateTourInput = {
   banner_image_url?: string;
   point_template_id?: number;
   scoring_mode?: string;
+  scoring_format?: TourScoringFormat;
 };
 
 export type UpdateTourInput = {
@@ -51,6 +63,7 @@ export type UpdateTourInput = {
   landing_document_id?: number | null;
   point_template_id?: number | null;
   scoring_mode?: string;
+  scoring_format?: TourScoringFormat;
   visibility?: string;
   enrollment_mode?: string;
 };
@@ -79,6 +92,7 @@ type CompetitionWithCourseRow = {
   round_type: string | null;
   course_name: string;
   pars: string;
+  course_stroke_index: string | null;
   slope_rating: number | null;
   course_rating: number | null;
 };
@@ -109,7 +123,8 @@ type StoredResultRow = {
   competition_id: number;
   position: number;
   points: number;
-  relative_to_par: number;
+  relative_to_par: number | null;
+  stableford_points: number | null;
   competition_name: string;
   competition_date: string;
   player_name: string;
@@ -133,8 +148,10 @@ type CompetitionResult = {
   competition_date: string;
   player_id: number;
   player_name: string;
+  score?: number[];
   total_shots: number;
   relative_to_par: number;
+  stableford_points?: number;
   is_finished: boolean;
 };
 
@@ -151,6 +168,13 @@ export class TourService {
     const validScoringModes = ["gross", "net", "both"];
     if (!validScoringModes.includes(mode)) {
       throw new Error("Invalid scoring mode. Must be 'gross', 'net', or 'both'");
+    }
+  }
+
+  private validateScoringFormat(format: TourScoringFormat): void {
+    const validScoringFormats: TourScoringFormat[] = ["stroke_play", "stableford"];
+    if (!validScoringFormats.includes(format)) {
+      throw new Error("Invalid scoring format. Must be 'stroke_play' or 'stableford'");
     }
   }
 
@@ -246,6 +270,7 @@ export class TourService {
           cr.position,
           cr.points,
           cr.relative_to_par,
+          cr.stableford_points,
           c.name as competition_name,
           c.date as competition_date,
           COALESCE(pp.display_name, pl.name, te.name) as player_name
@@ -310,15 +335,32 @@ export class TourService {
     ownerId: number,
     bannerImageUrl: string | null,
     pointTemplateId: number | null,
-    scoringMode: string
+    scoringMode: string,
+    scoringFormat: TourScoringFormat
   ): Tour {
     return this.db
       .prepare(`
-        INSERT INTO tours (name, description, owner_id, banner_image_url, point_template_id, scoring_mode)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO tours (
+          name,
+          description,
+          owner_id,
+          banner_image_url,
+          point_template_id,
+          scoring_mode,
+          scoring_format
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         RETURNING *
       `)
-      .get(name, description, ownerId, bannerImageUrl, pointTemplateId, scoringMode) as Tour;
+      .get(
+        name,
+        description,
+        ownerId,
+        bannerImageUrl,
+        pointTemplateId,
+        scoringMode,
+        scoringFormat
+      ) as Tour;
   }
 
   private updateTourRow(
@@ -421,7 +463,8 @@ export class TourService {
   private determineParticipantFinished(
     participant: ParticipantRow,
     isOpenCompetitionClosed: boolean,
-    expectedHoles: number
+    expectedHoles: number,
+    scoringFormat: TourScoringFormat
   ): { isFinished: boolean; totalShots: number; relativeToPar: number } {
     // DQ'd players are never finished
     if (participant.is_dq) {
@@ -430,6 +473,9 @@ export class TourService {
 
     // Use manual scores if available
     if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
+      if (scoringFormat === "stableford") {
+        return { isFinished: false, totalShots: 0, relativeToPar: 0 };
+      }
       return {
         isFinished: true,
         totalShots: participant.manual_score_total,
@@ -439,7 +485,7 @@ export class TourService {
 
     // Parse hole-by-hole scores
     const score = parseScoreArray(participant.score || "");
-    const hasInvalidRound = hasInvalidHole(score);
+    const hasInvalidRound = scoringFormat === "stableford" ? false : hasInvalidHole(score);
     const holesPlayed = calculateHolesPlayed(score);
 
     // Determine if finished based on competition type
@@ -485,6 +531,10 @@ export class TourService {
     if (data.scoring_mode !== undefined) {
       updates.push("scoring_mode = ?");
       values.push(data.scoring_mode);
+    }
+    if (data.scoring_format !== undefined) {
+      updates.push("scoring_format = ?");
+      values.push(data.scoring_format);
     }
     if (data.visibility !== undefined) {
       updates.push("visibility = ?");
@@ -539,7 +589,9 @@ export class TourService {
       this.validatePointTemplateExists(data.point_template_id);
     }
     const scoringMode = data.scoring_mode || "gross";
+    const scoringFormat = data.scoring_format || "stroke_play";
     this.validateScoringMode(scoringMode);
+    this.validateScoringFormat(scoringFormat);
 
     // Insert
     return this.insertTourRow(
@@ -548,7 +600,8 @@ export class TourService {
       ownerId,
       data.banner_image_url || null,
       data.point_template_id || null,
-      scoringMode
+      scoringMode,
+      scoringFormat
     );
   }
 
@@ -567,6 +620,9 @@ export class TourService {
     }
     if (data.scoring_mode !== undefined) {
       this.validateScoringMode(data.scoring_mode);
+    }
+    if (data.scoring_format !== undefined) {
+      this.validateScoringFormat(data.scoring_format);
     }
 
     // Build update fields
@@ -591,6 +647,7 @@ export class TourService {
       .prepare(
         `
       SELECT c.*, co.name as course_name, co.pars,
+             co.stroke_index as course_stroke_index,
              ct.slope_rating, ct.course_rating
       FROM competitions c
       JOIN courses co ON c.course_id = co.id
@@ -662,6 +719,7 @@ export class TourService {
       competitionsWithStoredResults,
       categoryId,
       effectiveScoringType,
+      tour.scoring_format || "stroke_play",
       playerCategories,
       playerHandicaps,
       numberOfPlayers,
@@ -677,6 +735,7 @@ export class TourService {
       player_standings: sortedStandings,
       total_competitions: competitions.length,
       scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
+      scoring_format: (tour.scoring_format || "stroke_play") as TourScoringFormat,
       selected_scoring_type: effectiveScoringType,
       point_template: pointTemplate ? { id: pointTemplate.id, name: pointTemplate.name } : undefined,
       categories,
@@ -695,6 +754,7 @@ export class TourService {
       player_standings: [],
       total_competitions: 0,
       scoring_mode: (tour.scoring_mode || "gross") as "gross" | "net" | "both",
+      scoring_format: (tour.scoring_format || "stroke_play") as TourScoringFormat,
       point_template: undefined,
       categories,
       selected_category_id: categoryId,
@@ -741,7 +801,8 @@ export class TourService {
         competition_date: result.competition_date,
         points: result.points,
         position: result.position,
-        score_relative_to_par: result.relative_to_par,
+        score_relative_to_par: result.relative_to_par ?? 0,
+        stableford_points: result.stableford_points ?? undefined,
         is_projected: false,
       });
     }
@@ -755,6 +816,7 @@ export class TourService {
     competitionsWithStoredResults: Set<number>,
     categoryId: number | undefined,
     scoringType: string,
+    scoringFormat: TourScoringFormat,
     playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
     playerHandicaps: Map<number, number>,
     numberOfPlayers: number,
@@ -777,7 +839,11 @@ export class TourService {
 
       // Check if competition should be included
       const isPast = this.isPastCompetition(competition.date);
-      const results = this.getCompetitionPlayerResults(competition.id, competition.pars);
+      const results = this.getCompetitionPlayerResults(
+        competition.id,
+        competition.pars,
+        scoringFormat
+      );
       const hasFinishedPlayers = results.some(r => r.is_finished);
 
       if (!isPast && !hasFinishedPlayers) {
@@ -790,12 +856,13 @@ export class TourService {
       const adjustedResults = this.adjustResultsForScoring(
         results.filter(r => r.is_finished),
         scoringType,
+        scoringFormat,
         playerHandicaps,
         competition
       );
 
       // Rank and calculate points
-      const rankedResults = this.rankPlayersByScore(adjustedResults);
+      const rankedResults = this.rankPlayersByScore(adjustedResults, scoringFormat);
 
       // Build per-position tie counts so tied players split the sum of points
       // across the positions they occupy (e.g. positions 4 and 5 tied → both
@@ -852,6 +919,7 @@ export class TourService {
           points,
           position: result.position,
           score_relative_to_par: result.relative_to_par,
+          stableford_points: result.stableford_points,
           is_projected: !isFinalized,
         });
       }
@@ -863,6 +931,7 @@ export class TourService {
   private adjustResultsForScoring(
     results: CompetitionResult[],
     scoringType: string,
+    scoringFormat: TourScoringFormat,
     playerHandicaps: Map<number, number>,
     competition: CompetitionWithCourseRow
   ): CompetitionResult[] {
@@ -874,9 +943,8 @@ export class TourService {
     const courseRating = competition.course_rating || GOLF.STANDARD_COURSE_RATING;
     const pars = parseParsArray(competition.pars);
     const totalPar = pars.reduce((sum, par) => sum + par, 0);
-    const expectedHoles = getExpectedHolesCount(competition.round_type);
-    // 9-hole rounds use half the full course handicap (WHS convention).
-    const handicapScale = expectedHoles === 18 ? 1 : expectedHoles / 18;
+    const activeHoleIndices = getActiveHoleIndices(competition.round_type);
+    const strokeIndex = this.parseStrokeIndexSafe(competition.course_stroke_index);
 
     return results.map(result => {
       const handicapIndex = playerHandicaps.get(result.player_id) || 0;
@@ -886,18 +954,64 @@ export class TourService {
         courseRating,
         totalPar
       );
-      const courseHandicap = Math.round(fullCourseHandicap * handicapScale);
-      return {
+      const handicapStrokesPerHole = distributeHandicapStrokes(
+        fullCourseHandicap,
+        strokeIndex
+      );
+      const courseHandicap = this.calculateActiveHoleHandicap(
+        handicapStrokesPerHole,
+        activeHoleIndices
+      );
+      const adjustedResult: CompetitionResult = {
         ...result,
         relative_to_par: result.relative_to_par - courseHandicap,
       };
+
+      if (scoringFormat === "stableford" && result.score) {
+        adjustedResult.stableford_points = calculateStablefordPoints(
+          result.score,
+          pars,
+          handicapStrokesPerHole
+        ).totalPoints;
+      }
+
+      return adjustedResult;
     });
+  }
+
+  private parseStrokeIndexSafe(json: string | null): number[] {
+    if (!json) {
+      return [];
+    }
+    try {
+      const parsed = typeof json === "string" ? JSON.parse(json) : json;
+      if (!Array.isArray(parsed) || parsed.length !== GOLF.HOLES_PER_ROUND) {
+        return [];
+      }
+      return parsed;
+    } catch {
+      return [];
+    }
+  }
+
+  private calculateActiveHoleHandicap(
+    handicapStrokesPerHole: number[],
+    activeHoleIndices: number[]
+  ): number {
+    return activeHoleIndices.reduce(
+      (sum, holeIndex) => sum + (handicapStrokesPerHole[holeIndex] || 0),
+      0
+    );
   }
 
   /**
    * Get player results for a specific competition
    */
-  private getCompetitionPlayerResults(competitionId: number, coursePars: string): (CompetitionResult & { position: number })[] {
+  private getCompetitionPlayerResults(
+    competitionId: number,
+    coursePars: string,
+    scoringFormat: TourScoringFormat
+  ): (CompetitionResult & { position: number })[] {
     const pars = parseParsArray(coursePars);
 
     const startInfo = this.findCompetitionStartInfo(competitionId);
@@ -911,16 +1025,21 @@ export class TourService {
       const { isFinished, totalShots } = this.determineParticipantFinished(
         participant,
         isOpenCompetitionClosed,
-        expectedHoles
+        expectedHoles,
+        scoringFormat
       );
 
       let relativeToPar = 0;
+      const score = parseScoreArray(participant.score || "");
+      let stablefordPoints: number | undefined;
       if (isFinished) {
         if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
           relativeToPar = totalShots - activePar;
         } else {
-          const score = parseScoreArray(participant.score || "");
           relativeToPar = calculateRelativeToPar(score, pars);
+          if (scoringFormat === "stableford") {
+            stablefordPoints = calculateStablefordPoints(score, pars).totalPoints;
+          }
         }
       }
 
@@ -930,8 +1049,10 @@ export class TourService {
         competition_date: participant.competition_date,
         player_id: participant.player_id,
         player_name: participant.player_name,
+        score,
         total_shots: totalShots,
         relative_to_par: relativeToPar,
+        stableford_points: stablefordPoints,
         is_finished: isFinished,
       };
     });
@@ -942,10 +1063,18 @@ export class TourService {
   /**
    * Rank players by their scores (lower is better)
    */
-  private rankPlayersByScore(results: CompetitionResult[]): (CompetitionResult & { position: number })[] {
-    // Sort by relative to par (ascending - lower is better)
+  private rankPlayersByScore(
+    results: CompetitionResult[],
+    scoringFormat: TourScoringFormat
+  ): (CompetitionResult & { position: number })[] {
     const sorted = [...results].sort((a, b) => {
-      if (a.relative_to_par !== b.relative_to_par) {
+      if (scoringFormat === "stableford") {
+        const aPoints = a.stableford_points ?? Number.NEGATIVE_INFINITY;
+        const bPoints = b.stableford_points ?? Number.NEGATIVE_INFINITY;
+        if (aPoints !== bPoints) {
+          return bPoints - aPoints;
+        }
+      } else if (a.relative_to_par !== b.relative_to_par) {
         return a.relative_to_par - b.relative_to_par;
       }
       // Tie-breaker: alphabetical by name
@@ -956,7 +1085,10 @@ export class TourService {
     const resultsWithPosition = sorted.map(r => ({ ...r, position: 0 }));
     return assignPositionsWithTies(
       resultsWithPosition,
-      (r) => r.relative_to_par,
+      (r) =>
+        scoringFormat === "stableford"
+          ? (r.stableford_points ?? Number.NEGATIVE_INFINITY)
+          : r.relative_to_par,
       (r, pos) => { r.position = pos; }
     );
   }
