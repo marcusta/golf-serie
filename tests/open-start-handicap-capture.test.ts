@@ -329,6 +329,77 @@ describe("Open-Start Competition - Handicap Capture and Net Scoring", () => {
     expect(participant!.handicap_index).toBe(12.0);
   });
 
+  test("manual score entry captures handicap snapshot on first scoring action", async () => {
+    const admin = await createOrganizerUser("admin@test.com");
+    const tour = await createTourWithScoringMode(admin.userId, "Manual Snapshot Tour", "both");
+
+    const pars = [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4];
+    const { courseId, teeId } = createCourseWithTee("Manual Course", pars);
+    const competition = createOpenStartCompetition("Manual Round", courseId, tour.id, teeId);
+
+    const playerUser = await createPlayerUser("manual@test.com");
+    const player = getPlayerAndSetHandicap(playerUser.userId, 18.4);
+    enrollPlayerInTour(tour.id, player.id, playerUser.email);
+
+    await loginAs(playerUser.email);
+    const registerResponse = await makeRequest(
+      `/api/competitions/${competition.id}/register`,
+      "POST",
+      { mode: "solo" }
+    );
+    const registration = await registerResponse.json();
+    const participantId = registration.registration.participant_id;
+
+    let participant = getParticipant(participantId);
+    expect(participant!.handicap_index).toBeNull();
+
+    const manualScoreResponse = await makeRequest(
+      `/api/participants/${participantId}/manual-score`,
+      "PUT",
+      { total: 85 }
+    );
+    expect(manualScoreResponse.status).toBe(200);
+
+    participant = getParticipant(participantId);
+    expect(participant!.handicap_index).toBe(18.4);
+  });
+
+  test("admin score entry captures handicap snapshot on first scoring action", async () => {
+    const admin = await createOrganizerUser("admin@test.com");
+    const tour = await createTourWithScoringMode(admin.userId, "Admin Snapshot Tour", "both");
+
+    const pars = [4, 4, 3, 5, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 3, 4, 5, 4];
+    const { courseId, teeId } = createCourseWithTee("Admin Course", pars);
+    const competition = createOpenStartCompetition("Admin Round", courseId, tour.id, teeId);
+
+    const playerUser = await createPlayerUser("admin-score@test.com");
+    const player = getPlayerAndSetHandicap(playerUser.userId, 13.6);
+    db.prepare(`
+      INSERT INTO tour_enrollments (tour_id, player_id, email, status, playing_handicap)
+      VALUES (?, ?, ?, 'active', 11.9)
+    `).run(tour.id, player.id, playerUser.email);
+
+    await loginAs(playerUser.email);
+    const registerResponse = await makeRequest(
+      `/api/competitions/${competition.id}/register`,
+      "POST",
+      { mode: "solo" }
+    );
+    const registration = await registerResponse.json();
+    const participantId = registration.registration.participant_id;
+
+    await loginAs(admin.email);
+    const adminScoreResponse = await makeRequest(
+      `/api/participants/${participantId}/admin/score`,
+      "POST",
+      { score: pars, admin_notes: "Imported by admin" }
+    );
+    expect(adminScoreResponse.status).toBe(200);
+
+    const participant = getParticipant(participantId);
+    expect(participant!.handicap_index).toBe(11.9);
+  });
+
   test("gross-only tour does not store net results", async () => {
     // Setup with gross-only tour
     const admin = await createOrganizerUser("admin@test.com");

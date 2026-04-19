@@ -1010,5 +1010,42 @@ describe("Participant API", () => {
       expect(cleared.manual_score_in).toBeNull();
       expect(cleared.manual_score_total).toBeNull();
     });
+
+    test("should capture handicap snapshot for name-only participant from matching enrollment", async () => {
+      const organizer = db.prepare(
+        "SELECT id FROM users WHERE email = ?"
+      ).get("organizer@test.com") as { id: number };
+
+      const tour = db.prepare(`
+        INSERT INTO tours (name, owner_id, enrollment_mode, visibility, scoring_mode)
+        VALUES (?, ?, 'closed', 'public', 'net')
+        RETURNING *
+      `).get("Name Only Tour", organizer.id) as { id: number };
+
+      db.prepare("UPDATE competitions SET tour_id = ? WHERE id = ?").run(tour.id, competitionId);
+      db.prepare(`
+        INSERT INTO tour_enrollments (tour_id, player_id, email, name, status, playing_handicap)
+        VALUES (?, NULL, ?, ?, 'active', ?)
+      `).run(tour.id, "name-only@test.com", "Name Only Player", 17.2);
+
+      const createResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: teamId,
+        tee_time_id: teeTimeId,
+        position_name: "Name Only Player",
+        player_names: "Name Only Player",
+      });
+      const created = await expectJsonResponse(createResponse);
+
+      const response = await makeRequest(
+        `/api/participants/${created.id}/manual-score`,
+        "PUT",
+        { total: 84 }
+      );
+      expect(response.status).toBe(200);
+
+      const participant = await expectJsonResponse(response);
+      expect(participant.handicap_index).toBe(17.2);
+    });
   });
 });

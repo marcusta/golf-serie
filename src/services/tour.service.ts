@@ -107,6 +107,7 @@ type ParticipantRow = {
   is_locked: number;
   is_dq: number;
   manual_score_total: number | null;
+  handicap_index: number | null;
   player_name: string;
   competition_id: number;
   competition_name: string;
@@ -156,6 +157,7 @@ type CompetitionResult = {
   total_shots: number;
   relative_to_par: number;
   stableford_points?: number;
+  handicap_index?: number | null;
   is_finished: boolean;
 };
 
@@ -331,6 +333,12 @@ export class TourService {
           p.is_locked,
           p.is_dq,
           p.manual_score_total,
+          COALESCE(
+            p.handicap_index,
+            te_player.playing_handicap,
+            pl.handicap,
+            te.playing_handicap
+          ) as handicap_index,
           COALESCE(pp.display_name, pl.name, p.player_names, p.position_name) as player_name,
           c.id as competition_id,
           c.name as competition_name,
@@ -340,10 +348,16 @@ export class TourService {
         LEFT JOIN player_profiles pp ON pl.id = pp.player_id
         JOIN tee_times t ON p.tee_time_id = t.id
         JOIN competitions c ON t.competition_id = c.id
+        LEFT JOIN tour_enrollments te_player
+          ON p.player_id IS NOT NULL
+          AND te_player.player_id = p.player_id
+          AND te_player.tour_id = c.tour_id
+          AND te_player.status = 'active'
         LEFT JOIN tour_enrollments te
           ON p.player_id IS NULL
           AND te.tour_id = c.tour_id
           AND te.player_id IS NULL
+          AND te.status = 'active'
           AND LOWER(TRIM(COALESCE(te.name, ''))) =
               LOWER(TRIM(COALESCE(p.player_names, p.position_name, '')))
         WHERE t.competition_id = ?
@@ -730,7 +744,7 @@ export class TourService {
       : null;
     const numberOfPlayers = this.findEnrollmentCount(tourId, categoryId);
     const enrollmentRows = this.findEnrollmentRows(tourId);
-    const { playerCategories, playerHandicaps } = this.buildEnrollmentMaps(enrollmentRows);
+    const { playerCategories } = this.buildEnrollmentMaps(enrollmentRows);
 
     // Determine scoring type
     const effectiveScoringType = scoringType || (tour.scoring_mode === "net" ? "net" : "gross");
@@ -753,15 +767,14 @@ export class TourService {
       competitions,
       finalizedCompetitionIds,
       competitionsWithStoredResults,
-      categoryId,
-      effectiveScoringType,
-      tour.scoring_format || "stroke_play",
-      playerCategories,
-      playerHandicaps,
-      numberOfPlayers,
-      pointTemplate,
-      playerStandings
-    );
+        categoryId,
+        effectiveScoringType,
+        tour.scoring_format || "stroke_play",
+        playerCategories,
+        numberOfPlayers,
+        pointTemplate,
+        playerStandings
+      );
 
     // Sort and rank standings
     const sortedStandings = this.sortAndRankStandings(Array.from(playerStandings.values()));
@@ -855,7 +868,6 @@ export class TourService {
     scoringType: string,
     tourScoringFormat: TourScoringFormat,
     playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
-    playerHandicaps: Map<number, number>,
     numberOfPlayers: number,
     pointTemplate: PointTemplateRow | null,
     playerStandings: Map<number, TourPlayerStanding>
@@ -898,7 +910,6 @@ export class TourService {
         results.filter(r => r.is_finished),
         scoringType,
         scoringFormat,
-        playerHandicaps,
         competition
       );
 
@@ -974,7 +985,6 @@ export class TourService {
     results: CompetitionResult[],
     scoringType: string,
     scoringFormat: TourScoringFormat,
-    playerHandicaps: Map<number, number>,
     competition: CompetitionWithCourseRow
   ): CompetitionResult[] {
     if (scoringType !== "net") {
@@ -989,7 +999,7 @@ export class TourService {
     const strokeIndex = this.parseStrokeIndexSafe(competition.course_stroke_index);
 
     return results.map(result => {
-      const handicapIndex = playerHandicaps.get(result.player_id) || 0;
+      const handicapIndex = result.handicap_index ?? 0;
       const fullCourseHandicap = calculateCourseHandicap(
         handicapIndex,
         slopeRating,
@@ -1095,6 +1105,7 @@ export class TourService {
         total_shots: totalShots,
         relative_to_par: relativeToPar,
         stableford_points: stablefordPoints,
+        handicap_index: participant.handicap_index,
         is_finished: isFinished,
       };
     });

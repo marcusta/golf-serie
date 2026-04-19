@@ -43,6 +43,7 @@ interface ParticipantCourseInfo {
   tour_id: number | null;
   player_id: number | null;
   handicap_index: number | null;
+  effective_handicap_index: number | null;
 }
 
 export class ParticipantService {
@@ -151,19 +152,27 @@ export class ParticipantService {
     return score;
   }
 
-  private shouldCaptureHandicap(
-    courseInfo: ParticipantCourseInfo,
-    shots: number,
-    existingScore: number[]
-  ): boolean {
-    // Only capture if: has player_id, no handicap_index yet, no scores entered yet, actual score entry
-    if (!courseInfo.player_id) return false;
-    if (courseInfo.handicap_index !== null) return false;
-    if (shots <= 0) return false; // Only capture on actual score entry, not clears
+  private hasRecordedHoleScores(score: number[]): boolean {
+    return score.some((shots) => shots !== 0);
+  }
 
-    // Check if all existing scores are 0 (no scores entered yet)
-    const hasExistingScores = existingScore.some((s: number) => s > 0 || s === GOLF.UNREPORTED_HOLE);
-    return !hasExistingScores;
+  private hasAnyRecordedScores(participant: Participant): boolean {
+    return (
+      this.hasRecordedHoleScores(participant.score) ||
+      participant.manual_score_out !== null ||
+      participant.manual_score_in !== null ||
+      participant.manual_score_total !== null
+    );
+  }
+
+  private shouldCaptureHandicapSnapshot(
+    courseInfo: ParticipantCourseInfo,
+    participant: Participant,
+    isScoringEntry: boolean
+  ): boolean {
+    if (courseInfo.handicap_index !== null) return false;
+    if (!isScoringEntry) return false;
+    return !this.hasAnyRecordedScores(participant);
   }
 
   private buildUpdateFields(
@@ -229,13 +238,7 @@ export class ParticipantService {
   }
 
   private determineHandicapToCapture(courseInfo: ParticipantCourseInfo): number | null {
-    if (!courseInfo.player_id) return null;
-
-    if (courseInfo.tour_id) {
-      return this.findPlayerHandicapFromTour(courseInfo.tour_id, courseInfo.player_id);
-    } else {
-      return this.findPlayerHandicap(courseInfo.player_id);
-    }
+    return courseInfo.effective_handicap_index;
   }
 
   // ============================================================================
@@ -322,29 +325,36 @@ export class ParticipantService {
 
   private findParticipantCourseInfo(id: number): ParticipantCourseInfo | null {
     return this.db.prepare(`
-      SELECT co.pars, c.tour_id, p.player_id, p.handicap_index
+      SELECT
+        co.pars,
+        c.tour_id,
+        p.player_id,
+        p.handicap_index,
+        COALESCE(
+          p.handicap_index,
+          te_player.playing_handicap,
+          pl.handicap,
+          te_name.playing_handicap
+        ) as effective_handicap_index
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN competitions c ON t.competition_id = c.id
       JOIN courses co ON c.course_id = co.id
+      LEFT JOIN players pl ON p.player_id = pl.id
+      LEFT JOIN tour_enrollments te_player
+        ON p.player_id IS NOT NULL
+        AND te_player.player_id = p.player_id
+        AND te_player.tour_id = c.tour_id
+        AND te_player.status = 'active'
+      LEFT JOIN tour_enrollments te_name
+        ON p.player_id IS NULL
+        AND te_name.player_id IS NULL
+        AND te_name.tour_id = c.tour_id
+        AND te_name.status = 'active'
+        AND LOWER(TRIM(COALESCE(te_name.name, ''))) =
+            LOWER(TRIM(COALESCE(p.player_names, p.position_name, '')))
       WHERE p.id = ?
     `).get(id) as ParticipantCourseInfo | null;
-  }
-
-  private findPlayerHandicapFromTour(tourId: number, playerId: number): number | null {
-    const result = this.db.prepare(`
-      SELECT COALESCE(te.playing_handicap, pl.handicap) as handicap_index
-      FROM players pl
-      LEFT JOIN tour_enrollments te ON te.player_id = pl.id AND te.tour_id = ? AND te.status = 'active'
-      WHERE pl.id = ?
-    `).get(tourId, playerId) as { handicap_index: number | null } | null;
-    return result?.handicap_index ?? null;
-  }
-
-  private findPlayerHandicap(playerId: number): number | null {
-    const result = this.db.prepare("SELECT handicap FROM players WHERE id = ?")
-      .get(playerId) as { handicap: number | null } | null;
-    return result?.handicap ?? null;
   }
 
   private updateScoreRow(id: number, scoreJson: string): void {
@@ -400,6 +410,17 @@ export class ParticipantService {
     `).run(...values);
   }
 
+  private updateManualScoreWithHandicapRow(
+    id: number,
+    updates: string[],
+    values: (number | null)[],
+    handicapIndex: number
+  ): void {
+    updates.push("handicap_index = ?");
+    values.push(handicapIndex);
+    this.updateManualScoreRow(id, updates, values);
+  }
+
   private updateDQRow(
     id: number,
     isDQ: boolean,
@@ -432,6 +453,25 @@ export class ParticipantService {
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(scoreJson, adminNotes, adminUserId, id);
+  }
+
+  private updateAdminScoreWithHandicapRow(
+    id: number,
+    scoreJson: string,
+    handicapIndex: number,
+    adminNotes: string | null,
+    adminUserId: number
+  ): void {
+    this.db.prepare(`
+      UPDATE participants
+      SET score = ?,
+          handicap_index = ?,
+          admin_notes = ?,
+          admin_modified_by = ?,
+          admin_modified_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(scoreJson, handicapIndex, adminNotes, adminUserId, id);
   }
 
   // ============================================================================
@@ -546,7 +586,7 @@ export class ParticipantService {
 
     // Determine if handicap should be captured on first score entry
     let capturedHandicapIndex: number | null = null;
-    if (this.shouldCaptureHandicap(courseInfo, shots, score)) {
+    if (this.shouldCaptureHandicapSnapshot(courseInfo, participant, shots !== 0)) {
       capturedHandicapIndex = this.determineHandicapToCapture(courseInfo);
     }
 
@@ -609,8 +649,29 @@ export class ParticipantService {
     this.validateOutInScore(scores.in, "In");
 
     const { updates, values } = this.buildManualScoreFields(scores);
+    const courseInfo = this.findParticipantCourseInfo(participantId);
+    if (!courseInfo) {
+      throw new Error("Could not find course for participant");
+    }
 
-    this.updateManualScoreRow(participantId, updates, values);
+    const capturedHandicapIndex = this.shouldCaptureHandicapSnapshot(
+      courseInfo,
+      existing,
+      scores.total !== null
+    )
+      ? this.determineHandicapToCapture(courseInfo)
+      : null;
+
+    if (capturedHandicapIndex !== null) {
+      this.updateManualScoreWithHandicapRow(
+        participantId,
+        updates,
+        values,
+        capturedHandicapIndex
+      );
+    } else {
+      this.updateManualScoreRow(participantId, updates, values);
+    }
 
     const row = this.findParticipantRowWithTeam(participantId);
     if (!row) {
@@ -651,8 +712,35 @@ export class ParticipantService {
     }
 
     this.validateScoreArray(score);
+    const courseInfo = this.findParticipantCourseInfo(participantId);
+    if (!courseInfo) {
+      throw new Error("Could not find course for participant");
+    }
 
-    this.updateAdminScoreRow(participantId, JSON.stringify(score), adminNotes || null, adminUserId);
+    const capturedHandicapIndex = this.shouldCaptureHandicapSnapshot(
+      courseInfo,
+      existing,
+      this.hasRecordedHoleScores(score)
+    )
+      ? this.determineHandicapToCapture(courseInfo)
+      : null;
+
+    if (capturedHandicapIndex !== null) {
+      this.updateAdminScoreWithHandicapRow(
+        participantId,
+        JSON.stringify(score),
+        capturedHandicapIndex,
+        adminNotes || null,
+        adminUserId
+      );
+    } else {
+      this.updateAdminScoreRow(
+        participantId,
+        JSON.stringify(score),
+        adminNotes || null,
+        adminUserId
+      );
+    }
 
     const updated = await this.findById(participantId);
     if (!updated) {

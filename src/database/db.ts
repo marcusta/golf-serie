@@ -54,6 +54,7 @@ import { AddCompetitionSelfOrganizeMigration } from "./migrations/052_add_compet
 import { AddCompetitionResultsEnrollmentIdMigration } from "./migrations/053_add_competition_results_enrollment_id";
 import { AddTourScoringFormatAndStablefordPointsMigration } from "./migrations/054_add_tour_scoring_format_and_stableford_points";
 import { AddCompetitionScoringFormatMigration } from "./migrations/055_add_competition_scoring_format";
+import { BackfillUppstartCompetitionHandicapSnapshotsMigration } from "./migrations/056_backfill_uppstart_competition_handicap_snapshots";
 
 export function createDatabase(dbPath?: string): Database {
   // Use environment variable or default path
@@ -140,6 +141,7 @@ export async function initializeDatabase(db: Database): Promise<void> {
     new AddCompetitionResultsEnrollmentIdMigration(db),
     new AddTourScoringFormatAndStablefordPointsMigration(db),
     new AddCompetitionScoringFormatMigration(db),
+    new BackfillUppstartCompetitionHandicapSnapshotsMigration(db),
   ];
 
   // Apply pending migrations

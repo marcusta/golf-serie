@@ -771,6 +771,97 @@ describe("TourService.getFullStandings", () => {
     });
   });
 
+  describe("Competition handicap snapshots", () => {
+    test("should use participant handicap snapshots instead of later enrollment handicap changes", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const strokeIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const pars = Array(18).fill(4);
+      const course = createTestCourse("Snapshot Course", pars, strokeIndex);
+      const team = createTestTeam("Team");
+      const tour = createTestTour("Snapshot Tour", user.id, undefined, "stroke_play", "net");
+
+      const playerA = createTestPlayer("Snapshot A");
+      const playerB = createTestPlayer("Snapshot B");
+      createEnrollment(tour.id, playerA.id, "a@test.com");
+      createEnrollment(tour.id, playerB.id, "b@test.com");
+
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(20, tour.id, playerA.id);
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(0, tour.id, playerB.id);
+
+      const competition = createTestCompetition("Snapshot Comp", "2024-01-01", course.id, tour.id);
+      const teeTime = createTestTeeTime(competition.id, "09:00");
+
+      const participantA = createTestParticipant(
+        teeTime.id,
+        team.id,
+        playerA.id,
+        [5, ...Array(17).fill(5)],
+        true
+      );
+      const participantB = createTestParticipant(
+        teeTime.id,
+        team.id,
+        playerB.id,
+        [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 12],
+        true
+      );
+
+      db.prepare("UPDATE participants SET handicap_index = ? WHERE id = ?").run(20, participantA.id);
+      db.prepare("UPDATE participants SET handicap_index = ? WHERE id = ?").run(0, participantB.id);
+
+      // Later enrollment changes should not alter this competition's live projection.
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(0, tour.id, playerA.id);
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(30, tour.id, playerB.id);
+
+      const standings = tourService.getFullStandings(tour.id);
+
+      expect(standings.player_standings[0].player_name).toBe("Snapshot A");
+      expect(standings.player_standings[0].competitions[0].score_relative_to_par).toBe(-2);
+      expect(standings.player_standings[1].player_name).toBe("Snapshot B");
+      expect(standings.player_standings[1].competitions[0].score_relative_to_par).toBe(8);
+    });
+
+    test("should fall back to current enrollment handicap when no participant snapshot exists yet", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const strokeIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const pars = Array(18).fill(4);
+      const course = createTestCourse("Fallback Course", pars, strokeIndex);
+      const team = createTestTeam("Team");
+      const tour = createTestTour("Fallback Tour", user.id, undefined, "stroke_play", "net");
+
+      const player = createTestPlayer("Fallback Player");
+      createEnrollment(tour.id, player.id, "fallback@test.com");
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(10, tour.id, player.id);
+
+      const competition = createTestCompetition("Fallback Comp", "2024-01-01", course.id, tour.id);
+      const teeTime = createTestTeeTime(competition.id, "09:00");
+      createTestParticipant(
+        teeTime.id,
+        team.id,
+        player.id,
+        [5, ...Array(17).fill(4)],
+        true
+      );
+
+      db.prepare(
+        "UPDATE tour_enrollments SET playing_handicap = ? WHERE tour_id = ? AND player_id = ?"
+      ).run(18, tour.id, player.id);
+
+      const standings = tourService.getFullStandings(tour.id);
+      expect(standings.player_standings[0].competitions[0].score_relative_to_par).toBe(-17);
+    });
+  });
+
   describe("Competition breakdown", () => {
     test("should include detailed competition breakdown for each player", async () => {
       const user = createTestUser("owner@test.com", "ADMIN");
