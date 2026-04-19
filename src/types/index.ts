@@ -53,6 +53,7 @@ export interface Competition {
   tour_id?: number;
   tee_id?: number;
   owner_id?: number;
+  scoring_format?: TourScoringFormat | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";
@@ -63,6 +64,8 @@ export interface Competition {
   self_organize: boolean;
   created_at: string;
   updated_at: string;
+  is_results_final?: boolean;
+  results_finalized_at?: string | null;
 }
 
 export interface CreateClubDto {
@@ -135,6 +138,7 @@ export interface CreateCompetitionDto {
   tour_id?: number;
   tee_id?: number;
   point_template_id?: number;
+  scoring_format?: TourScoringFormat | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
@@ -154,6 +158,7 @@ export interface UpdateCompetitionDto {
   tour_id?: number;
   tee_id?: number | null;
   point_template_id?: number | null;
+  scoring_format?: TourScoringFormat | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
@@ -606,6 +611,7 @@ export interface TourPlayerStanding {
     competition_id: number;
     competition_name: string;
     competition_date: string;
+    scoring_format?: TourScoringFormat;
     points: number;
     position: number;
     score_relative_to_par: number;

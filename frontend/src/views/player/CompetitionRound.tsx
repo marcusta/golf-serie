@@ -417,6 +417,7 @@ export default function CompetitionRound() {
                   series_id: competition.series_id,
                   series_name: competition.series_name,
                   tour_id: competition.tour_id,
+                  scoring_format: leaderboardWithDetails?.scoringFormat ?? competition.scoring_format,
                 }}
                 isTourCompetition={!!competition.tour_id}
                 netScoringData={netScoringData}
@@ -541,6 +542,7 @@ export default function CompetitionRound() {
         participant={scorecardParticipantData}
         course={scorecardCourseData}
         onClose={handleCloseScorecardModal}
+        scoringFormat={leaderboardWithDetails?.scoringFormat ?? competition?.scoring_format ?? undefined}
       />
 
       {/* Participant Editing Modal */}

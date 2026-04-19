@@ -83,12 +83,13 @@ describe("TourService.getFullStandings", () => {
     options: {
       teeId?: number;
       roundType?: "full_18" | "front_9" | "back_9";
+      scoringFormat?: "stroke_play" | "stableford";
     } = {}
   ) => {
     return db
       .prepare(`
-        INSERT INTO competitions (name, date, course_id, tour_id, tee_id, round_type, points_multiplier)
-        VALUES (?, ?, ?, ?, ?, ?, 1)
+        INSERT INTO competitions (name, date, course_id, tour_id, tee_id, round_type, scoring_format, points_multiplier)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
         RETURNING *
       `)
       .get(
@@ -97,7 +98,8 @@ describe("TourService.getFullStandings", () => {
         courseId,
         tourId,
         options.teeId || null,
-        options.roundType || "full_18"
+        options.roundType || "full_18",
+        options.scoringFormat || null
       ) as any;
   };
 
@@ -144,6 +146,8 @@ describe("TourService.getFullStandings", () => {
         manualScoreTotal ?? null
       ) as any;
   };
+
+  const createEvenParScore = () => Array(18).fill(4);
 
   const createEnrollment = (tourId: number, playerId: number, email: string) => {
     return db
@@ -314,6 +318,37 @@ describe("TourService.getFullStandings", () => {
       expect(standings.player_standings[0].competitions[0].stableford_points).toBe(36);
       expect(standings.player_standings[1].player_name).toBe("Pickup");
       expect(standings.player_standings[1].competitions[0].stableford_points).toBe(34);
+    });
+
+    test("should expose per-competition scoring format for mixed-format tours", async () => {
+      const user = createTestUser("mixed-format@test.com", "ADMIN");
+      const pars = [4, 4, 3, 5, 4, 4, 3, 5, 4, 4, 4, 3, 5, 4, 4, 3, 5, 4];
+      const strokeIndex = [1, 3, 17, 7, 5, 11, 15, 9, 13, 2, 4, 18, 8, 6, 12, 16, 10, 14];
+      const tour = createTestTour("Mixed Format Tour", user.id, undefined, "stroke_play");
+      const course = createTestCourse("Mixed Format Course", pars, strokeIndex);
+      const strokeCompetition = createTestCompetition("Stroke Round", "2024-01-15", course.id, tour.id);
+      const stablefordCompetition = createTestCompetition("Stableford Round", "2024-01-22", course.id, tour.id, {
+        scoringFormat: "stableford",
+      });
+      const strokeTeeTime = createTestTeeTime(strokeCompetition.id, "09:00");
+      const stablefordTeeTime = createTestTeeTime(stablefordCompetition.id, "09:10");
+      const team = createTestTeam("Mixed Team");
+      const player = createTestPlayer("Player One");
+      createEnrollment(tour.id, player.id, "mixed@test.com");
+
+      createTestParticipant(strokeTeeTime.id, team.id, player.id, createEvenParScore(), true);
+      createTestParticipant(stablefordTeeTime.id, team.id, player.id, createEvenParScore(), true);
+
+      const standings = tourService.getFullStandings(tour.id);
+      const playerCompetitions = standings.player_standings[0].competitions;
+
+      expect(playerCompetitions).toHaveLength(2);
+      expect(playerCompetitions.find((competition) => competition.competition_id === strokeCompetition.id)?.scoring_format)
+        .toBe("stroke_play");
+      expect(playerCompetitions.find((competition) => competition.competition_id === stablefordCompetition.id)?.scoring_format)
+        .toBe("stableford");
+      expect(playerCompetitions.find((competition) => competition.competition_id === stablefordCompetition.id)?.stableford_points)
+        .toBe(36);
     });
   });
 

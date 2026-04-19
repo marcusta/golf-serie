@@ -98,6 +98,7 @@ export default function AdminCompetitions() {
     series_id: string;
     tour_id: string;
     point_template_id: string;
+    scoring_format: "tour_default" | "stroke_play" | "stableford";
     manual_entry_format: "out_in_total" | "total_only";
     points_multiplier: string;
     venue_type: "outdoor" | "indoor";
@@ -112,6 +113,7 @@ export default function AdminCompetitions() {
     series_id: seriesFilter?.toString() || "",
     tour_id: tourFilter?.toString() || "",
     point_template_id: "",
+    scoring_format: tourFilter ? "tour_default" : "stroke_play",
     manual_entry_format: "out_in_total",
     points_multiplier: "1",
     venue_type: "outdoor",
@@ -134,6 +136,9 @@ export default function AdminCompetitions() {
       series_id: competition.series_id?.toString() || "",
       tour_id: (competition as any).tour_id?.toString() || "",
       point_template_id: (competition as any).point_template_id?.toString() || "",
+      scoring_format: competition.tour_id
+        ? (competition.scoring_format ?? "tour_default")
+        : (competition.scoring_format ?? "stroke_play"),
       manual_entry_format: competition.manual_entry_format || "out_in_total",
       points_multiplier: competition.points_multiplier?.toString() || "1",
       venue_type: competition.venue_type || "outdoor",
@@ -171,6 +176,10 @@ export default function AdminCompetitions() {
       series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
       tour_id: formData.tour_id ? parseInt(formData.tour_id) : undefined,
       point_template_id: formData.point_template_id ? parseInt(formData.point_template_id) : undefined,
+      scoring_format:
+        formData.tour_id && formData.scoring_format === "tour_default"
+          ? null
+          : formData.scoring_format,
       manual_entry_format: formData.manual_entry_format,
       points_multiplier: parseFloat(formData.points_multiplier),
       venue_type: formData.venue_type,
@@ -189,6 +198,7 @@ export default function AdminCompetitions() {
         series_id: seriesFilter?.toString() || "",
         tour_id: tourFilter?.toString() || "",
         point_template_id: "",
+        scoring_format: tourFilter ? "tour_default" : "stroke_play",
         manual_entry_format: "out_in_total",
         points_multiplier: "1",
         venue_type: "outdoor",
@@ -293,6 +303,7 @@ export default function AdminCompetitions() {
                 series_id: seriesFilter?.toString() || "",
                 tour_id: tourFilter?.toString() || "",
                 point_template_id: "",
+                scoring_format: tourFilter ? "tour_default" : "stroke_play",
                 manual_entry_format: "out_in_total",
                 points_multiplier: "1",
                 venue_type: "outdoor",
@@ -454,6 +465,36 @@ export default function AdminCompetitions() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Scoring Format
+              </label>
+              <Select
+                value={formData.scoring_format}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    scoring_format: value as "tour_default" | "stroke_play" | "stableford",
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select scoring format" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(tourFilter || formData.tour_id) && (
+                    <SelectItem value="tour_default">Use tour default</SelectItem>
+                  )}
+                  <SelectItem value="stroke_play">Stroke play</SelectItem>
+                  <SelectItem value="stableford">Stableford</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                {(tourFilter || formData.tour_id)
+                  ? "Use the tour default unless this competition should score differently."
+                  : "Choose how this competition should be ranked and finalized."}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Manual Entry Format
               </label>
               <Select
@@ -596,6 +637,7 @@ export default function AdminCompetitions() {
                     series_id: seriesFilter?.toString() || "",
                     tour_id: tourFilter?.toString() || "",
                     point_template_id: "",
+                    scoring_format: tourFilter ? "tour_default" : "stroke_play",
                     manual_entry_format: "out_in_total",
                     points_multiplier: "1",
                     venue_type: "outdoor",

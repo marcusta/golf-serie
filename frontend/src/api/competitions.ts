@@ -14,6 +14,7 @@ export interface Competition {
   tour_id?: number;
   tee_id?: number;
   point_template_id?: number;
+  scoring_format?: TourScoringFormat | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";
@@ -238,6 +239,7 @@ export interface CreateCompetitionDto {
   tour_id?: number;
   tee_id?: number;
   point_template_id?: number;
+  scoring_format?: TourScoringFormat | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";
@@ -256,6 +258,7 @@ export interface UpdateCompetitionDto {
   tour_id?: number;
   tee_id?: number | null;
   point_template_id?: number | null;
+  scoring_format?: TourScoringFormat | null;
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier?: number;
   venue_type?: "outdoor" | "indoor";

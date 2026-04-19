@@ -85,6 +85,7 @@ describe("LeaderboardService", () => {
     options: {
       tourId?: number;
       teeId?: number;
+      scoringFormat?: "stroke_play" | "stableford";
       startMode?: string;
       openEnd?: string;
       pointsMultiplier?: number;
@@ -94,8 +95,8 @@ describe("LeaderboardService", () => {
   ) => {
     return db
       .prepare(
-        `INSERT INTO competitions (name, date, course_id, tour_id, tee_id, start_mode, open_end, points_multiplier, is_results_final, round_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
+        `INSERT INTO competitions (name, date, course_id, tour_id, tee_id, scoring_format, start_mode, open_end, points_multiplier, is_results_final, round_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
       )
       .get(
         name,
@@ -103,6 +104,7 @@ describe("LeaderboardService", () => {
         courseId,
         options.tourId || null,
         options.teeId || null,
+        options.scoringFormat || null,
         options.startMode || "scheduled",
         options.openEnd || null,
         options.pointsMultiplier || 1,
@@ -1144,6 +1146,47 @@ describe("LeaderboardService", () => {
   });
 
   describe("Stableford Scoring", () => {
+    test("should use competition scoring format override over the tour default", async () => {
+      const user = createTestUser("override-owner@test.com", "ADMIN");
+      const course = createTestCourse("Override Course", standardPars, standardStrokeIndex);
+      const tee = createTestTee(course.id, "White", "#fff");
+      const tour = createTestTour("Stroke Tour", user.id, {
+        scoringMode: "gross",
+        scoringFormat: "stroke_play",
+      });
+      const competition = createTestCompetition("Override Stableford", "2024-01-15", course.id, {
+        tourId: tour.id,
+        teeId: tee.id,
+        scoringFormat: "stableford",
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:45");
+      const team = createTestTeam("Override Team");
+      const steadyPlayer = createTestPlayer("Steady");
+      const pickupPlayer = createTestPlayer("Pickup");
+
+      createEnrollment(tour.id, steadyPlayer.id, "steady-override@test.com");
+      createEnrollment(tour.id, pickupPlayer.id, "pickup-override@test.com");
+
+      createTestParticipant(teeTime.id, team.id, steadyPlayer.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      const pickupScore = createEvenParScore();
+      pickupScore[0] = GOLF.UNREPORTED_HOLE;
+      createTestParticipant(teeTime.id, team.id, pickupPlayer.id, {
+        score: pickupScore,
+        isLocked: true,
+      });
+
+      const leaderboard = await service.getLeaderboardWithDetails(competition.id);
+
+      expect(leaderboard.scoringFormat).toBe("stableford");
+      expect(leaderboard.entries).toHaveLength(2);
+      expect(leaderboard.entries[0].stablefordPoints).toBe(36);
+      expect(leaderboard.entries[1].stablefordPoints).toBe(34);
+    });
+
     test("should rank players by stableford points and allow gave-up holes", async () => {
       const user = createTestUser("owner@test.com", "ADMIN");
       const course = createTestCourse("Stableford Course", standardPars, standardStrokeIndex);

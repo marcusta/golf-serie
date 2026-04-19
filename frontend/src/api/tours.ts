@@ -38,6 +38,7 @@ export interface TourPlayerCompetition {
   competition_id: number;
   competition_name: string;
   competition_date: string;
+  scoring_format?: TourScoringFormat;
   points: number;
   position: number;
   score_relative_to_par: number;
@@ -261,6 +262,7 @@ export interface TourCompetition {
   date: string;
   course_id?: number;
   course_name?: string;
+  scoring_format?: TourScoringFormat | null;
   // Open mode fields for detecting currently active rounds
   start_mode?: "scheduled" | "open";
   open_start?: string;

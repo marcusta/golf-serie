@@ -67,6 +67,8 @@ export function LeaderboardComponent({
   // Check if we should show net scores
   const showNetScores = scoringMode === "net" || scoringMode === "both";
   const isStableford = scoringFormat === "stableford";
+  const highlightsPrimaryScore = isTourCompetition && (!showNetScores || sortBy === "gross");
+  const highlightsSecondaryScore = isTourCompetition && showNetScores && sortBy === "net";
 
   // Helper function to determine player status
   const getPlayerStatus = (entry: LeaderboardEntry) => {
@@ -99,12 +101,20 @@ export function LeaderboardComponent({
   };
 
   const getPrimaryScoreLabel = (finished: boolean) => {
-    if (isStableford) return "Gross Pts";
+    if (isStableford) return showNetScores ? "Gross" : "Pts";
     return finished ? (showNetScores ? "Gross" : "Total") : (showNetScores ? "Gross" : "To Par");
+  };
+
+  const formatStablefordGrossScore = (entry: LeaderboardEntry) => {
+    if (entry.participant.score.includes(-1)) return "-";
+    return formatToPar(entry.relativeToPar);
   };
 
   const formatPrimaryScore = (entry: LeaderboardEntry, finished: boolean, isRoundInvalid: boolean) => {
     if (isStableford) {
+      if (showNetScores) {
+        return formatStablefordGrossScore(entry);
+      }
       const points = entry.stablefordPoints;
       return points === undefined ? "-" : points.toString();
     }
@@ -387,8 +397,22 @@ export function LeaderboardComponent({
               <div className="w-7 mr-2">#</div>
               <div className="flex-1 min-w-0">Player</div>
               <div className={`flex items-center ${showNetScores ? 'gap-1' : ''}`}>
-                <div className="w-10 text-center">{isStableford ? "Pts" : "Gross"}</div>
-                {showNetScores && <div className="w-10 text-center">{isStableford ? "Net" : "Net"}</div>}
+                <div
+                  className={`w-10 text-center ${
+                    highlightsPrimaryScore ? "font-semibold text-fairway" : ""
+                  }`}
+                >
+                  {isStableford ? (showNetScores ? "Gross" : "Pts") : "Gross"}
+                </div>
+                {showNetScores && (
+                  <div
+                    className={`w-10 text-center ${
+                      highlightsSecondaryScore ? "font-semibold text-fairway" : ""
+                    }`}
+                  >
+                    {isStableford ? "Net Pts" : "Net"}
+                  </div>
+                )}
                 <div className="w-8 text-center">Thru</div>
                 {isTourCompetition && <div className="w-8 text-center">Pts</div>}
               </div>
@@ -396,6 +420,8 @@ export function LeaderboardComponent({
 
             {filteredLeaderboard.map((entry, index) => {
               const isRoundInvalid = entry.participant.score.includes(-1) && !isStableford;
+              const stablefordGrossUnavailable =
+                isStableford && showNetScores && entry.participant.score.includes(-1);
               const isLeader = index === 0 && entry.holesPlayed > 0 && !entry.isDNF;
               const status = getPlayerStatus(entry);
               const displayProgress = getDisplayProgress(entry);
@@ -468,7 +494,9 @@ export function LeaderboardComponent({
                           <div className="w-10 text-center text-lg font-bold text-gray-400">
                             {entry.holesPlayed > 0
                               ? (isStableford
-                                  ? (entry.stablefordPoints?.toString() ?? "-")
+                                  ? (showNetScores
+                                      ? formatStablefordGrossScore(entry)
+                                      : (entry.stablefordPoints?.toString() ?? "-"))
                                   : formatToPar(entry.relativeToPar))
                               : "-"}
                           </div>
@@ -490,9 +518,13 @@ export function LeaderboardComponent({
                               isRoundInvalid
                                 ? "text-gray-400"
                                 : isStableford
-                                  ? "text-charcoal"
+                                  ? (showNetScores
+                                      ? (stablefordGrossUnavailable
+                                          ? "text-gray-400"
+                                          : getToParColor(entry.relativeToPar))
+                                      : "text-charcoal")
                                   : getToParColor(entry.relativeToPar)
-                            }`}
+                            } ${highlightsPrimaryScore ? "text-xl font-extrabold" : ""}`}
                           >
                             {formatPrimaryScore(entry, status === "FINISHED", isRoundInvalid)}
                           </div>
@@ -508,7 +540,7 @@ export function LeaderboardComponent({
                                   : isStableford
                                     ? "text-charcoal"
                                     : getToParColor(entry.netRelativeToPar!)
-                              }`}
+                              } ${highlightsSecondaryScore ? "text-xl font-extrabold" : ""}`}
                             >
                               {formatSecondaryScore(entry, status === "FINISHED", isRoundInvalid)}
                             </div>
@@ -570,6 +602,8 @@ export function LeaderboardComponent({
                 <tbody>
                   {filteredLeaderboard.map((entry, index) => {
                     const isRoundInvalid = entry.participant.score.includes(-1) && !isStableford;
+                    const stablefordGrossUnavailable =
+                      isStableford && showNetScores && entry.participant.score.includes(-1);
                     const status = getPlayerStatus(entry);
                     const displayProgress = getDisplayProgress(entry);
 
@@ -668,7 +702,9 @@ export function LeaderboardComponent({
                                 <div className="text-xl font-bold text-gray-400 font-display">
                                   {entry.holesPlayed > 0
                                     ? (isStableford
-                                        ? (entry.stablefordPoints?.toString() ?? "-")
+                                        ? (showNetScores
+                                            ? formatStablefordGrossScore(entry)
+                                            : (entry.stablefordPoints?.toString() ?? "-"))
                                         : formatToPar(entry.relativeToPar))
                                     : "-"}
                                 </div>
@@ -690,25 +726,49 @@ export function LeaderboardComponent({
                               {status === "FINISHED" ? (
                                 <div className="text-center">
                                   <div className="text-xs text-gray-500">
-                                    {getPrimaryScoreLabel(true)}
+                                    <span
+                                      className={
+                                        highlightsPrimaryScore ? "font-semibold text-fairway" : ""
+                                      }
+                                    >
+                                      {getPrimaryScoreLabel(true)}
+                                    </span>
                                   </div>
-                                  <div className="text-xl font-bold text-charcoal font-display">
+                                  <div
+                                    className={`text-xl font-bold font-display ${
+                                      isStableford && showNetScores
+                                        ? (stablefordGrossUnavailable
+                                            ? "text-gray-500"
+                                            : getToParColor(entry.relativeToPar))
+                                        : "text-charcoal"
+                                    } ${highlightsPrimaryScore ? "text-2xl font-extrabold" : ""}`}
+                                  >
                                     {formatPrimaryScore(entry, true, isRoundInvalid)}
                                   </div>
                                 </div>
                               ) : (
                                 <div className="text-center">
                                   <div className="text-xs text-gray-500">
-                                    {getPrimaryScoreLabel(false)}
+                                    <span
+                                      className={
+                                        highlightsPrimaryScore ? "font-semibold text-fairway" : ""
+                                      }
+                                    >
+                                      {getPrimaryScoreLabel(false)}
+                                    </span>
                                   </div>
                                   <div
                                     className={`text-xl font-bold font-display ${
                                       isRoundInvalid
                                         ? "text-gray-500"
                                         : isStableford
-                                          ? "text-charcoal"
+                                          ? (showNetScores
+                                              ? (stablefordGrossUnavailable
+                                                  ? "text-gray-500"
+                                                  : getToParColor(entry.relativeToPar))
+                                              : "text-charcoal")
                                           : getToParColor(entry.relativeToPar)
-                                    }`}
+                                    } ${highlightsPrimaryScore ? "text-2xl font-extrabold" : ""}`}
                                   >
                                     {formatPrimaryScore(entry, false, isRoundInvalid)}
                                   </div>
@@ -720,16 +780,32 @@ export function LeaderboardComponent({
                                 status === "FINISHED" ? (
                                   <div className="text-center">
                                     <div className="text-xs text-gray-500">
-                                      {isStableford ? "Net Pts" : "Net"}
+                                      <span
+                                        className={
+                                          highlightsSecondaryScore ? "font-semibold text-fairway" : ""
+                                        }
+                                      >
+                                        {isStableford ? "Net Pts" : "Net"}
+                                      </span>
                                     </div>
-                                    <div className="text-xl font-bold text-charcoal font-display">
+                                    <div
+                                      className={`text-xl font-bold text-charcoal font-display ${
+                                        highlightsSecondaryScore ? "text-2xl font-extrabold" : ""
+                                      }`}
+                                    >
                                       {formatSecondaryScore(entry, true, isRoundInvalid)}
                                     </div>
                                   </div>
                                 ) : (
                                   <div className="text-center">
                                     <div className="text-xs text-gray-500">
-                                      {isStableford ? "Net Pts" : "Net"}
+                                      <span
+                                        className={
+                                          highlightsSecondaryScore ? "font-semibold text-fairway" : ""
+                                        }
+                                      >
+                                        {isStableford ? "Net Pts" : "Net"}
+                                      </span>
                                     </div>
                                     <div
                                       className={`text-xl font-bold font-display ${
@@ -740,7 +816,7 @@ export function LeaderboardComponent({
                                           : isStableford
                                             ? "text-charcoal"
                                             : getToParColor(entry.netRelativeToPar!)
-                                      }`}
+                                      } ${highlightsSecondaryScore ? "text-2xl font-extrabold" : ""}`}
                                     >
                                       {formatSecondaryScore(entry, false, isRoundInvalid)}
                                     </div>

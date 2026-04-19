@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import type { TourScoringFormat } from "../../api/competitions";
 import {
   formatToPar,
   formatScoreDisplay,
@@ -9,6 +10,7 @@ import {
   calculateNetScores,
 } from "../../utils/scoreCalculations";
 import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
+import { calculateStablefordPointsForHole } from "../../utils/stableford";
 
 interface ScorecardParticipant {
   id: string;
@@ -29,6 +31,7 @@ interface ScorecardProps {
   participant: ScorecardParticipant;
   course: ScorecardCourse;
   currentHole?: number;
+  scoringFormat?: TourScoringFormat;
   // Net scoring props (for tour competitions with handicap)
   strokeIndex?: number[];
   handicapStrokesPerHole?: number[];
@@ -40,6 +43,7 @@ export function Scorecard({
   participant,
   course,
   currentHole,
+  scoringFormat = "stroke_play",
   strokeIndex,
   handicapStrokesPerHole: handicapStrokesPerHoleProp,
   courseHandicap,
@@ -64,6 +68,60 @@ export function Scorecard({
 
   // Check if we should show net scoring info
   const showNetScoring = !!(strokeIndex && handicapStrokesPerHole && courseHandicap !== undefined);
+  const isStableford = scoringFormat === "stableford";
+
+  const formatStablefordDisplay = (points: number | null) => {
+    if (points === null || points === 0) return "-";
+    return points.toString();
+  };
+
+  const sumStablefordPoints = (points: Array<number | null>) =>
+    points.reduce<number>((sum, point) => sum + (point ?? 0), 0);
+
+  const formatStablefordSubtotal = (points: Array<number | null>) => {
+    const hasPlayedHole = points.some((point) => point !== null);
+    return hasPlayedHole ? sumStablefordPoints(points).toString() : "-";
+  };
+
+  const stablefordData = useMemo(() => {
+    if (!isStableford) {
+      return null;
+    }
+
+    const grossPointsPerHole = course.holes.map((hole, index) =>
+      calculateStablefordPointsForHole(participant.scores[index] ?? 0, hole.par)
+    );
+    const netPointsPerHole =
+      showNetScoring && handicapStrokesPerHole
+        ? course.holes.map((hole, index) =>
+            calculateStablefordPointsForHole(
+              participant.scores[index] ?? 0,
+              hole.par,
+              handicapStrokesPerHole[index] ?? 0
+            )
+          )
+        : undefined;
+
+    const grossFrontPoints = grossPointsPerHole.slice(0, 9);
+    const grossBackPoints = grossPointsPerHole.slice(9, 18);
+    const netFrontPoints = netPointsPerHole?.slice(0, 9);
+    const netBackPoints = netPointsPerHole?.slice(9, 18);
+
+    return {
+      grossPointsPerHole,
+      netPointsPerHole,
+      grossFrontSubtotal: formatStablefordSubtotal(grossFrontPoints),
+      grossBackSubtotal: formatStablefordSubtotal(grossBackPoints),
+      grossTotal: sumStablefordPoints(grossPointsPerHole),
+      grossHasPlayedHole: grossPointsPerHole.some((point) => point !== null),
+      netFrontSubtotal: netFrontPoints ? formatStablefordSubtotal(netFrontPoints) : "-",
+      netBackSubtotal: netBackPoints ? formatStablefordSubtotal(netBackPoints) : "-",
+      netTotal: netPointsPerHole ? sumStablefordPoints(netPointsPerHole) : null,
+      netHasPlayedHole: netPointsPerHole
+        ? netPointsPerHole.some((point) => point !== null)
+        : false,
+    };
+  }, [course.holes, handicapStrokesPerHole, isStableford, participant.scores, showNetScoring]);
 
   const getPlayerTotals = () => {
     // Check if player gave up on any hole - if so, invalidate entire round
@@ -336,6 +394,41 @@ export function Scorecard({
           </div>
         </div>
 
+        {isStableford && stablefordData && !showNetScoring && (
+          <div className="bg-scorecard border-b border-soft-grey">
+            <div className="flex">
+              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+                Pts
+              </div>
+              {frontNine.map((hole) => {
+                const points = stablefordData.grossPointsPerHole[hole.number - 1] ?? null;
+
+                return (
+                  <div
+                    key={hole.number}
+                    className={cn(
+                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                      hole.number === currentHole && "bg-turf/10"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "text-xs font-display",
+                        points === null || points === 0 ? "text-soft-grey" : "text-charcoal font-bold"
+                      )}
+                    >
+                      {formatStablefordDisplay(points)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough/50 font-display">
+                {stablefordData.grossFrontSubtotal}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Front Nine Net Results - only show when net scoring enabled */}
         {showNetScoring && handicapStrokesPerHole && (
           <div className="bg-scorecard border-b border-soft-grey border-l-2 border-l-turf">
@@ -371,6 +464,41 @@ export function Scorecard({
               })}
               <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-turf bg-rough/30 font-display">
                 {totals.netFrontTotal ?? "-"}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isStableford && showNetScoring && handicapStrokesPerHole && stablefordData?.netPointsPerHole && (
+          <div className="bg-scorecard border-b border-soft-grey border-l-2 border-l-turf">
+            <div className="flex">
+              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-turf border-r border-soft-grey font-primary">
+                Pts
+              </div>
+              {frontNine.map((hole) => {
+                const points = stablefordData.netPointsPerHole?.[hole.number - 1] ?? null;
+
+                return (
+                  <div
+                    key={hole.number}
+                    className={cn(
+                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                      hole.number === currentHole && "bg-turf/10"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "text-xs font-display",
+                        points === null || points === 0 ? "text-soft-grey" : "text-turf font-bold"
+                      )}
+                    >
+                      {formatStablefordDisplay(points)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-turf bg-rough/30 font-display">
+                {stablefordData.netFrontSubtotal}
               </div>
             </div>
           </div>
@@ -489,6 +617,41 @@ export function Scorecard({
           </div>
         </div>
 
+        {isStableford && stablefordData && !showNetScoring && (
+          <div className="bg-scorecard border-b border-soft-grey">
+            <div className="flex">
+              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-fairway border-r border-soft-grey font-primary">
+                Pts
+              </div>
+              {backNine.map((hole) => {
+                const points = stablefordData.grossPointsPerHole[hole.number - 1] ?? null;
+
+                return (
+                  <div
+                    key={hole.number}
+                    className={cn(
+                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                      hole.number === currentHole && "bg-turf/10"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "text-xs font-display",
+                        points === null || points === 0 ? "text-soft-grey" : "text-charcoal font-bold"
+                      )}
+                    >
+                      {formatStablefordDisplay(points)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-charcoal bg-rough/50 font-display">
+                {stablefordData.grossBackSubtotal}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Back Nine Net Results - only show when net scoring enabled */}
         {showNetScoring && handicapStrokesPerHole && (
           <div className="bg-scorecard border-l-2 border-l-turf">
@@ -528,6 +691,41 @@ export function Scorecard({
             </div>
           </div>
         )}
+
+        {isStableford && showNetScoring && handicapStrokesPerHole && stablefordData?.netPointsPerHole && (
+          <div className="bg-scorecard border-l-2 border-l-turf">
+            <div className="flex">
+              <div className="w-10 min-w-10 px-0.5 py-1 text-xs font-medium text-turf border-r border-soft-grey font-primary">
+                Pts
+              </div>
+              {backNine.map((hole) => {
+                const points = stablefordData.netPointsPerHole?.[hole.number - 1] ?? null;
+
+                return (
+                  <div
+                    key={hole.number}
+                    className={cn(
+                      "min-w-6 px-0.5 py-1 text-center text-xs font-medium flex items-center justify-center border-r border-soft-grey flex-1",
+                      hole.number === currentHole && "bg-turf/10"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "text-xs font-display",
+                        points === null || points === 0 ? "text-soft-grey" : "text-turf font-bold"
+                      )}
+                    >
+                      {formatStablefordDisplay(points)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="min-w-10 px-0.5 py-1 text-center text-xs font-bold text-turf bg-rough/30 font-display">
+                {stablefordData.netBackSubtotal}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Totals Section */}
@@ -540,6 +738,11 @@ export function Scorecard({
             <span className="text-turf text-sm font-primary">
               Total: {totals.totalScore ?? "-"}
             </span>
+            {isStableford && stablefordData && !showNetScoring && (
+              <span className="text-charcoal/70 text-sm font-primary">
+                Pts: {stablefordData.grossHasPlayedHole ? stablefordData.grossTotal : "-"}
+              </span>
+            )}
             <span className="text-base font-bold text-charcoal font-display">
               To par:{" "}
               {totals.totalScore && totals.toPar !== null
@@ -557,13 +760,18 @@ export function Scorecard({
             <span className="text-sm font-medium text-turf font-primary">
               Net
             </span>
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
+            <span className="text-charcoal/70 text-sm font-primary">
+              Total: {totals.netTotalScore ?? "-"}
+            </span>
+            {isStableford && stablefordData && (
               <span className="text-charcoal/70 text-sm font-primary">
-                Total: {totals.netTotalScore ?? "-"}
+                Pts: {stablefordData.netHasPlayedHole ? stablefordData.netTotal : "-"}
               </span>
-              <span className="text-base font-bold text-turf font-display">
-                To par:{" "}
-                {totals.netTotalScore && totals.netToPar !== null
+            )}
+            <span className="text-base font-bold text-turf font-display">
+              To par:{" "}
+              {totals.netTotalScore && totals.netToPar !== null
                   ? formatToPar(totals.netToPar)
                   : "-"}
               </span>

@@ -290,7 +290,8 @@ export default function TourStandings() {
   };
 
   const formatCompetitionScore = (competition: TourPlayerCompetition) => {
-    if (standings?.scoring_format === "stableford") {
+    const scoringFormat = competition.scoring_format ?? standings?.scoring_format;
+    if (scoringFormat === "stableford") {
       return `${competition.stableford_points ?? 0} p`;
     }
     return formatScore(competition.score_relative_to_par);
@@ -321,6 +322,7 @@ export default function TourStandings() {
             competition_id: competition.id,
             competition_name: competition.name,
             competition_date: competition.date,
+            scoring_format: competition.scoring_format ?? undefined,
             points: 0,
             position: 0,
             score_relative_to_par: 0,

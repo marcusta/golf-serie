@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, AlertTriangle } from "lucide-react";
 import { Scorecard } from "@/components/scorecard/Scorecard";
+import type { TourScoringFormat } from "../../api/competitions";
 
 interface PlayerScore {
   participantId: string;
@@ -39,6 +40,7 @@ interface FullScorecardModalProps {
   teeTimeGroup: TeeTimeGroup;
   course: Course;
   currentHole: number;
+  scoringFormat?: TourScoringFormat;
   onClose: () => void;
   onLockRound?: () => void;
   /** Net scoring data per player (keyed by participantId) */
@@ -50,6 +52,7 @@ export function FullScorecardModal({
   teeTimeGroup,
   course,
   currentHole,
+  scoringFormat = "stroke_play",
   onClose,
   onLockRound,
   netScoringData,
@@ -92,6 +95,7 @@ export function FullScorecardModal({
                   }}
                   course={course}
                   currentHole={currentHole}
+                  scoringFormat={scoringFormat}
                   strokeIndex={playerNetData?.strokeIndex}
                   handicapStrokesPerHole={playerNetData?.handicapStrokesPerHole}
                   courseHandicap={playerNetData?.courseHandicap}

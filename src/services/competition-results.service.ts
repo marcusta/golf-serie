@@ -19,6 +19,7 @@ import {
 } from "../utils/golf-scoring";
 import { calculateStablefordPoints } from "../utils/stableford";
 import { assignPositionsMap } from "../utils/ranking";
+import { resolveCompetitionScoringFormat } from "../utils/scoring-format";
 
 interface PointsStructure {
   [key: string]: number;
@@ -79,9 +80,11 @@ interface CompetitionDetailsRow {
   course_stroke_index: string | null;
   slope_rating: number | null;
   course_rating: number | null;
-  point_template_id: number | null;
+  competition_point_template_id: number | null;
+  tour_point_template_id: number | null;
   scoring_mode: string | null;
-  scoring_format: TourScoringFormat | null;
+  competition_scoring_format: TourScoringFormat | null;
+  tour_scoring_format: TourScoringFormat | null;
   start_mode: string;
   open_end: string | null;
   round_type: string | null;
@@ -144,14 +147,22 @@ export class CompetitionResultsService {
     return this.db
       .prepare(`
         SELECT
-          c.*,
+          c.id,
+          c.tour_id,
+          c.course_id,
+          c.point_template_id as competition_point_template_id,
+          c.scoring_format as competition_scoring_format,
+          c.start_mode,
+          c.open_end,
+          c.round_type,
+          c.points_multiplier,
           co.pars,
           co.stroke_index as course_stroke_index,
           ct.slope_rating,
           ct.course_rating,
-          t.point_template_id,
+          t.point_template_id as tour_point_template_id,
           t.scoring_mode,
-          t.scoring_format
+          t.scoring_format as tour_scoring_format
         FROM competitions c
         LEFT JOIN courses co ON c.course_id = co.id
         LEFT JOIN course_tees ct ON c.tee_id = ct.id
@@ -363,6 +374,23 @@ export class CompetitionResultsService {
     }
   }
 
+  private resolveEffectivePointTemplateId(
+    competition: CompetitionDetailsRow
+  ): number | null {
+    return competition.competition_point_template_id ??
+      competition.tour_point_template_id ??
+      null;
+  }
+
+  private resolveEffectiveScoringFormat(
+    competition: CompetitionDetailsRow
+  ): TourScoringFormat {
+    return resolveCompetitionScoringFormat(
+      competition.competition_scoring_format,
+      competition.tour_scoring_format
+    );
+  }
+
   private isOpenCompetitionClosed(competition: CompetitionDetailsRow): boolean {
     return (
       competition.start_mode === "open" &&
@@ -426,7 +454,7 @@ export class CompetitionResultsService {
     isOpenCompetitionClosed: boolean,
     expectedHoles: number
   ): CompetitionResult {
-    const scoringFormat = competition.scoring_format || "stroke_play";
+    const scoringFormat = this.resolveEffectiveScoringFormat(competition);
     const score = this.parseParticipantScore(participant.score);
     const isFinished = this.isParticipantFinished(
       participant,
@@ -766,7 +794,7 @@ export class CompetitionResultsService {
     if (!competition) {
       throw new Error("Competition not found");
     }
-    const scoringFormat = competition.scoring_format || "stroke_play";
+    const scoringFormat = this.resolveEffectiveScoringFormat(competition);
 
     // Parse pars
     const { pars } = this.parseParsFromCompetition(competition);
@@ -777,8 +805,9 @@ export class CompetitionResultsService {
     const activePar = activeIndices.reduce((sum, i) => sum + (pars[i] || 0), 0);
 
     // Get point template if exists
-    const pointTemplate = competition.point_template_id
-      ? this.findPointTemplateRow(competition.point_template_id)
+    const pointTemplateId = this.resolveEffectivePointTemplateId(competition);
+    const pointTemplate = pointTemplateId
+      ? this.findPointTemplateRow(pointTemplateId)
       : null;
 
     // Get number of active enrollments for points calculation (if tour competition)

@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { Scorecard } from "./Scorecard";
+import type { TourScoringFormat } from "../../api/competitions";
 
 export interface ParticipantData {
   id: number;
@@ -37,6 +38,7 @@ interface ParticipantScorecardProps {
   participant: ParticipantData | null;
   course: CourseData | null;
   onClose: () => void;
+  scoringFormat?: TourScoringFormat;
   // For Tour competitions - hide team/position info in scorecard header
   isTourCompetition?: boolean;
   // Net scoring data for displaying stroke index and net scores
@@ -48,6 +50,7 @@ export function ParticipantScorecard({
   participant,
   course,
   onClose,
+  scoringFormat = "stroke_play",
   isTourCompetition = false,
   netScoringData,
 }: ParticipantScorecardProps) {
@@ -85,6 +88,7 @@ export function ParticipantScorecard({
                 scores: participant.score,
               }}
               course={course}
+              scoringFormat={scoringFormat}
               strokeIndex={
                 netScoringData?.strokeIndex ||
                 participant.stroke_index ||

@@ -582,6 +582,7 @@ export default function CompetitionDetail() {
         participant={scorecardParticipantData}
         course={scorecardCourseData}
         onClose={handleCloseScorecardModal}
+        scoringFormat={leaderboardResponse?.scoringFormat ?? competition.scoring_format ?? undefined}
         isTourCompetition={!!competition?.tour_id}
         netScoringData={netScoringData}
       />

@@ -8,6 +8,8 @@ import type {
     UpdateCompetitionDto,
 } from "../types";
 import { LeaderboardService } from "./leaderboard.service";
+import { CompetitionResultsService } from "./competition-results.service";
+import { resolveCompetitionScoringFormat } from "../utils/scoring-format";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -25,15 +27,18 @@ function isValidYYYYMMDD(date: string): boolean {
 
 export class CompetitionService {
   private leaderboardService: LeaderboardService;
+  private competitionResultsService: CompetitionResultsService;
 
   constructor(private db: Database) {
     this.leaderboardService = new LeaderboardService(db);
+    this.competitionResultsService = new CompetitionResultsService(db);
   }
 
   async create(data: CreateCompetitionDto): Promise<Competition> {
     // Validation
     this.validateCompetitionName(data.name);
     this.validateCompetitionDate(data.date);
+    this.validateScoringFormat(data.scoring_format);
 
     // Verify course exists
     if (!this.findCourseExists(data.course_id)) {
@@ -91,6 +96,7 @@ export class CompetitionService {
     // Validation
     this.validateCompetitionNameNotEmpty(data.name);
     this.validateCompetitionDateFormat(data.date);
+    this.validateScoringFormat(data.scoring_format);
 
     // Verify course exists if provided
     if (data.course_id && !this.findCourseExists(data.course_id)) {
@@ -129,7 +135,20 @@ export class CompetitionService {
       return competition;
     }
 
-    return this.updateCompetitionRow(id, updates, values);
+    const requiresRecalculation = this.shouldRecalculateAfterUpdate(
+      competition,
+      data
+    );
+
+    return this.db.transaction(() => {
+      const updatedCompetition = this.updateCompetitionRow(id, updates, values);
+
+      if (requiresRecalculation) {
+        this.competitionResultsService.recalculateResults(id);
+      }
+
+      return updatedCompetition;
+    })();
   }
 
   async delete(id: number): Promise<void> {
@@ -167,6 +186,7 @@ export class CompetitionService {
     return {
       ...row,
       self_organize: !!(row as unknown as { self_organize?: number | boolean }).self_organize,
+      is_results_final: !!(row as unknown as { is_results_final?: number | boolean }).is_results_final,
       course: {
         id: row.course_id,
         name: row.course_name,
@@ -202,6 +222,59 @@ export class CompetitionService {
     }
   }
 
+  private validateScoringFormat(
+    scoringFormat: CreateCompetitionDto["scoring_format"] | UpdateCompetitionDto["scoring_format"]
+  ): void {
+    if (
+      scoringFormat !== undefined &&
+      scoringFormat !== null &&
+      scoringFormat !== "stroke_play" &&
+      scoringFormat !== "stableford"
+    ) {
+      throw new Error("Invalid scoring format. Must be 'stroke_play' or 'stableford'");
+    }
+  }
+
+  private shouldRecalculateAfterUpdate(
+    competition: Competition,
+    data: UpdateCompetitionDto
+  ): boolean {
+    if (!competition.is_results_final) {
+      return false;
+    }
+
+    const previousTourScoringFormat = competition.tour_id
+      ? this.findTourScoringFormat(competition.tour_id)
+      : null;
+    const nextTourId = data.tour_id !== undefined
+      ? data.tour_id ?? undefined
+      : competition.tour_id;
+    const nextCompetitionScoringFormat = data.scoring_format !== undefined
+      ? data.scoring_format
+      : competition.scoring_format;
+    const nextTourScoringFormat = nextTourId
+      ? this.findTourScoringFormat(nextTourId)
+      : null;
+
+    const previousEffectiveFormat = resolveCompetitionScoringFormat(
+      competition.scoring_format,
+      previousTourScoringFormat
+    );
+    const nextEffectiveFormat = resolveCompetitionScoringFormat(
+      nextCompetitionScoringFormat,
+      nextTourScoringFormat
+    );
+
+    return previousEffectiveFormat !== nextEffectiveFormat;
+  }
+
+  private findTourScoringFormat(tourId: number): Competition["scoring_format"] {
+    const row = this.db
+      .prepare("SELECT scoring_format FROM tours WHERE id = ?")
+      .get(tourId) as { scoring_format: Competition["scoring_format"] } | null;
+    return row?.scoring_format ?? null;
+  }
+
   private buildUpdateFields(data: UpdateCompetitionDto): { updates: string[]; values: (string | number | null)[] } {
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
@@ -233,6 +306,10 @@ export class CompetitionService {
     if (data.point_template_id !== undefined) {
       updates.push("point_template_id = ?");
       values.push(data.point_template_id);
+    }
+    if (data.scoring_format !== undefined) {
+      updates.push("scoring_format = ?");
+      values.push(data.scoring_format);
     }
     if (data.manual_entry_format) {
       updates.push("manual_entry_format = ?");
@@ -324,8 +401,8 @@ export class CompetitionService {
 
   private insertCompetitionRow(data: CreateCompetitionDto): Competition {
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, round_type, self_organize, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, scoring_format, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, round_type, self_organize, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
     const row = stmt.get(
@@ -336,6 +413,7 @@ export class CompetitionService {
       data.tour_id || null,
       data.tee_id || null,
       data.point_template_id || null,
+      data.scoring_format ?? null,
       data.manual_entry_format || "out_in_total",
       data.points_multiplier ?? 1,
       data.venue_type || "outdoor",
@@ -346,7 +424,11 @@ export class CompetitionService {
       data.self_organize ? 1 : 0,
       data.owner_id || null
     ) as Competition & { self_organize: number | boolean };
-    return { ...row, self_organize: !!row.self_organize };
+    return {
+      ...row,
+      self_organize: !!row.self_organize,
+      is_results_final: !!(row as Competition & { is_results_final?: number | boolean }).is_results_final,
+    };
   }
 
   private updateCompetitionRow(id: number, updates: string[], values: (string | number | null)[]): Competition {
@@ -361,7 +443,11 @@ export class CompetitionService {
     const row = stmt.get(...values) as Competition & {
       self_organize: number | boolean;
     };
-    return { ...row, self_organize: !!row.self_organize };
+    return {
+      ...row,
+      self_organize: !!row.self_organize,
+      is_results_final: !!(row as Competition & { is_results_final?: number | boolean }).is_results_final,
+    };
   }
 
   private deleteCompetitionRow(id: number): void {

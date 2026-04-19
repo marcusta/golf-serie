@@ -57,6 +57,7 @@ const tourCompetitionSchema = z
     course_id: z.string().min(1, "Course is required"),
     tee_id: z.string().optional(),
     point_template_id: z.string().optional(),
+    scoring_format: z.enum(["tour_default", "stroke_play", "stableford"] as const),
     venue_type: z.enum(["outdoor", "indoor"] as const),
     manual_entry_format: z.enum(["out_in_total", "total_only"] as const),
     start_mode: z.enum(["scheduled", "open"] as const),
@@ -124,6 +125,7 @@ export function TourCompetitionModal({
       course_id: "",
       tee_id: "",
       point_template_id: "",
+      scoring_format: "tour_default",
       venue_type: "outdoor",
       manual_entry_format: "out_in_total",
       start_mode: "scheduled",
@@ -145,6 +147,7 @@ export function TourCompetitionModal({
           course_id: competition.course_id?.toString() || "",
           tee_id: competition.tee_id?.toString() || "",
           point_template_id: competition.point_template_id?.toString() || "",
+          scoring_format: competition.scoring_format ?? "tour_default",
           venue_type: competition.venue_type || "outdoor",
           manual_entry_format: competition.manual_entry_format || "out_in_total",
           start_mode: competition.start_mode || "scheduled",
@@ -160,6 +163,7 @@ export function TourCompetitionModal({
           course_id: "",
           tee_id: "",
           point_template_id: "",
+          scoring_format: "tour_default",
           venue_type: "outdoor",
           manual_entry_format: "out_in_total",
           start_mode: "scheduled",
@@ -200,6 +204,8 @@ export function TourCompetitionModal({
       point_template_id: data.point_template_id
         ? parseInt(data.point_template_id)
         : undefined,
+      scoring_format:
+        data.scoring_format === "tour_default" ? null : data.scoring_format,
       tour_id: tourId,
       points_multiplier: 1, // Default - use point templates for different scoring
       venue_type: data.venue_type,
@@ -416,6 +422,36 @@ export function TourCompetitionModal({
                     </Select>
                     <FormDescription>
                       Override the tour's point template for this competition
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="scoring_format"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Scoring Format</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Use tour default" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="tour_default">Use tour default</SelectItem>
+                        <SelectItem value="stroke_play">Stroke play</SelectItem>
+                        <SelectItem value="stableford">Stableford</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Override the tour default only when this competition needs a different scoring format.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

@@ -68,6 +68,7 @@ describe("CompetitionResultsService", () => {
     courseId: number,
     options: {
       tourId?: number;
+      scoringFormat?: "stroke_play" | "stableford";
       startMode?: string;
       openEnd?: string;
       pointsMultiplier?: number;
@@ -75,14 +76,15 @@ describe("CompetitionResultsService", () => {
   ) => {
     return db
       .prepare(
-        `INSERT INTO competitions (name, date, course_id, tour_id, start_mode, open_end, points_multiplier)
-         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`
+        `INSERT INTO competitions (name, date, course_id, tour_id, scoring_format, start_mode, open_end, points_multiplier)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`
       )
       .get(
         name,
         date,
         courseId,
         options.tourId || null,
+        options.scoringFormat || null,
         options.startMode || "scheduled",
         options.openEnd || null,
         options.pointsMultiplier || 1
@@ -523,6 +525,49 @@ describe("CompetitionResultsService", () => {
       scoreWithPickup[0] = -1;
       createTestParticipant(teeTime.id, team.id, player2.id, {
         score: scoreWithPickup,
+        isLocked: true,
+      });
+
+      service.finalizeCompetitionResults(competition.id);
+
+      const results = service.getCompetitionResults(competition.id);
+      expect(results).toHaveLength(2);
+      expect(results[0].stableford_points).toBe(36);
+      expect(results[1].stableford_points).toBe(34);
+    });
+
+    test("should honor competition scoring format override when finalizing results", () => {
+      const user = createTestUser("override-finalize@test.com", "ADMIN");
+      const course = createTestCourse("Override Stableford Course", standardPars);
+      db.prepare("UPDATE courses SET stroke_index = ? WHERE id = ?").run(
+        JSON.stringify([1, 3, 17, 7, 5, 11, 15, 9, 13, 2, 4, 18, 8, 6, 12, 16, 10, 14]),
+        course.id
+      );
+      const tour = createTestTour("Stroke Default Tour", user.id, {
+        scoringMode: "gross",
+        scoringFormat: "stroke_play",
+      });
+      const competition = createTestCompetition("Competition Override Stableford", "2024-01-15", course.id, {
+        tourId: tour.id,
+        scoringFormat: "stableford",
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:10");
+      const team = createTestTeam("Override Team");
+      const steadyPlayer = createTestPlayer("Steady");
+      const pickupPlayer = createTestPlayer("Pickup");
+
+      createEnrollment(tour.id, steadyPlayer.id, "steady-finalize@test.com");
+      createEnrollment(tour.id, pickupPlayer.id, "pickup-finalize@test.com");
+
+      createTestParticipant(teeTime.id, team.id, steadyPlayer.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      const pickupScore = createEvenParScore();
+      pickupScore[0] = -1;
+      createTestParticipant(teeTime.id, team.id, pickupPlayer.id, {
+        score: pickupScore,
         isLocked: true,
       });
 

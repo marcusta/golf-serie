@@ -29,6 +29,7 @@ import {
 } from "../utils/golf-scoring";
 import { PARTICIPANT_NAME_COALESCE } from "../utils/player-display";
 import { assignPositionsWithTies } from "../utils/ranking";
+import { resolveCompetitionScoringFormat } from "../utils/scoring-format";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -43,6 +44,7 @@ interface CompetitionRow {
   tour_id: number | null;
   tee_id: number | null;
   points_multiplier: number | null;
+  scoring_format: TourScoringFormat | null;
   start_mode: string | null;
   open_end: string | null;
   round_type: string | null;
@@ -243,7 +245,10 @@ export class LeaderboardService {
       ? this.findTourScoringSettings(competition.tour_id)
       : null;
     const scoringMode = scoringSettings?.scoring_mode as TourScoringMode | undefined;
-    const scoringFormat = scoringSettings?.scoring_format || "stroke_play";
+    const scoringFormat = resolveCompetitionScoringFormat(
+      competition.scoring_format,
+      scoringSettings?.scoring_format
+    );
 
     // Stroke index comes from the course (not the tee)
     // Load stroke index for net scoring calculations OR when a tee is assigned

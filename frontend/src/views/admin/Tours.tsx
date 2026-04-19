@@ -369,7 +369,7 @@ export default function Tours() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Format</label>
+                <label className="text-sm font-medium">Default Format</label>
                 <Select
                   value={scoringFormat}
                   onValueChange={(value) => setScoringFormat(value as TourScoringFormat)}

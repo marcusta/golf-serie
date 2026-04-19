@@ -28,6 +28,8 @@ import {
   PARTICIPANT_NAME_COALESCE,
 } from "../utils/player-display";
 import { assignPositionsWithTies } from "../utils/ranking";
+import { resolveCompetitionScoringFormat } from "../utils/scoring-format";
+import { CompetitionResultsService } from "./competition-results.service";
 
 export type ScoringType = "gross" | "net";
 
@@ -86,6 +88,7 @@ type CompetitionWithCourseRow = {
   tee_id: number | null;
   tour_id: number | null;
   series_id: number | null;
+  scoring_format: TourScoringFormat | null;
   is_results_final: number;
   start_mode: string;
   open_end: string | null;
@@ -125,6 +128,7 @@ type StoredResultRow = {
   points: number;
   relative_to_par: number | null;
   stableford_points: number | null;
+  scoring_format: TourScoringFormat;
   competition_name: string;
   competition_date: string;
   player_name: string;
@@ -160,7 +164,11 @@ type PointsStructure = {
 };
 
 export class TourService {
-  constructor(private db: Database) {}
+  private competitionResultsService: CompetitionResultsService;
+
+  constructor(private db: Database) {
+    this.competitionResultsService = new CompetitionResultsService(db);
+  }
 
   // ==================== VALIDATION METHODS ====================
 
@@ -271,11 +279,13 @@ export class TourService {
           cr.points,
           cr.relative_to_par,
           cr.stableford_points,
+          COALESCE(c.scoring_format, t.scoring_format, 'stroke_play') as scoring_format,
           c.name as competition_name,
           c.date as competition_date,
           COALESCE(pp.display_name, pl.name, te.name) as player_name
         FROM competition_results cr
         JOIN competitions c ON cr.competition_id = c.id
+        LEFT JOIN tours t ON c.tour_id = t.id
         LEFT JOIN players pl ON cr.player_id = pl.id
         LEFT JOIN player_profiles pp ON pl.id = pp.player_id
         LEFT JOIN tour_enrollments te ON cr.enrollment_id = te.id
@@ -292,6 +302,19 @@ export class TourService {
     return this.db
       .prepare("SELECT start_mode, open_end, round_type FROM competitions WHERE id = ?")
       .get(competitionId) as { start_mode: string; open_end: string | null; round_type: string | null } | null;
+  }
+
+  private findInheritedFinalizedCompetitionIds(tourId: number): number[] {
+    const rows = this.db
+      .prepare(`
+        SELECT id
+        FROM competitions
+        WHERE tour_id = ?
+          AND scoring_format IS NULL
+          AND is_results_final = 1
+      `)
+      .all(tourId) as { id: number }[];
+    return rows.map((row) => row.id);
   }
 
   private findParticipantRowsForCompetition(competitionId: number): ParticipantRow[] {
@@ -631,8 +654,21 @@ export class TourService {
       return tour;
     }
 
-    // Update
-    return this.updateTourRow(id, updates, values);
+    const scoringFormatChanged = data.scoring_format !== undefined &&
+      data.scoring_format !== tour.scoring_format;
+
+    return this.db.transaction(() => {
+      const updatedTour = this.updateTourRow(id, updates, values);
+
+      if (scoringFormatChanged) {
+        const inheritedCompetitionIds = this.findInheritedFinalizedCompetitionIds(id);
+        for (const competitionId of inheritedCompetitionIds) {
+          this.competitionResultsService.recalculateResults(competitionId);
+        }
+      }
+
+      return updatedTour;
+    })();
   }
 
   delete(id: number): void {
@@ -799,6 +835,7 @@ export class TourService {
         competition_id: result.competition_id,
         competition_name: result.competition_name,
         competition_date: result.competition_date,
+        scoring_format: result.scoring_format,
         points: result.points,
         position: result.position,
         score_relative_to_par: result.relative_to_par ?? 0,
@@ -816,7 +853,7 @@ export class TourService {
     competitionsWithStoredResults: Set<number>,
     categoryId: number | undefined,
     scoringType: string,
-    scoringFormat: TourScoringFormat,
+    tourScoringFormat: TourScoringFormat,
     playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
     playerHandicaps: Map<number, number>,
     numberOfPlayers: number,
@@ -839,6 +876,10 @@ export class TourService {
 
       // Check if competition should be included
       const isPast = this.isPastCompetition(competition.date);
+      const scoringFormat = resolveCompetitionScoringFormat(
+        competition.scoring_format,
+        tourScoringFormat
+      );
       const results = this.getCompetitionPlayerResults(
         competition.id,
         competition.pars,
@@ -916,6 +957,7 @@ export class TourService {
           competition_id: competition.id,
           competition_name: competition.name,
           competition_date: competition.date,
+          scoring_format: scoringFormat,
           points,
           position: result.position,
           score_relative_to_par: result.relative_to_par,

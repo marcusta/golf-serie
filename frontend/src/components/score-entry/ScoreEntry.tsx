@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import type { TourScoringFormat } from "../../api/competitions";
 import { ScoreInputModal } from "./ScoreInputModal";
 import {
   formatToPar,
@@ -61,6 +62,7 @@ interface ScoreEntryProps {
     series_id?: number;
     series_name?: string;
     tour_id?: number;
+    scoring_format?: TourScoringFormat | null;
   };
   /** When true, hides team terminology (team name, position) in individual tour competitions */
   isTourCompetition?: boolean;
@@ -665,6 +667,7 @@ export function ScoreEntry({
         teeTimeGroup={teeTimeGroup}
         course={course}
         currentHole={currentHole}
+        scoringFormat={competition?.scoring_format ?? undefined}
         onClose={() => setFullScorecardVisible(false)}
         netScoringData={netScoringData}
       />
