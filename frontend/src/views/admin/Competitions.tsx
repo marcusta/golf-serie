@@ -6,6 +6,8 @@ import {
   useDeleteCompetition,
   useFinalizeCompetitionResults,
   type Competition,
+  type CreateCompetitionDto,
+  type UpdateCompetitionDto,
 } from "../../api/competitions";
 import { useCourses, useCourseTees } from "../../api/courses";
 import { useSeries, useSeriesCompetitions } from "../../api/series";
@@ -168,7 +170,14 @@ export default function AdminCompetitions() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const competitionData = {
+    const normalizedScoringFormat: CreateCompetitionDto["scoring_format"] =
+      formData.scoring_format === "tour_default"
+        ? formData.tour_id
+          ? null
+          : undefined
+        : formData.scoring_format;
+
+    const competitionData: CreateCompetitionDto = {
       name: formData.name,
       date: formData.date,
       course_id: parseInt(formData.course_id),
@@ -176,10 +185,7 @@ export default function AdminCompetitions() {
       series_id: formData.series_id ? parseInt(formData.series_id) : undefined,
       tour_id: formData.tour_id ? parseInt(formData.tour_id) : undefined,
       point_template_id: formData.point_template_id ? parseInt(formData.point_template_id) : undefined,
-      scoring_format:
-        formData.tour_id && formData.scoring_format === "tour_default"
-          ? null
-          : formData.scoring_format,
+      scoring_format: normalizedScoringFormat,
       manual_entry_format: formData.manual_entry_format,
       points_multiplier: parseFloat(formData.points_multiplier),
       venue_type: formData.venue_type,
@@ -216,8 +222,15 @@ export default function AdminCompetitions() {
     };
 
     if (editingCompetition) {
+      const updateData: UpdateCompetitionDto = {
+        ...competitionData,
+        tee_id: competitionData.tee_id ?? null,
+        point_template_id: competitionData.point_template_id ?? null,
+        open_start: competitionData.open_start ?? null,
+        open_end: competitionData.open_end ?? null,
+      };
       updateCompetition.mutate(
-        { id: editingCompetition.id, data: competitionData },
+        { id: editingCompetition.id, data: updateData },
         { onSuccess, onError }
       );
     } else {
