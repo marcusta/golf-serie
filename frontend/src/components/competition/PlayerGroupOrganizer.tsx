@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Loader2, Plus, X, Users, Play } from "lucide-react";
+import { Edit3, Loader2, Plus, X, Users, Play } from "lucide-react";
+import {
+  useUpdateCompetitionPlayedHoles,
+  type CompetitionRoundType,
+} from "../../api/competitions";
 import {
   useCreateParticipant,
   useDeleteParticipant,
@@ -12,19 +16,31 @@ import { useTeams } from "../../api/teams";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { Button } from "../ui/button";
+import { getSessionStorageKey } from "../../utils/holeNavigation";
 
 interface PlayerGroupOrganizerProps {
   competitionId: number;
   tourId: number;
+  roundType: CompetitionRoundType;
   teeTimes: TeeTime[] | undefined;
   onUpdate?: () => void;
 }
 
 type EnrollmentLabel = string;
+type EditableRoundType = Extract<CompetitionRoundType, "front_9" | "back_9">;
 
 function enrollmentDisplayName(e: TourEnrollment): EnrollmentLabel {
   return e.player_name || e.name || e.email || "Unnamed";
@@ -48,9 +64,28 @@ function isEnrollmentAssigned(
   );
 }
 
+function getEditableRoundType(roundType: CompetitionRoundType): EditableRoundType {
+  return roundType === "front_9" ? "front_9" : "back_9";
+}
+
+function getRoundLabel(roundType: CompetitionRoundType): string {
+  if (roundType === "front_9") return "Holes 1-9";
+  if (roundType === "back_9") return "Holes 10-18";
+  return "18 holes";
+}
+
+function hasRecordedScores(teeTimes: TeeTime[]): boolean {
+  return teeTimes.some((teeTime) =>
+    teeTime.participants.some((participant) =>
+      participant.score.some((shots) => shots !== 0)
+    )
+  );
+}
+
 export function PlayerGroupOrganizer({
   competitionId: competitionId,
   tourId,
+  roundType,
   teeTimes,
   onUpdate,
 }: PlayerGroupOrganizerProps) {
@@ -58,8 +93,12 @@ export function PlayerGroupOrganizer({
   const { data: teams } = useTeams();
   const createParticipant = useCreateParticipant();
   const deleteParticipant = useDeleteParticipant();
+  const updatePlayedHoles = useUpdateCompetitionPlayedHoles();
 
   const [openTeeTimeId, setOpenTeeTimeId] = useState<number | null>(null);
+  const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
+  const [selectedRoundType, setSelectedRoundType] =
+    useState<EditableRoundType>(getEditableRoundType(roundType));
   const [busyParticipantId, setBusyParticipantId] = useState<number | null>(
     null
   );
@@ -67,6 +106,8 @@ export function PlayerGroupOrganizer({
 
   const safeTeeTimes = teeTimes || [];
   const safeEnrollments = enrollments || [];
+  const currentRoundLabel = getRoundLabel(roundType);
+  const scoresRecorded = hasRecordedScores(safeTeeTimes);
 
   const unassigned = useMemo(
     () =>
@@ -125,6 +166,36 @@ export function PlayerGroupOrganizer({
     }
   }
 
+  function handleOpenEditRound() {
+    setSelectedRoundType(getEditableRoundType(roundType));
+    setIsEditRoundOpen(true);
+    setError(null);
+  }
+
+  async function handleSaveRound() {
+    if (scoresRecorded) {
+      setError("Round holes cannot be changed after scores have been recorded.");
+      return;
+    }
+
+    setError(null);
+    try {
+      await updatePlayedHoles.mutateAsync({
+        id: competitionId,
+        roundType: selectedRoundType,
+      });
+      safeTeeTimes.forEach((teeTime) => {
+        sessionStorage.removeItem(getSessionStorageKey(teeTime.id.toString()));
+      });
+      setIsEditRoundOpen(false);
+      onUpdate?.();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update played holes"
+      );
+    }
+  }
+
   if (!teeTimes) {
     return (
       <div className="flex justify-center py-8">
@@ -140,6 +211,34 @@ export function PlayerGroupOrganizer({
           {error}
         </div>
       )}
+
+      <div className="rounded-2xl border border-soft-grey bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-label-sm font-semibold uppercase tracking-wide text-turf">
+              Round
+            </p>
+            <p className="text-body-lg font-semibold text-charcoal">
+              {currentRoundLabel}
+            </p>
+            {scoresRecorded && (
+              <p className="mt-1 text-body-xs text-charcoal/60">
+                Locked after scoring started
+              </p>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOpenEditRound}
+            disabled={scoresRecorded}
+            className="min-h-[44px] rounded border-turf text-turf hover:bg-turf/10"
+          >
+            <Edit3 className="mr-2 h-4 w-4" />
+            Edit round
+          </Button>
+        </div>
+      </div>
 
       {/* Tee time cards */}
       <div className="space-y-3">
@@ -295,6 +394,64 @@ export function PlayerGroupOrganizer({
               Done
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditRoundOpen} onOpenChange={setIsEditRoundOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit round</DialogTitle>
+            <DialogDescription>
+              Choose which nine holes this round should use for scoring and the
+              start-list hole labels.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <label className="text-label-md font-medium text-charcoal">
+              Played holes
+            </label>
+            <Select
+              value={selectedRoundType}
+              onValueChange={(value) =>
+                setSelectedRoundType(value as EditableRoundType)
+              }
+              disabled={updatePlayedHoles.isPending}
+            >
+              <SelectTrigger className="min-h-[44px] w-full rounded border-soft-grey bg-scorecard text-charcoal">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="front_9">Holes 1-9</SelectItem>
+                <SelectItem value="back_9">Holes 10-18</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-body-xs text-charcoal/60">
+              This updates all groups in the start list.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditRoundOpen(false)}
+              disabled={updatePlayedHoles.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveRound}
+              disabled={updatePlayedHoles.isPending}
+              className="bg-turf text-scorecard hover:bg-fairway"
+            >
+              {updatePlayedHoles.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save round
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

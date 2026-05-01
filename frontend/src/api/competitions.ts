@@ -314,6 +314,44 @@ export function useUpdateCompetition() {
   });
 }
 
+export function useUpdateCompetitionPlayedHoles() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      roundType,
+    }: {
+      id: number;
+      roundType: Extract<CompetitionRoundType, "front_9" | "back_9">;
+    }): Promise<Competition> => {
+      const response = await fetch(`${API_BASE_URL}/competitions/${id}/played-holes`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ round_type: roundType }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update played holes");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["competition", id] });
+      queryClient.invalidateQueries({
+        queryKey: ["tee-times", "competition", id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["competition", id, "leaderboard"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["competition", id, "leaderboard", "details"],
+      });
+    },
+  });
+}
+
 export function useDeleteCompetition() {
   const queryClient = useQueryClient();
 

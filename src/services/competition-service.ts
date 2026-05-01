@@ -10,6 +10,7 @@ import type {
 import { LeaderboardService } from "./leaderboard.service";
 import { CompetitionResultsService } from "./competition-results.service";
 import { resolveCompetitionScoringFormat } from "../utils/scoring-format";
+import { safeParseJsonWithDefault } from "../utils/parsing";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal Types (for database rows)
@@ -18,6 +19,15 @@ import { resolveCompetitionScoringFormat } from "../utils/scoring-format";
 interface CompetitionWithCourseRow extends Competition {
     course_name: string;
     participant_count?: number;
+}
+
+type EditableRoundType = "front_9" | "back_9";
+
+interface ParticipantScoreRow {
+  score: string | null;
+  manual_score_out: number | null;
+  manual_score_in: number | null;
+  manual_score_total: number | null;
 }
 
 function isValidYYYYMMDD(date: string): boolean {
@@ -178,6 +188,25 @@ export class CompetitionService {
     return this.leaderboardService.getTeamLeaderboard(competitionId);
   }
 
+  async updatePlayedHoles(id: number, roundType: EditableRoundType): Promise<Competition> {
+    const competition = await this.findById(id);
+    if (!competition) {
+      throw new Error("Competition not found");
+    }
+
+    if (this.hasRecordedScoresForCompetition(id)) {
+      throw new Error("Cannot change played holes after scores have been recorded");
+    }
+
+    const startHole = this.getStartHoleForRoundType(roundType);
+
+    return this.db.transaction(() => {
+      const updatedCompetition = this.updateCompetitionRoundTypeRow(id, roundType);
+      this.updateTeeTimesStartHoleForCompetition(id, startHole);
+      return updatedCompetition;
+    })();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Logic Methods (pure business logic, no SQL)
   // ─────────────────────────────────────────────────────────────────────────────
@@ -233,6 +262,22 @@ export class CompetitionService {
     ) {
       throw new Error("Invalid scoring format. Must be 'stroke_play' or 'stableford'");
     }
+  }
+
+  private getStartHoleForRoundType(roundType: EditableRoundType): number {
+    return roundType === "front_9" ? 1 : 10;
+  }
+
+  private hasRecordedScores(rows: ParticipantScoreRow[]): boolean {
+    return rows.some((row) => {
+      const scores = safeParseJsonWithDefault<number[]>(row.score, []);
+      return (
+        scores.some((shots) => shots !== 0) ||
+        row.manual_score_out !== null ||
+        row.manual_score_in !== null ||
+        row.manual_score_total !== null
+      );
+    });
   }
 
   private shouldRecalculateAfterUpdate(
@@ -376,6 +421,20 @@ export class CompetitionService {
     return stmt.all(competitionId) as { id: number }[];
   }
 
+  private findParticipantScoreRowsForCompetition(competitionId: number): ParticipantScoreRow[] {
+    const stmt = this.db.prepare(`
+      SELECT p.score, p.manual_score_out, p.manual_score_in, p.manual_score_total
+      FROM participants p
+      JOIN tee_times t ON p.tee_time_id = t.id
+      WHERE t.competition_id = ?
+    `);
+    return stmt.all(competitionId) as ParticipantScoreRow[];
+  }
+
+  private hasRecordedScoresForCompetition(competitionId: number): boolean {
+    return this.hasRecordedScores(this.findParticipantScoreRowsForCompetition(competitionId));
+  }
+
   private findAllCompetitionRows(): CompetitionWithCourseRow[] {
     const stmt = this.db.prepare(`
       SELECT c.*, co.name as course_name,
@@ -448,6 +507,32 @@ export class CompetitionService {
       self_organize: !!row.self_organize,
       is_results_final: !!(row as Competition & { is_results_final?: number | boolean }).is_results_final,
     };
+  }
+
+  private updateCompetitionRoundTypeRow(id: number, roundType: EditableRoundType): Competition {
+    const stmt = this.db.prepare(`
+      UPDATE competitions
+      SET round_type = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      RETURNING *
+    `);
+    const row = stmt.get(roundType, id) as Competition & {
+      self_organize: number | boolean;
+    };
+    return {
+      ...row,
+      self_organize: !!row.self_organize,
+      is_results_final: !!(row as Competition & { is_results_final?: number | boolean }).is_results_final,
+    };
+  }
+
+  private updateTeeTimesStartHoleForCompetition(competitionId: number, startHole: number): void {
+    const stmt = this.db.prepare(`
+      UPDATE tee_times
+      SET start_hole = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE competition_id = ?
+    `);
+    stmt.run(startHole, competitionId);
   }
 
   private deleteCompetitionRow(id: number): void {

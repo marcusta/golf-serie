@@ -352,6 +352,102 @@ describe("Competition API", () => {
     });
   });
 
+  describe("PUT /api/competitions/:id/played-holes", () => {
+    test("should let self-organize rounds change played holes without admin auth", async () => {
+      const createResponse = await makeRequest("/api/competitions", "POST", {
+        name: "Self Organize Round",
+        date: "2024-04-11",
+        course_id: courseId,
+        round_type: "back_9",
+        self_organize: true,
+      });
+      const competition = await expectJsonResponse(createResponse);
+
+      const firstTeeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "06:00", start_hole: 10 }
+      );
+      const secondTeeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "06:10", start_hole: 10 }
+      );
+      expect(firstTeeTimeResponse.status).toBe(201);
+      expect(secondTeeTimeResponse.status).toBe(201);
+
+      await makeRequest("/api/auth/logout", "POST");
+
+      const updateResponse = await makeRequest(
+        `/api/competitions/${competition.id}/played-holes`,
+        "PUT",
+        { round_type: "front_9" }
+      );
+
+      const updated = await expectJsonResponse(updateResponse);
+      expect(updateResponse.status).toBe(200);
+      expect(updated.round_type).toBe("front_9");
+
+      const teeTimesResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`
+      );
+      const teeTimes = await expectJsonResponse(teeTimesResponse);
+      expect(teeTimes.map((tt: { start_hole: number }) => tt.start_hole)).toEqual([
+        1,
+        1,
+      ]);
+    });
+
+    test("should reject played holes changes after scores are recorded", async () => {
+      const createResponse = await makeRequest("/api/competitions", "POST", {
+        name: "Scored Self Organize Round",
+        date: "2024-04-11",
+        course_id: courseId,
+        round_type: "back_9",
+        self_organize: true,
+      });
+      const competition = await expectJsonResponse(createResponse);
+
+      const teeTimeResponse = await makeRequest(
+        `/api/competitions/${competition.id}/tee-times`,
+        "POST",
+        { teetime: "06:00", start_hole: 10 }
+      );
+      const teeTime = await expectJsonResponse(teeTimeResponse);
+
+      const teamResponse = await makeRequest("/api/teams", "POST", {
+        name: "Round Editors",
+      });
+      const team = await expectJsonResponse(teamResponse);
+
+      const participantResponse = await makeRequest("/api/participants", "POST", {
+        tee_order: 1,
+        team_id: team.id,
+        tee_time_id: teeTime.id,
+        position_name: "Player",
+        player_names: "Scored Player",
+      });
+      const participant = await expectJsonResponse(participantResponse);
+
+      await makeRequest(`/api/participants/${participant.id}/score`, "PUT", {
+        hole: 10,
+        shots: 5,
+      });
+
+      const updateResponse = await makeRequest(
+        `/api/competitions/${competition.id}/played-holes`,
+        "PUT",
+        { round_type: "front_9" }
+      );
+
+      expectErrorResponse(updateResponse, 400);
+      const error = await updateResponse.json();
+      expect(error.error).toBe(
+        "Cannot change played holes after scores have been recorded"
+      );
+    });
+  });
+
   describe("DELETE /api/competitions/:id", () => {
     test("should delete a competition", async () => {
       const createResponse = await makeRequest("/api/competitions", "POST", {

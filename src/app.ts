@@ -546,6 +546,46 @@ export function createApp(db: Database): Hono {
     }
   });
 
+  app.put("/api/competitions/:id/played-holes", async (c) => {
+    const id = parseInt(c.req.param("id"));
+    const competition = await competitionService.findById(id);
+    if (!competition) {
+      return c.json({ error: "Competition not found" }, 404);
+    }
+
+    const user = c.get("user");
+    if (!competition.self_organize) {
+      if (!user) {
+        return c.json({ error: "Authentication required" }, 401);
+      }
+      if (!competitionAdminService.canManageCompetition(id, user.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+    }
+
+    try {
+      const body = await c.req.json();
+      const keys = Object.keys(body ?? {});
+      const roundType = body?.round_type;
+      if (
+        keys.length !== 1 ||
+        (roundType !== "front_9" && roundType !== "back_9")
+      ) {
+        return c.json(
+          { error: "round_type must be front_9 or back_9" },
+          400
+        );
+      }
+
+      const updated = await competitionService.updatePlayedHoles(id, roundType);
+      return c.json(updated);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Internal server error";
+      const status = message === "Competition not found" ? 404 : 400;
+      return c.json({ error: message }, status);
+    }
+  });
+
   app.get("/api/competitions/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
     return await competitionsApi.findById(c.req.raw, id);

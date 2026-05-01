@@ -69,9 +69,11 @@ export default function CompetitionDetail() {
   // QR Code dialog state
   const [showQRDialog, setShowQRDialog] = useState(false);
 
-  const { data: competition, isLoading: competitionLoading } = useCompetition(
-    competitionId ? parseInt(competitionId) : 0
-  );
+  const {
+    data: competition,
+    isLoading: competitionLoading,
+    refetch: refetchCompetition,
+  } = useCompetition(competitionId ? parseInt(competitionId) : 0);
   const { data: course } = useCourse(competition?.course_id || 0);
   // Keep series teams for potential future use
   useSeriesTeams(competition?.series_id || 0);
@@ -531,8 +533,13 @@ export default function CompetitionDetail() {
             <PlayerGroupOrganizer
               competitionId={parseInt(competitionId || "0")}
               tourId={competition.tour_id}
+              roundType={competition.round_type}
               teeTimes={teeTimes}
-              onUpdate={refetchTeeTimes}
+              onUpdate={() => {
+                refetchCompetition();
+                refetchTeeTimes();
+                refetchLeaderboard();
+              }}
             />
           ) : (
             <ParticipantsListComponent
