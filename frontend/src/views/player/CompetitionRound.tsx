@@ -421,6 +421,7 @@ export default function CompetitionRound() {
                 }}
                 isTourCompetition={!!competition.tour_id}
                 netScoringData={netScoringData}
+                activeHoles={activeHoles}
               />
             </div>
           </div>

@@ -68,12 +68,15 @@ interface ScoreEntryProps {
   isTourCompetition?: boolean;
   /** Net scoring data for tour competitions with handicap scoring */
   netScoringData?: Map<string, PlayerNetScoringData>;
+  /** Holes that can be actively scored for this round. Defaults to all 18 holes. */
+  activeHoles?: number[];
 }
 
 export function ScoreEntry({
   teeTimeGroup,
   course,
   onScoreUpdate,
+  onComplete,
   currentHole: externalCurrentHole,
   onHoleChange,
   syncStatus,
@@ -84,10 +87,20 @@ export function ScoreEntry({
   competition,
   isTourCompetition = false,
   netScoringData,
+  activeHoles,
 }: ScoreEntryProps) {
+  const scoringHoles =
+    activeHoles && activeHoles.length > 0
+      ? [...activeHoles].sort((a, b) => a - b)
+      : course.holes.map((hole) => hole.number);
+  const minScoringHole = scoringHoles[0] ?? 1;
+  const maxScoringHole = scoringHoles[scoringHoles.length - 1] ?? 18;
+
   // Helper function to find the latest incomplete hole
   const findLatestIncompleteHole = (): number => {
-    for (let holeIndex = 17; holeIndex >= 0; holeIndex--) {
+    for (let i = scoringHoles.length - 1; i >= 0; i--) {
+      const holeNumber = scoringHoles[i];
+      const holeIndex = holeNumber - 1;
       const hasAnyPlayerWithScore = teeTimeGroup.players.some((player) => {
         const score = player.scores[holeIndex];
         return score && score > 0; // Has valid score
@@ -101,14 +114,14 @@ export function ScoreEntry({
         });
 
         if (!allPlayersHaveScores) {
-          return holeIndex + 1; // Return 1-based hole number
-        } else if (holeIndex < 17) {
-          return holeIndex + 2; // Move to next hole
+          return holeNumber;
+        } else if (i < scoringHoles.length - 1) {
+          return scoringHoles[i + 1];
         }
       }
     }
 
-    return 1; // Default to hole 1 if no scores found
+    return minScoringHole;
   };
 
   const navigate = useNavigate();
@@ -121,6 +134,8 @@ export function ScoreEntry({
     externalCurrentHole !== undefined
       ? externalCurrentHole
       : internalCurrentHole;
+  const isCurrentHoleScorable =
+    currentHole >= minScoringHole && currentHole <= maxScoringHole;
 
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -137,7 +152,7 @@ export function ScoreEntry({
     handleInputChange,
   } = useNativeKeyboard({
     onScoreSubmit: (score) => {
-      if (currentPlayer) {
+      if (currentPlayer && isCurrentHoleScorable) {
         onScoreUpdate(currentPlayer.participantId, currentHole, score);
         moveToNextPlayer();
       }
@@ -196,16 +211,23 @@ export function ScoreEntry({
       }
     }
 
+    setKeyboardVisible(false);
+    setIsEditing(false);
+
+    if (currentHole >= maxScoringHole) {
+      setCurrentPlayerIndex(0);
+      onComplete();
+      return;
+    }
+
     // If we get here, all OTHER players have scores, and current player just entered theirs.
     // So all players now have scores - advance to next hole and close modal.
     setShowingConfirmation(true);
-    setKeyboardVisible(false);
-    setIsEditing(false);
 
     setTimeout(() => {
       setShowingConfirmation(false);
 
-      const nextHole = currentHole < 18 ? currentHole + 1 : 1;
+      const nextHole = Math.min(maxScoringHole, currentHole + 1);
       if (onHoleChange) {
         onHoleChange(nextHole);
       } else {
@@ -217,6 +239,7 @@ export function ScoreEntry({
 
   const handleScoreFieldClick = (playerIndex: number) => {
     if (isLocked) return; // Only prevent interaction when actually locked
+    if (!isCurrentHoleScorable) return;
     setCurrentPlayerIndex(playerIndex);
     setKeyboardVisible(true);
     setIsEditing(true);
@@ -224,6 +247,7 @@ export function ScoreEntry({
 
   const handleNumberPress = (number: number) => {
     if (isLocked) return; // Only prevent interaction when actually locked
+    if (!isCurrentHoleScorable) return;
     if (!currentPlayer) return;
 
     onScoreUpdate(currentPlayer.participantId, currentHole, number);
@@ -232,6 +256,7 @@ export function ScoreEntry({
 
   const handleSpecialPress = (action: "more" | "clear" | "unreported") => {
     if (isLocked) return; // Only prevent interaction when actually locked
+    if (!isCurrentHoleScorable) return;
     if (action === "more") {
       setKeyboardVisible(false);
       showNativeKeyboard();
@@ -337,7 +362,7 @@ export function ScoreEntry({
               ✓ Hole {currentHole} Complete!
             </div>
             <div className="text-sm opacity-90 font-primary">
-              Moving to hole {currentHole < 18 ? currentHole + 1 : 1}...
+              Moving to hole {Math.min(maxScoringHole, currentHole + 1)}...
             </div>
           </div>
         </div>
@@ -511,10 +536,10 @@ export function ScoreEntry({
                     <div className="flex flex-col items-center">
                       <button
                         onClick={() => handleScoreFieldClick(index)}
-                        disabled={isLocked}
+                        disabled={isLocked || !isCurrentHoleScorable}
                         className={cn(
                           "w-12 h-12 rounded-full flex items-center justify-center touch-manipulation transition-colors relative",
-                          isLocked
+                          isLocked || !isCurrentHoleScorable
                             ? "bg-soft-grey/30 cursor-not-allowed"
                             : "bg-turf/10 hover:bg-turf/20 active:bg-turf/30"
                         )}
