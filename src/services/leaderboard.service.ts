@@ -1193,16 +1193,12 @@ export class LeaderboardService {
       const statusA = this.getTeamStatus(a);
       const statusB = this.getTeamStatus(b);
 
-      // Primary sort: By status
-      if (statusA !== statusB) {
-        const statusOrder = { FINISHED: 0, IN_PROGRESS: 1, NOT_STARTED: 2 };
-        return statusOrder[statusA] - statusOrder[statusB];
-      }
+      // NOT_STARTED teams have no score — push to bottom
+      if (statusA === "NOT_STARTED" && statusB !== "NOT_STARTED") return 1;
+      if (statusB === "NOT_STARTED" && statusA !== "NOT_STARTED") return -1;
+      if (statusA === "NOT_STARTED" && statusB === "NOT_STARTED") return 0;
 
-      // If status is the same and they haven't started, don't sort further
-      if (statusA === "NOT_STARTED") return 0;
-
-      // Secondary sort: By total score
+      // Primary sort: By total score (best to par first), regardless of finished/in-progress
       if (a.totalRelativeScore !== b.totalRelativeScore) {
         return a.totalRelativeScore - b.totalRelativeScore;
       }
