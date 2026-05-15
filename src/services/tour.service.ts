@@ -159,6 +159,8 @@ type CompetitionResult = {
   stableford_points?: number;
   handicap_index?: number | null;
   is_finished: boolean;
+  holes_played: number;
+  has_invalid_score: boolean;
 };
 
 type PointsStructure = {
@@ -898,8 +900,11 @@ export class TourService {
         scoringFormat
       );
       const hasFinishedPlayers = results.some(r => r.is_finished);
+      const hasProjectableLivePlayers = results.some(r =>
+        this.isProjectableLiveResult(r)
+      );
 
-      if (!isPast && !hasFinishedPlayers) {
+      if (!isPast && !hasFinishedPlayers && !hasProjectableLivePlayers) {
         continue;
       }
 
@@ -907,7 +912,7 @@ export class TourService {
 
       // Calculate handicap-adjusted results
       const adjustedResults = this.adjustResultsForScoring(
-        results.filter(r => r.is_finished),
+        results.filter(r => r.is_finished || this.isProjectableLiveResult(r)),
         scoringType,
         scoringFormat,
         competition
@@ -979,6 +984,12 @@ export class TourService {
     }
 
     return hasProjectedResults;
+  }
+
+  private isProjectableLiveResult(result: CompetitionResult): boolean {
+    return !result.is_finished &&
+      result.holes_played > 0 &&
+      !result.has_invalid_score;
   }
 
   private adjustResultsForScoring(
@@ -1081,10 +1092,12 @@ export class TourService {
         scoringFormat
       );
 
-      let relativeToPar = 0;
       const score = parseScoreArray(participant.score || "");
+      const holesPlayed = calculateHolesPlayed(score);
+      const hasInvalidScore = scoringFormat === "stableford" ? false : hasInvalidHole(score);
+      let relativeToPar = 0;
       let stablefordPoints: number | undefined;
-      if (isFinished) {
+      if (isFinished || (holesPlayed > 0 && !hasInvalidScore)) {
         if (participant.manual_score_total !== null && participant.manual_score_total !== undefined) {
           relativeToPar = totalShots - activePar;
         } else {
@@ -1107,6 +1120,8 @@ export class TourService {
         stableford_points: stablefordPoints,
         handicap_index: participant.handicap_index,
         is_finished: isFinished,
+        holes_played: holesPlayed,
+        has_invalid_score: hasInvalidScore,
       };
     });
 

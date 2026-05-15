@@ -242,7 +242,7 @@ describe("TourService.getFullStandings", () => {
       expect(standings.player_standings[2].position).toBe(3);
     });
 
-    test("should not include players who have not finished (unlocked)", async () => {
+    test("should include started but unfinalized cards in projected standings", async () => {
       const user = createTestUser("owner@test.com", "ADMIN");
       const tour = createTestTour("Tour", user.id);
       const course = createTestCourse("Course", Array(18).fill(4));
@@ -262,8 +262,11 @@ describe("TourService.getFullStandings", () => {
 
       const standings = tourService.getFullStandings(tour.id);
 
-      expect(standings.player_standings.length).toBe(1);
+      expect(standings.player_standings.length).toBe(2);
       expect(standings.player_standings[0].player_name).toBe("Finished");
+      expect(standings.player_standings[1].player_name).toBe("Unfinished");
+      expect(standings.player_standings[1].actual_points).toBe(0);
+      expect(standings.player_standings[1].projected_points).toBeGreaterThan(0);
     });
 
     test("should not include players with gave-up score (-1)", async () => {
@@ -432,6 +435,114 @@ describe("TourService.getFullStandings", () => {
 
       expect(p1?.competitions_played).toBe(2);
       expect(p2?.competitions_played).toBe(1);
+    });
+
+    test("should include in-progress competition points in projected standings only", async () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const tour = createTestTour("Projected Tour", user.id);
+      const course = createTestCourse("Par 72 Course", Array(18).fill(4));
+      const team = createTestTeam("Team");
+
+      const alice = createTestPlayer("Alice");
+      const bob = createTestPlayer("Bob");
+      createEnrollment(tour.id, alice.id, "alice@test.com");
+      createEnrollment(tour.id, bob.id, "bob@test.com");
+
+      const finalizedCompetition = createTestCompetition(
+        "Finalized",
+        "2024-01-15",
+        course.id,
+        tour.id
+      );
+      const finalizedTeeTime = createTestTeeTime(finalizedCompetition.id, "09:00");
+      const finalizedAlice = createTestParticipant(
+        finalizedTeeTime.id,
+        team.id,
+        alice.id,
+        Array(18).fill(4),
+        true
+      );
+      const finalizedBob = createTestParticipant(
+        finalizedTeeTime.id,
+        team.id,
+        bob.id,
+        [5, ...Array(17).fill(4)],
+        true
+      );
+
+      db.prepare("UPDATE competitions SET is_results_final = 1 WHERE id = ?").run(finalizedCompetition.id);
+      db.prepare(`
+        INSERT INTO competition_results
+          (competition_id, participant_id, player_id, scoring_type, position, points, gross_score, relative_to_par)
+        VALUES
+          (?, ?, ?, 'gross', 1, 2, 72, 0),
+          (?, ?, ?, 'gross', 2, 1, 73, 1)
+      `).run(
+        finalizedCompetition.id,
+        finalizedAlice.id,
+        alice.id,
+        finalizedCompetition.id,
+        finalizedBob.id,
+        bob.id
+      );
+
+      const liveCompetition = createTestCompetition(
+        "Live",
+        "2024-01-16",
+        course.id,
+        tour.id
+      );
+      const liveTeeTime = createTestTeeTime(liveCompetition.id, "09:00");
+      createTestParticipant(
+        liveTeeTime.id,
+        team.id,
+        alice.id,
+        [4, 4, 4, ...Array(15).fill(0)],
+        false
+      );
+      createTestParticipant(
+        liveTeeTime.id,
+        team.id,
+        bob.id,
+        [5, 5, 5, ...Array(15).fill(0)],
+        false
+      );
+
+      const nineHoleCompetition = createTestCompetition(
+        "Live 9",
+        "2024-01-17",
+        course.id,
+        tour.id,
+        { roundType: "front_9" }
+      );
+      const nineHoleTeeTime = createTestTeeTime(nineHoleCompetition.id, "09:00");
+      createTestParticipant(
+        nineHoleTeeTime.id,
+        team.id,
+        alice.id,
+        [...Array(9).fill(4), ...Array(9).fill(0)],
+        false
+      );
+      createTestParticipant(
+        nineHoleTeeTime.id,
+        team.id,
+        bob.id,
+        [...Array(9).fill(5), ...Array(9).fill(0)],
+        false
+      );
+
+      const standings = tourService.getFullStandings(tour.id);
+
+      const aliceStanding = standings.player_standings.find(s => s.player_name === "Alice");
+      const bobStanding = standings.player_standings.find(s => s.player_name === "Bob");
+
+      expect(standings.has_projected_results).toBe(true);
+      expect(aliceStanding?.actual_points).toBe(2);
+      expect(aliceStanding?.projected_points).toBe(10);
+      expect(bobStanding?.actual_points).toBe(1);
+      expect(bobStanding?.projected_points).toBe(5);
+      expect(aliceStanding?.competitions.find(c => c.competition_name === "Live")?.is_projected).toBe(true);
+      expect(aliceStanding?.competitions.find(c => c.competition_name === "Live 9")?.is_projected).toBe(true);
     });
   });
 
