@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
+import { calculateStablefordDelta } from "../../utils/stableford";
 import type {
   LeaderboardEntry,
   TourScoringMode,
@@ -101,19 +102,25 @@ export function LeaderboardComponent({
   };
 
   const getPrimaryScoreLabel = (finished: boolean) => {
-    if (isStableford) return showNetScores ? "Gross" : "Pts";
+    if (isStableford) return showNetScores ? "+/- Pts" : "Pts";
     return finished ? (showNetScores ? "Gross" : "Total") : (showNetScores ? "Gross" : "To Par");
   };
 
-  const formatStablefordGrossScore = (entry: LeaderboardEntry) => {
+  // Net stableford delta vs. handicap expectation (2 pts/hole baseline).
+  // Negative = better than expected. Used as primary column in stableford+net.
+  const getStablefordDeltaValue = (entry: LeaderboardEntry) =>
+    calculateStablefordDelta(entry.netStablefordPoints, entry.holesPlayed);
+
+  const formatStablefordDeltaDisplay = (entry: LeaderboardEntry) => {
     if (entry.participant.score.includes(-1)) return "-";
-    return formatToPar(entry.relativeToPar);
+    const delta = getStablefordDeltaValue(entry);
+    return delta === null ? "-" : formatToPar(delta);
   };
 
   const formatPrimaryScore = (entry: LeaderboardEntry, finished: boolean, isRoundInvalid: boolean) => {
     if (isStableford) {
       if (showNetScores) {
-        return formatStablefordGrossScore(entry);
+        return formatStablefordDeltaDisplay(entry);
       }
       const points = entry.stablefordPoints;
       return points === undefined ? "-" : points.toString();
@@ -180,12 +187,18 @@ export function LeaderboardComponent({
         // Within valid scores category: sort by score (best score first)
         if (aHasValidScore && bHasValidScore) {
           if (isStableford) {
-            const aScore = sortBy === "net"
-              ? (a.netStablefordPoints ?? a.stablefordPoints ?? -1)
-              : (a.stablefordPoints ?? -1);
-            const bScore = sortBy === "net"
-              ? (b.netStablefordPoints ?? b.stablefordPoints ?? -1)
-              : (b.stablefordPoints ?? -1);
+            if (sortBy === "net") {
+              // Sort by +/- Pts delta ascending (lower = better).
+              // Tie-break: more holes played wins.
+              const aDelta = calculateStablefordDelta(a.netStablefordPoints, a.holesPlayed);
+              const bDelta = calculateStablefordDelta(b.netStablefordPoints, b.holesPlayed);
+              const aSortable = aDelta ?? Number.POSITIVE_INFINITY;
+              const bSortable = bDelta ?? Number.POSITIVE_INFINITY;
+              if (aSortable !== bSortable) return aSortable - bSortable;
+              return b.holesPlayed - a.holesPlayed;
+            }
+            const aScore = a.stablefordPoints ?? -1;
+            const bScore = b.stablefordPoints ?? -1;
             return bScore - aScore;
           }
           if (sortBy === "net") {
@@ -402,7 +415,7 @@ export function LeaderboardComponent({
                     highlightsPrimaryScore ? "font-semibold text-fairway" : ""
                   }`}
                 >
-                  {isStableford ? (showNetScores ? "Gross" : "Pts") : "Gross"}
+                  {isStableford ? (showNetScores ? "+/- Pts" : "Pts") : "Gross"}
                 </div>
                 {showNetScores && (
                   <div
@@ -495,7 +508,7 @@ export function LeaderboardComponent({
                             {entry.holesPlayed > 0
                               ? (isStableford
                                   ? (showNetScores
-                                      ? formatStablefordGrossScore(entry)
+                                      ? formatStablefordDeltaDisplay(entry)
                                       : (entry.stablefordPoints?.toString() ?? "-"))
                                   : formatToPar(entry.relativeToPar))
                               : "-"}
@@ -521,7 +534,7 @@ export function LeaderboardComponent({
                                   ? (showNetScores
                                       ? (stablefordGrossUnavailable
                                           ? "text-gray-400"
-                                          : getToParColor(entry.relativeToPar))
+                                          : getToParColor(getStablefordDeltaValue(entry) ?? 0))
                                       : "text-charcoal")
                                   : getToParColor(entry.relativeToPar)
                             } ${highlightsPrimaryScore ? "text-xl font-extrabold" : ""}`}
@@ -703,7 +716,7 @@ export function LeaderboardComponent({
                                   {entry.holesPlayed > 0
                                     ? (isStableford
                                         ? (showNetScores
-                                            ? formatStablefordGrossScore(entry)
+                                            ? formatStablefordDeltaDisplay(entry)
                                             : (entry.stablefordPoints?.toString() ?? "-"))
                                         : formatToPar(entry.relativeToPar))
                                     : "-"}
@@ -739,7 +752,7 @@ export function LeaderboardComponent({
                                       isStableford && showNetScores
                                         ? (stablefordGrossUnavailable
                                             ? "text-gray-500"
-                                            : getToParColor(entry.relativeToPar))
+                                            : getToParColor(getStablefordDeltaValue(entry) ?? 0))
                                         : "text-charcoal"
                                     } ${highlightsPrimaryScore ? "text-2xl font-extrabold" : ""}`}
                                   >
@@ -765,7 +778,7 @@ export function LeaderboardComponent({
                                           ? (showNetScores
                                               ? (stablefordGrossUnavailable
                                                   ? "text-gray-500"
-                                                  : getToParColor(entry.relativeToPar))
+                                                  : getToParColor(getStablefordDeltaValue(entry) ?? 0))
                                               : "text-charcoal")
                                           : getToParColor(entry.relativeToPar)
                                     } ${highlightsPrimaryScore ? "text-2xl font-extrabold" : ""}`}
