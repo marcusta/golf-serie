@@ -99,7 +99,7 @@ export function TeeTimeList({
 
   return (
     <>
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
         Existing Tee Times
       </h3>
@@ -171,7 +171,7 @@ function TeeTimeCard({
 }: TeeTimeCardProps) {
   return (
     <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-blue-600" />
           <span className="font-medium text-gray-900">

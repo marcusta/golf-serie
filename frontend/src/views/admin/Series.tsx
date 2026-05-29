@@ -214,7 +214,7 @@ export default function AdminSeries() {
         ) : (
           <div className="space-y-6">
             <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
-              <div className="grid grid-cols-[minmax(200px,2fr)_140px_140px_120px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
+              <div className="hidden md:grid grid-cols-[minmax(200px,2fr)_140px_140px_120px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
                 <div>Series</div>
                 <div>Visibility</div>
                 <div>Assets</div>
@@ -224,7 +224,7 @@ export default function AdminSeries() {
                 {pagination.paginatedItems.map((seriesItem) => (
                   <div
                     key={seriesItem.id}
-                    className="grid grid-cols-[minmax(200px,2fr)_140px_140px_120px] gap-4 px-4 py-2 text-sm items-center hover:bg-rough/20 cursor-pointer"
+                    className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,2fr)_140px_140px_120px] md:gap-4 px-4 py-3 md:py-2 text-sm md:items-center hover:bg-rough/20 cursor-pointer"
                     onClick={() => handleNavigate(seriesItem.id)}
                   >
                     <div>

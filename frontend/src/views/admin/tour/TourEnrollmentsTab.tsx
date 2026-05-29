@@ -199,7 +199,7 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
     <>
       <div className="space-y-6">
       {/* Add Enrollment Form */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-charcoal mb-4">Add Player</h3>
         <form onSubmit={handleAddEnrollment} className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
@@ -239,10 +239,10 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
       </div>
 
       {/* Enrollments List */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <h3 className="text-lg font-semibold text-charcoal">Enrollments</h3>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(["all", "pending", "requested", "active"] as const).map((status) => (
               <button
                 key={status}
@@ -268,7 +268,7 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
             {enrollments.map((enrollment: TourEnrollment) => (
               <div
                 key={enrollment.id}
-                className="py-4 flex items-center justify-between"
+                className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-center gap-4">
                   <div>
@@ -289,7 +289,7 @@ export function TourEnrollmentsTab({ tourId }: TourEnrollmentsTabProps) {
                       )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   {/* Handicap input — accepts "12.3", "+0.4" (plus-handicap), or empty */}
                   <label className="flex items-center gap-1 text-sm text-charcoal/70">
                     <span>HCP</span>

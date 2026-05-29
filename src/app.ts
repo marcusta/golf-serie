@@ -920,11 +920,21 @@ export function createApp(db: Database): Hono {
   });
 
   // TeeTime routes
-  app.post("/api/competitions/:competitionId/tee-times", requireAuth(), async (c) => {
-    const user = c.get("user");
+  app.post("/api/competitions/:competitionId/tee-times", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));
-    if (!competitionAdminService.canManageCompetition(competitionId, user!.id)) {
-      return c.json({ error: "Forbidden" }, 403);
+    const competition = await competitionService.findById(competitionId);
+    if (!competition) {
+      return c.json({ error: "Competition not found" }, 404);
+    }
+    // Self-organize competitions let anyone with the link build groups (no login).
+    if (!competition.self_organize) {
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Authentication required" }, 401);
+      }
+      if (!competitionAdminService.canManageCompetition(competitionId, user.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
     }
     return await teeTimesApi.createForCompetition(c.req.raw, competitionId);
   });

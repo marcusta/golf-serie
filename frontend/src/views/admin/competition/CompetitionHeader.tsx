@@ -40,9 +40,9 @@ export function CompetitionHeader({ competition }: CompetitionHeaderProps) {
 
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
             Manage Tee Times - {competition.name}
           </h2>
           <p className="text-gray-600">

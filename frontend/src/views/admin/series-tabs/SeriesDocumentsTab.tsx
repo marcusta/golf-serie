@@ -233,7 +233,7 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
       <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
         {documents && documents.length > 0 ? (
           <>
-            <div className="grid grid-cols-[minmax(220px,2fr)_160px_140px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
+            <div className="hidden md:grid grid-cols-[minmax(220px,2fr)_160px_140px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
               <div>Document</div>
               <div>Status</div>
               <div className="text-right">Actions</div>
@@ -242,7 +242,7 @@ export function SeriesDocumentsTab({ seriesId, series }: SeriesDocumentsTabProps
               {documents.map((document) => (
                 <div
                   key={document.id}
-                  className="grid grid-cols-[minmax(220px,2fr)_160px_140px] gap-4 px-4 py-2 text-sm items-center"
+                  className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(220px,2fr)_160px_140px] md:gap-4 px-4 py-3 md:py-2 text-sm md:items-center"
                 >
                   <div>
                     <div className="font-medium text-charcoal">{document.title}</div>

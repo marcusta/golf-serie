@@ -136,7 +136,7 @@ export function SeriesAdminsTab({ seriesId, series }: SeriesAdminsTabProps) {
         </div>
         <div className="divide-y divide-soft-grey">
           {series.owner_id && (
-            <div className="grid grid-cols-[minmax(200px,2fr)_160px_120px] gap-4 px-4 py-2 text-sm items-center">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,2fr)_160px_120px] md:gap-4 px-4 py-3 md:py-2 text-sm md:items-center">
               <div className="flex items-center gap-2 text-charcoal">
                 <Shield className="h-4 w-4 text-turf" />
                 <div>
@@ -155,7 +155,7 @@ export function SeriesAdminsTab({ seriesId, series }: SeriesAdminsTabProps) {
             admins.map((admin: SeriesAdmin) => (
               <div
                 key={admin.id}
-                className="grid grid-cols-[minmax(200px,2fr)_160px_120px] gap-4 px-4 py-2 text-sm items-center"
+                className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(200px,2fr)_160px_120px] md:gap-4 px-4 py-3 md:py-2 text-sm md:items-center"
               >
                 <div className="flex items-center gap-2 text-charcoal">
                   <Users className="h-4 w-4 text-charcoal/60" />

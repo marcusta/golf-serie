@@ -7,6 +7,7 @@ import {
 } from "../../api/competitions";
 import {
   useCreateParticipant,
+  useCreateTeeTime,
   useDeleteParticipant,
   type TeeTime,
   type TeeTimeParticipant,
@@ -29,6 +30,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { getSessionStorageKey } from "../../utils/holeNavigation";
 
 interface PlayerGroupOrganizerProps {
@@ -82,6 +84,23 @@ function hasRecordedScores(teeTimes: TeeTime[]): boolean {
   );
 }
 
+function getNextTeeTime(teeTimes: TeeTime[]): string {
+  if (teeTimes.length === 0) return "08:00";
+  const last = teeTimes[teeTimes.length - 1].teetime;
+  const next = new Date(`2000-01-01T${last}`);
+  if (Number.isNaN(next.getTime())) return "08:00";
+  next.setMinutes(next.getMinutes() + 10);
+  return next.toTimeString().slice(0, 5);
+}
+
+function getDefaultStartHole(
+  teeTimes: TeeTime[],
+  roundType: CompetitionRoundType
+): number {
+  if (teeTimes.length > 0) return teeTimes[teeTimes.length - 1].start_hole;
+  return roundType === "back_9" ? 10 : 1;
+}
+
 export function PlayerGroupOrganizer({
   competitionId: competitionId,
   tourId,
@@ -92,6 +111,7 @@ export function PlayerGroupOrganizer({
   const { data: enrollments } = useTourEnrollments(tourId, "active");
   const { data: teams } = useTeams();
   const createParticipant = useCreateParticipant();
+  const createTeeTime = useCreateTeeTime();
   const deleteParticipant = useDeleteParticipant();
   const updatePlayedHoles = useUpdateCompetitionPlayedHoles();
 
@@ -99,6 +119,8 @@ export function PlayerGroupOrganizer({
   const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
   const [selectedRoundType, setSelectedRoundType] =
     useState<EditableRoundType>(getEditableRoundType(roundType));
+  const [newGroupTime, setNewGroupTime] = useState("08:00");
+  const [newGroupStartHole, setNewGroupStartHole] = useState(1);
   const [busyParticipantId, setBusyParticipantId] = useState<number | null>(
     null
   );
@@ -168,8 +190,35 @@ export function PlayerGroupOrganizer({
 
   function handleOpenEditRound() {
     setSelectedRoundType(getEditableRoundType(roundType));
+    setNewGroupTime(getNextTeeTime(safeTeeTimes));
+    setNewGroupStartHole(getDefaultStartHole(safeTeeTimes, roundType));
     setIsEditRoundOpen(true);
     setError(null);
+  }
+
+  async function handleCreateGroup() {
+    if (!newGroupTime) {
+      setError("Enter a start time for the new group.");
+      return;
+    }
+    setError(null);
+    try {
+      await createTeeTime.mutateAsync({
+        competitionId,
+        teetime: newGroupTime,
+        start_hole: newGroupStartHole,
+      });
+      const bumped = new Date(`2000-01-01T${newGroupTime}`);
+      if (!Number.isNaN(bumped.getTime())) {
+        bumped.setMinutes(bumped.getMinutes() + 10);
+        setNewGroupTime(bumped.toTimeString().slice(0, 5));
+      }
+      onUpdate?.();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to add group"
+      );
+    }
   }
 
   async function handleSaveRound() {
@@ -231,7 +280,6 @@ export function PlayerGroupOrganizer({
             type="button"
             variant="outline"
             onClick={handleOpenEditRound}
-            disabled={scoresRecorded}
             className="min-h-[44px] rounded border-turf text-turf hover:bg-turf/10"
           >
             <Edit3 className="mr-2 h-4 w-4" />
@@ -416,7 +464,7 @@ export function PlayerGroupOrganizer({
               onValueChange={(value) =>
                 setSelectedRoundType(value as EditableRoundType)
               }
-              disabled={updatePlayedHoles.isPending}
+              disabled={updatePlayedHoles.isPending || scoresRecorded}
             >
               <SelectTrigger className="min-h-[44px] w-full rounded border-soft-grey bg-scorecard text-charcoal">
                 <SelectValue />
@@ -426,9 +474,71 @@ export function PlayerGroupOrganizer({
                 <SelectItem value="back_9">Holes 10-18</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-body-xs text-charcoal/60">
-              This updates all groups in the start list.
-            </p>
+            {scoresRecorded ? (
+              <p className="text-body-xs text-charcoal/60">
+                Locked after scoring started.
+              </p>
+            ) : (
+              <p className="text-body-xs text-charcoal/60">
+                This updates all groups in the start list.
+              </p>
+            )}
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handleSaveRound}
+                disabled={updatePlayedHoles.isPending || scoresRecorded}
+                className="bg-turf text-scorecard hover:bg-fairway"
+              >
+                {updatePlayedHoles.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Save round
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3 border-t border-soft-grey pt-4">
+            <label className="text-label-md font-medium text-charcoal">
+              Add group
+            </label>
+            <div className="flex gap-2">
+              <Input
+                type="time"
+                value={newGroupTime}
+                onChange={(e) => setNewGroupTime(e.target.value)}
+                disabled={createTeeTime.isPending}
+                className="min-h-[44px] flex-1"
+                aria-label="New group start time"
+              />
+              <Select
+                value={newGroupStartHole.toString()}
+                onValueChange={(value) => setNewGroupStartHole(parseInt(value))}
+                disabled={createTeeTime.isPending}
+              >
+                <SelectTrigger className="min-h-[44px] w-28 rounded border-soft-grey bg-scorecard text-charcoal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Hole 1</SelectItem>
+                  <SelectItem value="10">Hole 10</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCreateGroup}
+              disabled={createTeeTime.isPending || !newGroupTime}
+              className="w-full border-turf text-turf hover:bg-turf/10"
+            >
+              {createTeeTime.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Add group
+            </Button>
           </div>
 
           <DialogFooter>
@@ -436,20 +546,9 @@ export function PlayerGroupOrganizer({
               type="button"
               variant="outline"
               onClick={() => setIsEditRoundOpen(false)}
-              disabled={updatePlayedHoles.isPending}
+              disabled={updatePlayedHoles.isPending || createTeeTime.isPending}
             >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveRound}
-              disabled={updatePlayedHoles.isPending}
-              className="bg-turf text-scorecard hover:bg-fairway"
-            >
-              {updatePlayedHoles.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Save round
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -112,8 +112,8 @@ export function CompetitionList<T extends CompetitionListItem>({
     <>
       <div className="bg-white border border-soft-grey rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
-        <div className="min-w-[860px]">
-          <div className="grid grid-cols-[minmax(220px,2fr)_120px_minmax(180px,1.5fr)_120px_110px_160px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
+        <div className="md:min-w-[860px]">
+          <div className="hidden md:grid grid-cols-[minmax(220px,2fr)_120px_minmax(180px,1.5fr)_120px_110px_160px] gap-4 px-4 py-2 text-xs font-semibold text-charcoal/70 uppercase tracking-wide border-b border-soft-grey bg-soft-grey/30">
             <div>Competition</div>
             <div>Date</div>
             <div>Course</div>
@@ -125,7 +125,7 @@ export function CompetitionList<T extends CompetitionListItem>({
             {competitions.map((competition) => (
               <div
                 key={competition.id}
-                className="grid grid-cols-[minmax(220px,2fr)_120px_minmax(180px,1.5fr)_120px_110px_160px] gap-4 px-4 py-2 text-sm items-center hover:bg-rough/20"
+                className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(220px,2fr)_120px_minmax(180px,1.5fr)_120px_110px_160px] md:gap-4 px-4 py-3 md:py-2 text-sm md:items-center hover:bg-rough/20"
               >
                 <div>
                   <div className="font-medium text-charcoal">{competition.name}</div>

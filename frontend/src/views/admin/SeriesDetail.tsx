@@ -53,7 +53,7 @@ export default function AdminSeriesDetail() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <Link
             to="/admin/series"
@@ -78,12 +78,12 @@ export default function AdminSeriesDetail() {
 
       {/* Tab Navigation */}
       <div className="border-b border-soft-grey">
-        <nav className="flex gap-4">
+        <nav className="flex gap-4 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 pb-2 px-1 border-b-2 text-sm font-semibold transition-colors ${
+              className={`flex items-center gap-2 pb-2 px-1 border-b-2 text-sm font-semibold whitespace-nowrap shrink-0 transition-colors ${
                 activeTab === tab.id
                   ? "border-turf text-turf"
                   : "border-transparent text-charcoal/60 hover:text-charcoal"

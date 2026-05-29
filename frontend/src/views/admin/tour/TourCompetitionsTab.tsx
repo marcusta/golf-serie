@@ -53,8 +53,8 @@ export function TourCompetitionsTab({ tourId }: TourCompetitionsTabProps) {
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-lg shadow-md p-4 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold text-charcoal">Competitions</h2>
             {competitions && competitions.length > 0 && (

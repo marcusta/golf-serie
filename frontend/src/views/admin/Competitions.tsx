@@ -708,12 +708,12 @@ export default function AdminCompetitions() {
                   key={competition.id}
                   className="px-6 py-4 hover:bg-gray-50"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1 min-w-0">
                       <h4 className="text-lg font-medium text-gray-900">
                         {competition.name}
                       </h4>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
                           {course?.name || "Unknown Course"}
@@ -739,7 +739,7 @@ export default function AdminCompetitions() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {(!isFullCompetition || (competition as Competition).start_mode !== "open") && (
                         <Link
                           to={`/admin/competitions/${competition.id}/tee-times`}
