@@ -271,6 +271,22 @@ export function PlayerGroupOrganizer({
     setBusyParticipantId(participant.id);
     setError(null);
     try {
+      // Removing a guest returns them to the unassigned pool. If their pool
+      // entry is missing (e.g. an older guest created before the pool existed),
+      // recreate it so they never disappear.
+      if (participant.is_guest) {
+        const name = participant.player_name || participant.position_name;
+        const inPool = safeGuests.some(
+          (g) => g.name.toLowerCase() === name?.toLowerCase()
+        );
+        if (name && !inPool) {
+          await createGuest.mutateAsync({
+            competitionId,
+            name,
+            handicap_index: participant.handicap_index ?? null,
+          });
+        }
+      }
       await deleteParticipant.mutateAsync(participant.id);
       onUpdate?.();
     } catch (err) {
