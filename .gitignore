@@ -153,7 +153,7 @@ data/
 # Claude Code local settings
 .claude/settings.local.json
 
-./playwright-report/*
-./playwright-mcp/*
+playwright-report/
+.playwright-mcp/
 
 .DS_Store
