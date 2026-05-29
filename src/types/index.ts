@@ -207,6 +207,8 @@ export interface Participant {
   manual_score_out: number | null;
   manual_score_in: number | null;
   manual_score_total: number | null;
+  // Guest players show on the leaderboard but never earn tour points
+  is_guest: boolean;
   // DQ and audit fields
   is_dq: boolean;
   admin_notes: string | null;
@@ -237,6 +239,21 @@ export interface CreateParticipantDto {
   position_name: string;
   player_names?: string;
   player_id?: number;
+  is_guest?: boolean;
+  handicap_index?: number | null;
+}
+
+export interface CompetitionGuest {
+  id: number;
+  competition_id: number;
+  name: string;
+  handicap_index: number | null;
+  created_at: string;
+}
+
+export interface CreateCompetitionGuestDto {
+  name: string;
+  handicap_index?: number | null;
 }
 
 export interface UpdateParticipantDto {

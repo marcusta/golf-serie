@@ -463,12 +463,17 @@ export function LeaderboardComponent({
                     <div className="flex-1 min-w-0 mr-2">
                       {entry.participant.player_name ? (
                         <>
-                          <h3 className={`text-sm font-semibold font-display truncate ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
+                          <h3 className={`flex items-center gap-1.5 text-sm font-semibold font-display truncate ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                             <PlayerNameLink
                               playerId={entry.participant.player_id}
                               playerName={entry.participant.player_name}
                               skipFriendCheck={isTourCompetition}
                             />
+                            {entry.participant.is_guest && (
+                              <span className="shrink-0 rounded-full bg-soft-grey px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-charcoal/60 font-primary">
+                                Guest
+                              </span>
+                            )}
                           </h3>
                           {showNetScores && entry.participant.handicap_index != null && (
                             <div className="flex items-center gap-1.5">
@@ -645,12 +650,17 @@ export function LeaderboardComponent({
                             {entry.participant.player_name ? (
                               // Player has a name - show player name prominently
                               <>
-                                <div className={`text-body-md font-semibold font-display ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
+                                <div className={`flex items-center gap-1.5 text-body-md font-semibold font-display ${entry.isDNF ? "text-gray-500" : "text-charcoal"}`}>
                                   <PlayerNameLink
                                     playerId={entry.participant.player_id}
                                     playerName={entry.participant.player_name}
                                     skipFriendCheck={isTourCompetition}
                                   />
+                                  {entry.participant.is_guest && (
+                                    <span className="shrink-0 rounded-full bg-soft-grey px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-charcoal/60 font-primary">
+                                      Guest
+                                    </span>
+                                  )}
                                 </div>
                                 {/* Hide team/position for Tour competitions */}
                                 {!isTourCompetition && (

@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import type { CreateCompetitionGuestDto } from "./types";
 import { cors } from "hono/cors";
 import { createAuthApi } from "./api/auth";
 import { createClubsApi } from "./api/clubs";
@@ -25,6 +26,7 @@ import { CourseService } from "./services/course-service";
 import { CourseTeeService } from "./services/course-tee.service";
 import { DocumentService } from "./services/document-service";
 import { ParticipantService } from "./services/participant-service";
+import { CompetitionGuestService } from "./services/competition-guest-service";
 import { createPlayerService } from "./services/player.service";
 import { createPlayerProfileService } from "./services/player-profile.service";
 import { createPointTemplateService } from "./services/point-template.service";
@@ -56,6 +58,7 @@ export function createApp(db: Database): Hono {
   const competitionCategoryTeeService = new CompetitionCategoryTeeService(db);
   const teeTimeService = new TeeTimeService(db);
   const participantService = new ParticipantService(db);
+  const competitionGuestService = new CompetitionGuestService(db);
   const seriesService = new SeriesService(db, competitionService);
   const seriesAdminService = createSeriesAdminService(db);
   const competitionAdminService = createCompetitionAdminService(db);
@@ -1116,6 +1119,72 @@ export function createApp(db: Database): Hono {
     }
     return await participantsApi.delete(id);
   });
+
+  // Competition guest pool routes
+  // Guests are organised into groups like enrolled players but never earn
+  // tour points. Mutations allowed for admin OR anyone when self_organize.
+  const ensureCanManageGuests = async (
+    c: Context,
+    competitionId: number
+  ): Promise<Response | null> => {
+    const competition = await competitionService.findById(competitionId);
+    if (!competition) {
+      return c.json({ error: "Competition not found" }, 404);
+    }
+    if (!competition.self_organize) {
+      const user = c.get("user");
+      if (!user) {
+        return c.json({ error: "Authentication required" }, 401);
+      }
+      if (!competitionAdminService.canManageCompetition(competitionId, user.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+    }
+    return null;
+  };
+
+  app.get("/api/competitions/:competitionId/guests", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    const guests = competitionGuestService.findAllForCompetition(competitionId);
+    return c.json(guests);
+  });
+
+  app.post("/api/competitions/:competitionId/guests", async (c) => {
+    const competitionId = parseInt(c.req.param("competitionId"));
+    const denied = await ensureCanManageGuests(c, competitionId);
+    if (denied) return denied;
+    try {
+      const body = (await c.req.raw.json()) as CreateCompetitionGuestDto;
+      const guest = competitionGuestService.create(competitionId, body);
+      return c.json(guest, 201);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create guest";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  app.delete(
+    "/api/competitions/:competitionId/guests/:guestId",
+    async (c) => {
+      const competitionId = parseInt(c.req.param("competitionId"));
+      const guestId = parseInt(c.req.param("guestId"));
+      const denied = await ensureCanManageGuests(c, competitionId);
+      if (denied) return denied;
+      try {
+        const guest = competitionGuestService.findById(guestId);
+        if (!guest || guest.competition_id !== competitionId) {
+          return c.json({ error: "Guest not found" }, 404);
+        }
+        competitionGuestService.delete(guestId);
+        return c.body(null, 204);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to delete guest";
+        return c.json({ error: message }, 400);
+      }
+    }
+  );
 
   app.put("/api/participants/:id/score", async (c) => {
     const id = parseInt(c.req.param("id"));

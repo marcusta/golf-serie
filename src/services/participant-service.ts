@@ -26,6 +26,7 @@ interface ParticipantRow {
   manual_score_out: number | null;
   manual_score_in: number | null;
   manual_score_total: number | null;
+  is_guest: number; // SQLite boolean
   is_dq: number | null;
   admin_notes: string | null;
   admin_modified_by: number | null;
@@ -126,6 +127,7 @@ export class ParticipantService {
       player_name: row.player_names,
       score: this.parseScoreJson(row.score),
       is_locked: Boolean(row.is_locked),
+      is_guest: Boolean(row.is_guest),
       is_dq: Boolean(row.is_dq),
     };
   }
@@ -266,11 +268,13 @@ export class ParticipantService {
     teeTimeId: number,
     positionName: string,
     playerNames: string | null,
-    playerId: number | null
+    playerId: number | null,
+    isGuest: boolean,
+    handicapIndex: number | null
   ): ParticipantRow {
     return this.db.prepare(`
-      INSERT INTO participants (tee_order, team_id, tee_time_id, position_name, player_names, player_id, score)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO participants (tee_order, team_id, tee_time_id, position_name, player_names, player_id, is_guest, handicap_index, score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `).get(
       teeOrder,
@@ -279,6 +283,8 @@ export class ParticipantService {
       positionName,
       playerNames,
       playerId,
+      isGuest ? 1 : 0,
+      handicapIndex,
       JSON.stringify([])
     ) as ParticipantRow;
   }
@@ -496,7 +502,9 @@ export class ParticipantService {
       data.tee_time_id,
       data.position_name,
       data.player_names || null,
-      data.player_id || null
+      data.player_id || null,
+      data.is_guest ?? false,
+      data.handicap_index ?? null
     );
 
     return this.transformParticipantRow(row);

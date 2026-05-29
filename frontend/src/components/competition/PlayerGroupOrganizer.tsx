@@ -13,6 +13,12 @@ import {
   type TeeTimeParticipant,
 } from "../../api/tee-times";
 import { useTourEnrollments, type TourEnrollment } from "../../api/tours";
+import {
+  useCompetitionGuests,
+  useCreateGuest,
+  useDeleteGuest,
+  type CompetitionGuest,
+} from "../../api/guests";
 import { useTeams } from "../../api/teams";
 import {
   Dialog,
@@ -44,8 +50,27 @@ interface PlayerGroupOrganizerProps {
 type EnrollmentLabel = string;
 type EditableRoundType = Extract<CompetitionRoundType, "front_9" | "back_9">;
 
+type PoolItem =
+  | {
+      kind: "enrollment";
+      key: string;
+      name: string;
+      enrollment: TourEnrollment;
+    }
+  | { kind: "guest"; key: string; name: string; guest: CompetitionGuest };
+
 function enrollmentDisplayName(e: TourEnrollment): EnrollmentLabel {
   return e.player_name || e.name || e.email || "Unnamed";
+}
+
+function isGuestAssigned(guest: CompetitionGuest, teeTimes: TeeTime[]): boolean {
+  return teeTimes.some((tt) =>
+    tt.participants.some(
+      (p) =>
+        p.is_guest &&
+        (p.player_name === guest.name || p.position_name === guest.name)
+    )
+  );
 }
 
 function isEnrollmentAssigned(
@@ -109,13 +134,20 @@ export function PlayerGroupOrganizer({
   onUpdate,
 }: PlayerGroupOrganizerProps) {
   const { data: enrollments } = useTourEnrollments(tourId, "active");
+  const { data: guests } = useCompetitionGuests(competitionId);
   const { data: teams } = useTeams();
   const createParticipant = useCreateParticipant();
   const createTeeTime = useCreateTeeTime();
   const deleteParticipant = useDeleteParticipant();
+  const createGuest = useCreateGuest();
+  const deleteGuest = useDeleteGuest();
   const updatePlayedHoles = useUpdateCompetitionPlayedHoles();
 
   const [openTeeTimeId, setOpenTeeTimeId] = useState<number | null>(null);
+  const [isGuestOpen, setIsGuestOpen] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestHandicap, setGuestHandicap] = useState("");
+  const [busyGuestId, setBusyGuestId] = useState<number | null>(null);
   const [isEditRoundOpen, setIsEditRoundOpen] = useState(false);
   const [selectedRoundType, setSelectedRoundType] =
     useState<EditableRoundType>(getEditableRoundType(roundType));
@@ -128,14 +160,29 @@ export function PlayerGroupOrganizer({
 
   const safeTeeTimes = teeTimes || [];
   const safeEnrollments = enrollments || [];
+  const safeGuests = guests || [];
   const currentRoundLabel = getRoundLabel(roundType);
   const scoresRecorded = hasRecordedScores(safeTeeTimes);
 
-  const unassigned = useMemo(
-    () =>
-      safeEnrollments.filter((e) => !isEnrollmentAssigned(e, safeTeeTimes)),
-    [safeEnrollments, safeTeeTimes]
-  );
+  const pool = useMemo<PoolItem[]>(() => {
+    const items: PoolItem[] = [];
+    for (const e of safeEnrollments) {
+      if (!isEnrollmentAssigned(e, safeTeeTimes)) {
+        items.push({
+          kind: "enrollment",
+          key: `e-${e.id}`,
+          name: enrollmentDisplayName(e),
+          enrollment: e,
+        });
+      }
+    }
+    for (const g of safeGuests) {
+      if (!isGuestAssigned(g, safeTeeTimes)) {
+        items.push({ kind: "guest", key: `g-${g.id}`, name: g.name, guest: g });
+      }
+    }
+    return items;
+  }, [safeEnrollments, safeGuests, safeTeeTimes]);
 
   const defaultTeamId = teams && teams.length > 0 ? teams[0].id : null;
   const openTeeTime =
@@ -143,7 +190,7 @@ export function PlayerGroupOrganizer({
       ? safeTeeTimes.find((tt) => tt.id === openTeeTimeId) || null
       : null;
 
-  async function handleAdd(enrollment: TourEnrollment, teeTime: TeeTime) {
+  async function handleAddItem(item: PoolItem, teeTime: TeeTime) {
     if (!defaultTeamId) {
       setError(
         "No team available. Ask an admin to create at least one team first."
@@ -155,21 +202,68 @@ export function PlayerGroupOrganizer({
       return;
     }
     setError(null);
-    const label = enrollmentDisplayName(enrollment);
     try {
       await createParticipant.mutateAsync({
         tee_time_id: teeTime.id,
         team_id: defaultTeamId,
-        position_name: label,
-        player_names: label,
-        player_id: enrollment.player_id ?? undefined,
+        position_name: item.name,
+        player_names: item.name,
         tee_order: teeTime.participants.length + 1,
+        ...(item.kind === "enrollment"
+          ? { player_id: item.enrollment.player_id ?? undefined }
+          : { is_guest: true, handicap_index: item.guest.handicap_index }),
       });
       onUpdate?.();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to add player to group"
       );
+    }
+  }
+
+  function handleOpenGuest() {
+    setGuestName("");
+    setGuestHandicap("");
+    setError(null);
+    setIsGuestOpen(true);
+  }
+
+  async function handleCreateGuest() {
+    const name = guestName.trim();
+    if (!name) {
+      setError("Enter a name for the guest.");
+      return;
+    }
+    const raw = guestHandicap.trim();
+    const handicap = raw === "" ? null : Number(raw);
+    if (handicap !== null && !Number.isFinite(handicap)) {
+      setError("Handicap must be a number.");
+      return;
+    }
+    setError(null);
+    try {
+      await createGuest.mutateAsync({
+        competitionId,
+        name,
+        handicap_index: handicap,
+      });
+      setIsGuestOpen(false);
+      onUpdate?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add guest");
+    }
+  }
+
+  async function handleDeleteGuest(guest: CompetitionGuest) {
+    setBusyGuestId(guest.id);
+    setError(null);
+    try {
+      await deleteGuest.mutateAsync({ competitionId, guestId: guest.id });
+      onUpdate?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove guest");
+    } finally {
+      setBusyGuestId(null);
     }
   }
 
@@ -308,9 +402,7 @@ export function PlayerGroupOrganizer({
                 <button
                   type="button"
                   onClick={() => setOpenTeeTimeId(tt.id)}
-                  disabled={
-                    tt.participants.length >= 4 || unassigned.length === 0
-                  }
+                  disabled={tt.participants.length >= 4 || pool.length === 0}
                   className="flex items-center gap-1 rounded-lg bg-turf px-3 py-1.5 text-sm text-white hover:bg-fairway disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4" />
@@ -339,8 +431,13 @@ export function PlayerGroupOrganizer({
                     key={p.id}
                     className="flex items-center justify-between py-2"
                   >
-                    <span className="text-sm text-charcoal">
+                    <span className="flex items-center gap-1.5 text-sm text-charcoal">
                       {p.player_name || p.position_name}
+                      {p.is_guest && (
+                        <span className="rounded-full bg-soft-grey px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-charcoal/60">
+                          Guest
+                        </span>
+                      )}
                     </span>
                     <button
                       type="button"
@@ -368,25 +465,67 @@ export function PlayerGroupOrganizer({
         <div className="mb-3 flex items-center gap-2">
           <Users className="h-4 w-4 text-charcoal/60" />
           <h3 className="text-sm font-semibold text-charcoal">
-            Unassigned ({unassigned.length})
+            Unassigned ({pool.length})
           </h3>
         </div>
-        {unassigned.length === 0 ? (
+        {pool.length === 0 ? (
           <p className="py-4 text-center text-sm text-charcoal/50">
-            All enrolled players are assigned to a group.
+            Everyone is assigned to a group.
           </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {unassigned.map((e) => (
+            {pool.map((item) => (
               <li
-                key={e.id}
-                className="rounded-full border border-soft-grey bg-rough/30 px-3 py-1 text-sm text-charcoal"
+                key={item.key}
+                className="flex items-center gap-1.5 rounded-full border border-soft-grey bg-rough/30 px-3 py-1 text-sm text-charcoal"
               >
-                {enrollmentDisplayName(e)}
+                <span>{item.name}</span>
+                {item.kind === "guest" && (
+                  <>
+                    <span className="rounded-full bg-soft-grey px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-charcoal/60">
+                      Guest
+                    </span>
+                    {item.guest.handicap_index != null && (
+                      <span className="text-xs text-turf">
+                        HCP {item.guest.handicap_index.toFixed(1)}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGuest(item.guest)}
+                      disabled={busyGuestId === item.guest.id}
+                      className="ml-0.5 text-charcoal/50 hover:text-coral disabled:opacity-50"
+                      aria-label={`Remove guest ${item.name}`}
+                    >
+                      {busyGuestId === item.guest.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <X className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>
         )}
+
+        <div className="mt-4 border-t border-soft-grey pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOpenGuest}
+            className="w-full border-turf text-turf hover:bg-turf/10"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add guest
+          </Button>
+          <p className="mt-2 text-center text-body-xs text-charcoal/60">
+            Guests join the pool here, then get organised into a group like
+            anyone else. They appear on the leaderboard but never earn tour
+            points.
+          </p>
+        </div>
       </div>
 
       {/* Add-to-group sheet */}
@@ -400,24 +539,24 @@ export function PlayerGroupOrganizer({
               Add to {openTeeTime?.teetime} (Hole {openTeeTime?.start_hole})
             </DialogTitle>
           </DialogHeader>
-          {unassigned.length === 0 ? (
+          {pool.length === 0 ? (
             <p className="py-6 text-center text-sm text-charcoal/60">
               No unassigned players.
             </p>
           ) : (
             <div className="max-h-72 overflow-y-auto">
               <ul className="divide-y divide-soft-grey">
-                {unassigned.map((e) => (
-                  <li key={e.id}>
+                {pool.map((item) => (
+                  <li key={item.key}>
                     <button
                       type="button"
                       onClick={async () => {
                         if (openTeeTime) {
-                          await handleAdd(e, openTeeTime);
+                          await handleAddItem(item, openTeeTime);
                           // close once group is full or roster empty
                           if (
                             openTeeTime.participants.length + 1 >= 4 ||
-                            unassigned.length === 1
+                            pool.length === 1
                           ) {
                             setOpenTeeTimeId(null);
                           }
@@ -426,7 +565,14 @@ export function PlayerGroupOrganizer({
                       disabled={createParticipant.isPending}
                       className="flex w-full items-center justify-between py-3 text-left text-sm text-charcoal hover:bg-rough/20 disabled:opacity-50"
                     >
-                      <span>{enrollmentDisplayName(e)}</span>
+                      <span className="flex items-center gap-1.5">
+                        {item.name}
+                        {item.kind === "guest" && (
+                          <span className="rounded-full bg-soft-grey px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-charcoal/60">
+                            Guest
+                          </span>
+                        )}
+                      </span>
                       <Plus className="h-4 w-4 text-turf" />
                     </button>
                   </li>
@@ -441,6 +587,73 @@ export function PlayerGroupOrganizer({
             >
               Done
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add-guest sheet */}
+      <Dialog open={isGuestOpen} onOpenChange={setIsGuestOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add guest</DialogTitle>
+            <DialogDescription>
+              Adds the guest to the unassigned pool. Organise them into a group
+              afterwards like any other player. Guests appear on the leaderboard
+              but are never assigned tour points.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <label className="text-label-md font-medium text-charcoal">
+              Guest name
+            </label>
+            <Input
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="e.g. Jane Doe"
+              disabled={createGuest.isPending}
+              className="min-h-[44px]"
+              aria-label="Guest name"
+            />
+
+            <label className="text-label-md font-medium text-charcoal">
+              Handicap index (optional)
+            </label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              value={guestHandicap}
+              onChange={(e) => setGuestHandicap(e.target.value)}
+              placeholder="e.g. 12.4"
+              disabled={createGuest.isPending}
+              className="min-h-[44px]"
+              aria-label="Guest handicap index"
+            />
+            <p className="text-body-xs text-charcoal/60">
+              Used for net scoring. Leave blank if unknown.
+            </p>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsGuestOpen(false)}
+                disabled={createGuest.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleCreateGuest}
+                disabled={createGuest.isPending || !guestName.trim()}
+                className="bg-turf text-scorecard hover:bg-fairway"
+              >
+                {createGuest.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Add guest
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

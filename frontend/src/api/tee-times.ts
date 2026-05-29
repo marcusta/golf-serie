@@ -17,6 +17,7 @@ export interface TeeTimeParticipant {
   player_id?: number | null;
   handicap_index?: number;
   is_dq?: boolean;
+  is_guest?: boolean;
 }
 
 export interface TeeTime {
@@ -140,6 +141,8 @@ interface CreateParticipantParams {
   tee_time_id: number;
   player_names?: string;
   player_id?: number;
+  is_guest?: boolean;
+  handicap_index?: number | null;
 }
 
 export function useCreateTeeTime() {

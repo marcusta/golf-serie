@@ -85,6 +85,7 @@ interface ParticipantWithDetailsRow {
   manual_score_out: number | null;
   manual_score_in: number | null;
   manual_score_total: number | null;
+  is_guest: number;
   is_dq: number;
   admin_notes: string | null;
   admin_modified_by: number | null;
@@ -669,6 +670,7 @@ export class LeaderboardService {
       manual_score_out: row.manual_score_out,
       manual_score_in: row.manual_score_in,
       manual_score_total: row.manual_score_total,
+      is_guest: Boolean(row.is_guest),
       is_dq: Boolean(row.is_dq),
       admin_notes: row.admin_notes,
       admin_modified_by: row.admin_modified_by,
@@ -965,6 +967,7 @@ export class LeaderboardService {
     const finishedPlayers = entries.filter(
       (e) =>
         e.holesPlayed === expectedHoles &&
+        !e.participant.is_guest &&
         !e.participant.is_dq &&
         !e.isDNF &&
         !this.isScoreInvalidForRanking(e.participant.score, scoringFormat) &&

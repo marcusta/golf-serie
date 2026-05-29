@@ -542,6 +542,41 @@ describe("CompetitionResultsService", () => {
       expect(results[0].player_id).toBe(player1.id);
     });
 
+    test("should exclude guest participants from results (no tour points)", () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const player1 = createTestPlayer("Tour Player");
+      createEnrollment(tour.id, player1.id, "player1@test.com");
+
+      // Real tour player: +2
+      createTestParticipant(teeTime.id, team.id, player1.id, {
+        score: createScoreWithRelative(2),
+        isLocked: true,
+      });
+
+      // Guest: even par (would beat the tour player), player_id NULL, is_guest = 1
+      db.prepare(
+        `INSERT INTO participants (tee_time_id, team_id, player_id, is_guest, tee_order, position_name, player_names, score, is_locked)
+         VALUES (?, ?, NULL, 1, 2, 'Guest', 'Guest Player', ?, 1)`
+      ).run(teeTime.id, team.id, JSON.stringify(createEvenParScore()));
+
+      service.finalizeCompetitionResults(competition.id);
+
+      const results = service.getCompetitionResults(competition.id);
+      // Guest excluded entirely - only the tour player gets a result row
+      expect(results).toHaveLength(1);
+      expect(results[0].player_id).toBe(player1.id);
+      // Guest invisible for points: tour player ranks 1st despite guest's better score
+      expect(results[0].position).toBe(1);
+    });
+
     test("should exclude unlocked participants in scheduled competitions", () => {
       const course = createTestCourse("Test Course", standardPars);
       const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {

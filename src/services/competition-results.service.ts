@@ -212,6 +212,7 @@ export class CompetitionResultsService {
           AND LOWER(TRIM(COALESCE(te.name, ''))) =
               LOWER(TRIM(COALESCE(p.player_names, p.position_name, '')))
         WHERE tt.competition_id = ?
+          AND p.is_guest = 0
           AND (p.player_id IS NOT NULL OR te.id IS NOT NULL)
       `)
       .all(competitionId) as ParticipantData[];
