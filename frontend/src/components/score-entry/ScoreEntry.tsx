@@ -11,6 +11,7 @@ import {
 import { FullScorecardModal, type PlayerNetScoringData } from "./FullScorecardModal";
 import { BarChart3, Pencil } from "lucide-react";
 import { useNativeKeyboard } from "./useNativeKeyboard";
+import { HoleHeaderCarousel } from "./HoleHeaderCarousel";
 
 interface PlayerScore {
   participantId: string;
@@ -142,6 +143,8 @@ export function ScoreEntry({
   const [fullScorecardVisible, setFullScorecardVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showingConfirmation, setShowingConfirmation] = useState(false);
+  const [isHoleContentTransitioning, setIsHoleContentTransitioning] =
+    useState(false);
 
   const {
     isVisible: nativeKeyboardVisible,
@@ -164,6 +167,19 @@ export function ScoreEntry({
 
   const currentPlayer = teeTimeGroup.players[currentPlayerIndex];
   const currentHoleData = course.holes.find((h) => h.number === currentHole);
+
+  const changeHole = (hole: number) => {
+    if (onHoleChange) {
+      onHoleChange(hole);
+    } else {
+      setInternalCurrentHole(hole);
+    }
+  };
+
+  const handleCarouselHoleChange = (hole: number) => {
+    changeHole(hole);
+    window.setTimeout(() => setIsHoleContentTransitioning(false), 60);
+  };
 
   // Calculate player's current score relative to par
   const calculatePlayerToPar = (player: PlayerScore): number | null => {
@@ -369,38 +385,16 @@ export function ScoreEntry({
       )}
       {/* Player Area with Aligned Score Columns */}
       <div className="flex-1 overflow-y-auto" style={{ minHeight: "60%" }}>
-        {/* Hole Header - full width bar */}
-        <div className="bg-rough bg-opacity-30 px-4 py-2 border-b border-soft-grey border-l-4 border-l-transparent">
-          <div className="flex items-center justify-end">
-            <div className="flex items-center space-x-4">
-              {/* Previous hole (only when on hole 2+) */}
-              {currentHole > 1 && (
-                <div className="text-center w-12">
-                  <div className="text-lg font-bold text-fairway font-display">
-                    {currentHole - 1}
-                  </div>
-                  <div className="text-xs text-fairway/70 font-primary">
-                    Par{" "}
-                    {course.holes.find((h) => h.number === currentHole - 1)
-                      ?.par || 4}
-                  </div>
-                </div>
-              )}
+        <HoleHeaderCarousel
+          holes={course.holes}
+          activeHoles={scoringHoles}
+          currentHole={currentHole}
+          onHoleChange={handleCarouselHoleChange}
+          onSettlingChange={setIsHoleContentTransitioning}
+        />
 
-              {/* Current hole (always shown, rightmost) */}
-              <div className="text-center w-12">
-                <div className="text-lg font-bold text-fairway font-display">
-                  {currentHole}
-                </div>
-                <div className="text-xs text-fairway/70 font-primary">
-                  Par {currentHoleData?.par || 4}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="divide-y divide-soft-grey">
+        <div data-testid="score-entry-hole-content">
+          <div className="divide-y divide-soft-grey">
           {teeTimeGroup.players.map((player, index) => {
             const currentScore = player.scores[currentHole - 1] ?? 0;
             const previousScore =
@@ -509,7 +503,13 @@ export function ScoreEntry({
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-4">
+                  <div
+                    data-testid="player-score-columns"
+                    className={cn(
+                      "flex items-center space-x-4 transition-opacity duration-200 ease-out",
+                      isHoleContentTransitioning ? "opacity-0" : "opacity-100"
+                    )}
+                  >
                     {/* Previous hole score (only when on hole 2+) */}
                     {currentHole > 1 && (
                       <div className="text-center w-12 relative">
@@ -570,10 +570,10 @@ export function ScoreEntry({
               </div>
             );
           })}
-        </div>
+          </div>
 
         {/* Action Buttons */}
-        <div className="px-4 py-6">
+          <div className="px-4 py-6">
           {/* View Full Scorecard Button - Only show if not ready to finalize */}
           {!isReadyToFinalize && (
             <button
@@ -665,6 +665,7 @@ export function ScoreEntry({
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 
