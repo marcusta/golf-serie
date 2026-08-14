@@ -157,3 +157,5 @@ playwright-report/
 .playwright-mcp/
 
 .DS_Store
+# Claude Code worktrees
+.claude/worktrees/
