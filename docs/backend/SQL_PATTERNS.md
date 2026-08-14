@@ -265,6 +265,17 @@ LEFT JOIN players pl ON p.player_id = pl.id  -- player_id can be NULL
 LEFT JOIN player_profiles pp ON pl.id = pp.player_id  -- profile is optional
 ```
 
+### Tour with default tee color
+**Locations**: `tour.service.ts` (`findAll`, `findById`, `findForUser`)
+
+```sql
+SELECT t.*, ct.color as default_tee_color
+FROM tours t
+LEFT JOIN course_tees ct ON t.default_tee_id = ct.id
+```
+
+`default_tee_id` is optional; color is used by the admin UI to match tees when creating a competition on a different course.
+
 ### Required Relationships (INNER JOIN)
 ```sql
 JOIN tee_times t ON p.tee_time_id = t.id  -- participant must have tee_time

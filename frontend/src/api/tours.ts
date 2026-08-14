@@ -19,6 +19,9 @@ export interface Tour {
   banner_image_url: string | null;
   landing_document_id: number | null;
   point_template_id: number | null;
+  default_course_id: number | null;
+  default_tee_id: number | null;
+  default_tee_color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -141,6 +144,8 @@ export interface UpdateTourData {
   banner_image_url?: string | null;
   landing_document_id?: number | null;
   point_template_id?: number | null;
+  default_course_id?: number | null;
+  default_tee_id?: number | null;
 }
 
 export interface CreateTourDocumentData {

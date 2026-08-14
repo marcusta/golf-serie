@@ -412,6 +412,99 @@ describe("Tours API", () => {
 
       expectErrorResponse(response, 401);
     });
+
+    test("should set default course and tee and return tee color", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      const createResponse = await makeRequest("/api/tours", "POST", {
+        name: "Club Tour",
+      });
+      const created = await createResponse.json();
+
+      db.prepare("INSERT INTO courses (name, pars) VALUES (?, ?)").run(
+        "Home Club",
+        "[]"
+      );
+      const course = db
+        .prepare("SELECT id FROM courses WHERE name = ?")
+        .get("Home Club") as { id: number };
+      db.prepare(
+        "INSERT INTO course_tees (course_id, name, color, course_rating, slope_rating) VALUES (?, ?, ?, ?, ?)"
+      ).run(course.id, "Yellow", "yellow", 72.1, 125);
+      const tee = db
+        .prepare("SELECT id FROM course_tees WHERE course_id = ? AND name = ?")
+        .get(course.id, "Yellow") as { id: number };
+
+      const response = await makeRequest(`/api/tours/${created.id}`, "PUT", {
+        default_course_id: course.id,
+        default_tee_id: tee.id,
+      });
+
+      const updated = await expectJsonResponse(response);
+      expect(response.status).toBe(200);
+      expect(updated.default_course_id).toBe(course.id);
+      expect(updated.default_tee_id).toBe(tee.id);
+      expect(updated.default_tee_color).toBe("yellow");
+
+      const getResponse = await makeRequest(`/api/tours/${created.id}`);
+      const fetched = await expectJsonResponse(getResponse);
+      expect(fetched.default_tee_color).toBe("yellow");
+    });
+
+    test("should reject a tee that does not belong to the default course", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      const createResponse = await makeRequest("/api/tours", "POST", {
+        name: "Club Tour",
+      });
+      const created = await createResponse.json();
+
+      db.prepare("INSERT INTO courses (name, pars) VALUES (?, ?)").run(
+        "Home Club",
+        "[]"
+      );
+      db.prepare("INSERT INTO courses (name, pars) VALUES (?, ?)").run(
+        "Away Club",
+        "[]"
+      );
+      const home = db
+        .prepare("SELECT id FROM courses WHERE name = ?")
+        .get("Home Club") as { id: number };
+      const away = db
+        .prepare("SELECT id FROM courses WHERE name = ?")
+        .get("Away Club") as { id: number };
+      db.prepare(
+        "INSERT INTO course_tees (course_id, name, color, course_rating, slope_rating) VALUES (?, ?, ?, ?, ?)"
+      ).run(away.id, "Yellow", "yellow", 71.4, 120);
+      const awayTee = db
+        .prepare("SELECT id FROM course_tees WHERE course_id = ?")
+        .get(away.id) as { id: number };
+
+      const response = await makeRequest(`/api/tours/${created.id}`, "PUT", {
+        default_course_id: home.id,
+        default_tee_id: awayTee.id,
+      });
+
+      expectErrorResponse(response, 400);
+      const body = await response.json();
+      expect(body.error).toBe("Tee must belong to the tour's default course");
+    });
   });
 
   describe("DELETE /api/tours/:id - Delete Tour (Admin/Owner Only)", () => {

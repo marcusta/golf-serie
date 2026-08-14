@@ -15,6 +15,7 @@ import {
   useTourPointTemplates,
   type PointTemplate,
 } from "../../../api/point-templates";
+import { CourseSelector, TeeSelector } from "../../../components/admin/competition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,6 +53,8 @@ const tourSettingsSchema = z.object({
   scoring_mode: z.enum(["gross", "net", "both"] as const),
   scoring_format: z.enum(["stroke_play", "stableford"] as const),
   point_template_id: z.string().optional(),
+  default_course_id: z.number().nullable(),
+  default_tee_id: z.number().nullable(),
 });
 
 type TourSettingsFormData = z.infer<typeof tourSettingsSchema>;
@@ -77,6 +80,8 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       scoring_mode: tour.scoring_mode,
       scoring_format: tour.scoring_format,
       point_template_id: tour.point_template_id?.toString() || "none",
+      default_course_id: tour.default_course_id ?? null,
+      default_tee_id: tour.default_tee_id ?? null,
     },
     mode: "onChange",
   });
@@ -91,6 +96,8 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       scoring_mode: tour.scoring_mode,
       scoring_format: tour.scoring_format,
       point_template_id: tour.point_template_id?.toString() || "none",
+      default_course_id: tour.default_course_id ?? null,
+      default_tee_id: tour.default_tee_id ?? null,
     });
   }, [tour, form]);
 
@@ -110,6 +117,8 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
             data.point_template_id && data.point_template_id !== "none"
               ? parseInt(data.point_template_id)
               : null,
+          default_course_id: data.default_course_id,
+          default_tee_id: data.default_tee_id,
         },
       });
       showSuccess("Tour settings saved successfully");
@@ -365,6 +374,54 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
                     </p>
                   </div>
                 )}
+              </FormItem>
+            )}
+          />
+
+          <div className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+            Play defaults
+          </div>
+
+          <FormField
+            control={form.control}
+            name="default_course_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <CourseSelector
+                    value={field.value}
+                    onChange={(courseId) => {
+                      field.onChange(courseId);
+                      form.setValue("default_tee_id", null, { shouldDirty: true });
+                    }}
+                    label="Default Course"
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  New competitions start with this course and tee. If you pick a
+                  different course, we select the same tee color when it exists.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="default_tee_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <TeeSelector
+                    courseId={form.watch("default_course_id")}
+                    value={field.value}
+                    onChange={field.onChange}
+                    label="Default Tee"
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />

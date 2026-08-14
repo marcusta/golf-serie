@@ -247,6 +247,8 @@ Championship-level multi-competition tournament series.
 | banner_image_url | TEXT | | Banner image URL |
 | landing_document_id | INTEGER | FOREIGN KEY → tour_documents(id) | Landing page document |
 | point_template_id | INTEGER | FOREIGN KEY → point_templates(id) | Default point template |
+| default_course_id | INTEGER | FOREIGN KEY → courses(id) ON DELETE SET NULL | Home course for new competitions |
+| default_tee_id | INTEGER | FOREIGN KEY → course_tees(id) ON DELETE SET NULL | Default tee for new competitions |
 | created_at | INTEGER | DEFAULT (unixepoch()) | Unix timestamp |
 | updated_at | INTEGER | DEFAULT (unixepoch()) | Unix timestamp |
 

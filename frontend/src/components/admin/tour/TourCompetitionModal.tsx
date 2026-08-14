@@ -11,9 +11,11 @@ import {
   type Competition,
   type CategoryTeeMapping,
 } from "../../../api/competitions";
-import { useCourses } from "../../../api/courses";
+import { useCourses, useCourseTees } from "../../../api/courses";
+import { useTour } from "../../../api/tours";
 import { useTourPointTemplates } from "../../../api/point-templates";
 import { TeeSelector, CategoryTeeAssignment } from "../competition";
+import { resolveTeeForCourse } from "../../../utils/resolveTeeForCourse";
 import { Loader2, Check, Trophy } from "lucide-react";
 import {
   Dialog,
@@ -99,12 +101,17 @@ export function TourCompetitionModal({
   onSuccess,
 }: TourCompetitionModalProps) {
   const queryClient = useQueryClient();
+  const { data: tour } = useTour(tourId);
   const { data: courses } = useCourses();
   const { data: pointTemplates } = useTourPointTemplates(tourId);
   const createMutation = useCreateCompetition();
   const updateMutation = useUpdateCompetition();
   const setCategoryTeesMutation = useSetCompetitionCategoryTees();
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const pendingTeeResolveRef = useRef<{
+    preferredTeeId: number | null;
+    preferredColor: string | null;
+  } | null>(null);
 
   // Load existing category-tee mappings when editing
   const { data: existingCategoryTees } = useCompetitionCategoryTees(
@@ -114,8 +121,6 @@ export function TourCompetitionModal({
   const [categoryTeeMappings, setCategoryTeeMappings] = useState<
     CategoryTeeMapping[]
   >([]);
-
-  const isEditing = !!competition;
 
   const form = useForm<TourCompetitionFormData>({
     resolver: zodResolver(tourCompetitionSchema),
@@ -137,47 +142,55 @@ export function TourCompetitionModal({
     mode: "onChange",
   });
 
+  const isEditing = !!competition;
+  const selectedCourseId = form.watch("course_id");
+  const { data: courseTees } = useCourseTees(
+    selectedCourseId ? parseInt(selectedCourseId) : 0
+  );
+
   // Reset form when modal opens or competition changes
   useEffect(() => {
-    if (open) {
-      if (competition) {
-        form.reset({
-          name: competition.name,
-          date: competition.date,
-          course_id: competition.course_id?.toString() || "",
-          tee_id: competition.tee_id?.toString() || "",
-          point_template_id: competition.point_template_id?.toString() || "",
-          scoring_format: competition.scoring_format ?? "tour_default",
-          venue_type: competition.venue_type || "outdoor",
-          manual_entry_format: competition.manual_entry_format || "out_in_total",
-          start_mode: competition.start_mode || "scheduled",
-          open_start: toDatetimeLocal(competition.open_start),
-          open_end: toDatetimeLocal(competition.open_end),
-          round_type: competition.round_type || "full_18",
-          self_organize: !!competition.self_organize,
-        });
-      } else {
-        form.reset({
-          name: "",
-          date: "",
-          course_id: "",
-          tee_id: "",
-          point_template_id: "",
-          scoring_format: "tour_default",
-          venue_type: "outdoor",
-          manual_entry_format: "out_in_total",
-          start_mode: "scheduled",
-          open_start: "",
-          open_end: "",
-          round_type: "full_18",
-          self_organize: false,
-        });
-        setCategoryTeeMappings([]);
-      }
-      // Auto-focus name field
-      setTimeout(() => nameInputRef.current?.focus(), 100);
+    if (!open) {
+      pendingTeeResolveRef.current = null;
+      return;
     }
-  }, [open, competition, form]);
+
+    if (competition) {
+      form.reset({
+        name: competition.name,
+        date: competition.date,
+        course_id: competition.course_id?.toString() || "",
+        tee_id: competition.tee_id?.toString() || "",
+        point_template_id: competition.point_template_id?.toString() || "",
+        scoring_format: competition.scoring_format ?? "tour_default",
+        venue_type: competition.venue_type || "outdoor",
+        manual_entry_format: competition.manual_entry_format || "out_in_total",
+        start_mode: competition.start_mode || "scheduled",
+        open_start: toDatetimeLocal(competition.open_start),
+        open_end: toDatetimeLocal(competition.open_end),
+        round_type: competition.round_type || "full_18",
+        self_organize: !!competition.self_organize,
+      });
+    } else {
+      form.reset({
+        name: "",
+        date: "",
+        course_id: tour?.default_course_id?.toString() || "",
+        tee_id: tour?.default_tee_id?.toString() || "",
+        point_template_id: "",
+        scoring_format: "tour_default",
+        venue_type: "outdoor",
+        manual_entry_format: "out_in_total",
+        start_mode: "scheduled",
+        open_start: "",
+        open_end: "",
+        round_type: "full_18",
+        self_organize: false,
+      });
+      setCategoryTeeMappings([]);
+    }
+    setTimeout(() => nameInputRef.current?.focus(), 100);
+  }, [open, competition, form, tour?.default_course_id, tour?.default_tee_id]);
 
   // Load existing category-tee mappings when data is fetched
   useEffect(() => {
@@ -256,10 +269,42 @@ export function TourCompetitionModal({
   };
 
   const handleCourseChange = (courseId: string) => {
+    const previousTeeId = form.getValues("tee_id");
+    const previousTee = courseTees?.find(
+      (tee) => tee.id === parseInt(previousTeeId || "0", 10)
+    );
+    const newCourseId = courseId ? parseInt(courseId, 10) : null;
+
     form.setValue("course_id", courseId, { shouldValidate: true });
-    form.setValue("tee_id", ""); // Reset tee when course changes
-    setCategoryTeeMappings([]); // Reset category-tee mappings when course changes
+    form.setValue("tee_id", "");
+    setCategoryTeeMappings([]);
+
+    if (!newCourseId) {
+      pendingTeeResolveRef.current = null;
+      return;
+    }
+
+    const isHomeCourse = tour?.default_course_id === newCourseId;
+    pendingTeeResolveRef.current = {
+      preferredTeeId: isHomeCourse ? (tour?.default_tee_id ?? null) : null,
+      preferredColor: previousTee?.color || tour?.default_tee_color || null,
+    };
   };
+
+  useEffect(() => {
+    const pending = pendingTeeResolveRef.current;
+    if (!pending || !courseTees) {
+      return;
+    }
+
+    const resolvedTeeId = resolveTeeForCourse({
+      tees: courseTees,
+      preferredTeeId: pending.preferredTeeId,
+      preferredColor: pending.preferredColor,
+    });
+    form.setValue("tee_id", resolvedTeeId?.toString() || "");
+    pendingTeeResolveRef.current = null;
+  }, [courseTees, form]);
 
   const isPending =
     createMutation.isPending ||
@@ -267,7 +312,6 @@ export function TourCompetitionModal({
     setCategoryTeesMutation.isPending;
 
   const startMode = form.watch("start_mode");
-  const selectedCourseId = form.watch("course_id");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

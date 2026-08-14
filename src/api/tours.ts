@@ -177,6 +177,8 @@ export function createToursApi(
         scoring_format: body.scoring_format,
         visibility: body.visibility,
         enrollment_mode: body.enrollment_mode,
+        default_course_id: body.default_course_id,
+        default_tee_id: body.default_tee_id,
       });
 
       return c.json(updated);

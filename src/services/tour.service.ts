@@ -45,6 +45,9 @@ export type Tour = {
   banner_image_url: string | null;
   landing_document_id: number | null;
   point_template_id: number | null;
+  default_course_id: number | null;
+  default_tee_id: number | null;
+  default_tee_color: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -68,6 +71,8 @@ export type UpdateTourInput = {
   scoring_format?: TourScoringFormat;
   visibility?: string;
   enrollment_mode?: string;
+  default_course_id?: number | null;
+  default_tee_id?: number | null;
 };
 
 export type TourStanding = {
@@ -207,6 +212,55 @@ export class TourService {
     }
   }
 
+  /**
+   * Resolve play-default course/tee updates.
+   * Clearing the course also clears the tee. Changing course without a new tee drops the stale tee.
+   */
+  private resolvePlayDefaultUpdates(data: UpdateTourInput, existing: Tour): UpdateTourInput {
+    const resolved = { ...data };
+    const courseCleared = resolved.default_course_id === null;
+    const courseChanged =
+      resolved.default_course_id !== undefined &&
+      resolved.default_course_id !== existing.default_course_id;
+
+    if (courseCleared || (courseChanged && resolved.default_tee_id === undefined)) {
+      resolved.default_tee_id = null;
+    }
+
+    return resolved;
+  }
+
+  private validatePlayDefaults(data: UpdateTourInput, existing: Tour): void {
+    const nextCourseId =
+      data.default_course_id !== undefined
+        ? data.default_course_id
+        : existing.default_course_id;
+    const nextTeeId =
+      data.default_tee_id !== undefined
+        ? data.default_tee_id
+        : existing.default_tee_id;
+
+    if (nextCourseId != null && !this.findCourseExists(nextCourseId)) {
+      throw new Error("Course not found");
+    }
+
+    if (nextTeeId == null) {
+      return;
+    }
+
+    if (nextCourseId == null) {
+      throw new Error("Default tee requires a default course");
+    }
+
+    const tee = this.findTeeWithCourse(nextTeeId);
+    if (!tee) {
+      throw new Error("Tee not found");
+    }
+    if (tee.course_id !== nextCourseId) {
+      throw new Error("Tee must belong to the tour's default course");
+    }
+  }
+
   // ==================== QUERY METHODS ====================
 
   private findPointTemplateExists(id: number): boolean {
@@ -220,6 +274,19 @@ export class TourService {
     return this.db
       .prepare("SELECT id, tour_id FROM tour_documents WHERE id = ?")
       .get(id) as DocumentRow | null;
+  }
+
+  private findCourseExists(id: number): boolean {
+    const row = this.db
+      .prepare("SELECT 1 FROM courses WHERE id = ?")
+      .get(id);
+    return row !== null;
+  }
+
+  private findTeeWithCourse(id: number): { id: number; course_id: number } | null {
+    return this.db
+      .prepare("SELECT id, course_id FROM course_tees WHERE id = ?")
+      .get(id) as { id: number; course_id: number } | null;
   }
 
   private findCategoriesByTour(tourId: number): TourCategory[] {
@@ -377,7 +444,7 @@ export class TourService {
     scoringMode: string,
     scoringFormat: TourScoringFormat
   ): Tour {
-    return this.db
+    const inserted = this.db
       .prepare(`
         INSERT INTO tours (
           name,
@@ -389,7 +456,7 @@ export class TourService {
           scoring_format
         )
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        RETURNING *
+        RETURNING id
       `)
       .get(
         name,
@@ -399,7 +466,8 @@ export class TourService {
         pointTemplateId,
         scoringMode,
         scoringFormat
-      ) as Tour;
+      ) as { id: number };
+    return this.findById(inserted.id)!;
   }
 
   private updateTourRow(
@@ -583,6 +651,14 @@ export class TourService {
       updates.push("enrollment_mode = ?");
       values.push(data.enrollment_mode);
     }
+    if (data.default_course_id !== undefined) {
+      updates.push("default_course_id = ?");
+      values.push(data.default_course_id);
+    }
+    if (data.default_tee_id !== undefined) {
+      updates.push("default_tee_id = ?");
+      values.push(data.default_tee_id);
+    }
 
     if (updates.length > 0) {
       updates.push("updated_at = CURRENT_TIMESTAMP");
@@ -595,7 +671,14 @@ export class TourService {
 
   findAll(): Tour[] {
     return this.db
-      .prepare("SELECT * FROM tours ORDER BY name ASC")
+      .prepare(
+        `
+        SELECT t.*, ct.color as default_tee_color
+        FROM tours t
+        LEFT JOIN course_tees ct ON t.default_tee_id = ct.id
+        ORDER BY t.name ASC
+      `
+      )
       .all() as Tour[];
   }
 
@@ -606,9 +689,10 @@ export class TourService {
     return this.db
       .prepare(
         `
-        SELECT DISTINCT t.*
+        SELECT DISTINCT t.*, ct.color as default_tee_color
         FROM tours t
         LEFT JOIN tour_admins ta ON t.id = ta.tour_id
+        LEFT JOIN course_tees ct ON t.default_tee_id = ct.id
         WHERE t.owner_id = ? OR ta.user_id = ?
         ORDER BY t.name ASC
       `
@@ -618,7 +702,14 @@ export class TourService {
 
   findById(id: number): Tour | null {
     return this.db
-      .prepare("SELECT * FROM tours WHERE id = ?")
+      .prepare(
+        `
+        SELECT t.*, ct.color as default_tee_color
+        FROM tours t
+        LEFT JOIN course_tees ct ON t.default_tee_id = ct.id
+        WHERE t.id = ?
+      `
+      )
       .get(id) as Tour | null;
   }
 
@@ -650,7 +741,6 @@ export class TourService {
       throw new Error("Tour not found");
     }
 
-    // Validation
     if (data.landing_document_id !== undefined && data.landing_document_id !== null) {
       this.validateLandingDocument(data.landing_document_id, id);
     }
@@ -664,8 +754,10 @@ export class TourService {
       this.validateScoringFormat(data.scoring_format);
     }
 
-    // Build update fields
-    const { updates, values } = this.buildUpdateFields(data);
+    const resolvedData = this.resolvePlayDefaultUpdates(data, tour);
+    this.validatePlayDefaults(resolvedData, tour);
+
+    const { updates, values } = this.buildUpdateFields(resolvedData);
     if (updates.length === 0) {
       return tour;
     }
@@ -674,7 +766,7 @@ export class TourService {
       data.scoring_format !== tour.scoring_format;
 
     return this.db.transaction(() => {
-      const updatedTour = this.updateTourRow(id, updates, values);
+      this.updateTourRow(id, updates, values);
 
       if (scoringFormatChanged) {
         const inheritedCompetitionIds = this.findInheritedFinalizedCompetitionIds(id);
@@ -683,7 +775,7 @@ export class TourService {
         }
       }
 
-      return updatedTour;
+      return this.findById(id)!;
     })();
   }
 
