@@ -48,6 +48,7 @@ export type Tour = {
   default_course_id: number | null;
   default_tee_id: number | null;
   default_tee_color: string | null;
+  counting_competitions: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -73,6 +74,7 @@ export type UpdateTourInput = {
   enrollment_mode?: string;
   default_course_id?: number | null;
   default_tee_id?: number | null;
+  counting_competitions?: number | null;
 };
 
 export type TourStanding = {
@@ -659,12 +661,68 @@ export class TourService {
       updates.push("default_tee_id = ?");
       values.push(data.default_tee_id);
     }
+    if (data.counting_competitions !== undefined) {
+      updates.push("counting_competitions = ?");
+      values.push(data.counting_competitions);
+    }
 
     if (updates.length > 0) {
       updates.push("updated_at = CURRENT_TIMESTAMP");
     }
 
     return { updates, values };
+  }
+
+  private validateCountingCompetitions(value: number | null): void {
+    if (value === null) {
+      return;
+    }
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error("counting_competitions must be null or a positive integer");
+    }
+  }
+
+  private compareCompetitionResultsByBest(
+    a: TourPlayerStanding["competitions"][number],
+    b: TourPlayerStanding["competitions"][number]
+  ): number {
+    if (b.points !== a.points) {
+      return b.points - a.points;
+    }
+    return a.competition_date.localeCompare(b.competition_date);
+  }
+
+  private applyCountingLimit(
+    standings: TourPlayerStanding[],
+    countingCompetitions: number | null | undefined
+  ): void {
+    for (const standing of standings) {
+      standing.actual_points = 0;
+      standing.projected_points = 0;
+      standing.total_points = 0;
+
+      for (const competition of standing.competitions) {
+        competition.counts_toward_projected = false;
+        competition.counts_toward_actual = false;
+      }
+
+      const allSorted = [...standing.competitions].sort((a, b) =>
+        this.compareCompetitionResultsByBest(a, b)
+      );
+      const projectedLimit = countingCompetitions ?? allSorted.length;
+      for (const competition of allSorted.slice(0, projectedLimit)) {
+        competition.counts_toward_projected = true;
+        standing.projected_points += competition.points;
+        standing.total_points += competition.points;
+      }
+
+      const finalizedSorted = allSorted.filter((competition) => !competition.is_projected);
+      const actualLimit = countingCompetitions ?? finalizedSorted.length;
+      for (const competition of finalizedSorted.slice(0, actualLimit)) {
+        competition.counts_toward_actual = true;
+        standing.actual_points += competition.points;
+      }
+    }
   }
 
   // ==================== PUBLIC API METHODS ====================
@@ -752,6 +810,9 @@ export class TourService {
     }
     if (data.scoring_format !== undefined) {
       this.validateScoringFormat(data.scoring_format);
+    }
+    if (data.counting_competitions !== undefined) {
+      this.validateCountingCompetitions(data.counting_competitions);
     }
 
     const resolvedData = this.resolvePlayDefaultUpdates(data, tour);
@@ -870,6 +931,11 @@ export class TourService {
         playerStandings
       );
 
+    this.applyCountingLimit(
+      Array.from(playerStandings.values()),
+      tour.counting_competitions
+    );
+
     // Sort and rank standings
     const sortedStandings = this.sortAndRankStandings(Array.from(playerStandings.values()));
 
@@ -934,9 +1000,6 @@ export class TourService {
       }
 
       const standing = playerStandings.get(result.player_id)!;
-      standing.actual_points += result.points;
-      standing.projected_points += result.points;
-      standing.total_points += result.points;
       standing.competitions_played += 1;
       standing.competitions.push({
         competition_id: result.competition_id,
@@ -1055,11 +1118,6 @@ export class TourService {
         // actual_points and projected_points (projected accumulates everything).
         const isFinalized = finalizedCompetitionIds.has(competition.id);
         const standing = playerStandings.get(result.player_id)!;
-        if (isFinalized) {
-          standing.actual_points += points;
-        }
-        standing.projected_points += points;
-        standing.total_points += points;
         standing.competitions_played += 1;
         standing.competitions.push({
           competition_id: competition.id,

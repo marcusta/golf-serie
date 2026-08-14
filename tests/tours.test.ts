@@ -505,6 +505,61 @@ describe("Tours API", () => {
       const body = await response.json();
       expect(body.error).toBe("Tee must belong to the tour's default course");
     });
+
+    test("should accept, persist, and clear counting_competitions", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      const createResponse = await makeRequest("/api/tours", "POST", {
+        name: "Counting Tour",
+      });
+      const created = await createResponse.json();
+
+      const setResponse = await makeRequest(`/api/tours/${created.id}`, "PUT", {
+        counting_competitions: 10,
+      });
+      const updated = await expectJsonResponse(setResponse);
+      expect(setResponse.status).toBe(200);
+      expect(updated.counting_competitions).toBe(10);
+
+      const clearResponse = await makeRequest(`/api/tours/${created.id}`, "PUT", {
+        counting_competitions: null,
+      });
+      const cleared = await expectJsonResponse(clearResponse);
+      expect(clearResponse.status).toBe(200);
+      expect(cleared.counting_competitions).toBeNull();
+    });
+
+    test("should reject invalid counting_competitions values", async () => {
+      await makeRequest("/api/auth/register", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+      db.prepare("UPDATE users SET role = 'ORGANIZER' WHERE email = 'admin@test.com'").run();
+      await makeRequest("/api/auth/login", "POST", {
+        email: "admin@test.com",
+        password: "password123",
+      });
+
+      const createResponse = await makeRequest("/api/tours", "POST", {
+        name: "Counting Tour",
+      });
+      const created = await createResponse.json();
+
+      for (const invalidValue of [0, -1, 1.5]) {
+        const response = await makeRequest(`/api/tours/${created.id}`, "PUT", {
+          counting_competitions: invalidValue,
+        });
+        expectErrorResponse(response, 400);
+      }
+    });
   });
 
   describe("DELETE /api/tours/:id - Delete Tour (Admin/Owner Only)", () => {

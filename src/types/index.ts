@@ -477,6 +477,7 @@ export interface Tour {
   default_course_id?: number | null;
   default_tee_id?: number | null;
   default_tee_color?: string | null;
+  counting_competitions?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -550,6 +551,7 @@ export interface UpdateTourDto {
   point_template_id?: number | null;
   default_course_id?: number | null;
   default_tee_id?: number | null;
+  counting_competitions?: number | null;
 }
 
 export interface CreateTourEnrollmentDto {
@@ -641,6 +643,8 @@ export interface TourPlayerStanding {
     net_score_relative_to_par?: number;
     course_handicap?: number;
     is_projected?: boolean; // True if from active/non-finalized competition
+    counts_toward_projected?: boolean;
+    counts_toward_actual?: boolean;
   }[];
 }
 

@@ -22,6 +22,7 @@ export interface Tour {
   default_course_id: number | null;
   default_tee_id: number | null;
   default_tee_color: string | null;
+  counting_competitions: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +48,8 @@ export interface TourPlayerCompetition {
   score_relative_to_par: number;
   stableford_points?: number;
   is_projected?: boolean; // True if from non-finalized competition
+  counts_toward_projected?: boolean;
+  counts_toward_actual?: boolean;
 }
 
 export interface TourPlayerStanding {
@@ -146,6 +149,7 @@ export interface UpdateTourData {
   point_template_id?: number | null;
   default_course_id?: number | null;
   default_tee_id?: number | null;
+  counting_competitions?: number | null;
 }
 
 export interface CreateTourDocumentData {

@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/form";
 import { useNotification } from "@/hooks/useNotification";
 
-const tourSettingsSchema = z.object({
+export const tourSettingsSchema = z.object({
   name: z
     .string()
     .min(1, "Tour name is required")
@@ -55,6 +55,14 @@ const tourSettingsSchema = z.object({
   point_template_id: z.string().optional(),
   default_course_id: z.number().nullable(),
   default_tee_id: z.number().nullable(),
+  counting_competitions: z
+    .string()
+    .refine(
+      (value) =>
+        value === "" ||
+        (/^\d+$/.test(value) && Number.parseInt(value, 10) >= 1),
+      { message: "Must be a positive whole number or empty" }
+    ),
 });
 
 type TourSettingsFormData = z.infer<typeof tourSettingsSchema>;
@@ -82,6 +90,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       point_template_id: tour.point_template_id?.toString() || "none",
       default_course_id: tour.default_course_id ?? null,
       default_tee_id: tour.default_tee_id ?? null,
+      counting_competitions: tour.counting_competitions?.toString() ?? "",
     },
     mode: "onChange",
   });
@@ -98,6 +107,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       point_template_id: tour.point_template_id?.toString() || "none",
       default_course_id: tour.default_course_id ?? null,
       default_tee_id: tour.default_tee_id ?? null,
+      counting_competitions: tour.counting_competitions?.toString() ?? "",
     });
   }, [tour, form]);
 
@@ -119,6 +129,10 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
               : null,
           default_course_id: data.default_course_id,
           default_tee_id: data.default_tee_id,
+          counting_competitions:
+            data.counting_competitions.trim() === ""
+              ? null
+              : Number.parseInt(data.counting_competitions, 10),
         },
       });
       showSuccess("Tour settings saved successfully");
@@ -374,6 +388,34 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
                     </p>
                   </div>
                 )}
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="counting_competitions"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                  Counting results
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder="All results count"
+                    className="h-9 text-sm max-w-md"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription className="text-xs text-charcoal/60">
+                  Number of best results that count toward standings. Leave empty
+                  to count all.
+                </FormDescription>
+                <FormMessage />
               </FormItem>
             )}
           />

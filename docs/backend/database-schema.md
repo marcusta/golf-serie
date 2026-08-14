@@ -249,6 +249,7 @@ Championship-level multi-competition tournament series.
 | point_template_id | INTEGER | FOREIGN KEY → point_templates(id) | Default point template |
 | default_course_id | INTEGER | FOREIGN KEY → courses(id) ON DELETE SET NULL | Home course for new competitions |
 | default_tee_id | INTEGER | FOREIGN KEY → course_tees(id) ON DELETE SET NULL | Default tee for new competitions |
+| counting_competitions | INTEGER | NULL | Best-N cap for standings totals (NULL = count all) |
 | created_at | INTEGER | DEFAULT (unixepoch()) | Unix timestamp |
 | updated_at | INTEGER | DEFAULT (unixepoch()) | Unix timestamp |
 

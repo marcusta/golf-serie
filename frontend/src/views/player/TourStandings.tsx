@@ -21,11 +21,10 @@ import {
 import { PlayerPageLayout } from "@/components/layout/PlayerPageLayout";
 import { PlayerNameLink } from "@/components/player/PlayerNameLink";
 import { useState, useEffect } from "react";
+import { competitionCountsTowardTotal } from "@/utils/tourStandingsCounting";
+import type { StandingsCompetitionEntry } from "@/utils/tourStandingsCounting";
 
-interface EnhancedCompetition extends TourPlayerCompetition {
-  is_future?: boolean;
-  not_participated?: boolean;
-}
+type EnhancedCompetition = StandingsCompetitionEntry;
 
 function LoadingSkeleton() {
   return (
@@ -376,6 +375,7 @@ export default function TourStandings() {
   };
 
   const displayedStandings = getSortedStandings(viewMode);
+  const countingLimit = standings.tour.counting_competitions ?? tour.counting_competitions;
 
   return (
     <PlayerPageLayout title="Player Standings" tourId={id} tourName={tour.name}>
@@ -531,6 +531,11 @@ export default function TourStandings() {
                 })()}
               </span>
             </div>
+            {countingLimit != null && (
+              <p className="text-sm text-charcoal/70 mt-1">
+                Best {countingLimit} results count
+              </p>
+            )}
           </div>
 
           {/* Table Header */}
@@ -641,6 +646,15 @@ export default function TourStandings() {
                         const enhancedComp = competition as EnhancedCompetition;
                         const isFuture = enhancedComp.is_future;
                         const notParticipated = enhancedComp.not_participated;
+                        const isCounted = competitionCountsTowardTotal(
+                          enhancedComp,
+                          viewMode
+                        );
+                        const showDroppedStyle =
+                          countingLimit != null &&
+                          !isFuture &&
+                          !notParticipated &&
+                          !isCounted;
 
                         return (
                           <div
@@ -648,6 +662,8 @@ export default function TourStandings() {
                             className={`flex items-center gap-3 py-3 px-4 transition-colors ${
                               isFuture || notParticipated
                                 ? "opacity-50"
+                                : showDroppedStyle
+                                ? "opacity-70"
                                 : "cursor-pointer hover:bg-gray-50/50"
                             }`}
                             onClick={
@@ -675,7 +691,11 @@ export default function TourStandings() {
 
                             {/* Competition Info */}
                             <div className="flex-1 min-w-0">
-                              <span className="text-sm text-charcoal">
+                              <span
+                                className={`text-sm ${
+                                  showDroppedStyle ? "text-charcoal/50" : "text-charcoal"
+                                }`}
+                              >
                                 {competition.competition_name}
                               </span>
                               <span className="text-xs text-charcoal/50 ml-2">
@@ -684,15 +704,32 @@ export default function TourStandings() {
                                   day: "numeric",
                                 })}
                               </span>
+                              {showDroppedStyle && (
+                                <span className="text-xs text-charcoal/45 ml-2 italic">
+                                  not counted
+                                </span>
+                              )}
                             </div>
 
                             {/* Score and Points */}
                             {!isFuture && !notParticipated && (
                               <div className="flex items-center gap-3 text-sm">
-                                <span className="text-charcoal/60">
+                                <span
+                                  className={
+                                    showDroppedStyle
+                                      ? "text-charcoal/40 line-through"
+                                      : "text-charcoal/60"
+                                  }
+                                >
                                   {formatCompetitionScore(competition)}
                                 </span>
-                                <span className="font-semibold text-charcoal">
+                                <span
+                                  className={`font-semibold ${
+                                    showDroppedStyle
+                                      ? "text-charcoal/40 line-through"
+                                      : "text-charcoal"
+                                  }`}
+                                >
                                   {competition.points} pts
                                 </span>
                               </div>
