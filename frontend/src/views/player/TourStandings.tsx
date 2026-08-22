@@ -755,7 +755,7 @@ export default function TourStandings() {
                               if ('is_future' in comp && comp.is_future) return false;
                               if ('not_participated' in comp && comp.not_participated) return false;
                               const compDate = new Date(comp.competition_date);
-                              return compDate <= today && comp.points > 0;
+                              return compDate <= today && comp.position > 0;
                             });
                             const totalPlayedInTour = allCompetitions?.filter(c => {
                               const compDate = new Date(c.date);
@@ -769,7 +769,7 @@ export default function TourStandings() {
                         <span className="text-charcoal/70">First positions:</span>
                         <span className="font-semibold text-charcoal">
                           {standing.competitions.filter(comp =>
-                            comp.position === 1 && comp.points > 0
+                            comp.position === 1
                           ).length}
                         </span>
                       </div>
@@ -777,7 +777,7 @@ export default function TourStandings() {
                         <span className="text-charcoal/70">Top 3 finishes:</span>
                         <span className="font-semibold text-charcoal">
                           {standing.competitions.filter(comp =>
-                            comp.position > 0 && comp.position <= 3 && comp.points > 0
+                            comp.position > 0 && comp.position <= 3
                           ).length}
                         </span>
                       </div>
@@ -785,7 +785,7 @@ export default function TourStandings() {
                         <span className="text-charcoal/70">Top 5 finishes:</span>
                         <span className="font-semibold text-charcoal">
                           {standing.competitions.filter(comp =>
-                            comp.position > 0 && comp.position <= 5 && comp.points > 0
+                            comp.position > 0 && comp.position <= 5
                           ).length}
                         </span>
                       </div>
