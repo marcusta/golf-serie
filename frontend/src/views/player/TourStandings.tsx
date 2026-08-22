@@ -781,6 +781,28 @@ export default function TourStandings() {
                           ).length}
                         </span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-charcoal/70">Top 5 finishes:</span>
+                        <span className="font-semibold text-charcoal">
+                          {standing.competitions.filter(comp =>
+                            comp.position > 0 && comp.position <= 5 && comp.points > 0
+                          ).length}
+                        </span>
+                      </div>
+                      {countingLimit != null && (
+                        <div className="flex justify-between">
+                          <span className="text-charcoal/70">Counted in standings:</span>
+                          <span className="font-semibold text-charcoal">
+                            {standing.competitions.filter((comp) =>
+                              competitionCountsTowardTotal(
+                                comp as EnhancedCompetition,
+                                viewMode
+                              )
+                            ).length}{" "}
+                            of {countingLimit}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
