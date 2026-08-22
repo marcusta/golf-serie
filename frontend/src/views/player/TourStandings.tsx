@@ -766,6 +766,12 @@ export default function TourStandings() {
                         </span>
                       </div>
                       <div className="flex justify-between">
+                        <span className="text-charcoal/70">Competitions with points:</span>
+                        <span className="font-semibold text-charcoal">
+                          {standing.competitions.filter(comp => comp.points > 0).length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-charcoal/70">First positions:</span>
                         <span className="font-semibold text-charcoal">
                           {standing.competitions.filter(comp =>
