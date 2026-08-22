@@ -70,7 +70,7 @@ export function useConfirmDialog() {
           <AlertDialogHeader>
             <AlertDialogTitle>{state.title}</AlertDialogTitle>
             {state.description ? (
-              <AlertDialogDescription>{state.description}</AlertDialogDescription>
+              <AlertDialogDescription className="whitespace-pre-line">{state.description}</AlertDialogDescription>
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -444,6 +444,33 @@ export interface FinalizeResultsResponse {
   competition_id: number;
 }
 
+export interface UnfinishedParticipant {
+  participant_id: number;
+  player_name: string;
+  holes_played: number;
+  expected_holes: number;
+  is_locked: boolean;
+}
+
+/**
+ * Participants whose scores would be excluded by finalize (missing holes or
+ * unlocked scorecard). Call before finalizing to warn the admin.
+ */
+export async function fetchFinalizeCheck(
+  competitionId: number
+): Promise<UnfinishedParticipant[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/competitions/${competitionId}/finalize-check`,
+    { credentials: "include" }
+  );
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || "Failed to check competition scores");
+  }
+  const data: { unfinished: UnfinishedParticipant[] } = await response.json();
+  return data.unfinished;
+}
+
 export function useFinalizeCompetitionResults() {
   const queryClient = useQueryClient();
 

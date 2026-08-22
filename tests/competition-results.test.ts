@@ -1209,6 +1209,86 @@ describe("CompetitionResultsService", () => {
     });
   });
 
+  describe("getUnfinishedParticipants", () => {
+    test("throws for non-existent competition", () => {
+      expect(() => service.getUnfinishedParticipants(999)).toThrow(
+        "Competition not found"
+      );
+    });
+
+    test("lists unlocked full scorecards and incomplete rounds, skips finished, DQ and guests", () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+
+      const finished = createTestPlayer("Finished");
+      const unlocked = createTestPlayer("Unlocked");
+      const partial = createTestPlayer("Partial");
+      const dq = createTestPlayer("Disqualified");
+      const guest = createTestPlayer("Guest");
+      for (const [i, pl] of [finished, unlocked, partial, dq, guest].entries()) {
+        createEnrollment(tour.id, pl.id, `p${i}@test.com`);
+      }
+
+      createTestParticipant(teeTime.id, team.id, finished.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+      createTestParticipant(teeTime.id, team.id, unlocked.id, {
+        score: createEvenParScore(),
+        isLocked: false,
+      });
+      createTestParticipant(teeTime.id, team.id, partial.id, {
+        score: createEvenParScore().slice(0, 9),
+        isLocked: false,
+      });
+      createTestParticipant(teeTime.id, team.id, dq.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+        isDQ: true,
+      });
+      const guestParticipant = createTestParticipant(teeTime.id, team.id, guest.id, {
+        score: createEvenParScore().slice(0, 3),
+      });
+      db.prepare("UPDATE participants SET is_guest = 1 WHERE id = ?").run(guestParticipant.id);
+
+      const result = service.getUnfinishedParticipants(competition.id);
+
+      expect(result.map((r) => r.player_name).sort()).toEqual(["Partial", "Unlocked"]);
+      const byName = Object.fromEntries(result.map((r) => [r.player_name, r]));
+      expect(byName.Unlocked).toMatchObject({
+        holes_played: 18,
+        expected_holes: 18,
+        is_locked: false,
+      });
+      expect(byName.Partial).toMatchObject({ holes_played: 9, expected_holes: 18 });
+    });
+
+    test("returns empty when every participant is finished", () => {
+      const user = createTestUser("owner@test.com", "ADMIN");
+      const course = createTestCourse("Test Course", standardPars);
+      const tour = createTestTour("Test Tour", user.id);
+      const competition = createTestCompetition("Test Comp", "2024-01-15", course.id, {
+        tourId: tour.id,
+      });
+      const teeTime = createTestTeeTime(competition.id, "08:00");
+      const team = createTestTeam("Team A");
+      const player = createTestPlayer("Player One");
+      createEnrollment(tour.id, player.id, "p1@test.com");
+      createTestParticipant(teeTime.id, team.id, player.id, {
+        score: createEvenParScore(),
+        isLocked: true,
+      });
+
+      expect(service.getUnfinishedParticipants(competition.id)).toEqual([]);
+    });
+  });
+
   describe("isCompetitionFinalized", () => {
     test("should return false for non-finalized competition", () => {
       const course = createTestCourse("Test Course", standardPars);

@@ -1,7 +1,6 @@
 import { CheckCircle, Loader2 } from "lucide-react";
-import { useFinalizeCompetitionResults } from "../../../api/competitions";
 import { Button } from "@/components/ui/button";
-import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { useFinalizeWithCheck } from "@/hooks/useFinalizeWithCheck";
 
 interface Competition {
   id: number;
@@ -15,28 +14,10 @@ interface CompetitionHeaderProps {
 }
 
 export function CompetitionHeader({ competition }: CompetitionHeaderProps) {
-  const finalizeResults = useFinalizeCompetitionResults();
-  const { confirm, dialog } = useConfirmDialog();
+  const { requestFinalize, dialog, isPending } = useFinalizeWithCheck();
 
-  const handleFinalize = async () => {
-    const shouldFinalize = await confirm({
-      title: "Finalize results?",
-      description: "This will calculate and store the final standings and points. You can re-finalize later if needed.",
-      confirmLabel: "Finalize results",
-    });
-    if (!shouldFinalize) return;
-    finalizeResults.mutate(competition.id);
-  };
-
-  const handleRefinalize = async () => {
-    const shouldRefinalize = await confirm({
-      title: "Re-finalize results?",
-      description: "This will recalculate standings and points based on current scores.",
-      confirmLabel: "Re-finalize results",
-    });
-    if (!shouldRefinalize) return;
-    finalizeResults.mutate(competition.id);
-  };
+  const handleFinalize = () => requestFinalize(competition.id);
+  const handleRefinalize = () => requestFinalize(competition.id, { refinalize: true });
 
   return (
     <>
@@ -66,9 +47,9 @@ export function CompetitionHeader({ competition }: CompetitionHeaderProps) {
               <Button
                 variant="outline"
                 onClick={handleRefinalize}
-                disabled={finalizeResults.isPending}
+                disabled={isPending}
               >
-                {finalizeResults.isPending ? (
+                {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   "Re-finalize"
@@ -78,10 +59,10 @@ export function CompetitionHeader({ competition }: CompetitionHeaderProps) {
           ) : (
             <Button
               onClick={handleFinalize}
-              disabled={finalizeResults.isPending}
+              disabled={isPending}
               className="flex items-center gap-2"
             >
-              {finalizeResults.isPending ? (
+              {isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Finalizing...

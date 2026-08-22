@@ -53,6 +53,14 @@ interface CompetitionResult {
   points: number;
 }
 
+export interface UnfinishedParticipant {
+  participant_id: number;
+  player_name: string;
+  holes_played: number;
+  expected_holes: number;
+  is_locked: boolean;
+}
+
 export interface StoredCompetitionResult {
   id: number;
   competition_id: number;
@@ -788,6 +796,42 @@ export class CompetitionResultsService {
   // ============================================================================
   // Public API Methods (orchestration only)
   // ============================================================================
+
+  /**
+   * Participants (non-guest, non-DQ) whose score would be excluded by
+   * finalizeCompetitionResults because it is not finished: missing holes,
+   * or a full scorecard that was never locked while the competition is open.
+   */
+  getUnfinishedParticipants(competitionId: number): UnfinishedParticipant[] {
+    const competition = this.findCompetitionDetails(competitionId);
+    if (!competition) {
+      throw new Error("Competition not found");
+    }
+    const scoringFormat = this.resolveEffectiveScoringFormat(competition);
+    const expectedHoles = getExpectedHolesCount(competition.round_type);
+    const isOpenCompetitionClosed = this.isOpenCompetitionClosed(competition);
+
+    return this.findParticipantDataRows(competitionId)
+      .filter((p) => !p.is_dq)
+      .map((p) => ({ p, score: this.parseParticipantScore(p.score) }))
+      .filter(
+        ({ p, score }) =>
+          !this.isParticipantFinished(
+            p,
+            score,
+            isOpenCompetitionClosed,
+            expectedHoles,
+            scoringFormat
+          )
+      )
+      .map(({ p, score }) => ({
+        participant_id: p.id,
+        player_name: p.player_name,
+        holes_played: calculateHolesPlayed(score),
+        expected_holes: expectedHoles,
+        is_locked: p.is_locked === 1,
+      }));
+  }
 
   /**
    * Calculate and store results for a competition

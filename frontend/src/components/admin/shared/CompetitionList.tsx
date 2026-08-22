@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useCourses, useCourseTees } from "../../../api/courses";
-import { useFinalizeCompetitionResults } from "../../../api/competitions";
-import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { useFinalizeWithCheck } from "@/hooks/useFinalizeWithCheck";
 import {
   Calendar,
   MapPin,
@@ -79,8 +78,7 @@ export function CompetitionList<T extends CompetitionListItem>({
   showManualScoreEntry = parentType === "series",
 }: CompetitionListProps<T>) {
   const { data: courses } = useCourses();
-  const finalizeResults = useFinalizeCompetitionResults();
-  const { confirm, dialog } = useConfirmDialog();
+  const { requestFinalize, dialog, isPending: isFinalizing } = useFinalizeWithCheck();
 
   const getCourseName = (competition: T) => {
     // Use course_name if available (tour competitions have this)
@@ -197,21 +195,15 @@ export function CompetitionList<T extends CompetitionListItem>({
                     </div>
                   ) : (
                     <button
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.stopPropagation();
-                        const shouldFinalize = await confirm({
-                          title: "Finalize results?",
-                          description: "This will calculate and store the final standings and points.",
-                          confirmLabel: "Finalize results",
-                        });
-                        if (!shouldFinalize) return;
-                        finalizeResults.mutate(competition.id);
+                        void requestFinalize(competition.id);
                       }}
-                      disabled={finalizeResults.isPending}
+                      disabled={isFinalizing}
                       className="h-8 w-8 flex items-center justify-center rounded-md text-coral hover:bg-coral/10 transition-colors disabled:opacity-50"
                       title="Finalize results"
                     >
-                      {finalizeResults.isPending ? (
+                      {isFinalizing ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <CheckCircle className="w-4 h-4" />

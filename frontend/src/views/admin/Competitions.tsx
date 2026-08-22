@@ -4,7 +4,6 @@ import {
   useCreateCompetition,
   useUpdateCompetition,
   useDeleteCompetition,
-  useFinalizeCompetitionResults,
   type Competition,
   type CreateCompetitionDto,
   type UpdateCompetitionDto,
@@ -17,6 +16,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { TeeSelector } from "../../components/admin/competition";
 import { useNotification } from "@/hooks/useNotification";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { useFinalizeWithCheck } from "@/hooks/useFinalizeWithCheck";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -66,7 +66,7 @@ export default function AdminCompetitions() {
   const createCompetition = useCreateCompetition();
   const updateCompetition = useUpdateCompetition();
   const deleteCompetition = useDeleteCompetition();
-  const finalizeResults = useFinalizeCompetitionResults();
+  const { requestFinalize, dialog: finalizeDialog, isPending: isFinalizing } = useFinalizeWithCheck();
   const { confirm, dialog } = useConfirmDialog();
 
   // Use series-specific or tour-specific competitions if filtering, otherwise stand-alone only
@@ -775,20 +775,12 @@ export default function AdminCompetitions() {
                           </div>
                         ) : (
                           <button
-                            onClick={async () => {
-                              const shouldFinalize = await confirm({
-                                title: "Finalize results?",
-                                description: "This will calculate and store the final standings and points.",
-                                confirmLabel: "Finalize results",
-                              });
-                              if (!shouldFinalize) return;
-                              finalizeResults.mutate(competition.id);
-                            }}
-                            disabled={finalizeResults.isPending}
+                            onClick={() => void requestFinalize(competition.id)}
+                            disabled={isFinalizing}
                             className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors disabled:opacity-50"
                             title="Finalize results"
                           >
-                            {finalizeResults.isPending ? (
+                            {isFinalizing ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <CheckCircle className="h-4 w-4" />
@@ -842,6 +834,7 @@ export default function AdminCompetitions() {
       </div>
       </div>
       {dialog}
+      {finalizeDialog}
     </>
   );
 }

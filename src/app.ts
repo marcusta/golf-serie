@@ -634,6 +634,24 @@ export function createApp(db: Database): Hono {
   });
 
   // Finalize competition results (calculate and store)
+  // Preflight for finalize: participants whose scores are not finished
+  app.get("/api/competitions/:competitionId/finalize-check", requireAuth(), async (c) => {
+    try {
+      const competitionId = parseInt(c.req.param("competitionId"));
+      const user = c.get("user");
+
+      if (!competitionAdminService.canManageCompetition(competitionId, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const unfinished = competitionResultsService.getUnfinishedParticipants(competitionId);
+      return c.json({ unfinished });
+    } catch (error: any) {
+      const status = error.message === "Competition not found" ? 404 : 400;
+      return c.json({ error: error.message }, status);
+    }
+  });
+
   app.post("/api/competitions/:competitionId/finalize", requireAuth(), async (c) => {
     try {
       const competitionId = parseInt(c.req.param("competitionId"));
