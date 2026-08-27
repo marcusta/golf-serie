@@ -64,12 +64,20 @@ export function applyAllowanceToCourseHandicap(
  *
  * @param handicapIndex - Exact handicap index (e.g. 12.6)
  * @param allowancePercent - Allowance in percent (100 = full handicap)
- * @returns handicapIndex x allowance, rounded to one decimal
+ * @returns handicapIndex x allowance (plus handicaps: divided by allowance),
+ *          rounded to one decimal
  */
 export function calculateExactPlayingHandicap(
   handicapIndex: number,
   allowancePercent: number
 ): number {
+  if (allowancePercent === 0) return 0;
+  if (handicapIndex < 0) {
+    // Plus handicap: a reduced allowance shrinks everyone else's deduction,
+    // so the plus player's addition grows instead. Divide by the allowance:
+    // +0.2 at 60% -> +0.2 / 0.6 -> +0.3.
+    return roundToOneDecimal((handicapIndex * 100) / allowancePercent);
+  }
   return roundToOneDecimal((handicapIndex * allowancePercent) / 100);
 }
 

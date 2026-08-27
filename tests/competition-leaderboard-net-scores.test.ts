@@ -649,6 +649,32 @@ describe("Competition Leaderboard with Net Scores", () => {
       expect(entry.netTotalShots).toBe(78.7); // 90 - 11.3
     });
 
+    it("divides plus handicaps by the allowance instead of multiplying", async () => {
+      const courseId = await createCourse("Exact Course Plus");
+      const tourId = createTour("Exact Tour Plus", "net");
+      const competitionId = await createExactCompetition("Exact Comp Plus", courseId, tourId, 60);
+      const teamId = createTeam("Exact Team Plus");
+
+      const playerId = createPlayer("Plus Player", -0.2);
+      createEnrollment(tourId, playerId, "exactplus@test.com");
+      const participantId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerId,
+        "Plus Player",
+        [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4] // 72 gross
+      );
+      setParticipantHandicap(participantId, -0.2);
+
+      const response = await competitionService.getLeaderboardWithDetails(competitionId);
+      const entry = response.entries[0];
+
+      // Plus handicap at 60%: -0.2 / 0.6 = -0.33 -> -0.3 (played as +0.3)
+      expect(entry.courseHandicap).toBe(-0.3);
+      expect(entry.netTotalShots).toBe(72.3); // 72 - (-0.3)
+      expect(entry.netRelativeToPar).toBe(0.3);
+    });
+
     it("deducts the handicap proportionally for in-progress rounds", async () => {
       const courseId = await createCourse("Exact Course 3");
       const tourId = createTour("Exact Tour 3", "net");
