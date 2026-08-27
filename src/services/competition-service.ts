@@ -388,6 +388,14 @@ export class CompetitionService {
       updates.push("self_organize = ?");
       values.push(data.self_organize ? 1 : 0);
     }
+    if (data.handicap_mode !== undefined) {
+      updates.push("handicap_mode = ?");
+      values.push(data.handicap_mode);
+    }
+    if (data.handicap_allowance !== undefined) {
+      updates.push("handicap_allowance = ?");
+      values.push(data.handicap_allowance);
+    }
 
     return { updates, values };
   }
@@ -460,8 +468,8 @@ export class CompetitionService {
 
   private insertCompetitionRow(data: CreateCompetitionDto): Competition {
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, scoring_format, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, round_type, self_organize, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, scoring_format, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, round_type, self_organize, handicap_mode, handicap_allowance, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
     const row = stmt.get(
@@ -481,6 +489,8 @@ export class CompetitionService {
       data.open_end || null,
       data.round_type || "full_18",
       data.self_organize ? 1 : 0,
+      data.handicap_mode || "whs",
+      data.handicap_allowance ?? 100,
       data.owner_id || null
     ) as Competition & { self_organize: number | boolean };
     return {

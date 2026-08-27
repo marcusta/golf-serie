@@ -550,4 +550,176 @@ describe("Competition Leaderboard with Net Scores", () => {
       expect(noHcpEntry!.netPoints).toBeUndefined();
     });
   });
+
+  describe("Exact handicap mode (no course rating)", () => {
+    function setParticipantHandicap(participantId: number, handicapIndex: number): void {
+      db.prepare(`UPDATE participants SET handicap_index = ? WHERE id = ?`).run(handicapIndex, participantId);
+    }
+
+    async function createExactCompetition(
+      name: string,
+      courseId: number,
+      tourId: number,
+      allowance: number = 100
+    ): Promise<number> {
+      const comp = await competitionService.create({
+        name,
+        date: "2025-01-01",
+        course_id: courseId,
+        tour_id: tourId,
+        handicap_mode: "exact",
+        handicap_allowance: allowance,
+      });
+      return comp.id;
+    }
+
+    it("stores handicap settings on the competition", async () => {
+      const courseId = await createCourse("Exact Course 0");
+      const tourId = createTour("Exact Tour 0", "net");
+      const competitionId = await createExactCompetition("Exact Comp 0", courseId, tourId, 90);
+
+      const comp = await competitionService.findById(competitionId);
+      expect(comp!.handicap_mode).toBe("exact");
+      expect(comp!.handicap_allowance).toBe(90);
+
+      const updated = await competitionService.update(competitionId, {
+        handicap_mode: "whs",
+        handicap_allowance: 100,
+      });
+      expect(updated.handicap_mode).toBe("whs");
+      expect(updated.handicap_allowance).toBe(100);
+    });
+
+    it("defaults to whs mode and 100% allowance", async () => {
+      const courseId = await createCourse("Exact Course Default");
+      const competitionId = await createCompetition("Default Mode Comp", courseId);
+      const comp = await competitionService.findById(competitionId);
+      expect(comp!.handicap_mode).toBe("whs");
+      expect(comp!.handicap_allowance).toBe(100);
+    });
+
+    it("calculates decimal net as gross minus exact handicap", async () => {
+      const courseId = await createCourse("Exact Course 1");
+      const tourId = createTour("Exact Tour 1", "net");
+      const competitionId = await createExactCompetition("Exact Comp 1", courseId, tourId);
+      const teamId = createTeam("Exact Team 1");
+
+      const playerId = createPlayer("Exact Player", 12.6);
+      createEnrollment(tourId, playerId, "exact1@test.com");
+      const participantId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerId,
+        "Exact Player",
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5] // 90 gross, +18
+      );
+      setParticipantHandicap(participantId, 12.6);
+
+      const response = await competitionService.getLeaderboardWithDetails(competitionId);
+      const entry = response.entries[0];
+
+      expect(entry.courseHandicap).toBe(12.6);
+      expect(entry.handicapStrokesPerHole).toBeUndefined();
+      expect(entry.netTotalShots).toBe(77.4); // 90 - 12.6
+      expect(entry.netRelativeToPar).toBe(5.4); // 77.4 - 72
+    });
+
+    it("applies the handicap allowance in exact mode", async () => {
+      const courseId = await createCourse("Exact Course 2");
+      const tourId = createTour("Exact Tour 2", "net");
+      const competitionId = await createExactCompetition("Exact Comp 2", courseId, tourId, 90);
+      const teamId = createTeam("Exact Team 2");
+
+      const playerId = createPlayer("Allowance Player", 12.6);
+      createEnrollment(tourId, playerId, "exact2@test.com");
+      const participantId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerId,
+        "Allowance Player",
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5] // 90 gross
+      );
+      setParticipantHandicap(participantId, 12.6);
+
+      const response = await competitionService.getLeaderboardWithDetails(competitionId);
+      const entry = response.entries[0];
+
+      // Playing handicap: 12.6 x 0.9 = 11.34 -> 11.3
+      expect(entry.courseHandicap).toBe(11.3);
+      expect(entry.netTotalShots).toBe(78.7); // 90 - 11.3
+    });
+
+    it("deducts the handicap proportionally for in-progress rounds", async () => {
+      const courseId = await createCourse("Exact Course 3");
+      const tourId = createTour("Exact Tour 3", "net");
+      const competitionId = await createExactCompetition("Exact Comp 3", courseId, tourId);
+      const teamId = createTeam("Exact Team 3");
+
+      const playerId = createPlayer("Progress Player", 12.6);
+      createEnrollment(tourId, playerId, "exact3@test.com");
+      const participantId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerId,
+        "Progress Player",
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 45 gross over front 9 (par 36)
+        false
+      );
+      setParticipantHandicap(participantId, 12.6);
+
+      const response = await competitionService.getLeaderboardWithDetails(competitionId);
+      const entry = response.entries[0];
+
+      expect(entry.holesPlayed).toBe(9);
+      expect(entry.netTotalShots).toBeUndefined();
+      // 45 - 36 - 12.6 * 9/18 = 9 - 6.3 = 2.7
+      expect(entry.netRelativeToPar).toBe(2.7);
+    });
+
+    it("finalizes decimal net scores and ranks by them", async () => {
+      const courseId = await createCourse("Exact Course 4");
+      const tourId = createTour("Exact Tour 4", "net");
+      const competitionId = await createExactCompetition("Exact Comp 4", courseId, tourId);
+      const teamId = createTeam("Exact Team 4");
+
+      // Player A: hcp 10.0, shoots 80 -> net 70.0
+      const playerAId = createPlayer("Exact A", 10.0);
+      createEnrollment(tourId, playerAId, "exacta@test.com");
+      const participantAId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerAId,
+        "Exact A",
+        [5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4] // 80 gross
+      );
+      setParticipantHandicap(participantAId, 10.0);
+
+      // Player B: hcp 12.6, shoots 82 -> net 69.4 (wins net despite higher gross)
+      const playerBId = createPlayer("Exact B", 12.6);
+      createEnrollment(tourId, playerBId, "exactb@test.com");
+      const participantBId = createTeeTimeWithParticipant(
+        competitionId,
+        teamId,
+        playerBId,
+        "Exact B",
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4] // 82 gross
+      );
+      setParticipantHandicap(participantBId, 12.6);
+
+      competitionResultsService.finalizeCompetitionResults(competitionId);
+
+      const netResults = db
+        .prepare(
+          `SELECT participant_id, net_score, position FROM competition_results
+           WHERE competition_id = ? AND scoring_type = 'net' ORDER BY position`
+        )
+        .all(competitionId) as { participant_id: number; net_score: number; position: number }[];
+
+      expect(netResults.length).toBe(2);
+      expect(netResults[0].participant_id).toBe(participantBId);
+      expect(netResults[0].net_score).toBe(69.4);
+      expect(netResults[1].participant_id).toBe(participantAId);
+      expect(netResults[1].net_score).toBe(70);
+    });
+  });
 });

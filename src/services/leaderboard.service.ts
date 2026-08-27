@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import type {
+  CompetitionHandicapMode,
   CompetitionRoundType,
   LeaderboardEntry,
   LeaderboardResponse,
@@ -14,8 +15,11 @@ import {
   normalizeRoundType,
 } from "../utils/round-type";
 import {
+  applyAllowanceToCourseHandicap,
   calculateCourseHandicap,
+  calculateExactPlayingHandicap,
   distributeHandicapStrokes,
+  roundToOneDecimal,
 } from "../utils/handicap";
 import { GOLF } from "../constants/golf";
 import { parseParsArray, safeParseJsonWithDefault } from "../utils/parsing";
@@ -52,6 +56,8 @@ interface CompetitionRow {
   course_stroke_index: string | null;
   is_results_final?: number;
   point_template_id?: number;
+  handicap_mode?: string | null;
+  handicap_allowance?: number | null;
 }
 
 interface TeeRow {
@@ -168,6 +174,8 @@ interface LeaderboardContext {
   activePar: number;
   scoringMode: TourScoringMode | undefined;
   scoringFormat: TourScoringFormat;
+  handicapMode: CompetitionHandicapMode;
+  handicapAllowance: number;
   isTourCompetition: boolean;
   isResultsFinal: boolean;
   isOpenCompetitionClosed: boolean;
@@ -302,6 +310,10 @@ export class LeaderboardService {
 
     const isOpenCompetitionClosed = this.isCompetitionWindowClosed(competition);
 
+    const handicapMode: CompetitionHandicapMode =
+      competition.handicap_mode === "exact" ? "exact" : "whs";
+    const handicapAllowance = competition.handicap_allowance ?? 100;
+
     return {
       competition,
       pars,
@@ -312,6 +324,8 @@ export class LeaderboardService {
       activePar,
       scoringMode,
       scoringFormat,
+      handicapMode,
+      handicapAllowance,
       isTourCompetition,
       isResultsFinal,
       isOpenCompetitionClosed,
@@ -381,6 +395,17 @@ export class LeaderboardService {
       return {};
     }
 
+    // Exact mode: no rating/slope, no per-hole stroke distribution.
+    // The playing handicap keeps its decimal (allowance applied).
+    if (context.handicapMode === "exact") {
+      return {
+        courseHandicap: calculateExactPlayingHandicap(
+          handicapIndex,
+          context.handicapAllowance
+        ),
+      };
+    }
+
     let playerCourseRating = context.courseRating;
     let playerSlopeRating = context.slopeRating;
 
@@ -392,11 +417,14 @@ export class LeaderboardService {
       playerSlopeRating = catTee.slopeRating;
     }
 
-    const fullCourseHandicap = calculateCourseHandicap(
-      handicapIndex,
-      playerSlopeRating,
-      playerCourseRating,
-      context.totalPar
+    const fullCourseHandicap = applyAllowanceToCourseHandicap(
+      calculateCourseHandicap(
+        handicapIndex,
+        playerSlopeRating,
+        playerCourseRating,
+        context.totalPar
+      ),
+      context.handicapAllowance
     );
     const handicapStrokesPerHole = distributeHandicapStrokes(
       fullCourseHandicap,
@@ -424,8 +452,8 @@ export class LeaderboardService {
     let netTotalShots: number | undefined;
     let netRelativeToPar: number | undefined;
     if (handicapInfo.courseHandicap !== undefined) {
-      netTotalShots = totalShots - handicapInfo.courseHandicap;
-      netRelativeToPar = netTotalShots - context.activePar;
+      netTotalShots = roundToOneDecimal(totalShots - handicapInfo.courseHandicap);
+      netRelativeToPar = roundToOneDecimal(netTotalShots - context.activePar);
     }
 
     return {
@@ -490,6 +518,22 @@ export class LeaderboardService {
           handicapInfo.handicapStrokesPerHole
         ).totalPoints;
       }
+    } else if (
+      handicapInfo.courseHandicap !== undefined &&
+      !handicapInfo.handicapStrokesPerHole &&
+      holesPlayed > 0
+    ) {
+      // Exact mode: no per-hole strokes, deduct the decimal playing handicap
+      const netScores = this.calculateExactNetScores(
+        score,
+        context.pars,
+        holesPlayed,
+        totalShots,
+        handicapInfo.courseHandicap,
+        context.expectedHoles
+      );
+      netTotalShots = netScores.netTotalShots;
+      netRelativeToPar = netScores.netRelativeToPar;
     }
 
     const stablefordPoints = context.scoringFormat === "stableford"
@@ -558,6 +602,43 @@ export class LeaderboardService {
       netTotalShots !== undefined
         ? netTotalShots - parForHolesPlayed
         : netScore - parForHolesPlayed;
+
+    return { netTotalShots, netRelativeToPar };
+  }
+
+  private calculateExactNetScores(
+    score: number[],
+    pars: number[],
+    holesPlayed: number,
+    totalShots: number,
+    playingHandicap: number,
+    expectedHoles: number
+  ): { netTotalShots: number | undefined; netRelativeToPar: number | undefined } {
+    if (holesPlayed === 0 || hasInvalidHole(score)) {
+      return { netTotalShots: undefined, netRelativeToPar: undefined };
+    }
+
+    let parForHolesPlayed = 0;
+    for (let i = 0; i < score.length; i++) {
+      if (score[i] > 0) {
+        parForHolesPlayed += pars[i] || 0;
+      }
+    }
+
+    const netTotalShots =
+      holesPlayed === expectedHoles
+        ? roundToOneDecimal(totalShots - playingHandicap)
+        : undefined;
+    // Mid-round: deduct the handicap proportionally to holes played so
+    // in-progress entries stay comparable on the live leaderboard.
+    const netRelativeToPar =
+      netTotalShots !== undefined
+        ? roundToOneDecimal(netTotalShots - parForHolesPlayed)
+        : roundToOneDecimal(
+            totalShots -
+              parForHolesPlayed -
+              (playingHandicap * holesPlayed) / expectedHoles
+          );
 
     return { netTotalShots, netRelativeToPar };
   }

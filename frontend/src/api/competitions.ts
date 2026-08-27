@@ -5,6 +5,10 @@ import type { TeeTimeParticipant } from "./tee-times";
 
 export type CompetitionRoundType = "full_18" | "front_9" | "back_9";
 
+// "whs": course handicap from slope/course rating (default).
+// "exact": net = gross - exact handicap index, decimal results, no rating needed.
+export type CompetitionHandicapMode = "whs" | "exact";
+
 export interface Competition {
   id: number;
   name: string;
@@ -23,6 +27,8 @@ export interface Competition {
   open_end?: string;
   round_type: CompetitionRoundType;
   self_organize: boolean;
+  handicap_mode?: CompetitionHandicapMode;
+  handicap_allowance?: number;
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -248,6 +254,8 @@ export interface CreateCompetitionDto {
   open_end?: string;
   round_type?: CompetitionRoundType;
   self_organize?: boolean;
+  handicap_mode?: CompetitionHandicapMode;
+  handicap_allowance?: number;
 }
 
 export interface UpdateCompetitionDto {
@@ -267,6 +275,8 @@ export interface UpdateCompetitionDto {
   open_end?: string | null;
   round_type?: CompetitionRoundType;
   self_organize?: boolean;
+  handicap_mode?: CompetitionHandicapMode;
+  handicap_allowance?: number;
 }
 
 export function useCreateCompetition() {

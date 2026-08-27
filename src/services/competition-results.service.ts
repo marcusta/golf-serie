@@ -1,8 +1,11 @@
 import { Database } from "bun:sqlite";
 import { GOLF } from "../constants/golf";
 import {
+  applyAllowanceToCourseHandicap,
   calculateCourseHandicap,
+  calculateExactPlayingHandicap,
   distributeHandicapStrokes,
+  roundToOneDecimal,
 } from "../utils/handicap";
 import type { TourScoringFormat } from "../types";
 import {
@@ -97,6 +100,8 @@ interface CompetitionDetailsRow {
   open_end: string | null;
   round_type: string | null;
   points_multiplier: number | null;
+  handicap_mode: string | null;
+  handicap_allowance: number | null;
 }
 
 interface PointTemplateRow {
@@ -164,6 +169,8 @@ export class CompetitionResultsService {
           c.open_end,
           c.round_type,
           c.points_multiplier,
+          c.handicap_mode,
+          c.handicap_allowance,
           co.pars,
           co.stroke_index as course_stroke_index,
           ct.slope_rating,
@@ -493,17 +500,30 @@ export class CompetitionResultsService {
         }
       }
 
-      if (participant.handicap_index !== null) {
+      if (participant.handicap_index !== null && competition.handicap_mode === "exact") {
+        // Exact mode: net = gross - (exact handicap x allowance), decimal result.
+        const playingHandicap = calculateExactPlayingHandicap(
+          participant.handicap_index,
+          competition.handicap_allowance ?? 100
+        );
+        if (grossScore !== null && !hasInvalidHole(score)) {
+          netScore = roundToOneDecimal(grossScore - playingHandicap);
+          netRelativeToPar = roundToOneDecimal(netScore - activePar);
+        }
+      } else if (participant.handicap_index !== null) {
         const totalPar = pars.reduce((sum, par) => sum + par, 0);
         const slopeRating = competition.slope_rating || GOLF.STANDARD_SLOPE_RATING;
         const courseRating = competition.course_rating || GOLF.STANDARD_COURSE_RATING;
         const strokeIndex = this.parseStrokeIndexSafe(competition.course_stroke_index);
         const activeHoleIndices = getActiveHoleIndices(competition.round_type);
-        const fullCourseHandicap = calculateCourseHandicap(
-          participant.handicap_index,
-          slopeRating,
-          courseRating,
-          totalPar
+        const fullCourseHandicap = applyAllowanceToCourseHandicap(
+          calculateCourseHandicap(
+            participant.handicap_index,
+            slopeRating,
+            courseRating,
+            totalPar
+          ),
+          competition.handicap_allowance ?? 100
         );
         const handicapStrokesPerHole = distributeHandicapStrokes(
           fullCourseHandicap,

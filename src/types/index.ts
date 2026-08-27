@@ -44,6 +44,10 @@ export interface Team {
 
 export type CompetitionRoundType = "full_18" | "front_9" | "back_9";
 
+// "whs": course handicap from slope/course rating (default).
+// "exact": net = gross - exact handicap index, no rating needed, decimal results.
+export type CompetitionHandicapMode = "whs" | "exact";
+
 export interface Competition {
   id: number;
   name: string;
@@ -57,6 +61,8 @@ export interface Competition {
   manual_entry_format?: "out_in_total" | "total_only";
   points_multiplier: number;
   venue_type: "outdoor" | "indoor";
+  handicap_mode: CompetitionHandicapMode;
+  handicap_allowance: number;
   start_mode: "scheduled" | "open";
   open_start?: string;
   open_end?: string;
@@ -147,6 +153,8 @@ export interface CreateCompetitionDto {
   open_end?: string;
   round_type?: CompetitionRoundType;
   self_organize?: boolean;
+  handicap_mode?: CompetitionHandicapMode;
+  handicap_allowance?: number;
   owner_id?: number;
 }
 
@@ -167,6 +175,8 @@ export interface UpdateCompetitionDto {
   open_end?: string | null;
   round_type?: CompetitionRoundType;
   self_organize?: boolean;
+  handicap_mode?: CompetitionHandicapMode;
+  handicap_allowance?: number;
 }
 
 export interface TeeTime {

@@ -67,6 +67,17 @@ const tourCompetitionSchema = z
     open_end: z.string().optional(),
     round_type: z.enum(["full_18", "front_9", "back_9"] as const),
     self_organize: z.boolean(),
+    handicap_mode: z.enum(["whs", "exact"] as const),
+    handicap_allowance: z
+      .string()
+      .min(1, "Handicap allowance is required")
+      .refine(
+        (value) => {
+          const parsed = Number(value.replace(",", "."));
+          return !Number.isNaN(parsed) && parsed >= 0 && parsed <= 200;
+        },
+        { message: "Allowance must be a number between 0 and 200" }
+      ),
   })
   .refine(
     (data) => {
@@ -138,6 +149,8 @@ export function TourCompetitionModal({
       open_end: "",
       round_type: "full_18",
       self_organize: false,
+      handicap_mode: "whs",
+      handicap_allowance: "100",
     },
     mode: "onChange",
   });
@@ -170,6 +183,8 @@ export function TourCompetitionModal({
         open_end: toDatetimeLocal(competition.open_end),
         round_type: competition.round_type || "full_18",
         self_organize: !!competition.self_organize,
+        handicap_mode: competition.handicap_mode || "whs",
+        handicap_allowance: (competition.handicap_allowance ?? 100).toString(),
       });
     } else {
       form.reset({
@@ -186,6 +201,8 @@ export function TourCompetitionModal({
         open_end: "",
         round_type: "full_18",
         self_organize: false,
+        handicap_mode: "whs",
+        handicap_allowance: "100",
       });
       setCategoryTeeMappings([]);
     }
@@ -232,6 +249,8 @@ export function TourCompetitionModal({
         data.start_mode === "open" && data.open_end ? data.open_end : undefined,
       round_type: data.round_type,
       self_organize: data.self_organize,
+      handicap_mode: data.handicap_mode,
+      handicap_allowance: Number(data.handicap_allowance.replace(",", ".")),
     };
 
     try {
@@ -496,6 +515,69 @@ export function TourCompetitionModal({
                     </Select>
                     <FormDescription>
                       Override the tour default only when this competition needs a different scoring format.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Handicap Mode */}
+              <FormField
+                control={form.control}
+                name="handicap_mode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Handicap Calculation</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={isPending}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="whs">
+                          Course rating &amp; slope (standard)
+                        </SelectItem>
+                        <SelectItem value="exact">
+                          Exact handicap (no course rating)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Exact handicap subtracts the handicap index directly from
+                      the gross score. Use it for courses without a course
+                      rating, e.g. par 3 courses. Net results get one decimal.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Handicap Allowance */}
+              <FormField
+                control={form.control}
+                name="handicap_allowance"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Handicap Allowance (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={200}
+                        step={5}
+                        inputMode="decimal"
+                        disabled={isPending}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Share of the handicap each player receives. 100% = full
+                      handicap.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

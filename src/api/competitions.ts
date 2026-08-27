@@ -19,6 +19,8 @@ const createCompetitionSchema = z.object({
   open_end: z.string().optional(),
   round_type: z.enum(["full_18", "front_9", "back_9"]).optional(),
   self_organize: z.boolean().optional(),
+  handicap_mode: z.enum(["whs", "exact"]).optional(),
+  handicap_allowance: z.number().min(0).max(200).optional(),
   owner_id: z.number().positive().optional(),
 });
 
@@ -39,6 +41,8 @@ const updateCompetitionSchema = z.object({
   open_end: z.string().nullable().optional(),
   round_type: z.enum(["full_18", "front_9", "back_9"]).optional(),
   self_organize: z.boolean().optional(),
+  handicap_mode: z.enum(["whs", "exact"]).optional(),
+  handicap_allowance: z.number().min(0).max(200).optional(),
 });
 
 export function createCompetitionsApi(competitionService: CompetitionService) {

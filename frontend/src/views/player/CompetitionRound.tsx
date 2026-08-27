@@ -153,9 +153,12 @@ export default function CompetitionRound() {
 
     leaderboardWithDetails.entries.forEach((entry) => {
       const participantId = entry.participant.id.toString();
+      // A decimal course handicap means exact-handicap mode: no per-hole strokes.
       const handicapStrokesPerHole =
         entry.handicapStrokesPerHole ||
-        (strokeIndex && entry.courseHandicap !== undefined
+        (strokeIndex &&
+        entry.courseHandicap !== undefined &&
+        Number.isInteger(entry.courseHandicap)
           ? distributeHandicapStrokes(entry.courseHandicap, strokeIndex)
           : undefined);
       dataMap.set(participantId, {

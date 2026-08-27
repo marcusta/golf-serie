@@ -37,6 +37,43 @@ export function calculateCourseHandicap(
 }
 
 /**
+ * Round to one decimal place (used for exact-handicap net results)
+ */
+export function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+/**
+ * Apply a handicap allowance percentage to an integer course handicap.
+ * Playing Handicap = Course Handicap x allowance, rounded to nearest integer.
+ *
+ * @param courseHandicap - Integer course handicap
+ * @param allowancePercent - Allowance in percent (100 = full handicap)
+ */
+export function applyAllowanceToCourseHandicap(
+  courseHandicap: number,
+  allowancePercent: number
+): number {
+  if (allowancePercent === 100) return courseHandicap;
+  return Math.round((courseHandicap * allowancePercent) / 100);
+}
+
+/**
+ * Playing handicap for "exact" mode competitions (no course rating / slope).
+ * Net = gross - this value, so results carry one decimal.
+ *
+ * @param handicapIndex - Exact handicap index (e.g. 12.6)
+ * @param allowancePercent - Allowance in percent (100 = full handicap)
+ * @returns handicapIndex x allowance, rounded to one decimal
+ */
+export function calculateExactPlayingHandicap(
+  handicapIndex: number,
+  allowancePercent: number
+): number {
+  return roundToOneDecimal((handicapIndex * allowancePercent) / 100);
+}
+
+/**
  * Distribute handicap strokes to holes based on stroke index
  *
  * @param courseHandicap - Calculated course handicap (integer)

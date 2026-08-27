@@ -194,9 +194,12 @@ export default function CompetitionDetail() {
     const entry = leaderboard.find(e => e.participant.id === selectedParticipantId);
     if (!entry || entry.courseHandicap === undefined) return undefined;
 
+    // A decimal course handicap means exact-handicap mode: no per-hole strokes.
     const handicapStrokesPerHole =
       entry.handicapStrokesPerHole ||
-      distributeHandicapStrokes(entry.courseHandicap, teeInfo.strokeIndex);
+      (Number.isInteger(entry.courseHandicap)
+        ? distributeHandicapStrokes(entry.courseHandicap, teeInfo.strokeIndex)
+        : undefined);
 
     return {
       strokeIndex: teeInfo.strokeIndex,

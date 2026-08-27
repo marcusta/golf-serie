@@ -59,8 +59,14 @@ export function Scorecard({
     if (handicapStrokesPerHoleProp) {
       return handicapStrokesPerHoleProp;
     }
-    // Calculate locally if we have the required data
-    if (strokeIndex && strokeIndex.length === 18 && courseHandicap !== undefined) {
+    // Calculate locally if we have the required data.
+    // A decimal course handicap means exact-handicap mode: no per-hole strokes.
+    if (
+      strokeIndex &&
+      strokeIndex.length === 18 &&
+      courseHandicap !== undefined &&
+      Number.isInteger(courseHandicap)
+    ) {
       return distributeHandicapStrokes(courseHandicap, strokeIndex);
     }
     return undefined;
