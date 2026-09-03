@@ -1,5 +1,4 @@
 import {
-import { formatSignedDecimal } from "@/utils/formatSignedDecimal";
   Clock,
   Users,
   Trash2,
@@ -10,6 +9,7 @@ import { formatSignedDecimal } from "@/utils/formatSignedDecimal";
   FileEdit,
   QrCode,
 } from "lucide-react";
+import { formatSignedDecimal } from "@/utils/formatSignedDecimal";
 import type { TeeTime, TeeTimeParticipant } from "../../../api/tee-times";
 import type { TourEnrollment } from "../../../api/tours";
 import { useNotification } from "@/hooks/useNotification";
