@@ -89,7 +89,7 @@ export function createParticipantsApi(participantService: ParticipantService) {
       } catch (error) {
         if (error instanceof Error) {
           return new Response(JSON.stringify({ error: error.message }), {
-            status: 404,
+            status: error.message.startsWith("Invalid") ? 400 : 404,
             headers: { "Content-Type": "application/json" },
           });
         }

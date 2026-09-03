@@ -16,6 +16,7 @@ export interface TeeTimeParticipant {
   team_name: string;
   player_id?: number | null;
   handicap_index?: number;
+  doped_handicap?: number | null;
   is_dq?: boolean;
   is_guest?: boolean;
 }

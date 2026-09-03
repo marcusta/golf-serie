@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatSignedDecimal } from "@/utils/formatSignedDecimal";
 import { formatToPar, getToParColor } from "../../utils/scoreCalculations";
 import { calculateStablefordDelta } from "../../utils/stableford";
 import type {
@@ -35,6 +36,8 @@ interface LeaderboardComponentProps {
   categoryTees?: CategoryTee[];
   // Categories for filtering (only for tour competitions)
   categories?: LeaderboardCategory[];
+  // Doped leaderboard variant: show the doped part of the handicap per entry
+  dopedMode?: boolean;
 }
 
 export function LeaderboardComponent({
@@ -48,6 +51,7 @@ export function LeaderboardComponent({
   teeInfo,
   categoryTees,
   categories,
+  dopedMode = false,
 }: LeaderboardComponentProps) {
   // Filter state
   const [filter, setFilter] = useState<"all" | "finished">("all");
@@ -427,7 +431,7 @@ export function LeaderboardComponent({
                   </div>
                 )}
                 <div className="w-8 text-center">Thru</div>
-                {isTourCompetition && <div className="w-8 text-center">Pts</div>}
+                {isTourCompetition && !dopedMode && <div className="w-8 text-center">Pts</div>}
               </div>
             </div>
 
@@ -480,9 +484,17 @@ export function LeaderboardComponent({
                               <span className="text-xs text-turf font-primary">
                                 HCP {entry.participant.handicap_index.toFixed(1)}
                               </span>
-                              {entry.courseHandicap !== undefined && (
+                              {(entry.doped_course_handicap ?? entry.courseHandicap) !== undefined && (
                                 <span className="text-xs bg-coral/20 text-coral px-1 py-0.5 rounded font-medium font-primary">
-                                  PH {entry.courseHandicap}
+                                  PH {dopedMode ? (entry.doped_course_handicap ?? entry.courseHandicap) : entry.courseHandicap}
+                                  {dopedMode && entry.doped_handicap != null && (
+                                    <> ({formatSignedDecimal(entry.doped_handicap)})</>
+                                  )}
+                                </span>
+                              )}
+                              {dopedMode && entry.doped_handicap === null && (
+                                <span className="text-xs text-charcoal/60 font-primary">
+                                  not frozen
                                 </span>
                               )}
                             </div>
@@ -570,7 +582,7 @@ export function LeaderboardComponent({
                           </div>
 
                           {/* Points (for tour competitions) */}
-                          {isTourCompetition && (() => {
+                          {isTourCompetition && !dopedMode && (() => {
                             const displayPoints =
                               sortBy === "net"
                                 ? entry.netPoints ?? entry.points
@@ -609,7 +621,7 @@ export function LeaderboardComponent({
                     <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
                       Hole & Score
                     </th>
-                    {isTourCompetition && (
+                    {isTourCompetition && !dopedMode && (
                       <th className="text-center py-3 px-4 text-sm font-semibold text-charcoal font-display">
                         Pts
                       </th>
@@ -686,9 +698,17 @@ export function LeaderboardComponent({
                                 <span className="text-xs text-turf font-primary">
                                   HCP {entry.participant.handicap_index.toFixed(1)}
                                 </span>
-                                {entry.courseHandicap !== undefined && (
+                                {(entry.doped_course_handicap ?? entry.courseHandicap) !== undefined && (
                                   <span className="text-xs bg-coral/20 text-coral px-1.5 py-0.5 rounded font-medium font-primary">
-                                    PH {entry.courseHandicap}
+                                    PH {dopedMode ? (entry.doped_course_handicap ?? entry.courseHandicap) : entry.courseHandicap}
+                                    {dopedMode && entry.doped_handicap != null && (
+                                      <> ({formatSignedDecimal(entry.doped_handicap)})</>
+                                    )}
+                                  </span>
+                                )}
+                                {dopedMode && entry.doped_handicap === null && (
+                                  <span className="text-xs text-charcoal/60 font-primary">
+                                    not frozen
                                   </span>
                                 )}
                               </div>
@@ -849,7 +869,7 @@ export function LeaderboardComponent({
                             </div>
                           )}
                         </td>
-                        {isTourCompetition && (() => {
+                        {isTourCompetition && !dopedMode && (() => {
                           const displayPoints =
                             sortBy === "net"
                               ? entry.netPoints ?? entry.points

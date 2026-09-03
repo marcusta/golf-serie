@@ -19,6 +19,7 @@ import { CourseSelector, TeeSelector } from "../../../components/admin/competiti
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -63,6 +64,7 @@ export const tourSettingsSchema = z.object({
         (/^\d+$/.test(value) && Number.parseInt(value, 10) >= 1),
       { message: "Must be a positive whole number or empty" }
     ),
+  doped_handicap_enabled: z.boolean().optional(),
 });
 
 type TourSettingsFormData = z.infer<typeof tourSettingsSchema>;
@@ -91,6 +93,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       default_course_id: tour.default_course_id ?? null,
       default_tee_id: tour.default_tee_id ?? null,
       counting_competitions: tour.counting_competitions?.toString() ?? "",
+      doped_handicap_enabled: !!tour.doped_handicap_enabled,
     },
     mode: "onChange",
   });
@@ -108,6 +111,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
       default_course_id: tour.default_course_id ?? null,
       default_tee_id: tour.default_tee_id ?? null,
       counting_competitions: tour.counting_competitions?.toString() ?? "",
+      doped_handicap_enabled: !!tour.doped_handicap_enabled,
     });
   }, [tour, form]);
 
@@ -133,6 +137,7 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
             data.counting_competitions.trim() === ""
               ? null
               : Number.parseInt(data.counting_competitions, 10),
+          doped_handicap_enabled: data.doped_handicap_enabled ?? false,
         },
       });
       showSuccess("Tour settings saved successfully");
@@ -416,6 +421,32 @@ export function TourSettingsTab({ tourId, tour }: TourSettingsTabProps) {
                   to count all.
                 </FormDescription>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="doped_handicap_enabled"
+            render={({ field }) => (
+              <FormItem className="flex items-start justify-between gap-4 rounded-md border border-soft-grey p-3">
+                <div className="space-y-1">
+                  <FormLabel className="text-xs font-semibold uppercase tracking-wide text-charcoal/70">
+                    Doped handicap
+                  </FormLabel>
+                  <FormDescription className="text-xs text-charcoal/60">
+                    Enables a side-bet handicap built from each player's
+                    results in this tour.
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={!!field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={isSubmitting}
+                    aria-label="Doped handicap"
+                  />
+                </FormControl>
               </FormItem>
             )}
           />

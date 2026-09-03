@@ -5,3 +5,4 @@ export { TourAdminsTab } from "./TourAdminsTab";
 export { TourDocumentsTab } from "./TourDocumentsTab";
 export { TourPointsTab } from "./TourPointsTab";
 export { TourSettingsTab } from "./TourSettingsTab";
+export { TourDopedHandicapsTab } from "./TourDopedHandicapsTab";

@@ -68,6 +68,10 @@ export interface Competition {
   open_end?: string;
   round_type: CompetitionRoundType;
   self_organize: boolean;
+  // Doped handicap side bet. use_doped_handicap adds a doped leaderboard,
+  // exclude_from_doped_handicap keeps this round out of the calculation.
+  use_doped_handicap: boolean;
+  exclude_from_doped_handicap: boolean;
   created_at: string;
   updated_at: string;
   is_results_final?: boolean;
@@ -155,6 +159,8 @@ export interface CreateCompetitionDto {
   self_organize?: boolean;
   handicap_mode?: CompetitionHandicapMode;
   handicap_allowance?: number;
+  use_doped_handicap?: boolean;
+  exclude_from_doped_handicap?: boolean;
   owner_id?: number;
 }
 
@@ -177,6 +183,8 @@ export interface UpdateCompetitionDto {
   self_organize?: boolean;
   handicap_mode?: CompetitionHandicapMode;
   handicap_allowance?: number;
+  use_doped_handicap?: boolean;
+  exclude_from_doped_handicap?: boolean;
 }
 
 export interface TeeTime {
@@ -211,6 +219,7 @@ export interface Participant {
   player_name: string | null;
   player_id: number | null;
   handicap_index: number | null; // Snapshot of handicap at time of playing
+  doped_handicap: number | null; // Frozen doped handicap, null until frozen
   score: number[];
   is_locked: boolean;
   locked_at: string | null;
@@ -273,6 +282,7 @@ export interface UpdateParticipantDto {
   position_name?: string;
   player_names?: string;
   handicap_index?: number | null;
+  doped_handicap?: number | null;
 }
 
 // Admin action DTOs
@@ -285,6 +295,8 @@ export interface AdminUpdateScoreDto {
   score: number[]; // Full 18-hole score array
   admin_notes?: string;
 }
+
+export type LeaderboardVariant = "normal" | "doped";
 
 export interface LeaderboardEntry {
   participant: Participant & {
@@ -311,6 +323,10 @@ export interface LeaderboardEntry {
   netPosition?: number;
   netPoints?: number;
   isProjected?: boolean; // true = calculated on-the-fly, false = from finalized results
+  // Doped variant only: frozen value on the participant (null = not frozen,
+  // 0 was used) and the handicap actually used, which equals courseHandicap.
+  doped_handicap?: number | null;
+  doped_course_handicap?: number;
 }
 
 export interface LeaderboardResponse {
@@ -321,6 +337,9 @@ export interface LeaderboardResponse {
   scoringFormat?: TourScoringFormat;
   isTourCompetition?: boolean;
   isResultsFinal?: boolean;
+  variant?: LeaderboardVariant;
+  use_doped_handicap?: boolean;
+  exclude_from_doped_handicap?: boolean;
   // Tee info (when competition has a default tee assigned)
   tee?: {
     id: number;
@@ -488,6 +507,7 @@ export interface Tour {
   default_tee_id?: number | null;
   default_tee_color?: string | null;
   counting_competitions?: number | null;
+  doped_handicap_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -547,6 +567,7 @@ export interface CreateTourDto {
   scoring_format?: TourScoringFormat;
   banner_image_url?: string;
   point_template_id?: number;
+  doped_handicap_enabled?: boolean;
 }
 
 export interface UpdateTourDto {
@@ -562,6 +583,7 @@ export interface UpdateTourDto {
   default_course_id?: number | null;
   default_tee_id?: number | null;
   counting_competitions?: number | null;
+  doped_handicap_enabled?: boolean;
 }
 
 export interface CreateTourEnrollmentDto {
@@ -641,6 +663,9 @@ export interface TourPlayerStanding {
   total_points: number; // DEPRECATED but kept for backward compatibility (= projected_points)
   competitions_played: number;
   position: number;
+  // Present when the tour has doped_handicap_enabled
+  doped_handicap?: number;
+  doped_handicap_rounds?: number;
   competitions: {
     competition_id: number;
     competition_name: string;
@@ -656,6 +681,25 @@ export interface TourPlayerStanding {
     counts_toward_projected?: boolean;
     counts_toward_actual?: boolean;
   }[];
+}
+
+export interface DopedHandicapRound {
+  competition_id: number;
+  competition_name: string;
+  competition_date: string;
+  holes: number;
+  net_stableford_points: number | null;
+  net_relative_to_par: number | null;
+  shortfall: number;
+  is_projected: boolean;
+}
+
+export interface DopedHandicapSummary {
+  player_id: number; // Same key as standings: player_id or negative enrollment id
+  player_name: string;
+  doped_handicap: number; // Mean shortfall over 18 holes, 1 decimal
+  rounds_counted: number;
+  rounds: DopedHandicapRound[];
 }
 
 export interface TourStandings {

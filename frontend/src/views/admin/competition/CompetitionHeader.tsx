@@ -1,19 +1,26 @@
 import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFinalizeWithCheck } from "@/hooks/useFinalizeWithCheck";
+import { FreezeDopedHandicapsButton } from "./FreezeDopedHandicapsButton";
 
 interface Competition {
   id: number;
   name: string;
   is_results_final?: boolean;
   results_finalized_at?: string;
+  use_doped_handicap?: boolean;
 }
 
 interface CompetitionHeaderProps {
   competition: Competition;
+  // True when at least one participant already has a frozen doped handicap
+  hasFrozenDopedValues?: boolean;
 }
 
-export function CompetitionHeader({ competition }: CompetitionHeaderProps) {
+export function CompetitionHeader({
+  competition,
+  hasFrozenDopedValues = false,
+}: CompetitionHeaderProps) {
   const { requestFinalize, dialog, isPending } = useFinalizeWithCheck();
 
   const handleFinalize = () => requestFinalize(competition.id);
@@ -30,7 +37,13 @@ export function CompetitionHeader({ competition }: CompetitionHeaderProps) {
             Set up participant types and create tee times
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {competition.use_doped_handicap && (
+            <FreezeDopedHandicapsButton
+              competitionId={competition.id}
+              hasFrozenValues={hasFrozenDopedValues}
+            />
+          )}
           {competition.is_results_final ? (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">

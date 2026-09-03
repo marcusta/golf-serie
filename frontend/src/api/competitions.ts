@@ -29,6 +29,9 @@ export interface Competition {
   self_organize: boolean;
   handicap_mode?: CompetitionHandicapMode;
   handicap_allowance?: number;
+  // Doped handicap side bet (only meaningful when the tour has it enabled)
+  use_doped_handicap?: boolean;
+  exclude_from_doped_handicap?: boolean;
   created_at: string;
   updated_at: string;
   participant_count: number;
@@ -68,7 +71,12 @@ export interface LeaderboardEntry {
   netPosition?: number;
   netPoints?: number;
   isProjected?: boolean; // true = calculated on-the-fly, false = from finalized results
+  // Doped leaderboard variant only
+  doped_handicap?: number | null; // frozen value, null when not frozen
+  doped_course_handicap?: number; // playing handicap actually used in doped mode
 }
+
+export type LeaderboardVariant = "normal" | "doped";
 
 export type TourScoringMode = "gross" | "net" | "both";
 export type TourScoringFormat = "stroke_play" | "stableford";
@@ -204,21 +212,31 @@ export function useCompetitionLeaderboard(competitionId: number) {
 }
 
 /**
- * Fetch leaderboard with full details including tee info and net scores
+ * Fetch leaderboard with full details including tee info and net scores.
+ * variant "doped" loads the side-bet leaderboard (same shape, doped handicap applied).
  */
-export function useCompetitionLeaderboardWithDetails(competitionId: number) {
+export function useCompetitionLeaderboardWithDetails(
+  competitionId: number,
+  options: { variant?: LeaderboardVariant; enabled?: boolean } = {}
+) {
+  const variant = options.variant ?? "normal";
+  const queryKey =
+    variant === "doped"
+      ? ["competition", competitionId, "leaderboard", "details", "doped"]
+      : ["competition", competitionId, "leaderboard", "details"];
   return useQuery<LeaderboardResponse>({
-    queryKey: ["competition", competitionId, "leaderboard", "details"],
+    queryKey,
     queryFn: async () => {
+      const suffix = variant === "doped" ? "?variant=doped" : "";
       const response = await fetch(
-        `${API_BASE_URL}/competitions/${competitionId}/leaderboard/details`
+        `${API_BASE_URL}/competitions/${competitionId}/leaderboard/details${suffix}`
       );
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
       return response.json();
     },
-    enabled: competitionId > 0,
+    enabled: competitionId > 0 && (options.enabled ?? true),
   });
 }
 
@@ -256,6 +274,8 @@ export interface CreateCompetitionDto {
   self_organize?: boolean;
   handicap_mode?: CompetitionHandicapMode;
   handicap_allowance?: number;
+  use_doped_handicap?: boolean;
+  exclude_from_doped_handicap?: boolean;
 }
 
 export interface UpdateCompetitionDto {
@@ -277,6 +297,8 @@ export interface UpdateCompetitionDto {
   self_organize?: boolean;
   handicap_mode?: CompetitionHandicapMode;
   handicap_allowance?: number;
+  use_doped_handicap?: boolean;
+  exclude_from_doped_handicap?: boolean;
 }
 
 export function useCreateCompetition() {
@@ -507,6 +529,61 @@ export function useFinalizeCompetitionResults() {
       // Invalidate tour-related queries if this is a tour competition
       queryClient.invalidateQueries({ queryKey: ["tour-standings"] });
       queryClient.invalidateQueries({ queryKey: ["tour-competitions"] });
+    },
+  });
+}
+
+// Doped handicap freeze
+
+export interface FreezeDopedHandicapsResponse {
+  updated: number;
+  participants: {
+    participant_id: number;
+    player_name: string;
+    doped_handicap: number;
+  }[];
+}
+
+/**
+ * Freeze the doped handicap on every participant. Without force only
+ * participants without a value get one.
+ */
+export function useFreezeDopedHandicaps() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      competitionId,
+      force = false,
+    }: {
+      competitionId: number;
+      force?: boolean;
+    }): Promise<FreezeDopedHandicapsResponse> => {
+      const response = await fetch(
+        `${API_BASE_URL}/competitions/${competitionId}/doped-handicaps/freeze`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ force }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to freeze doped handicaps");
+      }
+      return response.json();
+    },
+    onSuccess: (_, { competitionId }) => {
+      queryClient.invalidateQueries({
+        queryKey: ["tee-times", "competition", competitionId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["competition-participants", competitionId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["competition", competitionId, "leaderboard", "details", "doped"],
+      });
     },
   });
 }

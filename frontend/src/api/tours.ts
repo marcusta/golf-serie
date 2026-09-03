@@ -23,6 +23,7 @@ export interface Tour {
   default_tee_id: number | null;
   default_tee_color: string | null;
   counting_competitions: number | null;
+  doped_handicap_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -63,6 +64,28 @@ export interface TourPlayerStanding {
   category_id?: number;
   category_name?: string;
   competitions: TourPlayerCompetition[];
+  // Present when the tour has doped handicap enabled
+  doped_handicap?: number;
+  doped_handicap_rounds?: number;
+}
+
+export interface DopedHandicapRound {
+  competition_id: number;
+  competition_name: string;
+  competition_date: string;
+  holes: number;
+  net_stableford_points: number | null;
+  net_relative_to_par: number | null;
+  shortfall: number;
+  is_projected: boolean;
+}
+
+export interface DopedHandicapSummary {
+  player_id: number;
+  player_name: string;
+  doped_handicap: number;
+  rounds_counted: number;
+  rounds: DopedHandicapRound[];
 }
 
 export interface TourStandings {
@@ -135,6 +158,7 @@ export interface CreateTourData {
   scoring_mode?: TourScoringMode;
   scoring_format?: TourScoringFormat;
   banner_image_url?: string;
+  doped_handicap_enabled?: boolean;
 }
 
 export interface UpdateTourData {
@@ -150,6 +174,7 @@ export interface UpdateTourData {
   default_course_id?: number | null;
   default_tee_id?: number | null;
   counting_competitions?: number | null;
+  doped_handicap_enabled?: boolean;
 }
 
 export interface CreateTourDocumentData {
@@ -188,6 +213,22 @@ export function useTour(id: number) {
       return response.json();
     },
     enabled: !!id,
+  });
+}
+
+export function useTourDopedHandicaps(tourId: number, enabled = true) {
+  return useQuery<DopedHandicapSummary[]>({
+    queryKey: ["tour-doped-handicaps", tourId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${API_BASE_URL}/tours/${tourId}/doped-handicaps`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch doped handicaps");
+      }
+      return response.json();
+    },
+    enabled: !!tourId && enabled,
   });
 }
 

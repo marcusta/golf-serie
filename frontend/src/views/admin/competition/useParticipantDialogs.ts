@@ -4,6 +4,7 @@ interface HandicapDialogState {
   id: number;
   name: string;
   handicap_index?: number;
+  doped_handicap?: number | null;
 }
 
 interface ScoreDialogState {

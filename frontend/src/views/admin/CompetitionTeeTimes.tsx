@@ -83,9 +83,17 @@ export default function AdminCompetitionTeeTimes() {
 
   const handleRefetch = () => refetchTeeTimes();
 
+  const hasFrozenDopedValues =
+    teeTimes?.some((tt) =>
+      tt.participants.some((p) => p.doped_handicap != null)
+    ) ?? false;
+
   return (
     <div className="space-y-6">
-      <CompetitionHeader competition={competition} />
+      <CompetitionHeader
+        competition={competition}
+        hasFrozenDopedValues={hasFrozenDopedValues}
+      />
 
       {competition?.series_id && (
         <SeriesTeamSelector
@@ -213,6 +221,8 @@ export default function AdminCompetitionTeeTimes() {
           participantId={dialogs.selectedParticipantForHandicap.id}
           participantName={dialogs.selectedParticipantForHandicap.name}
           currentHandicap={dialogs.selectedParticipantForHandicap.handicap_index}
+          showDopedHandicap={!!competition.use_doped_handicap}
+          currentDopedHandicap={dialogs.selectedParticipantForHandicap.doped_handicap}
         />
       )}
 

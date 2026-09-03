@@ -1,4 +1,5 @@
 import {
+import { formatSignedDecimal } from "@/utils/formatSignedDecimal";
   Clock,
   Users,
   Trash2,
@@ -34,11 +35,17 @@ interface TeeTimeListProps {
   competition: {
     venue_type?: "outdoor" | "indoor";
     tour_id?: number;
+    use_doped_handicap?: boolean;
   };
   competitionId: string;
   tourEnrollments?: TourEnrollment[];
   onRefetch: () => void;
-  onEditHandicap: (participant: { id: number; name: string; handicap_index?: number }) => void;
+  onEditHandicap: (participant: {
+    id: number;
+    name: string;
+    handicap_index?: number;
+    doped_handicap?: number | null;
+  }) => void;
   onEditScore: (participant: { id: number; name: string; score: number[] }) => void;
   onDQ: (participant: { id: number; name: string; isDQ: boolean }) => void;
   onShowQRCode: (url: string, title: string, description: string) => void;
@@ -137,12 +144,18 @@ interface TeeTimeCardProps {
   competition: {
     venue_type?: "outdoor" | "indoor";
     tour_id?: number;
+    use_doped_handicap?: boolean;
   };
   competitionId: string;
   tourEnrollments?: TourEnrollment[];
   onDelete: (id: number) => void;
   onUpdateStartHole: (id: number, startHole: number) => void;
-  onEditHandicap: (participant: { id: number; name: string; handicap_index?: number }) => void;
+  onEditHandicap: (participant: {
+    id: number;
+    name: string;
+    handicap_index?: number;
+    doped_handicap?: number | null;
+  }) => void;
   onEditScore: (participant: { id: number; name: string; score: number[] }) => void;
   onDQ: (participant: { id: number; name: string; isDQ: boolean }) => void;
   onShowQRCode: (url: string, title: string, description: string) => void;
@@ -254,9 +267,15 @@ interface ParticipantCardProps {
   participant: TeeTimeParticipant;
   competition: {
     tour_id?: number;
+    use_doped_handicap?: boolean;
   };
   tourEnrollments?: TourEnrollment[];
-  onEditHandicap: (participant: { id: number; name: string; handicap_index?: number }) => void;
+  onEditHandicap: (participant: {
+    id: number;
+    name: string;
+    handicap_index?: number;
+    doped_handicap?: number | null;
+  }) => void;
   onEditScore: (participant: { id: number; name: string; score: number[] }) => void;
   onDQ: (participant: { id: number; name: string; isDQ: boolean }) => void;
   lockParticipantMutation: ReturnType<typeof useLockParticipant>;
@@ -283,6 +302,8 @@ function ParticipantCard({
 
   // Display the snapshot handicap if available, otherwise fall back to enrollment handicap
   const displayHandicap = participant.handicap_index ?? enrollment?.handicap;
+  const showDoped = !!competition?.use_doped_handicap;
+  const dopedHandicap = participant.doped_handicap ?? null;
 
   const participantName = competition?.tour_id
     ? participant.player_name || participant.position_name
@@ -313,16 +334,26 @@ function ParticipantCard({
               HCP {displayHandicap.toFixed(1)}
             </span>
           )}
+          {!isDQ && showDoped && (
+            dopedHandicap !== null ? (
+              <span className="text-xs text-gray-500 font-mono">
+                Doped {formatSignedDecimal(dopedHandicap)}
+              </span>
+            ) : (
+              <span className="text-xs text-coral">Doped not frozen</span>
+            )
+          )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Edit handicap button - only visible when round has been played */}
-          {hasPlayed && (
+          {/* Edit handicap button - visible once the round has been played, or always for doped rounds */}
+          {(hasPlayed || showDoped) && (
             <button
               onClick={() => {
                 onEditHandicap({
                   id: participant.id,
                   name: participantName,
                   handicap_index: participant.handicap_index,
+                  doped_handicap: dopedHandicap,
                 });
               }}
               className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"

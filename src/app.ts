@@ -619,13 +619,36 @@ export function createApp(db: Database): Hono {
 
   app.get("/api/competitions/:competitionId/leaderboard", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));
-    return await competitionsApi.getLeaderboard(competitionId);
+    const variant = c.req.query("variant") === "doped" ? "doped" : "normal";
+    return await competitionsApi.getLeaderboard(competitionId, variant);
   });
 
-  // Leaderboard with full details (tee info, net scores)
+  // Leaderboard with full details (tee info, net scores).
+  // ?variant=doped adds each participant's frozen doped handicap.
   app.get("/api/competitions/:competitionId/leaderboard/details", async (c) => {
     const competitionId = parseInt(c.req.param("competitionId"));
-    return await competitionsApi.getLeaderboardWithDetails(competitionId);
+    const variant = c.req.query("variant") === "doped" ? "doped" : "normal";
+    return await competitionsApi.getLeaderboardWithDetails(competitionId, variant);
+  });
+
+  // Freeze doped handicaps on every participant (NULL only, or all with force)
+  app.post("/api/competitions/:competitionId/doped-handicaps/freeze", requireAuth(), async (c) => {
+    try {
+      const competitionId = parseInt(c.req.param("competitionId"));
+      const user = c.get("user");
+
+      if (!competitionAdminService.canManageCompetition(competitionId, user!.id)) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const body = await c.req.json().catch(() => ({}));
+      const force = body?.force === true;
+      const result = await participantService.freezeDopedHandicaps(competitionId, force);
+      return c.json(result);
+    } catch (error: any) {
+      const status = error.message === "Competition not found" ? 404 : 400;
+      return c.json({ error: error.message }, status);
+    }
   });
 
   app.get("/api/competitions/:competitionId/team-leaderboard", async (c) => {
@@ -1110,8 +1133,35 @@ export function createApp(db: Database): Hono {
     return await participantsApi.findById(c.req.raw, id);
   });
 
+  // Name edits stay open for the player scoring flow. Handicap fields need
+  // an admin of the competition, with the same self-organize rule as delete.
   app.put("/api/participants/:id", async (c) => {
     const id = parseInt(c.req.param("id"));
+    const body = await c.req.raw.clone().json().catch(() => ({}));
+    const touchesHandicap =
+      body !== null &&
+      typeof body === "object" &&
+      ("handicap_index" in body || "doped_handicap" in body);
+    if (touchesHandicap) {
+      const participant = await participantService.findById(id);
+      if (!participant) {
+        return c.json({ error: "Participant not found" }, 404);
+      }
+      const teeTime = await teeTimeService.findById(participant.tee_time_id);
+      if (!teeTime) {
+        return c.json({ error: "Tee time not found" }, 404);
+      }
+      const competition = await competitionService.findById(teeTime.competition_id);
+      if (!competition?.self_organize) {
+        const user = c.get("user");
+        if (!user) {
+          return c.json({ error: "Authentication required" }, 401);
+        }
+        if (!competitionAdminService.canManageCompetition(teeTime.competition_id, user.id)) {
+          return c.json({ error: "Forbidden" }, 403);
+        }
+      }
+    }
     return await participantsApi.update(c.req.raw, id);
   });
 

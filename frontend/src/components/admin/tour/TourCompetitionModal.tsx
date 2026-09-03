@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -78,6 +79,8 @@ const tourCompetitionSchema = z
         },
         { message: "Allowance must be a number between 0 and 200" }
       ),
+    use_doped_handicap: z.boolean(),
+    exclude_from_doped_handicap: z.boolean(),
   })
   .refine(
     (data) => {
@@ -151,6 +154,8 @@ export function TourCompetitionModal({
       self_organize: false,
       handicap_mode: "whs",
       handicap_allowance: "100",
+      use_doped_handicap: false,
+      exclude_from_doped_handicap: false,
     },
     mode: "onChange",
   });
@@ -185,6 +190,8 @@ export function TourCompetitionModal({
         self_organize: !!competition.self_organize,
         handicap_mode: competition.handicap_mode || "whs",
         handicap_allowance: (competition.handicap_allowance ?? 100).toString(),
+        use_doped_handicap: !!competition.use_doped_handicap,
+        exclude_from_doped_handicap: !!competition.exclude_from_doped_handicap,
       });
     } else {
       form.reset({
@@ -203,6 +210,8 @@ export function TourCompetitionModal({
         self_organize: false,
         handicap_mode: "whs",
         handicap_allowance: "100",
+        use_doped_handicap: false,
+        exclude_from_doped_handicap: false,
       });
       setCategoryTeeMappings([]);
     }
@@ -251,6 +260,8 @@ export function TourCompetitionModal({
       self_organize: data.self_organize,
       handicap_mode: data.handicap_mode,
       handicap_allowance: Number(data.handicap_allowance.replace(",", ".")),
+      use_doped_handicap: data.use_doped_handicap,
+      exclude_from_doped_handicap: data.exclude_from_doped_handicap,
     };
 
     try {
@@ -331,6 +342,7 @@ export function TourCompetitionModal({
     setCategoryTeesMutation.isPending;
 
   const startMode = form.watch("start_mode");
+  const dopedHandicapEnabled = !!tour?.doped_handicap_enabled;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -583,6 +595,69 @@ export function TourCompetitionModal({
                   </FormItem>
                 )}
               />
+
+              {/* Doped handicap (only when the tour has it enabled) */}
+              {dopedHandicapEnabled && (
+                <div className="space-y-2">
+                  <FormLabel>Doped handicap</FormLabel>
+                  <FormField
+                    control={form.control}
+                    name="use_doped_handicap"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <label className="flex items-start gap-3 p-3 border-2 border-soft-grey rounded-xl cursor-pointer hover:border-turf transition-colors">
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={(checked) =>
+                                field.onChange(checked === true)
+                              }
+                              disabled={isPending}
+                              className="mt-0.5"
+                            />
+                            <span className="text-sm text-charcoal/80">
+                              <span className="font-medium text-charcoal">
+                                Use doped handicap
+                              </span>
+                              <br />
+                              Adds a doped leaderboard for this round.
+                            </span>
+                          </label>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="exclude_from_doped_handicap"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <label className="flex items-start gap-3 p-3 border-2 border-soft-grey rounded-xl cursor-pointer hover:border-turf transition-colors">
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={(checked) =>
+                                field.onChange(checked === true)
+                              }
+                              disabled={isPending}
+                              className="mt-0.5"
+                            />
+                            <span className="text-sm text-charcoal/80">
+                              <span className="font-medium text-charcoal">
+                                Exclude from doped handicap calculation
+                              </span>
+                              <br />
+                              This round's results do not feed the calculation.
+                            </span>
+                          </label>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
 
               {/* Venue Type */}
               <FormField

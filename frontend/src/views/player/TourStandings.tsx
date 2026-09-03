@@ -771,6 +771,16 @@ export default function TourStandings() {
                           {standing.competitions.filter(comp => comp.points > 0).length}
                         </span>
                       </div>
+                      {tour.doped_handicap_enabled && standing.doped_handicap !== undefined && (
+                        <div className="flex justify-between">
+                          <span className="text-charcoal/70">Doped handicap:</span>
+                          <span className="font-semibold text-charcoal">
+                            {standing.doped_handicap.toFixed(1)} (
+                            {standing.doped_handicap_rounds ?? 0}{" "}
+                            {(standing.doped_handicap_rounds ?? 0) === 1 ? "round" : "rounds"})
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-charcoal/70">First positions:</span>
                         <span className="font-semibold text-charcoal">

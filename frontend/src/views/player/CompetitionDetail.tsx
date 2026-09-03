@@ -40,7 +40,7 @@ import { distributeHandicapStrokes } from "../../utils/handicapCalculations";
 import { QRCodeDialog } from "../../components/competition/QRCodeDialog";
 import { getCompetitionStartlistUrl } from "../../utils/qrCodeUrls";
 
-type TabType = "startlist" | "leaderboard" | "teamresult" | "whosplaying";
+type TabType = "startlist" | "leaderboard" | "doped" | "teamresult" | "whosplaying";
 
 export default function CompetitionDetail() {
   const { competitionId } = useParams({ strict: false });
@@ -54,6 +54,7 @@ export default function CompetitionDetail() {
   const getInitialTab = (): TabType => {
     const hash = window.location.hash.replace("#", "");
     if (hash === "leaderboard") return "leaderboard";
+    if (hash === "doped") return "doped";
     if (hash === "teamresult") return "teamresult";
     // If no hash, we'll figure out default based on start_mode after competition loads
     return "startlist";
@@ -87,6 +88,15 @@ export default function CompetitionDetail() {
     isLoading: leaderboardLoading,
     refetch: refetchLeaderboard,
   } = useCompetitionLeaderboardWithDetails(competitionId ? parseInt(competitionId) : 0);
+  const showDopedTab = !!competition?.use_doped_handicap;
+  const {
+    data: dopedLeaderboardResponse,
+    isLoading: dopedLeaderboardLoading,
+    refetch: refetchDopedLeaderboard,
+  } = useCompetitionLeaderboardWithDetails(
+    competitionId ? parseInt(competitionId) : 0,
+    { variant: "doped", enabled: showDopedTab }
+  );
 
   // Extract leaderboard entries and metadata
   const leaderboard = leaderboardResponse?.entries;
@@ -220,6 +230,7 @@ export default function CompetitionDetail() {
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "");
       if (hash === "leaderboard") setActiveTab("leaderboard");
+      else if (hash === "doped") setActiveTab("doped");
       else if (hash === "teamresult") setActiveTab("teamresult");
       else if (hash === "whosplaying") setActiveTab("whosplaying");
       else if (competition?.start_mode !== "open") setActiveTab("startlist");
@@ -239,7 +250,11 @@ export default function CompetitionDetail() {
 
   // Fetch fresh data when first entering leaderboard or team results views
   useEffect(() => {
-    if (activeTab === "leaderboard" || activeTab === "teamresult") {
+    if (
+      activeTab === "leaderboard" ||
+      activeTab === "doped" ||
+      activeTab === "teamresult"
+    ) {
       // Check if we haven't fetched data for this view recently
       const lastFetchKey = `lastFetch-${activeTab}-${competitionId}`;
       const lastFetch = sessionStorage.getItem(lastFetchKey);
@@ -250,32 +265,57 @@ export default function CompetitionDetail() {
       if (timeSinceLastFetch > 10000) {
         // Only if it's been more than 10 seconds
         console.log(`Initial fetch for ${activeTab} view...`);
-        refetchLeaderboard();
+        if (activeTab === "doped") {
+          refetchDopedLeaderboard();
+        } else {
+          refetchLeaderboard();
+        }
         if (activeTab === "teamresult") {
           refetchTeeTimes(); // Team results also need tee times data
         }
         sessionStorage.setItem(lastFetchKey, Date.now().toString());
       }
     }
-  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+  }, [
+    activeTab,
+    competitionId,
+    refetchLeaderboard,
+    refetchDopedLeaderboard,
+    refetchTeeTimes,
+  ]);
 
   // Periodic sync for leaderboard and team results data
   useEffect(() => {
     if (!competitionId) return;
 
     // Only run periodic sync when viewing leaderboard or team results
-    if (activeTab !== "leaderboard" && activeTab !== "teamresult") return;
+    if (
+      activeTab !== "leaderboard" &&
+      activeTab !== "doped" &&
+      activeTab !== "teamresult"
+    )
+      return;
 
     const syncInterval = setInterval(() => {
       console.log(`Periodic sync for ${activeTab} view...`);
-      refetchLeaderboard();
+      if (activeTab === "doped") {
+        refetchDopedLeaderboard();
+      } else {
+        refetchLeaderboard();
+      }
       if (activeTab === "teamresult") {
         refetchTeeTimes(); // Team results data comes from teeTimes
       }
     }, 30000); // Sync every 30 seconds
 
     return () => clearInterval(syncInterval);
-  }, [activeTab, competitionId, refetchLeaderboard, refetchTeeTimes]);
+  }, [
+    activeTab,
+    competitionId,
+    refetchLeaderboard,
+    refetchDopedLeaderboard,
+    refetchTeeTimes,
+  ]);
 
   if (competitionLoading)
     return (
@@ -483,6 +523,25 @@ export default function CompetitionDetail() {
               <Trophy className="h-3 w-3 md:h-4 md:w-4" />
               Leaderboard
             </button>
+            {showDopedTab && (
+              <button
+                onClick={() => {
+                  setActiveTab("doped");
+                  window.location.hash = "doped";
+                  refetchDopedLeaderboard();
+                }}
+                className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-1 border-b-2 font-medium text-xs md:text-sm transition-colors font-primary
+                  ${
+                    activeTab === "doped"
+                      ? "border-coral text-coral"
+                      : "border-transparent text-charcoal hover:text-turf hover:border-rough"
+                  }
+                `}
+              >
+                <Trophy className="h-3 w-3 md:h-4 md:w-4" />
+                Doped
+              </button>
+            )}
             {/* Show Who's Playing tab for open-start tour competitions */}
             {isOpenStartTourCompetition && (
               <button
@@ -564,6 +623,21 @@ export default function CompetitionDetail() {
             teeInfo={teeInfo}
             categoryTees={categoryTees}
             categories={leaderboardCategories}
+          />
+        )}
+
+        {activeTab === "doped" && showDopedTab && (
+          <LeaderboardComponent
+            leaderboard={dopedLeaderboardResponse?.entries}
+            leaderboardLoading={dopedLeaderboardLoading}
+            onParticipantClick={handleParticipantClick}
+            isTourCompetition={!!competition?.tour_id}
+            scoringMode={dopedLeaderboardResponse?.scoringMode ?? scoringMode}
+            scoringFormat={dopedLeaderboardResponse?.scoringFormat ?? leaderboardResponse?.scoringFormat}
+            teeInfo={dopedLeaderboardResponse?.tee ?? teeInfo}
+            categoryTees={dopedLeaderboardResponse?.categoryTees ?? categoryTees}
+            categories={dopedLeaderboardResponse?.categories ?? leaderboardCategories}
+            dopedMode
           />
         )}
 

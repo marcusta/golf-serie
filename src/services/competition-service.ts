@@ -4,6 +4,7 @@ import type {
     CreateCompetitionDto,
     LeaderboardEntry,
     LeaderboardResponse,
+    LeaderboardVariant,
     TeamLeaderboardEntry,
     UpdateCompetitionDto,
 } from "../types";
@@ -176,12 +177,18 @@ export class CompetitionService {
     this.deleteCompetitionRow(id);
   }
 
-  async getLeaderboard(competitionId: number): Promise<LeaderboardEntry[]> {
-    return this.leaderboardService.getLeaderboard(competitionId);
+  async getLeaderboard(
+    competitionId: number,
+    variant: LeaderboardVariant = "normal"
+  ): Promise<LeaderboardEntry[]> {
+    return this.leaderboardService.getLeaderboard(competitionId, variant);
   }
 
-  async getLeaderboardWithDetails(competitionId: number): Promise<LeaderboardResponse> {
-    return this.leaderboardService.getLeaderboardWithDetails(competitionId);
+  async getLeaderboardWithDetails(
+    competitionId: number,
+    variant: LeaderboardVariant = "normal"
+  ): Promise<LeaderboardResponse> {
+    return this.leaderboardService.getLeaderboardWithDetails(competitionId, variant);
   }
 
   async getTeamLeaderboard(competitionId: number): Promise<TeamLeaderboardEntry[]> {
@@ -211,11 +218,26 @@ export class CompetitionService {
   // Logic Methods (pure business logic, no SQL)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  private transformCompetitionRowToResult(row: CompetitionWithCourseRow): Competition & { course: { id: number; name: string }; participant_count: number } {
+  // SQLite stores booleans as 0/1; convert the flag columns on every read
+  private convertCompetitionFlags(row: Competition): Competition {
+    const raw = row as unknown as {
+      self_organize?: number | boolean;
+      is_results_final?: number | boolean;
+      use_doped_handicap?: number | boolean;
+      exclude_from_doped_handicap?: number | boolean;
+    };
     return {
       ...row,
-      self_organize: !!(row as unknown as { self_organize?: number | boolean }).self_organize,
-      is_results_final: !!(row as unknown as { is_results_final?: number | boolean }).is_results_final,
+      self_organize: !!raw.self_organize,
+      is_results_final: !!raw.is_results_final,
+      use_doped_handicap: !!raw.use_doped_handicap,
+      exclude_from_doped_handicap: !!raw.exclude_from_doped_handicap,
+    };
+  }
+
+  private transformCompetitionRowToResult(row: CompetitionWithCourseRow): Competition & { course: { id: number; name: string }; participant_count: number } {
+    return {
+      ...this.convertCompetitionFlags(row),
       course: {
         id: row.course_id,
         name: row.course_name,
@@ -396,6 +418,14 @@ export class CompetitionService {
       updates.push("handicap_allowance = ?");
       values.push(data.handicap_allowance);
     }
+    if (data.use_doped_handicap !== undefined) {
+      updates.push("use_doped_handicap = ?");
+      values.push(data.use_doped_handicap ? 1 : 0);
+    }
+    if (data.exclude_from_doped_handicap !== undefined) {
+      updates.push("exclude_from_doped_handicap = ?");
+      values.push(data.exclude_from_doped_handicap ? 1 : 0);
+    }
 
     return { updates, values };
   }
@@ -468,8 +498,8 @@ export class CompetitionService {
 
   private insertCompetitionRow(data: CreateCompetitionDto): Competition {
     const stmt = this.db.prepare(`
-      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, scoring_format, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, round_type, self_organize, handicap_mode, handicap_allowance, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO competitions (name, date, course_id, series_id, tour_id, tee_id, point_template_id, scoring_format, manual_entry_format, points_multiplier, venue_type, start_mode, open_start, open_end, round_type, self_organize, handicap_mode, handicap_allowance, use_doped_handicap, exclude_from_doped_handicap, owner_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `);
     const row = stmt.get(
@@ -491,13 +521,11 @@ export class CompetitionService {
       data.self_organize ? 1 : 0,
       data.handicap_mode || "whs",
       data.handicap_allowance ?? 100,
+      data.use_doped_handicap ? 1 : 0,
+      data.exclude_from_doped_handicap ? 1 : 0,
       data.owner_id || null
-    ) as Competition & { self_organize: number | boolean };
-    return {
-      ...row,
-      self_organize: !!row.self_organize,
-      is_results_final: !!(row as Competition & { is_results_final?: number | boolean }).is_results_final,
-    };
+    ) as Competition;
+    return this.convertCompetitionFlags(row);
   }
 
   private updateCompetitionRow(id: number, updates: string[], values: (string | number | null)[]): Competition {
@@ -509,14 +537,8 @@ export class CompetitionService {
       WHERE id = ?
       RETURNING *
     `);
-    const row = stmt.get(...values) as Competition & {
-      self_organize: number | boolean;
-    };
-    return {
-      ...row,
-      self_organize: !!row.self_organize,
-      is_results_final: !!(row as Competition & { is_results_final?: number | boolean }).is_results_final,
-    };
+    const row = stmt.get(...values) as Competition;
+    return this.convertCompetitionFlags(row);
   }
 
   private updateCompetitionRoundTypeRow(id: number, roundType: EditableRoundType): Competition {
@@ -526,14 +548,8 @@ export class CompetitionService {
       WHERE id = ?
       RETURNING *
     `);
-    const row = stmt.get(roundType, id) as Competition & {
-      self_organize: number | boolean;
-    };
-    return {
-      ...row,
-      self_organize: !!row.self_organize,
-      is_results_final: !!(row as Competition & { is_results_final?: number | boolean }).is_results_final,
-    };
+    const row = stmt.get(roundType, id) as Competition;
+    return this.convertCompetitionFlags(row);
   }
 
   private updateTeeTimesStartHoleForCompetition(competitionId: number, startHole: number): void {

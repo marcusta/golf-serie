@@ -17,6 +17,9 @@ interface EditParticipantHandicapDialogProps {
   participantId: number;
   participantName: string;
   currentHandicap?: number;
+  // Show the doped handicap field (competitions with use_doped_handicap)
+  showDopedHandicap?: boolean;
+  currentDopedHandicap?: number | null;
 }
 
 export function EditParticipantHandicapDialog({
@@ -25,15 +28,19 @@ export function EditParticipantHandicapDialog({
   participantId,
   participantName,
   currentHandicap,
+  showDopedHandicap = false,
+  currentDopedHandicap,
 }: EditParticipantHandicapDialogProps) {
   const [handicapValue, setHandicapValue] = useState("");
+  const [dopedValue, setDopedValue] = useState("");
   const updateHandicapMutation = useUpdateParticipantHandicap();
 
   useEffect(() => {
     if (open) {
       setHandicapValue(currentHandicap?.toString() ?? "");
+      setDopedValue(currentDopedHandicap?.toString() ?? "");
     }
-  }, [open, currentHandicap]);
+  }, [open, currentHandicap, currentDopedHandicap]);
 
   const handleSave = async () => {
     const parsedValue = handicapValue.trim() === "" ? null : parseFloat(handicapValue);
@@ -43,10 +50,20 @@ export function EditParticipantHandicapDialog({
       return;
     }
 
+    let parsedDoped: number | null | undefined = undefined;
+    if (showDopedHandicap) {
+      parsedDoped = dopedValue.trim() === "" ? null : parseFloat(dopedValue);
+      if (parsedDoped !== null && isNaN(parsedDoped)) {
+        alert("Please enter a valid doped handicap");
+        return;
+      }
+    }
+
     try {
       await updateHandicapMutation.mutateAsync({
         id: participantId,
         handicap_index: parsedValue,
+        doped_handicap: parsedDoped,
       });
       onOpenChange(false);
     } catch (error) {
@@ -88,6 +105,28 @@ export function EditParticipantHandicapDialog({
               Leave empty to clear the handicap for this round.
             </p>
           </div>
+          {showDopedHandicap && (
+            <div>
+              <label
+                htmlFor="doped-handicap"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Doped handicap
+              </label>
+              <Input
+                id="doped-handicap"
+                type="number"
+                step="0.1"
+                placeholder="e.g., 5.2"
+                value={dopedValue}
+                onChange={(e) => setDopedValue(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Strokes over 18 holes added on the doped leaderboard. Leave
+                empty to mark it as not frozen.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

@@ -10,6 +10,7 @@ export interface Participant {
   player_names?: string;
   player_id?: number;
   handicap_index?: number;
+  doped_handicap?: number | null;
   score: number[];
   is_locked: boolean;
   locked_at?: string;
@@ -75,6 +76,7 @@ export interface UpdateParticipantDto {
   position_name?: string;
   player_names?: string;
   handicap_index?: number | null;
+  doped_handicap?: number | null;
 }
 
 export function useUpdateParticipant() {
@@ -304,16 +306,23 @@ export function useUpdateParticipantHandicap() {
     mutationFn: async ({
       id,
       handicap_index,
+      doped_handicap,
     }: {
       id: number;
       handicap_index: number | null;
+      // Omit to leave the doped value untouched
+      doped_handicap?: number | null;
     }) => {
+      const body: UpdateParticipantDto = { handicap_index };
+      if (doped_handicap !== undefined) {
+        body.doped_handicap = doped_handicap;
+      }
       const response = await fetch(`${API_BASE_URL}/participants/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ handicap_index }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {

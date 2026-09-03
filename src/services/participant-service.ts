@@ -6,6 +6,18 @@ import type {
 } from "../types";
 import { GOLF } from "../constants/golf";
 import { safeParseJsonWithDefault } from "../utils/parsing";
+import { PARTICIPANT_NAME_COALESCE, playerNameJoins } from "../utils/player-display";
+import { TourService } from "./tour.service";
+
+// Matches a name-only participant (aliases p, c) to its tour enrollment by name
+const NAME_ENROLLMENT_JOIN = `
+      LEFT JOIN tour_enrollments te_name
+        ON p.player_id IS NULL
+        AND te_name.player_id IS NULL
+        AND te_name.tour_id = c.tour_id
+        AND te_name.status = 'active'
+        AND LOWER(TRIM(COALESCE(te_name.name, ''))) =
+            LOWER(TRIM(COALESCE(p.player_names, p.position_name, '')))`.trim();
 
 // ============================================================================
 // Internal Row Types (database representation)
@@ -23,6 +35,7 @@ interface ParticipantRow {
   is_locked: number; // SQLite boolean
   locked_at: string | null;
   handicap_index: number | null;
+  doped_handicap: number | null;
   manual_score_out: number | null;
   manual_score_in: number | null;
   manual_score_total: number | null;
@@ -45,10 +58,32 @@ interface ParticipantCourseInfo {
   player_id: number | null;
   handicap_index: number | null;
   effective_handicap_index: number | null;
+  use_doped_handicap: number;
+  doped_handicap: number | null;
+  name_enrollment_id: number | null;
+}
+
+// Row used when freezing doped handicaps for a whole competition
+interface DopedFreezeRow {
+  id: number;
+  tour_id: number | null;
+  player_id: number | null;
+  name_enrollment_id: number | null;
+  player_name: string;
+  doped_handicap: number | null;
+}
+
+export interface DopedFreezeResult {
+  updated: number;
+  participants: { participant_id: number; player_name: string; doped_handicap: number }[];
 }
 
 export class ParticipantService {
-  constructor(private db: Database) {}
+  private tourService: TourService;
+
+  constructor(private db: Database) {
+    this.tourService = new TourService(db);
+  }
 
   // ============================================================================
   // Validation Methods (private, no SQL)
@@ -177,6 +212,72 @@ export class ParticipantService {
     return !this.hasAnyRecordedScores(participant);
   }
 
+  // Doped value is frozen at the first score entry, like handicap_index,
+  // but only for competitions with use_doped_handicap and only while NULL.
+  private shouldCaptureDopedSnapshot(
+    courseInfo: ParticipantCourseInfo,
+    participant: Participant,
+    isScoringEntry: boolean
+  ): boolean {
+    if (!courseInfo.use_doped_handicap) return false;
+    if (courseInfo.doped_handicap !== null) return false;
+    if (!isScoringEntry) return false;
+    return !this.hasAnyRecordedScores(participant);
+  }
+
+  // Standings key: player_id, or negative enrollment id for name-only players
+  private resolveDopedPlayerKey(
+    playerId: number | null,
+    nameEnrollmentId: number | null
+  ): number | null {
+    if (playerId !== null) return playerId;
+    if (nameEnrollmentId !== null) return -nameEnrollmentId;
+    return null;
+  }
+
+  private lookupDopedHandicap(
+    tourId: number | null,
+    playerId: number | null,
+    nameEnrollmentId: number | null
+  ): number {
+    if (tourId === null) return 0;
+    const key = this.resolveDopedPlayerKey(playerId, nameEnrollmentId);
+    if (key === null) return 0;
+    return this.tourService.getDopedHandicaps(tourId).get(key)?.doped_handicap ?? 0;
+  }
+
+  private captureDopedSnapshotIfNeeded(
+    id: number,
+    courseInfo: ParticipantCourseInfo,
+    participant: Participant,
+    isScoringEntry: boolean
+  ): void {
+    if (!this.shouldCaptureDopedSnapshot(courseInfo, participant, isScoringEntry)) {
+      return;
+    }
+    // The score is already saved; a failed lookup must not turn into a 500.
+    let value: number;
+    try {
+      value = this.lookupDopedHandicap(
+        courseInfo.tour_id,
+        courseInfo.player_id,
+        courseInfo.name_enrollment_id
+      );
+    } catch (error) {
+      console.error(`Doped handicap snapshot skipped for participant ${id}:`, error);
+      return;
+    }
+    this.updateDopedHandicapRow(id, value);
+  }
+
+  // Undefined means "leave unchanged", null clears the value
+  private validateOptionalFiniteNumber(value: unknown, field: string): void {
+    if (value === undefined || value === null) return;
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error(`Invalid ${field}: must be a number or null`);
+    }
+  }
+
   private buildUpdateFields(
     data: UpdateParticipantDto
   ): { updates: string[]; values: (string | number | null)[] } {
@@ -211,6 +312,11 @@ export class ParticipantService {
     if (data.handicap_index !== undefined) {
       updates.push("handicap_index = ?");
       values.push(data.handicap_index);
+    }
+
+    if (data.doped_handicap !== undefined) {
+      updates.push("doped_handicap = ?");
+      values.push(data.doped_handicap);
     }
 
     return { updates, values };
@@ -341,7 +447,10 @@ export class ParticipantService {
           te_player.playing_handicap,
           pl.handicap,
           te_name.playing_handicap
-        ) as effective_handicap_index
+        ) as effective_handicap_index,
+        c.use_doped_handicap,
+        p.doped_handicap,
+        te_name.id as name_enrollment_id
       FROM participants p
       JOIN tee_times t ON p.tee_time_id = t.id
       JOIN competitions c ON t.competition_id = c.id
@@ -352,15 +461,36 @@ export class ParticipantService {
         AND te_player.player_id = p.player_id
         AND te_player.tour_id = c.tour_id
         AND te_player.status = 'active'
-      LEFT JOIN tour_enrollments te_name
-        ON p.player_id IS NULL
-        AND te_name.player_id IS NULL
-        AND te_name.tour_id = c.tour_id
-        AND te_name.status = 'active'
-        AND LOWER(TRIM(COALESCE(te_name.name, ''))) =
-            LOWER(TRIM(COALESCE(p.player_names, p.position_name, '')))
+      ${NAME_ENROLLMENT_JOIN}
       WHERE p.id = ?
     `).get(id) as ParticipantCourseInfo | null;
+  }
+
+  private updateDopedHandicapRow(id: number, dopedHandicap: number): void {
+    this.db.prepare(`
+      UPDATE participants
+      SET doped_handicap = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(dopedHandicap, id);
+  }
+
+  private findDopedFreezeRows(competitionId: number): DopedFreezeRow[] {
+    return this.db.prepare(`
+      SELECT
+        p.id,
+        c.tour_id,
+        p.player_id,
+        te_name.id as name_enrollment_id,
+        ${PARTICIPANT_NAME_COALESCE},
+        p.doped_handicap
+      FROM participants p
+      JOIN tee_times t ON p.tee_time_id = t.id
+      JOIN competitions c ON t.competition_id = c.id
+      ${playerNameJoins("p.player_id")}
+      ${NAME_ENROLLMENT_JOIN}
+      WHERE t.competition_id = ?
+      ORDER BY t.teetime, p.tee_order
+    `).all(competitionId) as DopedFreezeRow[];
   }
 
   private updateScoreRow(id: number, scoreJson: string): void {
@@ -548,6 +678,9 @@ export class ParticipantService {
       throw new Error("Tee time not found");
     }
 
+    this.validateOptionalFiniteNumber(data.handicap_index, "handicap_index");
+    this.validateOptionalFiniteNumber(data.doped_handicap, "doped_handicap");
+
     const { updates, values } = this.buildUpdateFields(data);
 
     if (updates.length === 0) {
@@ -606,6 +739,7 @@ export class ParticipantService {
     } else {
       this.updateScoreRow(id, JSON.stringify(score));
     }
+    this.captureDopedSnapshotIfNeeded(id, courseInfo, participant, shots !== 0);
 
     const updated = await this.findById(id);
     if (!updated) {
@@ -680,6 +814,12 @@ export class ParticipantService {
     } else {
       this.updateManualScoreRow(participantId, updates, values);
     }
+    this.captureDopedSnapshotIfNeeded(
+      participantId,
+      courseInfo,
+      existing,
+      scores.total !== null
+    );
 
     const row = this.findParticipantRowWithTeam(participantId);
     if (!row) {
@@ -749,11 +889,59 @@ export class ParticipantService {
         adminUserId
       );
     }
+    this.captureDopedSnapshotIfNeeded(
+      participantId,
+      courseInfo,
+      existing,
+      this.hasRecordedHoleScores(score)
+    );
 
     const updated = await this.findById(participantId);
     if (!updated) {
       throw new Error("Participant not found after update");
     }
     return updated;
+  }
+
+  /**
+   * Freeze the doped handicap on every participant in a competition.
+   * Only NULL values are set unless force is true. Players without a
+   * standings key or without counted rounds get 0.
+   */
+  async freezeDopedHandicaps(
+    competitionId: number,
+    force: boolean
+  ): Promise<DopedFreezeResult> {
+    if (!this.findCompetitionExists(competitionId)) {
+      throw new Error("Competition not found");
+    }
+
+    const rows = this.findDopedFreezeRows(competitionId);
+    const tourId = rows[0]?.tour_id ?? null;
+    const summaries = tourId !== null
+      ? this.tourService.getDopedHandicaps(tourId)
+      : new Map();
+
+    const result: DopedFreezeResult = { updated: 0, participants: [] };
+    for (const row of rows) {
+      if (row.doped_handicap !== null && !force) {
+        result.participants.push({
+          participant_id: row.id,
+          player_name: row.player_name,
+          doped_handicap: row.doped_handicap,
+        });
+        continue;
+      }
+      const key = this.resolveDopedPlayerKey(row.player_id, row.name_enrollment_id);
+      const value = key !== null ? summaries.get(key)?.doped_handicap ?? 0 : 0;
+      this.updateDopedHandicapRow(row.id, value);
+      result.updated += 1;
+      result.participants.push({
+        participant_id: row.id,
+        player_name: row.player_name,
+        doped_handicap: value,
+      });
+    }
+    return result;
   }
 }

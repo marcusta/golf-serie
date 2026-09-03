@@ -15,6 +15,7 @@ import {
   TourDocumentsTab,
   TourPointsTab,
   TourSettingsTab,
+  TourDopedHandicapsTab,
 } from "./tour";
 import {
   ArrowLeft,
@@ -26,6 +27,7 @@ import {
   Calculator,
   Layers,
   Settings,
+  Activity,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -36,6 +38,7 @@ type TabType =
   | "admins"
   | "documents"
   | "points"
+  | "doped"
   | "settings";
 
 export default function TourDetail() {
@@ -99,6 +102,15 @@ export default function TourDetail() {
       icon: <Star className="h-4 w-4" />,
       count: tourPointTemplates?.length,
     },
+    ...(tour.doped_handicap_enabled
+      ? [
+          {
+            id: "doped" as const,
+            label: "Doped HCP",
+            icon: <Activity className="h-4 w-4" />,
+          },
+        ]
+      : []),
     {
       id: "settings",
       label: "Settings",
@@ -178,6 +190,9 @@ export default function TourDetail() {
         <TourDocumentsTab tourId={tourId} tour={tour} />
       )}
       {activeTab === "points" && <TourPointsTab tourId={tourId} />}
+      {activeTab === "doped" && tour.doped_handicap_enabled && (
+        <TourDopedHandicapsTab tourId={tourId} />
+      )}
       {activeTab === "settings" && (
         <TourSettingsTab tourId={tourId} tour={tour} />
       )}

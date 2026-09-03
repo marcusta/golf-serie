@@ -4,6 +4,7 @@ import type {
   CompetitionRoundType,
   LeaderboardEntry,
   LeaderboardResponse,
+  LeaderboardVariant,
   Participant,
   TourScoringFormat,
   TeamLeaderboardEntry,
@@ -58,6 +59,8 @@ interface CompetitionRow {
   point_template_id?: number;
   handicap_mode?: string | null;
   handicap_allowance?: number | null;
+  use_doped_handicap?: number;
+  exclude_from_doped_handicap?: number;
 }
 
 interface TeeRow {
@@ -88,6 +91,7 @@ interface ParticipantWithDetailsRow {
   is_locked: number;
   locked_at: string | null;
   handicap_index: number | null;
+  doped_handicap: number | null;
   manual_score_out: number | null;
   manual_score_in: number | null;
   manual_score_total: number | null;
@@ -164,6 +168,11 @@ interface TeamGroup {
  * Context object bundling all data needed for leaderboard calculations.
  * This reduces parameter passing and makes the code cleaner.
  */
+interface HandicapInfo {
+  courseHandicap?: number;
+  handicapStrokesPerHole?: number[];
+}
+
 interface LeaderboardContext {
   competition: CompetitionRow;
   pars: number[];
@@ -176,6 +185,8 @@ interface LeaderboardContext {
   scoringFormat: TourScoringFormat;
   handicapMode: CompetitionHandicapMode;
   handicapAllowance: number;
+  // Doped variant: add each participant's frozen doped_handicap after allowance
+  dopedMode: boolean;
   isTourCompetition: boolean;
   isResultsFinal: boolean;
   isOpenCompetitionClosed: boolean;
@@ -196,14 +207,20 @@ export class LeaderboardService {
   // Public API Methods
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async getLeaderboard(competitionId: number): Promise<LeaderboardEntry[]> {
-    const response = await this.getLeaderboardWithDetails(competitionId);
+  async getLeaderboard(
+    competitionId: number,
+    variant: LeaderboardVariant = "normal"
+  ): Promise<LeaderboardEntry[]> {
+    const response = await this.getLeaderboardWithDetails(competitionId, variant);
     return response.entries;
   }
 
-  async getLeaderboardWithDetails(competitionId: number): Promise<LeaderboardResponse> {
+  async getLeaderboardWithDetails(
+    competitionId: number,
+    variant: LeaderboardVariant = "normal"
+  ): Promise<LeaderboardResponse> {
     // Step 1: Load context
-    const context = this.loadLeaderboardContext(competitionId);
+    const context = this.loadLeaderboardContext(competitionId, variant === "doped");
 
     // Step 2: Build entries for each participant
     const participants = this.findParticipantsForCompetition(competitionId);
@@ -241,7 +258,10 @@ export class LeaderboardService {
   // Context Loading
   // ─────────────────────────────────────────────────────────────────────────────
 
-  private loadLeaderboardContext(competitionId: number): LeaderboardContext {
+  private loadLeaderboardContext(
+    competitionId: number,
+    dopedMode: boolean = false
+  ): LeaderboardContext {
     const competition = this.findCompetitionWithPars(competitionId);
     if (!competition) {
       throw new Error("Competition not found");
@@ -326,6 +346,7 @@ export class LeaderboardService {
       scoringFormat,
       handicapMode,
       handicapAllowance,
+      dopedMode,
       isTourCompetition,
       isResultsFinal,
       isOpenCompetitionClosed,
@@ -390,19 +411,24 @@ export class LeaderboardService {
     participant: ParticipantWithDetailsRow,
     handicapIndex: number | null,
     context: LeaderboardContext
-  ): { courseHandicap?: number; handicapStrokesPerHole?: number[] } {
+  ): HandicapInfo {
     if (handicapIndex === null || !context.scoringMode || context.scoringMode === "gross") {
       return {};
     }
 
+    // Doped strokes are literal strokes over 18 holes, added after slope and
+    // allowance. A participant without a frozen value plays with 0.
+    const dopedStrokes = context.dopedMode ? participant.doped_handicap ?? 0 : 0;
+
     // Exact mode: no rating/slope, no per-hole stroke distribution.
     // The playing handicap keeps its decimal (allowance applied).
     if (context.handicapMode === "exact") {
+      const basePlayingHandicap = calculateExactPlayingHandicap(
+        handicapIndex,
+        context.handicapAllowance
+      );
       return {
-        courseHandicap: calculateExactPlayingHandicap(
-          handicapIndex,
-          context.handicapAllowance
-        ),
+        courseHandicap: roundToOneDecimal(basePlayingHandicap + dopedStrokes),
       };
     }
 
@@ -417,7 +443,7 @@ export class LeaderboardService {
       playerSlopeRating = catTee.slopeRating;
     }
 
-    const fullCourseHandicap = applyAllowanceToCourseHandicap(
+    const baseCourseHandicap18 = applyAllowanceToCourseHandicap(
       calculateCourseHandicap(
         handicapIndex,
         playerSlopeRating,
@@ -426,6 +452,7 @@ export class LeaderboardService {
       ),
       context.handicapAllowance
     );
+    const fullCourseHandicap = baseCourseHandicap18 + Math.round(dopedStrokes);
     const handicapStrokesPerHole = distributeHandicapStrokes(
       fullCourseHandicap,
       context.strokeIndex
@@ -442,7 +469,7 @@ export class LeaderboardService {
     participant: ParticipantWithDetailsRow,
     score: number[],
     handicapIndex: number | null,
-    handicapInfo: { courseHandicap?: number; handicapStrokesPerHole?: number[] },
+    handicapInfo: HandicapInfo,
     context: LeaderboardContext
   ): LeaderboardEntry {
     const totalShots = participant.manual_score_total!;
@@ -474,6 +501,7 @@ export class LeaderboardService {
       netStablefordPoints: undefined,
       courseHandicap: handicapInfo.courseHandicap,
       handicapStrokesPerHole: handicapInfo.handicapStrokesPerHole,
+      ...this.buildDopedEntryFields(participant, handicapInfo, context),
       isDNF: false,
     };
   }
@@ -482,7 +510,7 @@ export class LeaderboardService {
     participant: ParticipantWithDetailsRow,
     score: number[],
     handicapIndex: number | null,
-    handicapInfo: { courseHandicap?: number; handicapStrokesPerHole?: number[] },
+    handicapInfo: HandicapInfo,
     context: LeaderboardContext
   ): LeaderboardEntry {
     const holesPlayed = calculateHolesPlayed(score);
@@ -560,7 +588,22 @@ export class LeaderboardService {
       netStablefordPoints,
       courseHandicap: handicapInfo.courseHandicap,
       handicapStrokesPerHole: handicapInfo.handicapStrokesPerHole,
+      ...this.buildDopedEntryFields(participant, handicapInfo, context),
       isDNF,
+    };
+  }
+
+  private buildDopedEntryFields(
+    participant: ParticipantWithDetailsRow,
+    handicapInfo: HandicapInfo,
+    context: LeaderboardContext
+  ): Pick<LeaderboardEntry, "doped_handicap" | "doped_course_handicap"> {
+    if (!context.dopedMode) {
+      return {};
+    }
+    return {
+      doped_handicap: participant.doped_handicap ?? null,
+      doped_course_handicap: handicapInfo.courseHandicap,
     };
   }
 
@@ -748,6 +791,7 @@ export class LeaderboardService {
       is_locked: Boolean(row.is_locked),
       locked_at: row.locked_at,
       handicap_index: handicapIndex,
+      doped_handicap: row.doped_handicap ?? null,
       manual_score_out: row.manual_score_out,
       manual_score_in: row.manual_score_in,
       manual_score_total: row.manual_score_total,
@@ -936,19 +980,22 @@ export class LeaderboardService {
       return sortedEntries;
     }
 
-    if (context.isResultsFinal) {
+    // Doped mode always ranks the live doped values and never awards tour points.
+    // Stored results hold the normal ranking, so they are not used here.
+    if (context.isResultsFinal && !context.dopedMode) {
       const storedResults = this.findStoredResultRows(competitionId);
       return this.addStoredPointsToLeaderboard(sortedEntries, storedResults);
     }
 
-    const pointTemplate = context.competition.point_template_id
-      ? this.findPointTemplateRow(context.competition.point_template_id)
-      : null;
+    const pointTemplate =
+      !context.dopedMode && context.competition.point_template_id
+        ? this.findPointTemplateRow(context.competition.point_template_id)
+        : null;
 
     return this.addProjectedPointsToLeaderboard(
       sortedEntries,
       pointTemplate,
-      context.competition.points_multiplier || 1,
+      context.dopedMode ? 0 : context.competition.points_multiplier || 1,
       context.expectedHoles,
       context.scoringFormat
     );
@@ -1162,6 +1209,9 @@ export class LeaderboardService {
       scoringFormat: context.scoringFormat,
       isTourCompetition: context.isTourCompetition,
       isResultsFinal: context.isResultsFinal,
+      variant: context.dopedMode ? "doped" : "normal",
+      use_doped_handicap: !!context.competition.use_doped_handicap,
+      exclude_from_doped_handicap: !!context.competition.exclude_from_doped_handicap,
       tee: context.teeInfo,
       categoryTees: categoryTeesResponse,
       categories: context.categories.length > 0 ? context.categories : undefined,

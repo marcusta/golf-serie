@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CompetitionService } from "../services/competition-service";
-import type { CreateCompetitionDto, UpdateCompetitionDto } from "../types";
+import type { CreateCompetitionDto, LeaderboardVariant, UpdateCompetitionDto } from "../types";
 
 const createCompetitionSchema = z.object({
   name: z.string().min(1),
@@ -21,6 +21,8 @@ const createCompetitionSchema = z.object({
   self_organize: z.boolean().optional(),
   handicap_mode: z.enum(["whs", "exact"]).optional(),
   handicap_allowance: z.number().min(0).max(200).optional(),
+  use_doped_handicap: z.boolean().optional(),
+  exclude_from_doped_handicap: z.boolean().optional(),
   owner_id: z.number().positive().optional(),
 });
 
@@ -43,6 +45,8 @@ const updateCompetitionSchema = z.object({
   self_organize: z.boolean().optional(),
   handicap_mode: z.enum(["whs", "exact"]).optional(),
   handicap_allowance: z.number().min(0).max(200).optional(),
+  use_doped_handicap: z.boolean().optional(),
+  exclude_from_doped_handicap: z.boolean().optional(),
 });
 
 export function createCompetitionsApi(competitionService: CompetitionService) {
@@ -191,10 +195,14 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
       }
     },
 
-    async getLeaderboard(competitionId: number): Promise<Response> {
+    async getLeaderboard(
+      competitionId: number,
+      variant: LeaderboardVariant = "normal"
+    ): Promise<Response> {
       try {
         const leaderboard = await competitionService.getLeaderboard(
-          competitionId
+          competitionId,
+          variant
         );
         return new Response(JSON.stringify(leaderboard), {
           status: 200,
@@ -218,10 +226,14 @@ export function createCompetitionsApi(competitionService: CompetitionService) {
       }
     },
 
-    async getLeaderboardWithDetails(competitionId: number): Promise<Response> {
+    async getLeaderboardWithDetails(
+      competitionId: number,
+      variant: LeaderboardVariant = "normal"
+    ): Promise<Response> {
       try {
         const response = await competitionService.getLeaderboardWithDetails(
-          competitionId
+          competitionId,
+          variant
         );
         return new Response(JSON.stringify(response), {
           status: 200,

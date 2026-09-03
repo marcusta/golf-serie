@@ -1,5 +1,7 @@
 import { Database } from "bun:sqlite";
 import type {
+  DopedHandicapRound,
+  DopedHandicapSummary,
   TourCategory,
   TourPlayerStanding,
   TourScoringFormat,
@@ -9,6 +11,7 @@ import type {
 import {
   calculateCourseHandicap,
   distributeHandicapStrokes,
+  roundToOneDecimal,
 } from "../utils/handicap";
 import { GOLF } from "../constants/golf";
 import {
@@ -49,6 +52,7 @@ export type Tour = {
   default_tee_id: number | null;
   default_tee_color: string | null;
   counting_competitions: number | null;
+  doped_handicap_enabled: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -60,6 +64,7 @@ export type CreateTourInput = {
   point_template_id?: number;
   scoring_mode?: string;
   scoring_format?: TourScoringFormat;
+  doped_handicap_enabled?: boolean;
 };
 
 export type UpdateTourInput = {
@@ -75,6 +80,7 @@ export type UpdateTourInput = {
   default_course_id?: number | null;
   default_tee_id?: number | null;
   counting_competitions?: number | null;
+  doped_handicap_enabled?: boolean;
 };
 
 export type TourStanding = {
@@ -85,7 +91,9 @@ export type TourStanding = {
 };
 
 // Internal types for database rows
-type TourRow = Tour;
+type TourRow = Omit<Tour, "doped_handicap_enabled"> & {
+  doped_handicap_enabled: number | boolean;
+};
 
 type CompetitionWithCourseRow = {
   id: number;
@@ -100,6 +108,8 @@ type CompetitionWithCourseRow = {
   start_mode: string;
   open_end: string | null;
   round_type: string | null;
+  use_doped_handicap: number;
+  exclude_from_doped_handicap: number;
   course_name: string;
   pars: string;
   course_stroke_index: string | null;
@@ -444,7 +454,8 @@ export class TourService {
     bannerImageUrl: string | null,
     pointTemplateId: number | null,
     scoringMode: string,
-    scoringFormat: TourScoringFormat
+    scoringFormat: TourScoringFormat,
+    dopedHandicapEnabled: boolean
   ): Tour {
     const inserted = this.db
       .prepare(`
@@ -455,9 +466,10 @@ export class TourService {
           banner_image_url,
           point_template_id,
           scoring_mode,
-          scoring_format
+          scoring_format,
+          doped_handicap_enabled
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING id
       `)
       .get(
@@ -467,7 +479,8 @@ export class TourService {
         bannerImageUrl,
         pointTemplateId,
         scoringMode,
-        scoringFormat
+        scoringFormat,
+        dopedHandicapEnabled ? 1 : 0
       ) as { id: number };
     return this.findById(inserted.id)!;
   }
@@ -477,17 +490,25 @@ export class TourService {
     updates: string[],
     values: (string | number | null)[]
   ): Tour {
-    return this.db
+    const row = this.db
       .prepare(`
         UPDATE tours
         SET ${updates.join(", ")}
         WHERE id = ?
         RETURNING *
       `)
-      .get(...values, id) as Tour;
+      .get(...values, id) as TourRow;
+    return this.transformTourRow(row);
   }
 
   // ==================== LOGIC METHODS ====================
+
+  private transformTourRow(row: TourRow): Tour {
+    return {
+      ...row,
+      doped_handicap_enabled: !!row.doped_handicap_enabled,
+    };
+  }
 
   private isPastCompetition(competitionDate: string): boolean {
     const compDate = new Date(competitionDate);
@@ -665,12 +686,22 @@ export class TourService {
       updates.push("counting_competitions = ?");
       values.push(data.counting_competitions);
     }
+    if (data.doped_handicap_enabled !== undefined) {
+      updates.push("doped_handicap_enabled = ?");
+      values.push(data.doped_handicap_enabled ? 1 : 0);
+    }
 
     if (updates.length > 0) {
       updates.push("updated_at = CURRENT_TIMESTAMP");
     }
 
     return { updates, values };
+  }
+
+  private validateBooleanFlag(value: unknown, field: string): void {
+    if (typeof value !== "boolean") {
+      throw new Error(`${field} must be a boolean`);
+    }
   }
 
   private validateCountingCompetitions(value: number | null): void {
@@ -728,7 +759,7 @@ export class TourService {
   // ==================== PUBLIC API METHODS ====================
 
   findAll(): Tour[] {
-    return this.db
+    return (this.db
       .prepare(
         `
         SELECT t.*, ct.color as default_tee_color
@@ -737,14 +768,15 @@ export class TourService {
         ORDER BY t.name ASC
       `
       )
-      .all() as Tour[];
+      .all() as TourRow[])
+      .map((row) => this.transformTourRow(row));
   }
 
   /**
    * Find tours that a user owns or is an admin of
    */
   findForUser(userId: number): Tour[] {
-    return this.db
+    return (this.db
       .prepare(
         `
         SELECT DISTINCT t.*, ct.color as default_tee_color
@@ -755,11 +787,12 @@ export class TourService {
         ORDER BY t.name ASC
       `
       )
-      .all(userId, userId) as Tour[];
+      .all(userId, userId) as TourRow[])
+      .map((row) => this.transformTourRow(row));
   }
 
   findById(id: number): Tour | null {
-    return this.db
+    const row = this.db
       .prepare(
         `
         SELECT t.*, ct.color as default_tee_color
@@ -768,7 +801,8 @@ export class TourService {
         WHERE t.id = ?
       `
       )
-      .get(id) as Tour | null;
+      .get(id) as TourRow | null;
+    return row ? this.transformTourRow(row) : null;
   }
 
   create(data: CreateTourInput, ownerId: number): Tour {
@@ -780,6 +814,9 @@ export class TourService {
     const scoringFormat = data.scoring_format || "stroke_play";
     this.validateScoringMode(scoringMode);
     this.validateScoringFormat(scoringFormat);
+    if (data.doped_handicap_enabled !== undefined) {
+      this.validateBooleanFlag(data.doped_handicap_enabled, "doped_handicap_enabled");
+    }
 
     // Insert
     return this.insertTourRow(
@@ -789,7 +826,8 @@ export class TourService {
       data.banner_image_url || null,
       data.point_template_id || null,
       scoringMode,
-      scoringFormat
+      scoringFormat,
+      data.doped_handicap_enabled === true
     );
   }
 
@@ -813,6 +851,9 @@ export class TourService {
     }
     if (data.counting_competitions !== undefined) {
       this.validateCountingCompetitions(data.counting_competitions);
+    }
+    if (data.doped_handicap_enabled !== undefined) {
+      this.validateBooleanFlag(data.doped_handicap_enabled, "doped_handicap_enabled");
     }
 
     const resolvedData = this.resolvePlayDefaultUpdates(data, tour);
@@ -936,6 +977,13 @@ export class TourService {
       tour.counting_competitions
     );
 
+    if (tour.doped_handicap_enabled) {
+      this.annotateDopedHandicaps(
+        Array.from(playerStandings.values()),
+        this.getDopedHandicaps(tourId)
+      );
+    }
+
     // Sort and rank standings
     const sortedStandings = this.sortAndRankStandings(Array.from(playerStandings.values()));
 
@@ -1027,7 +1075,8 @@ export class TourService {
     playerCategories: Map<number, { category_id: number | null; category_name: string | null }>,
     numberOfPlayers: number,
     pointTemplate: PointTemplateRow | null,
-    playerStandings: Map<number, TourPlayerStanding>
+    playerStandings: Map<number, TourPlayerStanding>,
+    finishedOnly: boolean = false
   ): boolean {
     let hasProjectedResults = false;
 
@@ -1067,7 +1116,9 @@ export class TourService {
 
       // Calculate handicap-adjusted results
       const adjustedResults = this.adjustResultsForScoring(
-        results.filter(r => r.is_finished || this.isProjectableLiveResult(r)),
+        results.filter(r =>
+          r.is_finished || (!finishedOnly && this.isProjectableLiveResult(r))
+        ),
         scoringType,
         scoringFormat,
         competition
@@ -1352,6 +1403,137 @@ export class TourService {
     }
 
     return basePoints;
+  }
+
+  /**
+   * Doped handicap per player: mean shortfall against net par over 18 holes.
+   * Counts every competition without exclude_from_doped_handicap, finalized
+   * or not, finished rounds only. The counting_competitions limit does not apply.
+   */
+  getDopedHandicaps(tourId: number): Map<number, DopedHandicapSummary> {
+    const tour = this.findById(tourId);
+    if (!tour) {
+      throw new Error("Tour not found");
+    }
+
+    const competitions = this.getCompetitions(tourId).filter(
+      (competition) => !competition.exclude_from_doped_handicap
+    );
+    const playerStandings = this.collectNetResults(tour, competitions);
+    const holesByCompetition = new Map<number, number>();
+    for (const competition of competitions) {
+      holesByCompetition.set(competition.id, getExpectedHolesCount(competition.round_type));
+    }
+
+    const summaries = new Map<number, DopedHandicapSummary>();
+    for (const standing of playerStandings.values()) {
+      summaries.set(
+        standing.player_id,
+        this.buildDopedSummary(standing, holesByCompetition)
+      );
+    }
+    return summaries;
+  }
+
+  private collectNetResults(
+    tour: Tour,
+    competitions: CompetitionWithCourseRow[]
+  ): Map<number, TourPlayerStanding> {
+    const playerStandings: Map<number, TourPlayerStanding> = new Map();
+    if (competitions.length === 0) {
+      return playerStandings;
+    }
+    const countedIds = new Set(competitions.map((competition) => competition.id));
+    const { playerCategories } = this.buildEnrollmentMaps(this.findEnrollmentRows(tour.id));
+    const finalizedCompetitionIds = this.findFinalizedCompetitionIds(tour.id);
+
+    const competitionsWithStoredResults = this.processStoredResults(
+      tour.id,
+      "net",
+      undefined,
+      playerCategories,
+      playerStandings
+    );
+    this.processLiveCompetitions(
+      competitions,
+      finalizedCompetitionIds,
+      competitionsWithStoredResults,
+      undefined,
+      "net",
+      tour.scoring_format || "stroke_play",
+      playerCategories,
+      0,
+      null,
+      playerStandings,
+      true
+    );
+
+    // Stored rows are loaded for the whole tour; drop excluded competitions here
+    for (const standing of playerStandings.values()) {
+      standing.competitions = standing.competitions.filter((c) =>
+        countedIds.has(c.competition_id)
+      );
+    }
+    return playerStandings;
+  }
+
+  private buildDopedSummary(
+    standing: TourPlayerStanding,
+    holesByCompetition: Map<number, number>
+  ): DopedHandicapSummary {
+    const rounds: DopedHandicapRound[] = standing.competitions.map((competition) =>
+      this.buildDopedRound(
+        competition,
+        holesByCompetition.get(competition.competition_id) ?? GOLF.HOLES_PER_ROUND
+      )
+    );
+    // Mean of the unrounded shortfalls, rounded once at the end
+    const total = rounds.reduce((sum, round) => sum + round.shortfall, 0);
+    return {
+      player_id: standing.player_id,
+      player_name: standing.player_name,
+      doped_handicap: rounds.length > 0 ? roundToOneDecimal(total / rounds.length) : 0,
+      rounds_counted: rounds.length,
+      rounds: rounds.map((round) => ({ ...round, shortfall: roundToOneDecimal(round.shortfall) })),
+    };
+  }
+
+  private buildDopedRound(
+    competition: TourPlayerStanding["competitions"][number],
+    holes: number
+  ): DopedHandicapRound {
+    const scale = GOLF.HOLES_PER_ROUND / holes;
+    const netStableford =
+      competition.scoring_format === "stableford" && competition.stableford_points !== undefined
+        ? competition.stableford_points
+        : null;
+    const netRelativeToPar = competition.score_relative_to_par;
+    // Stableford: 2 points per hole is net par. Stroke play: net strokes over par.
+    const shortfall =
+      netStableford !== null
+        ? (2 * holes - netStableford) * scale
+        : netRelativeToPar * scale;
+    return {
+      competition_id: competition.competition_id,
+      competition_name: competition.competition_name,
+      competition_date: competition.competition_date,
+      holes,
+      net_stableford_points: netStableford,
+      net_relative_to_par: netStableford !== null ? null : netRelativeToPar,
+      shortfall,
+      is_projected: competition.is_projected ?? false,
+    };
+  }
+
+  private annotateDopedHandicaps(
+    standings: TourPlayerStanding[],
+    summaries: Map<number, DopedHandicapSummary>
+  ): void {
+    for (const standing of standings) {
+      const summary = summaries.get(standing.player_id);
+      standing.doped_handicap = summary?.doped_handicap ?? 0;
+      standing.doped_handicap_rounds = summary?.rounds_counted ?? 0;
+    }
   }
 
   /**

@@ -122,6 +122,27 @@ export function createToursApi(
     }
   });
 
+  // GET /api/tours/:id/doped-handicaps - Doped handicap per player, highest first
+  app.get("/:id/doped-handicaps", async (c) => {
+    try {
+      const user = c.get("user");
+      const id = parseInt(c.req.param("id"));
+
+      if (!enrollmentService.canViewTour(id, user?.id ?? null)) {
+        return c.json({ error: "Tour not found" }, 404);
+      }
+
+      const summaries = Array.from(tourService.getDopedHandicaps(id).values()).sort(
+        (a, b) =>
+          b.doped_handicap - a.doped_handicap ||
+          a.player_name.localeCompare(b.player_name)
+      );
+      return c.json(summaries);
+    } catch (error: any) {
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
   // POST /api/tours - Create tour (ORGANIZER and SUPER_ADMIN only)
   app.post("/", requireRole("ORGANIZER", "SUPER_ADMIN"), async (c) => {
     try {
@@ -140,6 +161,7 @@ export function createToursApi(
           point_template_id: body.point_template_id,
           scoring_mode: body.scoring_mode,
           scoring_format: body.scoring_format,
+          doped_handicap_enabled: body.doped_handicap_enabled,
         },
         user!.id
       );
@@ -180,6 +202,7 @@ export function createToursApi(
         default_course_id: body.default_course_id,
         default_tee_id: body.default_tee_id,
         counting_competitions: body.counting_competitions,
+        doped_handicap_enabled: body.doped_handicap_enabled,
       });
 
       return c.json(updated);

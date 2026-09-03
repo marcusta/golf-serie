@@ -6,3 +6,4 @@ export { TourEnrollmentSelector } from "./TourEnrollmentSelector";
 export { SeriesTeamSelector } from "./SeriesTeamSelector";
 export { BulkStartHoleSetter } from "./BulkStartHoleSetter";
 export { useParticipantDialogs } from "./useParticipantDialogs";
+export { FreezeDopedHandicapsButton } from "./FreezeDopedHandicapsButton";
